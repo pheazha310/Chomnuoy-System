@@ -1,12 +1,12 @@
-import './css/Navbar.css';
+import "./css/Navbar.css";
 
 const navItems = [
-  { label: 'Home', href: '/' },
-  { label: 'About Us', href: '#' },
-  { label: 'Organizations', href: '#' },
-  { label: 'Campaigns', href: '/campaigns' },
-  { label: 'How It Works', href: '#' },
-  { label: 'Contact', href: '#' },
+  { label: "Home", href: "/" },
+  { label: "About Us", href: "#" },
+  { label: "Organizations", href: "#" },
+  { label: "Campaigns", href: "/campaigns" },
+  { label: "How It Works", href: "/how-it-works" },
+  { label: "Contact", href: "#" },
 ];
 
 function Navbar() {
@@ -16,7 +16,12 @@ function Navbar() {
     <nav className="navbar" aria-label="Primary">
       <a href="/" className="brand" aria-label="Chomnuoy home">
         <span className="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            viewBox="0 0 24 24"
+            className="logo-mark"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <path
               d="M4.8 14.2L8.2 10.8C8.5 10.5 8.9 10.3 9.3 10.3H12.3C13.2 10.3 13.9 9.6 13.9 8.7C13.9 7.8 13.2 7.1 12.3 7.1H9.7C8.9 7.1 8.2 7.4 7.6 8L5.9 9.7"
               stroke="currentColor"
@@ -48,7 +53,9 @@ function Navbar() {
           </svg>
         </span>
         <span className="brand-text">
-          <span className="brand-name">{'\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY'}</span>
+          <span className="brand-name">
+            {"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}
+          </span>
           <span className="brand-subtitle">DIGITAL DONATION PLATFORM</span>
         </span>
       </a>
@@ -59,13 +66,17 @@ function Navbar() {
             <a
               href={item.href}
               className={
-                item.href === '/campaigns'
-                  ? pathname === '/' || pathname.startsWith('/campaigns')
-                    ? 'active'
-                    : ''
-                  : pathname === item.href
-                    ? 'active'
-                    : ''
+                item.href === "/campaigns"
+                  ? pathname === "/" || pathname.startsWith("/campaigns")
+                    ? "active"
+                    : ""
+                  : item.href === "/how-it-works"
+                    ? pathname === "/how-it-works"
+                      ? "active"
+                      : ""
+                    : pathname === item.href
+                      ? "active"
+                      : ""
               }
             >
               {item.label}
