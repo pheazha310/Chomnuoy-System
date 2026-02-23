@@ -1,7 +1,8 @@
-function HeroSection({ content }) {
+function HeroSection({ content, backendStatus }) {
   return (
     <header className="hero">
       <p className="eyebrow">{content.eyebrow}</p>
+      <p className={`backend-status backend-status-${backendStatus.state}`}>{backendStatus.message}</p>
       <h1>{content.title}</h1>
       <p className="subtitle">{content.subtitle}</p>
       <div className="cta-row">

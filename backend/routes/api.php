@@ -23,7 +23,15 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserCredentialController;
 use App\Http\Controllers\Api\UserHistoryController;
 use App\Http\Controllers\Api\UserRoleController;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/health', function (): JsonResponse {
+    return response()->json([
+        'status' => 'ok',
+        'service' => 'chomnuoy-backend',
+    ]);
+});
 
 Route::apiResource('users', UserController::class);
 Route::apiResource('roles', RoleController::class);

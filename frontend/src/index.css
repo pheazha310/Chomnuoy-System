@@ -60,6 +60,30 @@ body {
   opacity: 0.92;
 }
 
+.backend-status {
+  margin: 0.5rem auto 0;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.24rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.backend-status-loading {
+  background: rgba(255, 255, 255, 0.22);
+  color: #eff8ff;
+}
+
+.backend-status-success {
+  background: rgba(39, 174, 96, 0.2);
+  color: #d6ffe7;
+}
+
+.backend-status-error {
+  background: rgba(216, 67, 21, 0.2);
+  color: #ffe8db;
+}
+
 .hero h1 {
   margin: 0.65rem auto;
   font-family: 'Space Grotesk', sans-serif;
@@ -177,6 +201,10 @@ body {
 
   .subtitle {
     margin: 0;
+  }
+
+  .backend-status {
+    margin-left: 0;
   }
 
   .cta-row {
