@@ -1,9 +1,15 @@
+import HeroSection from './components/HeroSection.jsx';
+import HighlightsSection from './components/HighlightsSection.jsx';
+import StatsSection from './components/StatsSection.jsx';
+import { heroContent, highlights, stats } from './data/homeContent.js';
+
 function App() {
   return (
-    <main className="app">
-      <h1>React Frontend Ready</h1>
-      <p>Start building your ReactJS app in this project.</p>
-    </main>
+    <div className="page">
+      <HeroSection content={heroContent} />
+      <StatsSection items={stats} />
+      <HighlightsSection items={highlights} />
+    </div>
   );
 }
 
