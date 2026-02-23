@@ -1,6 +1,6 @@
 .site-footer {
   /* width: min(1280px, calc(100% - 2rem)); */
-  margin: 1.25rem auto 1rem;
+  /* margin: 1.25rem auto 1rem; */
   padding: 1.8rem 1.35rem 1rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.95));
   border: 1px solid rgba(170, 198, 220, 0.42);

@@ -1,11 +1,20 @@
 import './css/Navbar.css';
 
-const navItems = ['Home', 'About Us', 'Organizations', 'Campaigns', 'How It Works', 'Contact'];
+const navItems = [
+  { label: 'Home', href: '/' },
+  { label: 'About Us', href: '#' },
+  { label: 'Organizations', href: '#' },
+  { label: 'Campaigns', href: '/campaigns' },
+  { label: 'How It Works', href: '#' },
+  { label: 'Contact', href: '#' },
+];
 
 function Navbar() {
+  const pathname = window.location.pathname;
+
   return (
     <nav className="navbar" aria-label="Primary">
-      <a href="#" className="brand" aria-label="Chomnuoy home">
+      <a href="/" className="brand" aria-label="Chomnuoy home">
         <span className="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -46,9 +55,20 @@ function Navbar() {
 
       <ul className="nav-links">
         {navItems.map((item) => (
-          <li key={item}>
-            <a href="#" className={item === 'Home' ? 'active' : ''}>
-              {item}
+          <li key={item.label}>
+            <a
+              href={item.href}
+              className={
+                item.href === '/campaigns'
+                  ? pathname === '/' || pathname.startsWith('/campaigns')
+                    ? 'active'
+                    : ''
+                  : pathname === item.href
+                    ? 'active'
+                    : ''
+              }
+            >
+              {item.label}
             </a>
           </li>
         ))}
