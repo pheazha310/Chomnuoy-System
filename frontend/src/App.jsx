@@ -1,56 +1,26 @@
-import { useEffect, useState } from 'react';
-import { fetchBackendHealth } from './api/backendApi.js';
-import HeroSection from './components/HeroSection.jsx';
-import HighlightsSection from './components/HighlightsSection.jsx';
-import StatsSection from './components/StatsSection.jsx';
-import { heroContent, highlights, stats } from './data/homeContent.js';
+import Footer from './components/Footer.jsx';
+import Navbar from './components/Navbar.jsx';
+import CampaignsPage from './components/CampaignsPage.jsx';
+import CampaignDetailPage from './components/CampaignDetailPage.jsx';
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState({
-    state: 'loading',
-    message: 'Connecting to Laravel backend...',
-  });
+  const pathname = window.location.pathname;
 
-  useEffect(() => {
-    let active = true;
+  let pageContent = <CampaignsPage />;
+  const campaignDetailMatch = pathname.match(/^\/campaigns\/([^/]+)$/);
 
-    async function loadBackendStatus() {
-      try {
-        const health = await fetchBackendHealth();
-
-        if (!active) {
-          return;
-        }
-
-        setBackendStatus({
-          state: 'success',
-          message: `${health.service}: ${health.status}`,
-        });
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        setBackendStatus({
-          state: 'error',
-          message: 'Backend unavailable. Start Laravel server on http://127.0.0.1:8000',
-        });
-      }
-    }
-
-    loadBackendStatus();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  if (campaignDetailMatch) {
+    pageContent = <CampaignDetailPage campaignId={campaignDetailMatch[1]} />;
+  } else if (pathname === '/campaigns' || pathname === '/') {
+    pageContent = <CampaignsPage />;
+  }
 
   return (
-    <div className="page">
-      <HeroSection content={heroContent} backendStatus={backendStatus} />
-      <StatsSection items={stats} />
-      <HighlightsSection items={highlights} />
-    </div>
+    <>
+      <Navbar />
+      {pageContent}
+      <Footer />
+    </>
   );
 }
 
