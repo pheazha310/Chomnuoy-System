@@ -32,23 +32,35 @@
   padding: 0.55rem 0.88rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 120ms ease;
 }
 
 .chip-icon {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: #6b7f96;
-  display: inline-block;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7f96;
+}
+
+.chip-icon-svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .category-chip:hover,
 .category-chip:focus-visible {
   border-color: #c3d6ec;
   color: #35516d;
+  transform: translateY(-1px);
 }
 
 .category-chip-active {
@@ -58,7 +70,7 @@
 }
 
 .category-chip-active .chip-icon {
-  background: #1e9e57;
+  color: #1e9e57;
 }
 
 .campaign-grid {
