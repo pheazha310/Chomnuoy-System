@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
+
 import { fetchBackendHealth } from './api/backendApi.js';
+
 import HeroSection from './components/HeroSection.jsx';
 import HighlightsSection from './components/HighlightsSection.jsx';
 import StatsSection from './components/StatsSection.jsx';
+
 import { heroContent, highlights, stats } from './data/homeContent.js';
 
-function App() {
+import RegisterPage from './pages/RegisterPage.jsx';
+
+function Home() {
   const [backendStatus, setBackendStatus] = useState({
     state: 'loading',
     message: 'Connecting to Laravel backend...',
@@ -54,4 +60,17 @@ function App() {
   );
 }
 
+function App() {
+  return (
+    <Routes>
+
+      {/* Home page */}
+      <Route path="/" element={<Home />} />
+
+      {/* Register page*/}
+      <Route path="/register" element={<RegisterPage />} />
+
+    </Routes>
+  );
+}
 export default App;
