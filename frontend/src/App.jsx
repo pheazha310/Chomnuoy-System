@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
@@ -51,12 +52,20 @@ function Home() {
     };
   }, []);
 
+=======
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import ROUTES from './constants/routes.js';
+import Home from '@/app/home/page.jsx';
+import Campaigns from '@/app/compaigns/page.jsx';
+
+function App() {
+>>>>>>> 4ceedd04f39626b7f7e99a2eff8a8475e9666ba6
   return (
-    <div className="page">
-      <HeroSection content={heroContent} backendStatus={backendStatus} />
-      <StatsSection items={stats} />
-      <HighlightsSection items={highlights} />
-    </div>
+    <Routes>
+      <Route path={ROUTES.HOME} element={<Home />} />
+      <Route path={ROUTES.CAMPAIGNS} element={<Campaigns />} />
+    </Routes>
   );
 }
 
