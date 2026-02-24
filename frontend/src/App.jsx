@@ -1,15 +1,28 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useParams } from 'react-router-dom';
 import ROUTES from './constants/routes.js';
 import Home from '@/app/home/page.jsx';
-import Campaigns from '@/app/compaigns/page.jsx';
+import Navbar from '@/components/Navbar.jsx';
+import Footer from '@/components/Footer.jsx';
+import CampaignsPage from '@/components/CampaignsPage.jsx';
+import CampaignDetailPage from '@/components/CampaignDetailPage.jsx';
+
+function CampaignDetailRoute() {
+  const { id } = useParams();
+  return <CampaignDetailPage campaignId={id} />;
+}
 
 function App() {
   return (
-    <Routes>
-      <Route path={ROUTES.HOME} element={<Home />} />
-      <Route path={ROUTES.CAMPAIGNS} element={<Campaigns />} />
-    </Routes>
+    <>
+      <Navbar />
+      <Routes>
+        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
+        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
+      </Routes>
+      <Footer />
+    </>
   );
 }
 
