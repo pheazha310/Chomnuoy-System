@@ -45,7 +45,7 @@ export default function RegisterPage({ onToggleMode }) {
       <div className="mt-8">
         <p className="text-center text-sm font-bold text-[#101828]">I am joining as a...</p>
         <div className="mt-3 grid grid-cols-3 rounded-2xl bg-[#ECEFF3] p-1.5">
-          {['Donor', 'Organization', 'Admin'].map((r) => (
+          {['Donor', 'Organization'].map((r) => (
             <button
               key={r}
               type="button"
