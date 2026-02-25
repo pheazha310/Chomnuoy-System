@@ -1,85 +1,39 @@
-<<<<<<< HEAD
-import { useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 
-import { fetchBackendHealth } from './api/backendApi.js';
-
-import HeroSection from './components/HeroSection.jsx';
-import HighlightsSection from './components/HighlightsSection.jsx';
-import StatsSection from './components/StatsSection.jsx';
-
-import { heroContent, highlights, stats } from './data/homeContent.js';
-
-import RegisterPage from './pages/RegisterPage.jsx';
-
-function Home() {
-  const [backendStatus, setBackendStatus] = useState({
-    state: 'loading',
-    message: 'Connecting to Laravel backend...',
-  });
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadBackendStatus() {
-      try {
-        const health = await fetchBackendHealth();
-
-        if (!active) {
-          return;
-        }
-
-        setBackendStatus({
-          state: 'success',
-          message: `${health.service}: ${health.status}`,
-        });
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        setBackendStatus({
-          state: 'error',
-          message: 'Backend unavailable. Start Laravel server on http://127.0.0.1:8000',
-        });
-      }
-    }
-
-    loadBackendStatus();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-=======
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
 import ROUTES from './constants/routes.js';
-import Home from '@/app/home/page.jsx';
-import Campaigns from '@/app/compaigns/page.jsx';
+import Home from './app/home/page.jsx';
+import Campaigns from './app/compaigns/page.jsx';
+import LoginPage from './auth/LoginPage.jsx';
+import RegisterPage from './auth/RegisterPage.jsx';
+import AuthLayout from './auth/AuthLayout.jsx';
 
-function App() {
->>>>>>> 4ceedd04f39626b7f7e99a2eff8a8475e9666ba6
+function LoginRoute() {
+  const navigate = useNavigate();
+
+  return (
+    <AuthLayout mode="login">
+      <LoginPage onToggleMode={() => navigate('/register')} />
+    </AuthLayout>
+  );
+}
+
+function RegisterRoute() {
+  const navigate = useNavigate();
+
+  return (
+    <AuthLayout mode="register">
+      <RegisterPage onToggleMode={() => navigate('/login')} />
+    </AuthLayout>
+  );
+}
+
+export default function App() {
   return (
     <Routes>
       <Route path={ROUTES.HOME} element={<Home />} />
       <Route path={ROUTES.CAMPAIGNS} element={<Campaigns />} />
+      <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
+      <Route path="/register" element={<RegisterRoute />} />
     </Routes>
   );
 }
-
-function App() {
-  return (
-    <Routes>
-
-      {/* Home page */}
-      <Route path="/" element={<Home />} />
-
-      {/* Register page*/}
-      <Route path="/register" element={<RegisterPage />} />
-
-    </Routes>
-  );
-}
-export default App;
