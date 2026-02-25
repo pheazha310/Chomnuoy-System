@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import '../css/organization.css';
 
 const organizations = [
@@ -63,7 +64,62 @@ const organizations = [
   },
 ];
 
+const PAGE_SIZE = 3;
+
+function getPaginationItems(totalPages, currentPage) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+  const validPages = [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  const items = [];
+
+  for (let index = 0; index < validPages.length; index += 1) {
+    const page = validPages[index];
+    const previousPage = validPages[index - 1];
+
+    if (index > 0 && page - previousPage > 1) {
+      items.push('...');
+    }
+
+    items.push(page);
+  }
+
+  return items;
+}
+
 function Organization() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const filteredOrganizations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return organizations;
+
+    return organizations.filter((organization) => {
+      const searchableText =
+        `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
+      return searchableText.includes(query);
+    });
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrganizations.length / PAGE_SIZE));
+  const paginationItems = useMemo(() => getPaginationItems(totalPages, currentPage), [totalPages, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
+  }, [totalPages]);
+
+  const paginatedOrganizations = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredOrganizations.slice(start, start + PAGE_SIZE);
+  }, [filteredOrganizations, currentPage]);
+
   return (
     <main className="organizations-content">
       <section className="organizations-header">
@@ -80,6 +136,8 @@ function Organization() {
           type="search"
           placeholder="Search organizations by name, mission, or keyword..."
           aria-label="Search organizations"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
         />
         <div className="filter-row">
           <select className="filter-select" defaultValue="all">
@@ -91,14 +149,14 @@ function Organization() {
           <select className="filter-select" defaultValue="recent">
             <option value="recent">Most Recent</option>
           </select>
-          <button className="clear-filters" type="button">
+          <button className="clear-filters" type="button" onClick={() => setSearchTerm('')}>
             Clear Filters
           </button>
         </div>
       </section>
 
       <section className="organization-grid" aria-label="Organization List">
-        {organizations.map((organization) => (
+        {paginatedOrganizations.map((organization) => (
           <article key={organization.id} className="organization-card">
             <img src={organization.image} alt={organization.name} />
             <div className="card-body">
@@ -128,18 +186,38 @@ function Organization() {
         ))}
       </section>
 
+      {filteredOrganizations.length === 0 ? <p>No organizations found for "{searchTerm}".</p> : null}
+
       <nav className="pagination" aria-label="Pagination">
-        <button type="button" aria-label="Previous page">
+        <button
+          type="button"
+          aria-label="Previous page"
+          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          disabled={currentPage === 1}
+        >
           {'<'}
         </button>
-        <button type="button" className="active" aria-current="page">
-          1
-        </button>
-        <button type="button">2</button>
-        <button type="button">3</button>
-        <span>...</span>
-        <button type="button">12</button>
-        <button type="button" aria-label="Next page">
+        {paginationItems.map((item, index) =>
+          item === '...' ? (
+            <span key={`ellipsis-${index}`}>...</span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              className={currentPage === item ? 'active' : ''}
+              aria-current={currentPage === item ? 'page' : undefined}
+              onClick={() => setCurrentPage(item)}
+            >
+              {item}
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          aria-label="Next page"
+          onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+          disabled={currentPage === totalPages}
+        >
           {'>'}
         </button>
       </nav>

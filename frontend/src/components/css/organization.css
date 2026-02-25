@@ -169,15 +169,15 @@ body {
   cursor: pointer;
 }
 
-.btn-primary {
-  border: 1px solid var(--blue);
-  background: var(--blue);
+.card-actions .btn-primary {
+  border: 1px solid #38bdf8;
+  background: #38bdf8;
   color: #fff;
 }
 
-.btn-primary:hover {
-  background: var(--blue-strong);
-  border-color: var(--blue-strong);
+.card-actions .btn-primary:hover {
+  background: #0ea5e9;
+  border-color: #0ea5e9;
 }
 
 .btn-outline {
