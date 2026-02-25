@@ -1,3 +1,5 @@
+import '../css/organization.css';
+
 const organizations = [
   {
     id: 1,
