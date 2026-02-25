@@ -91,25 +91,54 @@ function getPaginationItems(totalPages, currentPage) {
 
 function Organization() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [ratingFilter, setRatingFilter] = useState('4plus');
+  const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const categoryOptions = useMemo(() => {
+    const categories = new Set();
+    organizations.forEach((organization) => {
+      organization.tags.forEach((tag) => categories.add(tag));
+    });
+    return [...categories].sort((a, b) => a.localeCompare(b));
+  }, []);
 
   const filteredOrganizations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return organizations;
+    const filtered = organizations
+      .filter((organization) => {
+        if (!query) return true;
+        const searchableText =
+          `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
+        return searchableText.includes(query);
+      })
+      .filter((organization) => {
+        if (selectedCategory === 'all') return true;
+        return organization.tags.includes(selectedCategory);
+      })
+      .filter((organization) => {
+        if (ratingFilter === 'all') return true;
+        if (ratingFilter === '45plus') return organization.rating >= 4.5;
+        return organization.rating >= 4;
+      });
 
-    return organizations.filter((organization) => {
-      const searchableText =
-        `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
-      return searchableText.includes(query);
+    return filtered.sort((left, right) => {
+      if (sortBy === 'oldest') return left.id - right.id;
+      if (sortBy === 'ratingHigh') return right.rating - left.rating;
+      if (sortBy === 'ratingLow') return left.rating - right.rating;
+      if (sortBy === 'nameAZ') return left.name.localeCompare(right.name);
+      if (sortBy === 'nameZA') return right.name.localeCompare(left.name);
+      return right.id - left.id;
     });
-  }, [searchTerm]);
+  }, [searchTerm, selectedCategory, ratingFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrganizations.length / PAGE_SIZE));
   const paginationItems = useMemo(() => getPaginationItems(totalPages, currentPage), [totalPages, currentPage]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedCategory, ratingFilter, sortBy]);
 
   useEffect(() => {
     setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
@@ -140,16 +169,45 @@ function Organization() {
           onChange={(event) => setSearchTerm(event.target.value)}
         />
         <div className="filter-row">
-          <select className="filter-select" defaultValue="all">
+          <select
+            className="filter-select"
+            value={selectedCategory}
+            onChange={(event) => setSelectedCategory(event.target.value)}
+          >
             <option value="all">All Categories</option>
+            {categoryOptions.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
           </select>
-          <select className="filter-select" defaultValue="top">
-            <option value="top">Rating: 4+ Stars</option>
+          <select
+            className="filter-select"
+            value={ratingFilter}
+            onChange={(event) => setRatingFilter(event.target.value)}
+          >
+            <option value="all">All Ratings</option>
+            <option value="4plus">Rating: 4+ Stars</option>
+            <option value="45plus">Rating: 4.5+ Stars</option>
           </select>
-          <select className="filter-select" defaultValue="recent">
+          <select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
             <option value="recent">Most Recent</option>
+            <option value="oldest">Oldest</option>
+            <option value="ratingHigh">Rating: High to Low</option>
+            <option value="ratingLow">Rating: Low to High</option>
+            <option value="nameAZ">Name: A to Z</option>
+            <option value="nameZA">Name: Z to A</option>
           </select>
-          <button className="clear-filters" type="button" onClick={() => setSearchTerm('')}>
+          <button
+            className="clear-filters"
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setSelectedCategory('all');
+              setRatingFilter('4plus');
+              setSortBy('recent');
+            }}
+          >
             Clear Filters
           </button>
         </div>
