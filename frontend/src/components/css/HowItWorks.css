@@ -1,0 +1,267 @@
+.how-page {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 1.25rem auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.how-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-radius: 16px;
+  border: 1px solid rgba(170, 206, 234, 0.35);
+  background:
+    radial-gradient(circle at 95% 10%, rgba(106, 197, 255, 0.2), transparent 40%),
+    radial-gradient(circle at 10% 90%, rgba(63, 166, 102, 0.24), transparent 42%),
+    linear-gradient(135deg, rgba(9, 43, 68, 0.95), rgba(19, 75, 116, 0.9));
+  color: #f3f9ff;
+  box-shadow: 0 16px 30px rgba(4, 25, 43, 0.24);
+  overflow: hidden;
+}
+
+.how-hero-copy h1 {
+  margin: 0.5rem 0 0;
+  font-family: 'Space Grotesk', sans-serif;
+  line-height: 1.06;
+  font-size: clamp(1.7rem, 3.4vw, 2.7rem);
+  max-width: 18ch;
+}
+
+.how-hero-copy p {
+  margin: 0.7rem 0 0;
+  max-width: 60ch;
+  color: #d8eafb;
+}
+
+.how-eyebrow,
+.section-kicker {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: #a9d7f8;
+  font-weight: 700;
+}
+
+.how-hero-actions,
+.how-cta-actions {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.how-btn {
+  border-radius: 10px;
+  padding: 0.6rem 0.95rem;
+  text-decoration: none;
+  font-weight: 700;
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+.how-btn:hover,
+.how-btn:focus-visible {
+  transform: translateY(-1px);
+  filter: saturate(1.05);
+}
+
+.how-btn-primary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #1f7de2, #2364ff);
+}
+
+.how-btn-secondary {
+  color: #173d5c;
+  background: #d8ebfb;
+}
+
+.how-hero-stats {
+  display: grid;
+  gap: 0.6rem;
+  align-content: center;
+}
+
+.how-stat-card {
+  border: 1px solid rgba(186, 218, 241, 0.45);
+  background: rgba(6, 37, 59, 0.36);
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+
+.how-stat-value {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.35rem;
+  color: #ffffff;
+}
+
+.how-stat-label {
+  margin: 0.15rem 0 0;
+  color: #bdd9ee;
+}
+
+.how-section-head {
+  margin-top: 0.2rem;
+}
+
+.how-section-head h2 {
+  margin: 0.22rem 0 0;
+  color: #132f48;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.how-step-card {
+  background: #ffffff;
+  border: 1px solid #d9e7f3;
+  border-radius: 12px;
+  padding: 0.95rem;
+  box-shadow: 0 10px 20px rgba(8, 30, 50, 0.08);
+  position: relative;
+}
+
+.how-step-card::after {
+  content: '';
+  position: absolute;
+  top: 1.42rem;
+  right: -0.52rem;
+  width: 0.84rem;
+  height: 2px;
+  background: #b7d0e4;
+}
+
+.how-step-card:last-child::after {
+  display: none;
+}
+
+.how-step-number {
+  margin: 0;
+  color: #1f7de2;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.how-step-card h3 {
+  margin: 0.4rem 0 0;
+  font-size: 1.06rem;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #17314a;
+}
+
+.how-step-card p {
+  margin: 0.45rem 0 0;
+  color: #557189;
+  line-height: 1.45;
+}
+
+.how-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.how-lane-card {
+  background: #f8fcff;
+  border: 1px solid #dce9f4;
+  border-radius: 12px;
+  padding: 0.9rem;
+}
+
+.how-lane-card h3 {
+  margin: 0;
+  color: #17314a;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.how-lane-card ul {
+  margin: 0.55rem 0 0;
+  padding: 0 0 0 1rem;
+  color: #567187;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.how-faq {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.how-faq-item {
+  background: #ffffff;
+  border: 1px solid #d9e7f3;
+  border-radius: 10px;
+  padding: 0.72rem 0.8rem;
+}
+
+.how-faq-item summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #18334c;
+}
+
+.how-faq-item p {
+  margin: 0.55rem 0 0;
+  color: #567187;
+}
+
+.how-cta {
+  background: linear-gradient(130deg, #ffffff, #f2f8ff);
+  border: 1px solid #d9e7f3;
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.how-cta h2 {
+  margin: 0.24rem 0 0;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #17314a;
+}
+
+.how-cta p {
+  margin: 0.45rem 0 0;
+  color: #557189;
+}
+
+@media (max-width: 1050px) {
+  .how-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .how-hero-copy h1 {
+    max-width: none;
+  }
+
+  .how-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .how-step-card::after {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .how-steps,
+  .how-lanes {
+    grid-template-columns: 1fr;
+  }
+
+  .how-cta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

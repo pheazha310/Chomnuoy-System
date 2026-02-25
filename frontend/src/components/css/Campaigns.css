@@ -1,0 +1,481 @@
+.campaigns-page,
+.campaign-detail-page {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 1.25rem auto;
+}
+
+.campaigns-header h1 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #14273a;
+}
+
+.campaigns-header p {
+  margin: 0.35rem 0 0;
+  color: #4f657c;
+}
+
+.campaign-filters {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.category-chip {
+  border: 1px solid #d5ddeb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #5a6d84;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.55rem 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.chip-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7f96;
+}
+
+.chip-icon-svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.category-chip:hover,
+.category-chip:focus-visible {
+  border-color: #c3d6ec;
+  color: #35516d;
+  transform: translateY(-1px);
+}
+
+.category-chip-active {
+  background: #d4f1e1;
+  border-color: #9ed4b3;
+  color: #1f6140;
+}
+
+.category-chip-active .chip-icon {
+  color: #1e9e57;
+}
+
+.campaign-grid {
+  margin-top: 1.2rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.campaign-card {
+  background: #ffffff;
+  border: 1px solid #dce7f2;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(8, 30, 50, 0.1);
+}
+
+.campaign-media-link {
+  display: block;
+}
+
+.campaign-image {
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+  display: block;
+}
+
+.campaign-content {
+  padding: 0.9rem;
+}
+
+.campaign-category {
+  display: inline-block;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1f7de2;
+  background: #ecf5ff;
+  border-radius: 999px;
+  padding: 0.22rem 0.52rem;
+}
+
+.campaign-content h2 {
+  margin: 0.55rem 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.campaign-title-link {
+  color: #16293d;
+  text-decoration: none;
+}
+
+.campaign-title-link:hover,
+.campaign-title-link:focus-visible,
+.campaign-link:hover,
+.campaign-link:focus-visible {
+  text-decoration: underline;
+}
+
+.campaign-summary {
+  margin: 0;
+  color: #4b627b;
+  line-height: 1.35;
+}
+
+.campaign-amounts {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.campaign-amounts p {
+  margin: 0;
+  color: #334a62;
+  font-size: 0.94rem;
+}
+
+.campaign-progress {
+  margin-top: 0.7rem;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e3edf7;
+  overflow: hidden;
+}
+
+.campaign-progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2bc36a, #23a95d);
+}
+
+.campaign-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.campaign-link {
+  color: #186ec7;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.donate-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: #ffffff;
+  background: #20b45a;
+  cursor: pointer;
+}
+
+.detail-back-link {
+  color: #186ec7;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.campaign-detail-layout {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1rem;
+}
+
+.campaign-main-column,
+.campaign-side-column {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.campaign-hero-panel {
+  position: relative;
+  min-height: 340px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 15px 32px rgba(8, 30, 50, 0.18);
+}
+
+.campaign-detail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.campaign-hero-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(4, 18, 32, 0), rgba(4, 18, 32, 0.82));
+}
+
+.campaign-hero-overlay h1 {
+  margin: 0.45rem 0 0;
+  color: #ffffff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.campaign-about,
+.campaign-updates,
+.detail-stat-card,
+.detail-creator-card,
+.detail-rewards-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #dce7f2;
+  padding: 0.95rem;
+  box-shadow: 0 10px 20px rgba(8, 30, 50, 0.08);
+}
+
+.campaign-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.campaign-tabs button {
+  border: 0;
+  background: transparent;
+  color: #6a7f95;
+  font-weight: 700;
+  padding: 0 0 0.15rem;
+  cursor: pointer;
+}
+
+.campaign-tabs .tab-active {
+  color: #23a95d;
+  border-bottom: 2px solid #23a95d;
+}
+
+.campaign-about p {
+  margin: 0;
+  color: #486076;
+  line-height: 1.5;
+}
+
+.campaign-pillars {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.campaign-pillars article {
+  border: 1px solid #d6eedf;
+  background: #f4fcf7;
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.campaign-pillars h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1f8d4f;
+}
+
+.campaign-pillars p {
+  margin-top: 0.3rem;
+  font-size: 0.88rem;
+}
+
+.campaign-updates h2 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.update-item + .update-item {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e3edf7;
+}
+
+.update-meta {
+  margin: 0;
+  color: #1f8d4f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.update-item h3 {
+  margin: 0.25rem 0;
+  font-size: 1.05rem;
+}
+
+.update-item p {
+  margin: 0;
+  color: #4e6278;
+}
+
+.stat-amount {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+}
+
+.stat-goal,
+.stat-funded {
+  margin: 0.2rem 0 0;
+  color: #567086;
+}
+
+.stat-funded {
+  color: #23a95d;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: lowercase;
+}
+
+.detail-mini-stats {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.detail-mini-stats p {
+  margin: 0;
+  text-align: center;
+  background: #f4f8fc;
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.detail-mini-stats strong {
+  display: block;
+  font-size: 1.1rem;
+  color: #1d334a;
+}
+
+.detail-mini-stats span {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  color: #75879a;
+}
+
+.detail-donate-button {
+  margin-top: 0.7rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+}
+
+.detail-secondary-actions {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.detail-secondary-actions button,
+.detail-creator-card button {
+  border: 1px solid #d6e1eb;
+  border-radius: 8px;
+  background: #f7fbff;
+  color: #486176;
+  font-weight: 600;
+  padding: 0.5rem;
+  cursor: pointer;
+}
+
+.card-label {
+  margin: 0;
+  color: #8aa0b5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.creator-name {
+  margin: 0.35rem 0 0;
+  font-weight: 700;
+  color: #1c3349;
+}
+
+.creator-subtext {
+  margin: 0.2rem 0 0.7rem;
+  color: #5f7890;
+  font-size: 0.9rem;
+}
+
+.reward-item {
+  margin-top: 0.55rem;
+  border: 1px solid #dde8f3;
+  border-radius: 10px;
+  padding: 0.65rem;
+}
+
+.reward-item h4 {
+  margin: 0;
+  color: #15324e;
+}
+
+.reward-item p {
+  margin: 0.25rem 0 0;
+  color: #5f7890;
+  font-size: 0.88rem;
+}
+
+.reward-featured {
+  border-color: #21b359;
+  background: #f4fcf7;
+}
+
+@media (max-width: 1024px) {
+  .campaign-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .campaign-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .campaign-side-column {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .campaign-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .campaign-hero-panel {
+    min-height: 230px;
+  }
+
+  .campaign-pillars {
+    grid-template-columns: 1fr;
+  }
+
+  .campaign-side-column {
+    grid-template-columns: 1fr;
+  }
+}
