@@ -1,5 +1,5 @@
-import { getCampaignById } from '../data/campaigns';
-import './css/Campaigns.css';
+import { getCampaignById } from '../../data/campaigns';
+import '../css/Campaigns.css';
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {

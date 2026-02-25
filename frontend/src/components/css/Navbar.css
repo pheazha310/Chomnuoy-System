@@ -1,6 +1,9 @@
 .navbar {
   --nav-blue: #1f7de2;
   --nav-blue-dark: #1866c8;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   /* width: min(1280px, calc(100% - 2rem)); */
   /* margin: 1rem auto; */
   padding: 0.95rem 1.3rem;
