@@ -4,9 +4,9 @@ import ROUTES from './constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
-import CampaignsPage from '@/components/CampaignsPage.jsx';
-import CampaignDetailPage from '@/components/CampaignDetailPage.jsx';
-import HowItWorksPage from '@/components/HowItWorksPage.jsx';
+import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
+import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
+import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
 
 function CampaignDetailRoute() {
   const { id } = useParams();

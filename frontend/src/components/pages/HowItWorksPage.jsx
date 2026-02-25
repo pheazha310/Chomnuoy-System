@@ -1,4 +1,4 @@
-import './css/HowItWorks.css';
+import '../css/HowItWorks.css';
 
 const heroStats = [
   { value: '4 Steps', label: 'Simple process' },

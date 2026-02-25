@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { campaigns } from '../data/campaigns';
-import './css/Campaigns.css';
+import { campaigns } from '../../data/campaigns';
+import '../css/Campaigns.css';
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
