@@ -66,11 +66,11 @@
 .category-chip-active {
   background: #d4f1e1;
   border-color: #9ed4b3;
-  color: #1f6140;
+  color: #1f7de2;
 }
 
 .category-chip-active .chip-icon {
-  color: #1e9e57;
+  color: #1f7de2;
 }
 
 .campaign-grid {
@@ -163,7 +163,7 @@
 .campaign-progress span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #2bc36a, #23a95d);
+  background: linear-gradient(90deg, #1f7de2, #1f7de2);
 }
 
 .campaign-actions {
@@ -188,7 +188,7 @@
   font-weight: 700;
   text-decoration: none;
   color: #ffffff;
-  background: #20b45a;
+  background: #1f7de2;
   cursor: pointer;
 }
 
@@ -268,8 +268,8 @@
 }
 
 .campaign-tabs .tab-active {
-  color: #23a95d;
-  border-bottom: 2px solid #23a95d;
+  color: #1f7de2;
+  border-bottom: 2px solid #1f7de2;
 }
 
 .campaign-about p {
@@ -295,7 +295,7 @@
 .campaign-pillars h3 {
   margin: 0;
   font-size: 0.95rem;
-  color: #1f8d4f;
+  color: #1f7de2;
 }
 
 .campaign-pillars p {
@@ -316,7 +316,7 @@
 
 .update-meta {
   margin: 0;
-  color: #1f8d4f;
+  color: #1f7de2;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -345,7 +345,7 @@
 }
 
 .stat-funded {
-  color: #23a95d;
+  color: #1f7de2;
   font-weight: 700;
   font-size: 0.85rem;
   text-transform: lowercase;
@@ -443,7 +443,7 @@
 }
 
 .reward-featured {
-  border-color: #21b359;
+  border-color: #1f7de2;
   background: #f4fcf7;
 }
 
