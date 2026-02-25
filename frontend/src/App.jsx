@@ -7,6 +7,7 @@ import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
+import Organization from '@/components/pages/organization.jsx';
 
 function CampaignDetailRoute() {
   const { id } = useParams();
@@ -19,6 +20,7 @@ function App() {
       <Navbar />
       <Routes>
         <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
