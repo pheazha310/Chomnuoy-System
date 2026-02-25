@@ -2,8 +2,13 @@ import "./css/Navbar.css";
 
 const navItems = [
   { label: "Home", href: "/" },
+<<<<<<< HEAD
   { label: "About Us", href: "#" },
   { label: "Organizations", href: "/organizations" },
+=======
+  { label: "About Us", href: "/about" },
+  { label: "Organizations", href: "#" },
+>>>>>>> 8bf4f82a593542df8e5cbf628fc1ff7ee4f88aca
   { label: "Campaigns", href: "/campaigns" },
   { label: "How It Works", href: "/how-it-works" },
   { label: "Contact", href: "#" },
@@ -78,9 +83,13 @@ function Navbar() {
                     ? pathname === "/how-it-works"
                       ? "active"
                       : ""
-                    : pathname === item.href
-                      ? "active"
-                      : ""
+                      : item.href === "/about"
+                        ? pathname === "/about"
+                          ? "active"
+                          : ""
+                        : pathname === item.href
+                          ? "active"
+                          : ""
               }
             >
               {item.label}
