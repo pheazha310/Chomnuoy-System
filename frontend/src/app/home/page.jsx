@@ -77,9 +77,6 @@ function Home() {
 
         <div className="home-hero-visual" aria-hidden="true">
           <div className="home-hero-art">
-            <div className="art-card art-one" />
-            <div className="art-card art-two" />
-            <div className="art-card art-three" />
           </div>
           <div className="home-impact-card">
             <p>Latest Success</p>
@@ -130,24 +127,49 @@ function Home() {
 
         <div className="home-how-grid">
           <article>
-            <h3>For Donors</h3>
+            <div className="home-how-card-head">
+              <span className="home-how-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img">
+                  <circle cx="8" cy="8" r="3" />
+                  <circle cx="16" cy="9" r="2.5" />
+                  <path d="M3.5 18c0-2.7 2.2-4.9 4.9-4.9h1.1c2.7 0 4.9 2.2 4.9 4.9" />
+                  <path d="M13.5 18c0-2 1.6-3.6 3.6-3.6h.5c2 0 3.6 1.6 3.6 3.6" />
+                </svg>
+              </span>
+              <h3>For Donors</h3>
+            </div>
             <ul>
-              {howItWorks.donors.map((item) => (
+              {howItWorks.donors.map((item, index) => (
                 <li key={item.title}>
-                  <strong>{item.title}</strong>
-                  <span>{item.text}</span>
+                  <span className="home-how-step-num">{index + 1}</span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <span>{item.text}</span>
+                  </div>
                 </li>
               ))}
             </ul>
           </article>
 
           <article>
-            <h3>For Organizations</h3>
+            <div className="home-how-card-head">
+              <span className="home-how-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img">
+                  <rect x="5" y="4" width="14" height="16" rx="2" />
+                  <path d="M9 8h2v2H9zM13 8h2v2h-2zM9 12h2v2H9zM13 12h2v2h-2z" />
+                  <path d="M10 4h4" />
+                </svg>
+              </span>
+              <h3>For Organizations</h3>
+            </div>
             <ul>
-              {howItWorks.organizations.map((item) => (
+              {howItWorks.organizations.map((item, index) => (
                 <li key={item.title}>
-                  <strong>{item.title}</strong>
-                  <span>{item.text}</span>
+                  <span className="home-how-step-num">{index + 1}</span>
+                  <div>
+                    <strong>{item.title}</strong>
+                    <span>{item.text}</span>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -181,3 +203,6 @@ function Home() {
 }
 
 export default Home;
+
+
+

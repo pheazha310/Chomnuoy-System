@@ -76,7 +76,7 @@
 .home-hero-visual {
   position: relative;
   border-radius: 14px;
-  background: linear-gradient(145deg, #f8efe1, #efe5d4);
+  background: url('../../images/kids.jpg') center/cover no-repeat;
   border: 1px solid #ebdbc4;
   min-height: 250px;
   padding: 1rem;
@@ -226,15 +226,15 @@
 }
 
 .home-cause-media.blue {
-  background: linear-gradient(145deg, #10385c, #446f96);
+  background: url('../../images/organization1.png') center/cover no-repeat;
 }
 
 .home-cause-media.green {
-  background: linear-gradient(145deg, #245a51, #5d9689);
+  background: url('../../images/organization2.png') center/cover no-repeat;
 }
 
 .home-cause-media.red {
-  background: linear-gradient(145deg, #7a6460, #c59a91);
+  background: url('../../images/organization3.png') center/cover no-repeat;
 }
 
 .home-cause-body {
@@ -306,35 +306,85 @@
   border: 1px solid #dce7f3;
   border-radius: 12px;
   background: #ffffff;
-  padding: 0.95rem;
+  padding: 1rem;
+}
+
+.home-how-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.home-how-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  background: #ebf3ff;
+  color: #1f7de2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-how-icon svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .home-how-grid h3 {
   margin: 0;
-  color: #1f7de2;
+  color: #1d2f43;
   font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.05rem;
 }
 
 .home-how-grid ul {
   list-style: none;
-  margin: 0.85rem 0 0;
+  margin: 1rem 0 0;
   padding: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: 0.95rem;
 }
 
 .home-how-grid li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.55rem;
+}
+
+.home-how-step-num {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: #1f7de2;
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.18rem;
+}
+
+.home-how-grid li div {
   display: grid;
   gap: 0.2rem;
 }
 
 .home-how-grid li strong {
   color: #203549;
+  font-size: 0.96rem;
 }
 
-.home-how-grid li span {
+.home-how-grid li div span {
   color: #5f748c;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
 }
 
 .home-trusted {
@@ -442,3 +492,5 @@
     font-size: 2rem;
   }
 }
+
+
