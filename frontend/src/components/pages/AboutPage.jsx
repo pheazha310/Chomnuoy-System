@@ -1,7 +1,5 @@
 import '../css/about.css';
 import React from 'react';
-import { motion } from 'framer-motion';
-import { CheckCircle2, ArrowRight, TrendingUp } from 'lucide-react';
 
 // --- Mock Data ---
 
@@ -47,14 +45,9 @@ const ORGANIZATIONS = [
 const Hero = () => (
   <section className="about-hero mx-auto max-w-9xl px-0 py-8 lg:py-24">
     <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center" style={{background:"white", padding:'30px', borderRadius:'20px', display:'flex', alignItems:'center', justifyContent:'space-between',width:'100%',margin:'0 auto'}}>
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6 }}
-        className="flex flex-col gap-8"
-      >
+      <div className="flex flex-col gap-8">
         <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
-          <CheckCircle2 className="w-4 h-4" />
+          <span aria-hidden="true">✓</span>
           Trusted by 150+ Verified Partners
         </div>
         <h1 className="text-5xl font-black leading-[1.1] tracking-tight text-slate-900 lg:text-7xl">
@@ -66,19 +59,14 @@ const Hero = () => (
         <div className="flex flex-wrap gap-4" style={{display:'flex', gap:'20px'}}>
           <button className="flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white shadow-xl shadow-primary/25 hover:bg-primary/90 transition-all group ">
             Explore Causes
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            <span className="transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
           </button>
           <button className="rounded-xl bg-white border border-slate-200 px-8 py-4 text-base font-bold text-slate-900 hover:bg-slate-50 transition-all">
             Start Donating
           </button>
         </div>
-      </motion.div>
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="relative group"
-      >
+      </div>
+      <div className="relative group">
         <div className="absolute -inset-4 rounded-2xl bg-gradient-to-tr from-primary/20 to-transparent blur-2xl group-hover:from-primary/30 transition-all"></div>
         <div className="relative aspect-[4/2] overflow-hidden rounded-2xl shadow-2xl">
           <img 
@@ -90,7 +78,7 @@ const Hero = () => (
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
         </div>
-      </motion.div>
+      </div>
     </div>
   </section>
 );
@@ -100,20 +88,17 @@ const Stats = () => (
     <div className="mx-auto max-w-7xl px-6">
       <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
         {STATS.map((stat, idx) => (
-          <motion.div 
+          <div
             key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: idx * 0.1 }}
             className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
           >
             <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
             <p className="text-4xl font-black text-slate-900">{stat.value}</p>
             <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
-              <TrendingUp className="w-4 h-4" />
+              <span aria-hidden="true">↗</span>
               {stat.change}
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
     </div>
@@ -129,16 +114,13 @@ const FeaturedOrgs = () => (
       </div>
       <button className="hidden md:flex items-center gap-2 text-primary font-bold hover:underline group">
         View All Organizations
-        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+        <span className="transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
       </button>
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
-        <motion.div 
+        <div
           key={org.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: idx * 0.1 }}
           className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover"
         >
           <div className="aspect-video w-full overflow-hidden">
@@ -171,7 +153,7 @@ const FeaturedOrgs = () => (
               </button>
             </div>
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   </section>
