@@ -1,11 +1,5 @@
-<<<<<<< HEAD
-import { Routes, Route } from 'react-router-dom';
-import ROUTES from '@/constants/routes.js';
-=======
-import React from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
-import ROUTES from './constants/routes.js';
->>>>>>> 74fe07b9ac0d8783a68b253bc9bdcd8010bb90b6
+import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -34,4 +28,3 @@ function App() {
 }
 
 export default App;
-
