@@ -129,4 +129,3 @@ export default function LoginPage({ onToggleMode }) {
     </motion.div>
   );
 }
-

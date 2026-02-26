@@ -62,4 +62,3 @@ export default function AuthLayout({ mode, children }) {
     </div>
   );
 }
-

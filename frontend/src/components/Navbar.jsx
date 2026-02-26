@@ -1,4 +1,5 @@
 import "./css/Navbar.css";
+import { useNavigate } from "react-router-dom";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -10,6 +11,7 @@ const navItems = [
 ];
 
 function Navbar() {
+  const navigate = useNavigate();
   const pathname = window.location.pathname;
 
   return (
@@ -93,7 +95,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <button className="nav-cta" type="button">
+      <button className="nav-cta" type="button" onClick={() => navigate("/login")}>
         Donate Now
       </button>
     </nav>
