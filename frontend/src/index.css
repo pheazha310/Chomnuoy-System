@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@600;700&family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@600;700&family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --bg-deep: #091e2f;
@@ -186,6 +190,14 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .hero,
+  .stats,
+  .highlights {
+    animation: none;
   }
 }
 

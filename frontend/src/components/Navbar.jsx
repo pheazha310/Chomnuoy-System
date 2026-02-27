@@ -1,4 +1,5 @@
 import "./css/Navbar.css";
+import { Link } from 'react-router-dom';
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -89,9 +90,9 @@ function Navbar() {
         ))}
       </ul>
 
-      <button className="nav-cta" type="button">
+      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta">
         Donate Now
-      </button>
+      </Link>
     </nav>
   );
 }
