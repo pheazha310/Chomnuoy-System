@@ -1,168 +1,188 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Box,
+  ChartNoAxesColumn,
+  CircleCheck,
+  Eye,
+  MessageSquare,
+  QrCode,
+  Search,
+  ShieldCheck,
+  Truck,
+} from 'lucide-react';
+import heroImage from '../../images/kids-1.png';
 import '../css/HowItWorks.css';
 
-const heroStats = [
-  { value: '4 Steps', label: 'Simple process' },
-  { value: '100%', label: 'Transparent milestones' },
-  { value: '24/7', label: 'Campaign visibility' },
-];
-
-const steps = [
+const donationMoneySteps = [
   {
-    title: 'Plan Your Campaign',
+    icon: Search,
+    title: '1. Find a Cause',
     description:
-      'Define the goal, timeline, budget, and expected outcomes so supporters know exactly what you are delivering.',
+      'Browse our curated list of verified local projects, non-profits, and families in need within your community.',
   },
   {
-    title: 'Submit For Verification',
-    description:
-      'Organization and campaign details are reviewed to ensure legitimacy, clarity, and donor confidence before launch.',
+    icon: QrCode,
+    title: '2. Scan to Pay',
+    description: 'Use your banking app to securely transfer funds instantly. No hidden fees, just direct impact.',
   },
   {
-    title: 'Launch And Promote',
-    description:
-      'Go live and share your campaign across social channels, communities, and partner networks to gather momentum.',
-  },
-  {
-    title: 'Deliver And Report',
-    description:
-      'Post updates, evidence, and milestone reports so every supporter sees where funding goes and what changed.',
+    icon: ChartNoAxesColumn,
+    title: '3. Track Impact',
+    description: 'Receive real-time updates and visual reports showing exactly how your contribution is changing lives.',
   },
 ];
 
-const lanes = [
+const materialSteps = [
   {
-    title: 'For Campaign Creators',
-    points: [
-      'Create campaign with clear goals and visuals',
-      'Respond to supporter questions quickly',
-      'Publish milestone updates on time',
-    ],
+    icon: Box,
+    title: '1. List Items',
+    description: "Take photos and describe the condition of the materials you'd like to donate.",
   },
   {
-    title: 'For Supporters',
-    points: [
-      'Browse verified campaigns by category',
-      'Check funding progress before donating',
-      'Track real outcomes after contribution',
-    ],
+    icon: Truck,
+    title: '2. Schedule Pickup',
+    description: 'Choose a convenient time for our logistics partners to collect the items from your doorstep.',
   },
   {
-    title: 'For Organizations',
-    points: [
-      'Manage multiple campaigns in one place',
-      'Use reports to show impact transparency',
-      'Build long-term community trust',
-    ],
+    icon: CircleCheck,
+    title: '3. Delivery Confirmation',
+    description: 'Get a notification and photo once your donation reaches the intended recipient.',
   },
 ];
 
-const faqs = [
+const trustPoints = [
   {
-    question: 'How long does verification take?',
-    answer: 'Most campaigns are reviewed within 24 to 72 hours depending on document completeness.',
+    icon: ShieldCheck,
+    title: 'Rigorous Verification',
+    description: 'Every beneficiary and organization undergoes a multi-step background check before joining.',
   },
   {
-    question: 'Can I edit my campaign after launch?',
-    answer: 'Yes. You can update description, milestones, and media while keeping donation history unchanged.',
+    icon: Eye,
+    title: 'Full Transparency',
+    description: 'Public ledgers and real-time reporting allow you to follow every cent of your donation.',
   },
   {
-    question: 'How do supporters know updates are real?',
-    answer: 'Updates are attached to the campaign timeline and should include details, photos, and milestone evidence.',
+    icon: MessageSquare,
+    title: 'Direct Impact',
+    description: 'We minimize administrative overhead to ensure maximum resources go directly to the cause.',
   },
 ];
 
 function HowItWorksPage() {
+  const [activeTab, setActiveTab] = useState('money');
+
   return (
     <main className="how-page">
       <section className="how-hero">
-        <div className="how-hero-copy">
-          <p className="how-eyebrow">How It Works</p>
-          <h1>Turn community needs into verified, trackable impact.</h1>
+        <div className="how-hero-content">
+          <h1>How Chomnuoy Works</h1>
           <p>
-            Chomnuoy gives campaign creators, organizations, and supporters one clear workflow from idea to measurable
-            delivery.
+            Empowering communities through transparent giving. Whether it's direct financial aid or essential supplies,
+            your contribution makes a real difference in people's lives.
           </p>
           <div className="how-hero-actions">
-            <a href="/campaigns" className="how-btn how-btn-primary">
-              Explore Campaigns
-            </a>
-            <a href="#" className="how-btn how-btn-secondary">
-              Start A Campaign
-            </a>
+            <Link to="/campaigns" className="how-button how-button-primary">
+              Get Started
+            </Link>
+            <Link to="/campaigns" className="how-button how-button-secondary">
+              Watch Video
+            </Link>
           </div>
         </div>
-
-        <div className="how-hero-stats" aria-label="How it works highlights">
-          {heroStats.map((item) => (
-            <article key={item.label} className="how-stat-card">
-              <p className="how-stat-value">{item.value}</p>
-              <p className="how-stat-label">{item.label}</p>
-            </article>
-          ))}
+        <div className="how-hero-media">
+          <img src={heroImage} alt="Children supported by a community campaign" />
         </div>
       </section>
 
-      <section className="how-section-head">
-        <p className="section-kicker">Workflow</p>
-        <h2>The Campaign Journey</h2>
+      <section className="how-workflow">
+        <div className="how-tabs" role="tablist" aria-label="Donation type tabs">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'money'}
+            className={`how-tab ${activeTab === 'money' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('money')}
+          >
+            Donating Money
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'materials'}
+            className={`how-tab ${activeTab === 'materials' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('materials')}
+          >
+            Donating Materials
+          </button>
+        </div>
+
+        {activeTab === 'money' ? (
+          <section className="how-cards-grid" aria-label="Money donation steps">
+            {donationMoneySteps.map((step) => {
+              const Icon = step.icon;
+              return (
+                <article key={step.title} className="how-step-card">
+                  <span className="how-step-icon">
+                    <Icon size={18} />
+                  </span>
+                  <h3>{step.title}</h3>
+                  <p>{step.description}</p>
+                </article>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="how-material-section" aria-label="Material donation steps">
+            <h2>Donating Materials</h2>
+            <p className="how-section-subtitle">
+              Have extra supplies? Furniture, books, or electronics can find a new home where they are needed most.
+            </p>
+            <div className="how-material-flow">
+              {materialSteps.map((step) => {
+                const Icon = step.icon;
+                return (
+                  <article key={step.title} className="how-material-item">
+                    <span className="how-material-icon">
+                      <Icon size={22} />
+                    </span>
+                    <h3>{step.title}</h3>
+                    <p>{step.description}</p>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </section>
 
-      <section className="how-steps" aria-label="How it works steps">
-        {steps.map((step, index) => (
-          <article key={step.title} className="how-step-card">
-            <p className="how-step-number">0{index + 1}</p>
-            <h3>{step.title}</h3>
-            <p>{step.description}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="how-section-head">
-        <p className="section-kicker">By Role</p>
-        <h2>Who Does What</h2>
-      </section>
-
-      <section className="how-lanes" aria-label="Role based responsibilities">
-        {lanes.map((lane) => (
-          <article key={lane.title} className="how-lane-card">
-            <h3>{lane.title}</h3>
-            <ul>
-              {lane.points.map((point) => (
-                <li key={point}>{point}</li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </section>
-
-      <section className="how-section-head">
-        <p className="section-kicker">FAQ</p>
-        <h2>Common Questions</h2>
-      </section>
-
-      <section className="how-faq" aria-label="How it works frequently asked questions">
-        {faqs.map((faq) => (
-          <details key={faq.question} className="how-faq-item">
-            <summary>{faq.question}</summary>
-            <p>{faq.answer}</p>
-          </details>
-        ))}
+      <section className="how-trust-section">
+        <h2>Why Trust Chomnuoy?</h2>
+        <p className="how-section-subtitle">
+          We prioritize security and clarity in every transaction to ensure your kindness reaches its destination.
+        </p>
+        <div className="how-trust-grid">
+          {trustPoints.map((item) => {
+            const Icon = item.icon;
+            return (
+              <article key={item.title} className="how-trust-card">
+                <span className="how-trust-icon">
+                  <Icon size={14} />
+                </span>
+                <h3>{item.title}</h3>
+                <p>{item.description}</p>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <section className="how-cta">
-        <div>
-          <p className="section-kicker">Ready</p>
-          <h2>Launch your campaign with confidence.</h2>
-          <p>Start now and keep every supporter informed from first donation to final impact report.</p>
-        </div>
-        <div className="how-cta-actions">
-          <a href="#" className="how-btn how-btn-primary">
-            Create Campaign
-          </a>
-          <a href="/campaigns" className="how-btn how-btn-secondary">
-            View Live Campaigns
-          </a>
-        </div>
+        <h2>Ready to make your first donation?</h2>
+        <p>Join thousands of donors who are already making an impact. Your journey to change lives starts with a single step.</p>
+        <Link to="/campaigns" className="how-button how-button-primary">
+          Start Now
+        </Link>
       </section>
     </main>
   );
