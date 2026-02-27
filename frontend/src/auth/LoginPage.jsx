@@ -1,4 +1,4 @@
-/**
+﻿/**
 * @license
 * SPDX-License-Identifier: Apache-2.0
 */
@@ -74,6 +74,23 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     }
 
     setError(null);
+
+    const emailName = formData.email.split('@')[0] || 'Alex Rivera';
+    const donorName = emailName
+      .split(/[._-]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    const donorSession = {
+      isLoggedIn: true,
+      role: 'Donor',
+      name: donorName || 'Alex Rivera',
+      impactLevel: 'Gold',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+    };
+
+    window.localStorage.setItem('chomnuoy_session', JSON.stringify(donorSession));
     onLoginSuccess?.();
   };
 
