@@ -1,4 +1,5 @@
 import './home.css';
+import { Link } from 'react-router-dom';
 
 const stats = [
   { value: '$2.5M+', label: 'Total donated' },
@@ -65,9 +66,9 @@ function Home() {
             communities in need.
           </p>
           <div className="home-hero-actions">
-            <a href="/campaigns" className="home-btn home-btn-primary">
+            <Link to="/login?redirect=%2Fcampaigns" className="home-btn home-btn-primary">
               Donate Now
-            </a>
+            </Link>
             <a href="/campaigns" className="home-btn home-btn-secondary">
               Start a Campaign
             </a>

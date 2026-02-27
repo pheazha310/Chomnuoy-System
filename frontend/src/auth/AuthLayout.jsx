@@ -7,19 +7,14 @@ export default function AuthLayout({ mode, children }) {
   const isLogin = mode === 'login';
 
   return (
-    <div className="min-h-screen bg-[#EFF1F6] px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto w-full max-w-4xl">
-        {/* {!isLogin && (
-          <p className="mb-7 text-center text-xs font-semibold text-[#98A2B3]">
-            Copyright 2026 Chomnuoy Platform. All rights reserved.
-          </p>
-        )} */}
+    <div className="min-h-screen bg-[#EFF1F6] px-4 sm:px-6">
+      <div className="mx-auto flex min-h-screen w-full max-w-4xl items-center py-8 sm:py-10">
 
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="overflow-hidden rounded-[28px] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)] lg:grid lg:grid-cols-2"
+          className="w-full overflow-hidden rounded-[28px] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)] lg:grid lg:grid-cols-2"
         >
           <aside className="relative hidden min-h-[560px] lg:block">
             <img
@@ -45,19 +40,6 @@ export default function AuthLayout({ mode, children }) {
           <section className="px-6 py-8 sm:px-8 lg:px-10 lg:py-10">{children}</section>
         </motion.div>
 
-        {isLogin && (
-          <div className="mt-12 text-center text-xs text-[#98A2B3]">
-            <p className="font-semibold">Copyright 2026 Chomnuoy Inc. All rights reserved.</p>
-            <div className="mt-4 flex justify-center gap-6">
-              <a href="#" className="font-semibold hover:text-[#667085]">
-                Privacy Policy
-              </a>
-              <a href="#" className="font-semibold hover:text-[#667085]">
-                Terms of Service
-              </a>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

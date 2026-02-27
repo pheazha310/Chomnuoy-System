@@ -78,6 +78,12 @@ export default function RegisterPage({ onToggleMode }) {
       </div>
 
       <form onSubmit={handleRegister} className="mt-6 space-y-4">
+        {error && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-600">
+            {error}
+          </div>
+        )}
+
         <div>
           <label className="text-sm font-bold text-[#101828]">Full Name</label>
           <div className="relative mt-2">
