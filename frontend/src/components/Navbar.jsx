@@ -1,5 +1,6 @@
-﻿import "./css/Navbar.css";
+import "./css/Navbar.css";
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -39,6 +40,11 @@ function Navbar() {
   const pathname = window.location.pathname;
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+  const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsGuestMenuOpen(false);
+  }, [pathname]);
 
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
@@ -98,7 +104,7 @@ function Navbar() {
   }
 
   return (
-    <nav className="navbar" aria-label="Primary">
+    <nav className={`navbar ${isGuestMenuOpen ? 'menu-open' : ''}`} aria-label="Primary">
       <a href="/" className="brand" aria-label="Chomnuoy home">
         <span className="brand-icon" aria-hidden="true">
           <svg
@@ -145,11 +151,25 @@ function Navbar() {
         </span>
       </a>
 
-      <ul className="nav-links">
+      <button
+        type="button"
+        className="nav-toggle"
+        aria-label={isGuestMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={isGuestMenuOpen}
+        aria-controls="guest-primary-links"
+        onClick={() => setIsGuestMenuOpen((previous) => !previous)}
+      >
+        <span className="nav-toggle-line" />
+        <span className="nav-toggle-line" />
+        <span className="nav-toggle-line" />
+      </button>
+
+      <ul id="guest-primary-links" className={`nav-links ${isGuestMenuOpen ? 'is-open' : ''}`}>
         {guestNavItems.map((item) => (
           <li key={item.label}>
             <a
               href={item.href}
+              onClick={() => setIsGuestMenuOpen(false)}
               className={
                 item.href === "/campaigns"
                   ? pathname === "/" || pathname.startsWith("/campaigns")
@@ -182,7 +202,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta">
+      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>

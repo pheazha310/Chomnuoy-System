@@ -5,6 +5,8 @@
 }
 
 .campaigns-dashboard {
+  margin-top: 50px;
+  margin-bottom: 60px;
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
   gap: 1rem;
@@ -12,6 +14,7 @@
 }
 
 .campaign-sidebar {
+  margin-right: 20px;
   border: 1px solid #e7e9ef;
   border-radius: 14px;
   background: #f4f6fa;
@@ -293,7 +296,7 @@
 .campaign-grid-dashboard {
   margin-top: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 1.5rem;
 }
 
 .campaign-card {
@@ -381,6 +384,11 @@
   color: #748398;
   font-size: 0.75rem;
   line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .campaign-funding-row {
@@ -388,6 +396,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -503,8 +512,8 @@
 
 .campaign-pagination button,
 .campaign-pagination span {
-  width: 25px;
-  height: 25px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   border: 1px solid #e0e6ef;
   background: #ffffff;
@@ -804,38 +813,99 @@
   background: #f4fcf7;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .campaigns-dashboard {
     grid-template-columns: 1fr;
   }
 
   .campaign-sidebar {
+    order: 1;
+  }
+
+  .campaign-content-area {
     order: 2;
+  }
+
+  .campaign-detail-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .campaigns-page,
+  .campaign-detail-page {
+    width: min(1200px, calc(100% - 1.5rem));
+  }
+
+  .campaign-sidebar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .campaign-sidebar-group {
+    min-width: 0;
   }
 
   .campaign-grid-dashboard {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .campaign-detail-layout {
-    grid-template-columns: 1fr;
+  .campaigns-toolbar h1 {
+    font-size: 2.4rem;
   }
 
   .campaign-side-column {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 767px) {
+  .campaign-content {
+    padding: 0.68rem;
+  }
+
+  .campaign-summary {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
   .campaigns-page,
   .campaign-detail-page {
-    width: min(1200px, calc(100% - 1rem));
+    width: calc(100% - 1rem);
+    margin: 0.85rem auto;
+  }
+
+  .campaign-sidebar {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
   }
 
   .campaigns-toolbar {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.55rem;
+  }
+
+  .campaigns-toolbar h1 {
+    font-size: 1.9rem;
+    line-height: 1.1;
+  }
+
+  .campaign-sorter {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .campaign-sort-trigger {
+    min-width: 0;
+    width: min(210px, 100%);
+  }
+
+  .campaign-sort-menu {
+    right: auto;
+    left: 0;
+    width: min(100%, 240px);
   }
 
   .campaign-grid-dashboard {
@@ -854,7 +924,44 @@
     grid-template-columns: 1fr;
   }
 
+  .campaign-detail-layout {
+    gap: 0.75rem;
+  }
+
   .campaign-hero-panel {
     min-height: 230px;
-    }
+  }
+
+  .campaign-card-badges {
+    inset: 0.45rem 0.45rem auto 0.45rem;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+
+  .campaign-badge {
+    font-size: 0.54rem;
+  }
+
+  .campaign-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .campaign-donate-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .campaign-pagination button,
+  .campaign-pagination span {
+    width: 34px;
+    height: 34px;
+    font-size: 0.86rem;
+  }
+
+  .detail-mini-stats,
+  .detail-secondary-actions {
+    grid-template-columns: 1fr;
+  }
 }
+
