@@ -8,6 +8,7 @@ import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
 import Organization from '@/components/pages/organization.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
+import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
@@ -67,6 +68,7 @@ export default function App() {
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
+        <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
       </Routes>

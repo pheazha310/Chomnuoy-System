@@ -7,7 +7,7 @@ const guestNavItems = [
   { label: "Organizations", href: "/organizations" },
   { label: "Campaigns", href: "/campaigns" },
   { label: "How It Works", href: "/how-it-works" },
-  { label: "Contact", href: "#" },
+  { label: "Contact", href: "/contact" },
 ];
 
 const donorNavItems = [
@@ -163,13 +163,17 @@ function Navbar() {
                     ? pathname === "/how-it-works"
                       ? "active"
                       : ""
-                      : item.href === "/about"
-                        ? pathname === "/about"
-                          ? "active"
-                          : ""
-                        : pathname === item.href
-                          ? "active"
-                          : ""
+                    : item.href === "/about"
+                      ? pathname === "/about"
+                        ? "active"
+                        : ""
+                    : item.href === "/contact"
+                      ? pathname === "/contact"
+                        ? "active"
+                        : ""
+                      : pathname === item.href
+                        ? "active"
+                        : ""
               }
             >
               {item.label}
