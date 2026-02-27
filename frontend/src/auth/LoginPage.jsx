@@ -102,7 +102,7 @@ export default function LoginPage({ onToggleMode }) {
           <input
             type="checkbox"
             id="rememberMe"
-            className="h-6 w-6 rounded-md border-[#98A2B3] text-[#2563EB] focus:ring-[#2563EB]/20"
+            className="h-4 w-4 rounded-md border-[#98A2B3] text-[#2563EB] focus:ring-[#2563EB]/20"
             checked={formData.rememberMe}
             onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
           />

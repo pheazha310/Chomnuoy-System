@@ -9,11 +9,11 @@ export default function AuthLayout({ mode, children }) {
   return (
     <div className="min-h-screen bg-[#EFF1F6] px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto w-full max-w-4xl">
-        {!isLogin && (
+        {/* {!isLogin && (
           <p className="mb-7 text-center text-xs font-semibold text-[#98A2B3]">
             Copyright 2026 Chomnuoy Platform. All rights reserved.
           </p>
-        )}
+        )} */}
 
         <motion.div
           initial={{ opacity: 0, y: 18 }}

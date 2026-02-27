@@ -1,0 +1,230 @@
+.site-footer {
+  /* width: min(1280px, calc(100% - 2rem)); */
+  /* margin: 1.25rem auto 1rem; */
+  padding: 1.8rem 1.35rem 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.95));
+  border: 1px solid rgba(170, 198, 220, 0.42);
+  /* border-radius: 18px; */
+  box-shadow: 0 16px 40px rgba(6, 34, 60, 0.18);
+}
+
+.footer-top {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1.1fr;
+  gap: 1.5rem;
+}
+
+.footer-col h2,
+.footer-col h3 {
+  margin: 0;
+  font-family: 'Space Grotesk', sans-serif;
+  color: #1e2c3e;
+}
+
+.footer-col h2 {
+  font-size: 1.28rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.78rem;
+}
+
+.footer-logo-icon {
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: linear-gradient(145deg, #2f94f6, #1f78de);
+  box-shadow: 0 10px 22px rgba(20, 108, 204, 0.35);
+}
+
+.footer-logo-mark {
+  width: 34px;
+  height: 34px;
+}
+
+.footer-logo-text {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.footer-logo-title {
+  font-family: 'Noto Sans Khmer', 'Space Grotesk', sans-serif;
+  font-size: 1.22rem;
+  line-height: 1.05;
+  color: #1f78de;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.footer-logo-subtitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.68rem;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: #7b899c;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.footer-col h3 {
+  font-size: 1rem;
+}
+
+.footer-col p {
+  margin: 0.9rem 0 0;
+  color: #5c6f85;
+  line-height: 1.55;
+  font-size: 0.95rem;
+  max-width: 32ch;
+}
+
+.footer-col ul {
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.footer-col a {
+  color: #5c6f85;
+  text-decoration: none;
+  font-size: 0.94rem;
+  transition: color 180ms ease;
+}
+
+.footer-col a:hover,
+.footer-col a:focus-visible {
+  color: #1f7de2;
+}
+
+.footer-socials {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.58rem;
+}
+
+.footer-socials a {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(170, 186, 205, 0.55);
+  display: grid;
+  place-items: center;
+  color: #63768c;
+  background: #ffffff;
+}
+
+.newsletter-copy {
+  max-width: 26ch;
+}
+
+.newsletter-form {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.newsletter-form input {
+  width: 100%;
+  border: 1px solid #d1dbe7;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  color: #32475d;
+  background: #f8fbff;
+}
+
+.newsletter-form button {
+  border: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #1f7de2;
+  cursor: pointer;
+}
+
+.footer-bottom {
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(180, 196, 214, 0.35);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.footer-bottom p {
+  margin: 0;
+  color: #8b98aa;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.footer-policies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.footer-policies a {
+  color: #8b98aa;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+@media (max-width: 960px) {
+  .footer-top {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .site-footer {
+    width: calc(100% - 1.1rem);
+    padding: 1.2rem 0.95rem 0.85rem;
+    border-radius: 14px;
+  }
+
+  .footer-top {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .footer-logo-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+  }
+
+  .footer-logo-mark {
+    width: 29px;
+    height: 29px;
+  }
+
+  .footer-logo-title {
+    font-size: 1.18rem;
+  }
+
+  .footer-logo-subtitle {
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+  }
+}
