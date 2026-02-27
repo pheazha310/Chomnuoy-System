@@ -1,7 +1,7 @@
 import '../css/about.css';
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ArrowRight, TrendingUp } from 'lucide-react';
+import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
 
 // --- Mock Data ---
 
@@ -42,58 +42,120 @@ const ORGANIZATIONS = [
   }
 ];
 
+const CORE_VALUES = [
+  {
+    icon: Eye,
+    title: 'Transparency',
+    description: 'Every donation is tracked end-to-end, so you can clearly see where your support goes.'
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Trust',
+    description: 'We partner only with vetted organizations and verified projects for accountable delivery.'
+  },
+  {
+    icon: HandHeart,
+    title: 'Impact',
+    description: 'Our focus is long-term, sustainable outcomes that uplift communities over time.'
+  },
+  {
+    icon: Users2,
+    title: 'Community',
+    description: 'We bring donors, partners, and volunteers together to solve local challenges.'
+  }
+];
+
+const TEAM = [
+  {
+    name: 'Sophea Leng',
+    role: 'Founder & CEO',
+    bio: 'Passionate about using technology to close social impact gaps across Cambodia.',
+    image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    name: 'Chanthou Mean',
+    role: 'Operations Director',
+    bio: 'Ensuring every project is executed with precision, integrity, and measurable results.',
+    image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    name: 'Dara Phan',
+    role: 'Product Manager',
+    bio: 'Designing user-friendly donation flows that create trust and increase community impact.',
+    image: 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    name: 'Sokunthea Kim',
+    role: 'Partnership Lead',
+    bio: 'Building strategic partnerships with NGOs, schools, and local leaders across regions.',
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80'
+  },
+  {
+    name: 'Rithy Sam',
+    role: 'Community Relations',
+    bio: 'Building trusted partnerships with communities and local organizations nationwide.',
+    image: 'https://images.unsplash.com/photo-1544717302-de2939b7ef71?auto=format&fit=crop&w=400&q=80'
+  }
+];
+
 // --- Components ---
 // Note: this is the header section of the about page
 const Hero = () => (
-  <section className="about-hero mx-auto max-w-9xl px-0 py-8 lg:py-24">
-    <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center" style={{background:"white", padding:'30px', borderRadius:'20px', display:'flex', alignItems:'center', justifyContent:'space-between',width:'100%',margin:'0 auto'}}>
+  <section className="about-hero">
+    <div className="about-header-card">
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
-        className="flex flex-col gap-8"
+        className="about-header-copy"
       >
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+        <div className="about-header-pill">
           <CheckCircle2 className="w-4 h-4" />
-          Trusted by 150+ Verified Partners
+          Trusted by 150+ verified partners
         </div>
-        <h1 className="text-5xl font-black leading-[1.1] tracking-tight text-slate-900 lg:text-7xl">
-          Empowering Communities Through <span className="text-primary">Collective Giving</span>
+        <h1 className="about-header-title">
+          Empower Communities,
+          <br />
+          <span>Change Lives.</span>
         </h1>
-        <p className="text-lg leading-relaxed text-slate-600 max-w-lg">
-          Join Chomnuoy in supporting verified grassroots organizations making a real difference. Your contribution creates lasting impact where it's needed most.
+        <p className="about-header-desc">
+          Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate donors with grassroots initiatives making a real difference.
         </p>
-        <div className="flex flex-wrap gap-4" style={{display:'flex', gap:'20px'}}>
-          <button className="flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-bold text-white shadow-xl shadow-primary/25 hover:bg-primary/90 transition-all group ">
-            Explore Causes
+        <div className="about-header-actions">
+          <button className="about-header-btn about-header-btn-primary group">
+            Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </button>
-          <button className="rounded-xl bg-white border border-slate-200 px-8 py-4 text-base font-bold text-slate-900 hover:bg-slate-50 transition-all">
-            Start Donating
+          <button className="about-header-btn about-header-btn-secondary">
+            Start a Campaign
           </button>
         </div>
+        <p className="about-header-meta">Joined by 10K+ active donors</p>
       </motion.div>
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="relative group"
+        className="about-header-media"
       >
-        <div className="absolute -inset-4 rounded-2xl bg-gradient-to-tr from-primary/20 to-transparent blur-2xl group-hover:from-primary/30 transition-all"></div>
-        <div className="relative aspect-[4/2] overflow-hidden rounded-2xl shadow-2xl">
+        <div className="about-header-media-card">
           <img 
             src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cG9vciUyMHBlb3BsZXxlbnwwfHwwfHx8MA%3D%3D" 
             alt="Community support" 
             className="h-full w-full object-cover"
             referrerPolicy="no-referrer"
-            style={{ width: '100%', height: '25%' }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+          <div className="about-header-media-tag">
+            <span>LATEST SUCCESS</span>
+            School supplies for 500 students in Siem Reap
+          </div>
         </div>
       </motion.div>
     </div>
   </section>
 );
+
+//Categorie total 
 
 const Stats = () => (
   <section className="bg-slate-100/50 py-16 border-y border-slate-200">
@@ -120,14 +182,69 @@ const Stats = () => (
   </section>
 );
 
+const AboutContent = () => (
+  <section className="about-content-sections">
+    <div className="about-content-block">
+      <h2>Our Story</h2>
+      <p>
+        Founded with the vision to bridge the gap between donors and those in need across Cambodia, Chomnuoy started
+        as a small initiative to ensure that every contribution reaches its intended destination.
+      </p>
+      <p>
+        We believe in the power of collective action to transform lives and strengthen communities. Through secure,
+        verified, and transparent giving, we&apos;ve helped thousands of families access education, clean water, and healthcare.
+      </p>
+    </div>
+
+    <div className="about-content-block about-values-block">
+      <h2>Our Core Values</h2>
+      <div className="about-values-grid">
+        {CORE_VALUES.map((item) => (
+          <div key={item.title} className="about-value-card">
+            <item.icon className="w-5 h-5" />
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="about-content-block about-team-block">
+      <h2>Meet the Team</h2>
+      <div className="about-team-grid about-team-grid-top">
+        {TEAM.slice(0, 2).map((member) => (
+          <div key={member.name} className="about-team-card">
+            <img src={member.image} alt={member.name} referrerPolicy="no-referrer" />
+            <h3>{member.name}</h3>
+            <h4>{member.role}</h4>
+            <p>{member.bio}</p>
+          </div>
+        ))}
+      </div>
+      <div className="about-team-grid about-team-grid-bottom">
+        {TEAM.slice(2).map((member) => (
+          <div key={member.name} className="about-team-card">
+            <img src={member.image} alt={member.name} referrerPolicy="no-referrer" />
+            <h3>{member.name}</h3>
+            <h4>{member.role}</h4>
+            <p>{member.bio}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+// Card of the organization 
+
 const FeaturedOrgs = () => (
   <section className="mx-auto max-w-7xl px-6 py-24">
     <div className="flex items-end justify-between mb-12">
       <div className="max-w-xl">
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 lg:text-4xl">Featured Organizations</h2>
-        <p className="mt-4 text-slate-600">Discover vetted organizations that are making real measurable impact in their local communities.</p>
+         <h2 className="text-3xl font-bold tracking-tight text-white lg:text-4xl mb-6">Featured Organizations</h2>
+      <p className="mt-4 text-white max-w-2xl mx-auto">Discover vetted organizations that are making real measurable impact in their local communities.</p>
       </div>
-      <button className="hidden md:flex items-center gap-2 text-primary font-bold hover:underline group">
+      <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xl text-primary hover:text-white hover:border-primary transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-primary/25 transform hover:-translate-y-0.5 whitespace-nowrap mb-4">
         View All Organizations
         <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
       </button>
@@ -166,9 +283,9 @@ const FeaturedOrgs = () => (
                   +{org.donors}
                 </div>
               </div>
-              <button className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-primary hover:text-white transition-all">
+              {/* <button className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-primary hover:text-white transition-all">
                 Learn More
-              </button>
+              </button> */}
             </div>
           </div>
         </motion.div>
@@ -179,10 +296,11 @@ const FeaturedOrgs = () => (
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen flex flex-col selection:bg-primary/10 selection:text-primary">
-      <main className="flex-grow">
+    <div className="h-screen w-screen flex flex-col selection:bg-primary/10 selection:text-primary">
+      <main className="flex-grow overflow-auto">
         <Hero />
         <Stats />
+        <AboutContent />
         <FeaturedOrgs />
       </main>
     </div>

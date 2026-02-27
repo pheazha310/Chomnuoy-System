@@ -5,6 +5,7 @@ const ROUTES = {
   CAMPAIGNS: '/campaigns',
   CAMPAIGN_DETAILS: (id = ':id') => `/campaigns/${id}`,
   HOW_IT_WORKS: '/how-it-works',
+  CONTACT: '/contact',
   LOGIN: '/login',
   DASHBOARD: '/dashboard',
 };

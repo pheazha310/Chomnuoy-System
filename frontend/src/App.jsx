@@ -8,6 +8,7 @@ import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
+import ContactPage from '@/components/pages/ContactPage.jsx';
 
 function CampaignDetailRoute() {
   const { id } = useParams();
@@ -24,6 +25,7 @@ function App() {
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
+        <Route path={ROUTES.CONTACT} element={<ContactPage />} />
       </Routes>
       <Footer />
     </>
