@@ -14,14 +14,57 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-export default function LoginPage({ onToggleMode }) {
+function GoogleIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.4a4.6 4.6 0 0 1-2 3.1l3.2 2.5c1.8-1.7 2.9-4.1 2.9-7.1 0-.7-.1-1.5-.2-2.2H12z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.6 0 4.9-.9 6.5-2.4l-3.2-2.5c-.9.6-2 .9-3.3.9-2.6 0-4.8-1.7-5.5-4.1H3.2v2.6A10 10 0 0 0 12 22z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.5 13.9A6 6 0 0 1 6.2 12c0-.7.1-1.3.3-1.9V7.5H3.2A10 10 0 0 0 2 12c0 1.6.4 3.1 1.2 4.5l3.3-2.6z"
+      />
+      <path
+        fill="#4285F4"
+        d="M12 6c1.4 0 2.7.5 3.8 1.5l2.8-2.8A9.8 9.8 0 0 0 12 2 10 10 0 0 0 3.2 7.5l3.3 2.6C7.2 7.7 9.4 6 12 6z"
+      />
+    </svg>
+  );
+}
+
+function FacebookIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        fill="#1877F2"
+        d="M24 12a12 12 0 1 0-13.9 11.8v-8.3H7.1V12h3V9.3c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v2.9h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.3A12 12 0 0 0 24 12z"
+      />
+    </svg>
+  );
+}
+
+export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
+  const [socialLoading, setSocialLoading] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false,
   });
+  const socialAuthUrls = {
+    google:
+      import.meta.env.VITE_GOOGLE_AUTH_URL ??
+      `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/google/redirect`,
+    facebook:
+      import.meta.env.VITE_FACEBOOK_AUTH_URL ??
+      `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -31,7 +74,19 @@ export default function LoginPage({ onToggleMode }) {
     }
 
     setError(null);
-    console.log('Logging in:', formData);
+    onLoginSuccess?.();
+  };
+
+  const handleSocialLogin = (provider) => {
+    const authUrl = socialAuthUrls[provider];
+    if (!authUrl) {
+      setError(`Unable to start ${provider} login. Please try again later.`);
+      return;
+    }
+
+    setError(null);
+    setSocialLoading(provider);
+    window.location.assign(authUrl);
   };
 
   return (
@@ -40,6 +95,7 @@ export default function LoginPage({ onToggleMode }) {
         <h1 className="text-4xl font-bold tracking-tight text-[#101828]">Welcome back</h1>
         <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
       </div>
+
 
       {error && (
         <motion.div
@@ -102,7 +158,7 @@ export default function LoginPage({ onToggleMode }) {
           <input
             type="checkbox"
             id="rememberMe"
-            className="h-6 w-6 rounded-md border-[#98A2B3] text-[#2563EB] focus:ring-[#2563EB]/20"
+            className="h-4 w-4 rounded-md border-[#98A2B3] text-[#2563EB] focus:ring-[#2563EB]/20"
             checked={formData.rememberMe}
             onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
           />
@@ -110,7 +166,32 @@ export default function LoginPage({ onToggleMode }) {
             Remember Me
           </label>
         </div>
+        <div className="mt-5 flex items-center gap-3">
+          <span className="h-px flex-1 bg-[#E4E7EC]" />
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">or login with email</span>
+          <span className="h-px flex-1 bg-[#E4E7EC]" />
+        </div>
 
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => handleSocialLogin('google')}
+            disabled={socialLoading !== null}
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <GoogleIcon className="h-5 w-5" />
+            Gmail
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSocialLogin('facebook')}
+            disabled={socialLoading !== null}
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FacebookIcon className="h-5 w-5" />
+            Facebook
+          </button>
+        </div>
         <button
           type="submit"
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"

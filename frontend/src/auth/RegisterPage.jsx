@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
+import { registerUser } from '../services/user-service';
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 
 export default function RegisterPage({ onToggleMode }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const [role, setRole] = useState('Donor');
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -30,9 +32,25 @@ export default function RegisterPage({ onToggleMode }) {
     special: /[0-9!@#$%^&*(),.?":{}|<>]/.test(formData.password),
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    console.log('Registering:', { role, ...formData });
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      await registerUser({
+        name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        role,
+      });
+
+      onToggleMode(); // go to login page
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -50,9 +68,8 @@ export default function RegisterPage({ onToggleMode }) {
               key={r}
               type="button"
               onClick={() => setRole(r)}
-              className={`rounded-xl py-2.5 text-sm font-semibold transition ${
-                role === r ? 'bg-white text-[#101828] shadow-sm' : 'text-[#667085] hover:text-[#344054]'
-              }`}
+              className={`rounded-xl py-2.5 text-sm font-semibold transition ${role === r ? 'bg-white text-[#101828] shadow-sm' : 'text-[#667085] hover:text-[#344054]'
+                }`}
             >
               {r}
             </button>
@@ -61,6 +78,12 @@ export default function RegisterPage({ onToggleMode }) {
       </div>
 
       <form onSubmit={handleRegister} className="mt-6 space-y-4">
+        {error && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-600">
+            {error}
+          </div>
+        )}
+
         <div>
           <label className="text-sm font-bold text-[#101828]">Full Name</label>
           <div className="relative mt-2">
@@ -128,8 +151,9 @@ export default function RegisterPage({ onToggleMode }) {
         <button
           type="submit"
           className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
+          disabled={isSubmitting}
         >
-          Register
+          {isSubmitting ? 'Registering...' : 'Register'}
           <ArrowRight className="h-5 w-5" />
         </button>
       </form>
