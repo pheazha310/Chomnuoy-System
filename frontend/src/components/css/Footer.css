@@ -157,6 +157,20 @@
   cursor: pointer;
 }
 
+.newsletter-status {
+  margin: 0.55rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.newsletter-status.is-success {
+  color: #2f7a4f;
+}
+
+.newsletter-status.is-error {
+  color: #b23e3e;
+}
+
 .footer-bottom {
   margin-top: 1.4rem;
   padding-top: 1rem;

@@ -1,10 +1,44 @@
 import './css/Footer.css';
+import { useState } from 'react';
 
 const exploreLinks = ['Featured Causes', 'Newest Projects', 'Education', 'Health & Wellness', 'Environment'];
 const resourceLinks = ['About Us', 'How it Works', 'Transparency', 'Success Stories', 'Help Center'];
 const policyLinks = ['Privacy Policy', 'Terms of Service', 'Cookie Policy'];
 
 function Footer() {
+  const [email, setEmail] = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState({ type: '', message: '' });
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function handleNewsletterSubmit(event) {
+    event.preventDefault();
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!isValidEmail(normalizedEmail)) {
+      setNewsletterStatus({ type: 'error', message: 'Please enter a valid email address.' });
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem('chomnuoy_newsletter_subscribers');
+      const existing = raw ? JSON.parse(raw) : [];
+      const subscribers = Array.isArray(existing) ? existing : [];
+
+      if (!subscribers.includes(normalizedEmail)) {
+        subscribers.push(normalizedEmail);
+      }
+
+      window.localStorage.setItem('chomnuoy_newsletter_subscribers', JSON.stringify(subscribers));
+      setNewsletterStatus({ type: 'success', message: 'Subscribed successfully.' });
+      setEmail('');
+    } catch {
+      setNewsletterStatus({ type: 'error', message: 'Unable to subscribe right now.' });
+    }
+  }
+
   return (
     <footer className="site-footer" aria-label="Footer">
       <div className="footer-top">
@@ -89,12 +123,24 @@ function Footer() {
         <section className="footer-col">
           <h3>Newsletter</h3>
           <p className="newsletter-copy">Stay updated with the latest causes and impact reports.</p>
-          <form className="newsletter-form" onSubmit={(event) => event.preventDefault()}>
-            <input type="email" placeholder="Email address" aria-label="Email address" />
+          <form className="newsletter-form" onSubmit={handleNewsletterSubmit}>
+            <input
+              type="email"
+              placeholder="Email address"
+              aria-label="Email address"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
             <button type="submit" aria-label="Subscribe">
               &gt;
             </button>
           </form>
+          {newsletterStatus.message ? (
+            <p className={`newsletter-status ${newsletterStatus.type === 'error' ? 'is-error' : 'is-success'}`}>
+              {newsletterStatus.message}
+            </p>
+          ) : null}
         </section>
       </div>
 
