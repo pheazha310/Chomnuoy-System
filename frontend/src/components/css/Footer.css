@@ -34,17 +34,18 @@
 .footer-logo-icon {
   width: 62px;
   height: 62px;
-  border-radius: 20px;
+  border-radius: 16px;
   display: grid;
   place-items: center;
   color: #ffffff;
-  background: linear-gradient(145deg, #2f94f6, #1f78de);
-  box-shadow: 0 10px 22px rgba(20, 108, 204, 0.35);
+  background: linear-gradient(180deg, #33a3e1 0%, #1468dc 100%);
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 22px rgba(20, 108, 204, 0.35);
 }
 
 .footer-logo-mark {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
 }
 
 .footer-logo-text {
@@ -297,3 +298,4 @@
     font-size: 0.68rem;
   }
 }
+
