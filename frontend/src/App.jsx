@@ -32,11 +32,27 @@ function LoginRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
+  const handleLoginSuccess = (data) => {
+    // Store user session data
+    const sessionData = {
+      isLoggedIn: true,
+      role: 'Donor',
+      name: data.user.name,
+      email: data.user.email,
+      impactLevel: 'Gold',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+      userId: data.user.id,
+    };
+    
+    window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+    navigate(redirectTo);
+  };
+
   return (
     <AuthLayout mode="login">
       <LoginPage
         onToggleMode={() => navigate(`/register?redirect=${encodeURIComponent(redirectTo)}`)}
-        onLoginSuccess={() => navigate(redirectTo)}
+        onLoginSuccess={handleLoginSuccess}
       />
     </AuthLayout>
   );
@@ -47,9 +63,14 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
+  const handleRegisterSuccess = (email) => {
+    // After successful registration, redirect to login with email
+    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
+  };
+
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={(email) => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`)} />
+      <RegisterPage onToggleMode={handleRegisterSuccess} />
     </AuthLayout>
   );
 }

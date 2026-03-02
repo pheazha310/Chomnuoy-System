@@ -28,6 +28,10 @@ function getDonorSession() {
   }
 }
 
+function clearDonorSession() {
+  window.localStorage.removeItem('chomnuoy_session');
+}
+
 function isNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
@@ -42,6 +46,11 @@ function Navbar() {
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
 
+  const handleLogout = () => {
+    clearDonorSession();
+    window.location.href = '/login';
+  };
+
   useEffect(() => {
     setIsGuestMenuOpen(false);
   }, [pathname]);
@@ -55,21 +64,32 @@ function Navbar() {
         <Link to="/" className="donor-brand" aria-label="Donor portal home">
           <span className="donor-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.7" />
-              <path d="M8 12h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-              <path d="M13 8l3 3-3 3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              <path 
+                d="M12 2L14.09 8.26L20.18 8.27L15.54 11.97L17.64 18.23L12 14.47L6.36 18.23L8.46 11.97L3.82 8.27L9.91 8.26L12 2Z" 
+                fill="currentColor"
+              />
+              <path 
+                d="M7 13C7 13 9 15 12 15C15 15 17 13 17 13" 
+                stroke="white" 
+                strokeWidth="1.5" 
+                strokeLinecap="round"
+              />
+              <circle 
+                cx="9" 
+                cy="9" 
+                r="1" 
+                fill="white"
+              />
+              <circle 
+                cx="15" 
+                cy="9" 
+                r="1" 
+                fill="white"
+              />
             </svg>
           </span>
-          <span>DonorPortal</span>
+          <span>Chomnuoy</span>
         </Link>
-
-        <label className="donor-search" aria-label="Search organizations">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="6" />
-            <path d="m16 16 4 4" />
-          </svg>
-          <input type="search" placeholder="Search organizations..." />
-        </label>
 
         <ul className="donor-links">
           {donorNavItems.map((item) => (
@@ -81,23 +101,45 @@ function Navbar() {
           ))}
         </ul>
 
-        <button type="button" className="donor-notify" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 4a4 4 0 0 0-4 4v2.7c0 .8-.3 1.6-.8 2.2l-1 1.1c-.4.5 0 1.3.7 1.3h10.2c.7 0 1.1-.8.7-1.3l-1-1.1a3.4 3.4 0 0 1-.8-2.2V8a4 4 0 0 0-4-4Z" stroke="currentColor" strokeWidth="1.7" />
-            <path d="M10.5 17.2a1.7 1.7 0 0 0 3 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <label className="donor-search" aria-label="Search causes">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
+            <circle cx="11" cy="11" r="8" strokeWidth="2"/>
+            <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-        </button>
+          <input type="search" placeholder="Search causes..." />
+        </label>
 
-        <div className="donor-profile">
-          <div>
-            <p className="donor-name">{donorName}</p>
-            <p className="donor-impact">Impact Level: {donorImpact}</p>
+        <div className="donor-actions">
+          <button type="button" className="donor-notify" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="notification-dot"></span>
+          </button>
+
+          <button type="button" className="donor-history" aria-label="History">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+              <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+              <path d="M12 6v6l4 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          <button type="button" className="donor-logout" aria-label="Logout" onClick={handleLogout}>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="m16 17 5-5-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M21 12H9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          <div className="donor-profile">
+            <img
+              src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+              alt={donorName}
+              className="donor-avatar-photo"
+            />
           </div>
-          <img
-            src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-            alt={donorName}
-            className="donor-avatar-photo"
-          />
         </div>
       </nav>
     );
