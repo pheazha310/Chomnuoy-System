@@ -11,19 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
+
+        // Role table
+        Schema::create('roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('role_name')->unique();
+            $table->timestamps();
+        });
+
+        // User table
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('phone', 30)->nullable();
             $table->string('email')->unique();
+            $table->string('password');
             $table->string('status', 50)->default('active');
-            $table->timestamp('created_at')->useCurrent();
+
+            // Foreign Key
+            $table->foreignId('role_id')
+                ->constrained('roles')
+                ->onDelete('cascade');
+
+            $table->timestamps();
         });
 
-        Schema::create('roles', function (Blueprint $table) {
-            $table->id();
-            $table->string('role_name')->unique();
-        });
 
         Schema::create('categories', function (Blueprint $table) {
             $table->id();
@@ -56,12 +68,6 @@ return new class extends Migration
             $table->date('end_date')->nullable();
         });
 
-        Schema::create('user_roles', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnUpdate()->cascadeOnDelete();
-            $table->foreignId('role_id')->constrained('roles')->cascadeOnUpdate()->restrictOnDelete();
-            $table->unique(['user_id', 'role_id']);
-        });
 
         Schema::create('user_credentials', function (Blueprint $table) {
             $table->id();

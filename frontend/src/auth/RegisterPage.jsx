@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   User,
+  Phone,
   Mail,
   Lock,
   Eye,
@@ -23,6 +24,7 @@ export default function RegisterPage({ onToggleMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
+    phoneNumber: '',
     email: '',
     password: '',
   });
@@ -40,12 +42,13 @@ export default function RegisterPage({ onToggleMode }) {
     try {
       await registerUser({
         name: formData.fullName,
+        phone: formData.phoneNumber,
         email: formData.email,
         password: formData.password,
         role,
       });
 
-      onToggleMode(); // go to login page
+      onToggleMode(formData.email); // go to login page
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {
@@ -95,6 +98,21 @@ export default function RegisterPage({ onToggleMode }) {
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.fullName}
               onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-bold text-[#101828]">Phone Number</label>
+          <div className="relative mt-2">
+            <Phone className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
+            <input
+              type="tel"
+              required
+              placeholder="Enter your phone number"
+              className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
             />
           </div>
         </div>

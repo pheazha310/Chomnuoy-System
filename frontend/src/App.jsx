@@ -41,7 +41,7 @@ function RegisterRoute() {
 
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={() => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)} />
+      <RegisterPage onToggleMode={(email) => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`)} />
     </AuthLayout>
   );
 }
