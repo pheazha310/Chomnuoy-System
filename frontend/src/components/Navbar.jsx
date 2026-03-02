@@ -64,31 +64,17 @@ function Navbar() {
         <Link to="/" className="donor-brand" aria-label="Donor portal home">
           <span className="donor-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path 
-                d="M12 2L14.09 8.26L20.18 8.27L15.54 11.97L17.64 18.23L12 14.47L6.36 18.23L8.46 11.97L3.82 8.27L9.91 8.26L12 2Z" 
-                fill="currentColor"
-              />
-              <path 
-                d="M7 13C7 13 9 15 12 15C15 15 17 13 17 13" 
-                stroke="white" 
-                strokeWidth="1.5" 
-                strokeLinecap="round"
-              />
-              <circle 
-                cx="9" 
-                cy="9" 
-                r="1" 
-                fill="white"
-              />
-              <circle 
-                cx="15" 
-                cy="9" 
-                r="1" 
-                fill="white"
-              />
+              <rect x="3" y="3" width="18" height="18" rx="4" fill="#60A5FA" />
+              <path d="M8 12h5" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M13 8l3 3-3 3" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 13C7 13 9 15 12 15C15 15 17 13 17 13" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M12 8a2 2 0 0 0-4 0 2 2 0 0 0 4 0" fill="#ffffff" />
             </svg>
           </span>
-          <span>Chomnuoy</span>
+          <div className="donor-brand-text">
+            <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
+            <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
+          </div>
         </Link>
 
         <ul className="donor-links">
