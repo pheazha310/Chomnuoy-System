@@ -3,6 +3,7 @@
 * SPDX-License-Identifier: Apache-2.0
 */
 
+import { loginUser } from '../services/user-service';
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
@@ -66,32 +67,29 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
 
-  const handleLogin = (e) => {
+  // fielsError state
+  const [fielsErrors, setFieldErrors] = useState({ email: '', password: '' });
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (formData.email === 'error@example.com') {
-      setError('Invalid email or password. Please try again.');
-      return;
-    }
-
     setError(null);
+    setFieldErrors({ email: '', password: '' });
 
-    const emailName = formData.email.split('@')[0] || 'Alex Rivera';
-    const donorName = emailName
-      .split(/[._-]/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
+    try {
+      const data = await loginUser({
+        email: formData.email,
+        password: formData.password,
+      });
 
-    const donorSession = {
-      isLoggedIn: true,
-      role: 'Donor',
-      name: donorName || 'Alex Rivera',
-      impactLevel: 'Gold',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-    };
-
-    window.localStorage.setItem('chomnuoy_session', JSON.stringify(donorSession));
-    onLoginSuccess?.();
+      onLoginSuccess?.(data);
+    } catch (err) {
+      const errors = err.response?.data?.errors || {};
+      setFieldErrors({
+        email: errors.email?.[0] || '',
+        password: errors.password?.[0] || '',
+      });
+      setError(err.response?.data?.message || 'Login failed');
+    }
   };
 
   const handleSocialLogin = (provider) => {
@@ -135,11 +133,16 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             <input
               type="email"
               required
-              placeholder="e.g. name@company.com"
+              placeholder="Email"
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
+
+            {/* show messages below email input: */}
+            {setFieldErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{setFieldErrors.email}</p>
+            )}
           </div>
         </div>
 
@@ -160,6 +163,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
+
+            {/* show messages below password input: */}
+            {setFieldErrors.password && (
+              <p className='mt-1 text-sm text-red-600'>{setFieldErrors.password}</p>
+            )}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}

@@ -10,9 +10,9 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $table = 'users';
+    protected $fillable = ['name', 'phone', 'email', 'password', 'status', 'role_id'];
 
-    protected $guarded = [];
+    protected $hidden = ['password'];
 
     public const UPDATED_AT = null;
 }
