@@ -1,7 +1,7 @@
 <?php
 
-// use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CampaignImageController;
 use App\Http\Controllers\Api\CampaignUpdateController;
@@ -28,7 +28,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/auth/register', [AuditLogController::class, 'register']);
+Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',
@@ -36,6 +36,7 @@ Route::get('/health', function (): JsonResponse {
     ]);
 });
 
+Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::apiResource('users', UserController::class);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('user_roles', UserRoleController::class);
