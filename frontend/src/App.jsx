@@ -12,6 +12,7 @@ import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -23,8 +24,8 @@ function getSafeRedirect(search) {
 }
 
 function CampaignDetailRoute() {
-  const { id } = useParams();
-  return <CampaignDetailPage campaignId={id} />;
+  const { campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug} />;
 }
 
 function LoginRoute() {
@@ -87,11 +88,15 @@ export default function App() {
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
+        <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
+        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
+        <Route path="/donations" element={<div>My Donations Page</div>} />
+        <Route path="/pickup" element={<div>Material Pickup Page</div>} />
       </Routes>
       {!hideShell && <Footer />}
     </>
