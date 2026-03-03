@@ -1,6 +1,23 @@
 import { getCampaignById } from '../../data/campaigns';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import '../css/Campaigns.css';
+
+const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
+
+function getSavedCampaignIds() {
+  try {
+    const raw = window.localStorage.getItem(SAVED_CAMPAIGNS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setSavedCampaignIds(ids) {
+  window.localStorage.setItem(SAVED_CAMPAIGNS_STORAGE_KEY, JSON.stringify(ids));
+}
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
@@ -12,6 +29,8 @@ function formatCurrency(amount) {
 
 function CampaignDetailPage({ campaignId }) {
   const navigate = useNavigate();
+  const [shareLabel, setShareLabel] = useState('Share');
+  const [isSaved, setIsSaved] = useState(false);
   const campaign = getCampaignById(campaignId);
 
   if (!campaign) {
@@ -31,6 +50,56 @@ function CampaignDetailPage({ campaignId }) {
   const daysToGo = Math.max(5, 45 - Math.floor(campaign.raisedAmount / 5000));
   const creatorName = campaign.organization.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || campaign.organization;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  useEffect(() => {
+    const savedIds = getSavedCampaignIds();
+    setIsSaved(savedIds.includes(campaignId));
+  }, [campaignId]);
+
+  async function handleShare() {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
+    const shareData = {
+      title: campaign.title,
+      text: `${campaign.title} - ${campaign.summary}`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setShareLabel('Shared');
+      } else {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          const tempInput = document.createElement('textarea');
+          tempInput.value = shareUrl;
+          tempInput.setAttribute('readonly', '');
+          tempInput.style.position = 'absolute';
+          tempInput.style.left = '-9999px';
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+        }
+        setShareLabel('Link Copied');
+      }
+    } catch {
+      setShareLabel('Share Failed');
+    } finally {
+      window.setTimeout(() => setShareLabel('Share'), 1800);
+    }
+  }
+
+  function handleSaveToggle() {
+    const savedIds = getSavedCampaignIds();
+    const nextSavedIds = savedIds.includes(campaign.id)
+      ? savedIds.filter((id) => id !== campaign.id)
+      : [...savedIds, campaign.id];
+
+    setSavedCampaignIds(nextSavedIds);
+    setIsSaved(nextSavedIds.includes(campaign.id));
+  }
 
   return (
     <main className="campaign-detail-page">
@@ -122,8 +191,10 @@ function CampaignDetailPage({ campaignId }) {
               Back this project
             </button>
             <div className="detail-secondary-actions">
-              <button type="button">Share</button>
-              <button type="button">Save</button>
+              <button type="button" onClick={handleShare}>{shareLabel}</button>
+              <button type="button" onClick={handleSaveToggle} aria-pressed={isSaved}>
+                {isSaved ? 'Saved' : 'Save'}
+              </button>
             </div>
           </article>
 

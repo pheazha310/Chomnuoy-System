@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import '../css/organization.css';
 
 const organizations = [
@@ -90,11 +90,14 @@ function getPaginationItems(totalPages, currentPage) {
 }
 
 function Organization() {
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('4plus');
   const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const categoryMenuRef = useRef(null);
 
   const categoryOptions = useMemo(() => {
     const categories = new Set();
@@ -144,10 +147,38 @@ function Organization() {
     setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
   }, [totalPages]);
 
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
+        setIsCategoryMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsCategoryMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
   const paginatedOrganizations = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredOrganizations.slice(start, start + PAGE_SIZE);
   }, [filteredOrganizations, currentPage]);
+  const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
+  const hasActiveSearch = searchTerm.trim().length > 0;
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput.trim());
+  };
 
   return (
     <main className="organizations-content">
@@ -160,27 +191,76 @@ function Organization() {
       </section>
 
       <section className="organizations-controls" aria-label="Organization Filters">
-        <input
-          className="search-input"
-          type="search"
-          placeholder="Search organizations by name, mission, or keyword..."
-          aria-label="Search organizations"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-        />
+        <div className="search-wrap">
+          <input
+            className="search-input"
+            type="search"
+            placeholder="Search organizations by name, mission, or keyword..."
+            aria-label="Search organizations"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleSearch();
+              }
+            }}
+          />
+          <button type="button" className="search-btn" aria-label="Search organizations" onClick={handleSearch}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="5.5" />
+              <path d="M16 16L20 20" />
+            </svg>
+          </button>
+        </div>
+        {hasActiveSearch ? (
+          <p className="search-result-note">
+            Showing {filteredOrganizations.length} result{filteredOrganizations.length === 1 ? '' : 's'} for "
+            {searchTerm}"
+          </p>
+        ) : null}
         <div className="filter-row">
-          <select
-            className="filter-select"
-            value={selectedCategory}
-            onChange={(event) => setSelectedCategory(event.target.value)}
-          >
-            <option value="all">All Categories</option>
-            {categoryOptions.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
+          <div className="category-filter" ref={categoryMenuRef}>
+            <button
+              type="button"
+              className="filter-select category-trigger"
+              aria-haspopup="listbox"
+              aria-expanded={isCategoryMenuOpen}
+              aria-label="Filter by category"
+              onClick={() => setIsCategoryMenuOpen((open) => !open)}
+            >
+              {categoryLabel}
+            </button>
+            {isCategoryMenuOpen ? (
+              <ul className="category-menu" role="listbox" aria-label="Categories">
+                <li>
+                  <button
+                    type="button"
+                    className={`category-option ${selectedCategory === 'all' ? 'category-option-active' : ''}`}
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setIsCategoryMenuOpen(false);
+                    }}
+                  >
+                    All Categories
+                  </button>
+                </li>
+                {categoryOptions.map((category) => (
+                  <li key={category}>
+                    <button
+                      type="button"
+                      className={`category-option ${selectedCategory === category ? 'category-option-active' : ''}`}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setIsCategoryMenuOpen(false);
+                      }}
+                    >
+                      {category}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
           <select
             className="filter-select"
             value={ratingFilter}
@@ -202,6 +282,7 @@ function Organization() {
             className="clear-filters"
             type="button"
             onClick={() => {
+              setSearchInput('');
               setSearchTerm('');
               setSelectedCategory('all');
               setRatingFilter('4plus');
@@ -284,3 +365,4 @@ function Organization() {
 }
 
 export default Organization;
+
