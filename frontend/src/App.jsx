@@ -1,4 +1,4 @@
-﻿import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import Navbar from '@/components/Navbar.jsx';
@@ -11,14 +11,13 @@ import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
-import LogoutPage from '@/auth/LogoutPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -44,6 +43,7 @@ function LoginRoute() {
       impactLevel: 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
       userId: data.user.id,
+      logoutRedirectTo: redirectTo,
     };
     
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
@@ -81,8 +81,7 @@ export default function App() {
   const location = useLocation();
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
-    location.pathname === '/register' ||
-    location.pathname === ROUTES.LOGOUT;
+    location.pathname === '/register';
 
   return (
     <>
@@ -98,14 +97,6 @@ export default function App() {
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
-        <Route
-          path={ROUTES.LOGOUT}
-          element={
-            <AuthLayout mode="login">
-              <LogoutPage />
-            </AuthLayout>
-          }
-        />
         <Route path="/register" element={<RegisterRoute />} />
         <Route path="/donations" element={<div>My Donations Page</div>} />
         <Route path="/pickup" element={<div>Material Pickup Page</div>} />

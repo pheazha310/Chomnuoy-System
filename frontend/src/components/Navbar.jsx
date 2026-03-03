@@ -1,6 +1,7 @@
 import "./css/Navbar.css";
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -29,7 +30,24 @@ function getDonorSession() {
   }
 }
 
+function clearAuthState() {
+  window.localStorage.removeItem('chomnuoy_session');
+  window.localStorage.removeItem('authToken');
+}
+
 function isNavItemActive(itemHref, pathname) {
+  if (itemHref === '/campaigns') {
+    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
+  }
+
+  if (itemHref === '/campaigns/donor') {
+    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
+  }
+
+  return pathname === itemHref;
+}
+
+function isGuestNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
   }
@@ -43,15 +61,25 @@ function Navbar() {
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
 
   const handleLogout = () => {
-    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    window.location.href = `/logout?from=${encodeURIComponent(currentPath)}`;
+    const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
+    const logoutTarget =
+      savedBeforeLoginPath &&
+      savedBeforeLoginPath.startsWith('/') &&
+      !savedBeforeLoginPath.startsWith('/logout')
+        ? savedBeforeLoginPath
+        : '/';
+
+    clearAuthState();
+    window.location.href = logoutTarget;
   };
 
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
+    setIsLogoutPopupOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -64,6 +92,67 @@ function Navbar() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProfileMenuOpen]);
+
+  useEffect(() => {
+    if (!isLogoutPopupOpen) return undefined;
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setIsLogoutPopupOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isLogoutPopupOpen]);
+
+  const logoutPopupMarkup = (
+    <div
+      className="logout-popup-overlay"
+      role="presentation"
+      onClick={() => setIsLogoutPopupOpen(false)}
+    >
+      <div
+        className="logout-popup"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-popup-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="logout-popup-header">
+          <h3 id="logout-popup-title">Log out from your account?</h3>
+          <button
+            type="button"
+            className="logout-popup-close"
+            aria-label="Close logout popup"
+            onClick={() => setIsLogoutPopupOpen(false)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
+              <path d="m18 6-12 12" strokeWidth="2" strokeLinecap="round" />
+              <path d="m6 6 12 12" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <p>You will need to sign in again to access donor features.</p>
+        <div className="logout-popup-actions">
+          <button
+            type="button"
+            className="logout-popup-cancel"
+            onClick={() => setIsLogoutPopupOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="logout-popup-confirm"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
@@ -227,8 +316,8 @@ function Navbar() {
                     type="button" 
                     className="donor-profile-menu-item donor-profile-logout"
                     onClick={() => {
-                      handleLogout();
                       setIsProfileMenuOpen(false);
+                      setIsLogoutPopupOpen(true);
                     }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -243,6 +332,10 @@ function Navbar() {
             )}
           </div>
         </div>
+
+        {isLogoutPopupOpen && typeof document !== 'undefined'
+          ? createPortal(logoutPopupMarkup, document.body)
+          : null}
       </nav>
     );
   }
@@ -321,31 +414,7 @@ function Navbar() {
             <a
               href={item.href}
               onClick={() => setIsGuestMenuOpen(false)}
-              className={
-                item.href === "/campaigns"
-                  ? pathname === "/" || pathname.startsWith("/campaigns")
-                    ? "active"
-                    : ""
-                  : item.href === "/organizations"
-                    ? pathname === "/organizations"
-                      ? "active"
-                      : ""
-                  : item.href === "/how-it-works"
-                    ? pathname === "/how-it-works"
-                      ? "active"
-                      : ""
-                    : item.href === "/about"
-                      ? pathname === "/about"
-                        ? "active"
-                        : ""
-                    : item.href === "/contact"
-                      ? pathname === "/contact"
-                        ? "active"
-                        : ""
-                      : pathname === item.href
-                        ? "active"
-                        : ""
-              }
+              className={isGuestNavItemActive(item.href, pathname) ? 'active' : ''}
             >
               {item.label}
             </a>
@@ -353,7 +422,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link to="/login?redirect=%2F" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>
