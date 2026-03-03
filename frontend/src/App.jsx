@@ -6,7 +6,7 @@ import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-import OrganizationDashboardPage from '@/app/organization/page.jsx';
+import Organization from '@/components/pages/organization.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
@@ -56,10 +56,7 @@ function RegisterRoute() {
 
 export default function App() {
   const location = useLocation();
-  const hideShell =
-    location.pathname === ROUTES.LOGIN ||
-    location.pathname === '/register' ||
-    location.pathname === ROUTES.ORGANIZATIONS;
+  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
 
   return (
     <>
@@ -67,7 +64,7 @@ export default function App() {
       <Routes>
         <Route path={ROUTES.HOME} element={<Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
-        <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationDashboardPage />} />
+        <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
