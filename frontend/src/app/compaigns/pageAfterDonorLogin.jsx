@@ -1,6 +1,7 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 export default function CampaignCard({
   title,
@@ -13,14 +14,28 @@ export default function CampaignCard({
   isUrgent,
   isNew,
 }) {
+  const navigate = useNavigate();
   const progress = Math.min((raised / goal) * 100, 100);
+
+  const handleCardClick = () => {
+    // Navigate to campaign details page
+    navigate(`/campaigns/${title.toLowerCase().replace(/\s+/g, '-')}`);
+  };
+
+  const handleDonateClick = (e) => {
+    e.stopPropagation(); // Prevent card click
+    // Handle donation action - could open modal or navigate to donation page
+    console.log(`Donate to ${title}`);
+    // You could navigate to a donation page: navigate(`/donate/${title.toLowerCase().replace(/\s+/g, '-')}`);
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="group bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all flex flex-col"
+      onClick={handleCardClick}
+      className="group bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition-all flex flex-col cursor-pointer"
     >
       <div className="relative h-56 overflow-hidden">
         <img
@@ -78,7 +93,10 @@ export default function CampaignCard({
               <Clock className="w-4 h-4" />
               <span>{timeLeft}</span>
             </div>
-            <button className="bg-primary hover:bg-primary/90 text-white px-5 py-2 rounded-lg text-sm font-bold transition-colors">
+            <button 
+              onClick={handleDonateClick}
+              className="bg-primary hover:bg-primary/90 text-white px-5 py-2 rounded-lg text-sm font-bold transition-colors"
+            >
               Support
             </button>
           </div>

@@ -1,6 +1,18 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { 
+  Heart, 
+  Share2, 
+  Clock, 
+  Users, 
+  Target, 
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  CheckCircle
+} from 'lucide-react';
+
 import { getCampaignById } from '../../data/campaigns';
-import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import '../css/Campaigns.css';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
@@ -35,12 +47,17 @@ function CampaignDetailPage({ campaignId }) {
 
   if (!campaign) {
     return (
-      <main className="campaign-detail-page">
-        <p>Campaign not found.</p>
-        <a href="/campaigns" className="detail-back-link">
-          Back to campaigns
-        </a>
-      </main>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Campaign Not Found</h1>
+          <button 
+            onClick={() => navigate('/campaigns/donor')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Campaigns
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -102,127 +119,214 @@ function CampaignDetailPage({ campaignId }) {
   }
 
   return (
-    <main className="campaign-detail-page">
-      <a href="/campaigns" className="detail-back-link">
-        Back to campaigns
-      </a>
-
-      <section className="campaign-detail-layout">
-        <article className="campaign-main-column">
-          <section className="campaign-hero-panel">
-            <img src={campaign.image} alt={campaign.title} className="campaign-detail-image" />
-            <div className="campaign-hero-overlay">
-              <span className="campaign-category">Verified Project | {campaign.category}</span>
-              <h1>{campaign.title}</h1>
-            </div>
-          </section>
-
-          <section className="campaign-about">
-            <div className="campaign-tabs" role="tablist" aria-label="Campaign sections">
-              <button type="button" className="tab-active">
-                About Campaign
-              </button>
-              <button type="button">Updates</button>
-              <button type="button">FAQ</button>
-              <button type="button">Community</button>
-            </div>
-            <p>
-              {campaign.summary} This campaign focuses on long-term impact through transparent milestones and verified
-              local implementation.
-            </p>
-            <div className="campaign-pillars">
-              <article>
-                <h3>Sustainable Delivery</h3>
-                <p>Funding supports implementation, training, and maintenance so results continue after launch.</p>
-              </article>
-              <article>
-                <h3>Local Training</h3>
-                <p>Community partners receive practical onboarding to operate and maintain project resources.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="campaign-updates">
-            <h2>Campaign Updates</h2>
-            <article className="update-item">
-              <p className="update-meta">Today | Milestone Reached</p>
-              <h3>{percentRaised}% of our goal reached</h3>
-              <p>
-                Thanks to supporters, this project has crossed a major funding milestone and key procurement can begin.
-              </p>
-            </article>
-            <article className="update-item">
-              <p className="update-meta">{currentDate}</p>
-              <h3>Community partners confirmed</h3>
-              <p>Local teams finalized operations planning to ensure transparent rollout and regular reporting.</p>
-            </article>
-          </section>
-        </article>
-
-        <aside className="campaign-side-column">
-          <article className="detail-stat-card">
-            <p className="stat-amount">{formatCurrency(campaign.raisedAmount)}</p>
-            <p className="stat-goal">pledged of {formatCurrency(campaign.goalAmount)} goal</p>
-            <p className="stat-funded">{percentRaised}% funded</p>
-            <div
-              className="campaign-progress"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={progressWidth}
+    <div className="min-h-screen bg-slate-50">
+      {/* Navigation */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <button 
+              onClick={() => navigate('/campaigns/donor')}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
             >
-              <span style={{ width: `${progressWidth}%` }} />
-            </div>
-            <div className="detail-mini-stats">
-              <p>
-                <strong>{backers}</strong>
-                <span>Backers</span>
-              </p>
-              <p>
-                <strong>{daysToGo}</strong>
-                <span>Days to go</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              className="donate-button detail-donate-button"
-              onClick={() => navigate('/login')}
-            >
-              Back this project
+              <ArrowLeft className="w-5 h-5" />
+              Back to Campaigns
             </button>
-            <div className="detail-secondary-actions">
-              <button type="button" onClick={handleShare}>{shareLabel}</button>
-              <button type="button" onClick={handleSaveToggle} aria-pressed={isSaved}>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={handleSaveToggle}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  isSaved 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
                 {isSaved ? 'Saved' : 'Save'}
               </button>
+              <button 
+                onClick={handleShare}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Share
+              </button>
             </div>
-          </article>
+          </div>
+        </div>
+      </div>
 
-          <article className="detail-creator-card">
-            <p className="card-label">Project Creator</p>
-            <p className="creator-name">{creatorName}</p>
-            <p className="creator-subtext">{campaign.organization}</p>
-            <button type="button">Contact Creator</button>
-          </article>
+      {/* Hero Section */}
+      <div className="relative">
+        <div className="h-96 bg-slate-200">
+          <img 
+            src={campaign.image} 
+            alt={campaign.title}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full">
+                {campaign.category}
+              </span>
+              <span className="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-full">
+                Verified Project
+              </span>
+            </div>
+            <h1 className="text-4xl font-bold text-white mb-2">{campaign.title}</h1>
+            <p className="text-xl text-white/90">{campaign.summary}</p>
+          </div>
+        </div>
+      </div>
 
-          <article className="detail-rewards-card">
-            <p className="card-label">Select a reward</p>
-            <div className="reward-item">
-              <h4>$25 or more</h4>
-              <p>Supporter update access and campaign recognition.</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Progress Section */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Raised</p>
+                  <p className="text-3xl font-bold text-slate-900">{formatCurrency(campaign.raisedAmount)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-slate-600 mb-1">Goal</p>
+                  <p className="text-xl font-medium text-slate-700">{formatCurrency(campaign.goalAmount)}</p>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
+                <div 
+                  className="bg-blue-600 h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${progressWidth}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>{percentRaised}% funded</span>
+                <span>{formatCurrency(campaign.goalAmount - campaign.raisedAmount)} to go</span>
+              </div>
             </div>
-            <div className="reward-item reward-featured">
-              <h4>$100 or more</h4>
-              <p>Limited reward tier with premium project update package.</p>
+
+            {/* Campaign Details */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">About This Campaign</h2>
+              <p className="text-slate-700 leading-relaxed mb-6">
+                {campaign.summary} This campaign focuses on long-term impact through transparent milestones and verified local implementation. 
+                Funding supports implementation, training, and maintenance so results continue after launch.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-start gap-3">
+                  <Users className="w-5 h-5 text-slate-400 mt-1" />
+                  <div>
+                    <p className="font-medium text-slate-900">Organizer</p>
+                    <p className="text-slate-600">{campaign.organization}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-slate-400 mt-1" />
+                  <div>
+                    <p className="font-medium text-slate-900">Time Left</p>
+                    <p className="text-slate-600">{daysToGo} days</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="reward-item">
-              <h4>$500 or more</h4>
-              <p>Community partner mention and direct impact report.</p>
+
+            {/* Updates */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Campaign Updates</h2>
+              <div className="space-y-4">
+                <div className="border-l-4 border-blue-600 pl-4">
+                  <p className="text-sm text-slate-600 mb-1">Today | Milestone Reached</p>
+                  <h3 className="font-semibold text-slate-900 mb-1">{percentRaised}% of our goal reached</h3>
+                  <p className="text-slate-700">
+                    Thanks to supporters, this project has crossed a major funding milestone and key procurement can begin.
+                  </p>
+                </div>
+                <div className="border-l-4 border-blue-600 pl-4">
+                  <p className="text-sm text-slate-600 mb-1">{currentDate}</p>
+                  <h3 className="font-semibold text-slate-900 mb-1">Community partners confirmed</h3>
+                  <p className="text-slate-700">
+                    Local teams finalized operations planning to ensure transparent rollout and regular reporting.
+                  </p>
+                </div>
+              </div>
             </div>
-          </article>
-        </aside>
-      </section>
-    </main>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Donation Card */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 sticky top-6">
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Make a Donation</h3>
+              
+              {/* Quick Amount Buttons */}
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {[25, 50, 100, 250].map(amount => (
+                  <button
+                    key={amount}
+                    className="py-2 px-3 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                  >
+                    ${amount}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Donate Button */}
+              <button
+                onClick={() => alert('Donation functionality coming soon!')}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                Back this project
+              </button>
+              
+              {/* Donor Count */}
+              <div className="mt-4 text-center text-sm text-slate-600">
+                <Users className="w-4 h-4 inline mr-1" />
+                {backers} people have donated
+              </div>
+            </div>
+
+            {/* Trust Indicators */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <h3 className="font-semibold text-slate-900 mb-3">Why Donate With Us?</h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-sm text-slate-700">Verified Campaign</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-sm text-slate-700">Tax Deductible</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-sm text-slate-700">Regular Updates</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-sm text-slate-700">100% Secure</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Creator Info */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <h3 className="font-semibold text-slate-900 mb-3">Project Creator</h3>
+              <p className="font-medium text-slate-900 mb-1">{creatorName}</p>
+              <p className="text-sm text-slate-600 mb-4">{campaign.organization}</p>
+              <button className="w-full bg-slate-100 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-200 transition-colors">
+                Contact Creator
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

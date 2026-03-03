@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutGrid, 
   AlertCircle, 
@@ -74,9 +74,18 @@ const CAMPAIGNS = [
 ];
 
 export default function App() {
+  const [selectedFilter, setSelectedFilter] = useState('All Campaigns');
+  
+  const filteredCampaigns = CAMPAIGNS.filter(campaign => {
+    if (selectedFilter === 'All Campaigns') return true;
+    if (selectedFilter === 'Urgent') return campaign.isUrgent;
+    if (selectedFilter === 'Newest') return campaign.isNew;
+    return campaign.category === selectedFilter;
+  });
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+    <div className="min-h-screen bg-slate-50">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome & Stats Summary */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
           <div>
@@ -104,23 +113,65 @@ export default function App() {
         {/* Filters Section */}
         <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 px-2 no-scrollbar">
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold whitespace-nowrap">
+            <button 
+              onClick={() => setSelectedFilter('All Campaigns')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                selectedFilter === 'All Campaigns' 
+                  ? 'bg-primary text-white' 
+                  : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
               <LayoutGrid className="w-4 h-4" /> All Campaigns
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+            <button 
+              onClick={() => setSelectedFilter('Urgent')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                selectedFilter === 'Urgent' 
+                  ? 'bg-red-500 text-white' 
+                  : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
               <AlertCircle className="w-4 h-4 text-red-500" /> Urgent
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+            <button 
+              onClick={() => setSelectedFilter('Newest')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                selectedFilter === 'Newest' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
               <Zap className="w-4 h-4" /> Newest
             </button>
             <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block"></div>
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+            <button 
+              onClick={() => setSelectedFilter('Education')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                selectedFilter === 'Education' 
+                  ? 'bg-purple-500 text-white' 
+                  : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
               <GraduationCap className="w-4 h-4" /> Education
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+            <button 
+              onClick={() => setSelectedFilter('Medical')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                selectedFilter === 'Medical' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
               <Stethoscope className="w-4 h-4 text-blue-400" /> Medical
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors">
+            <button 
+              onClick={() => setSelectedFilter('Environment')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                selectedFilter === 'Environment' 
+                  ? 'bg-green-500 text-white' 
+                  : 'hover:bg-slate-100 text-slate-600'
+              }`}
+            >
               <Leaf className="w-4 h-4 text-green-500" /> Environment
             </button>
           </div>
@@ -133,7 +184,7 @@ export default function App() {
 
         {/* Campaign Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {CAMPAIGNS.map((campaign, index) => (
+          {filteredCampaigns.map((campaign, index) => (
             <CampaignCard key={index} {...campaign} />
           ))}
         </div>

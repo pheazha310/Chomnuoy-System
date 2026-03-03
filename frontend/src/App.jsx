@@ -24,8 +24,8 @@ function getSafeRedirect(search) {
 }
 
 function CampaignDetailRoute() {
-  const { id } = useParams();
-  return <CampaignDetailPage campaignId={id} />;
+  const { campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug} />;
 }
 
 function LoginRoute() {
@@ -90,6 +90,7 @@ export default function App() {
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
+        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />

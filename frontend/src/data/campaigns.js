@@ -1,5 +1,65 @@
 export const campaigns = [
   {
+    id: 'clean-water-for-villages',
+    title: 'Clean Water for Villages',
+    category: 'Environment',
+    organization: 'Water for Africa Foundation',
+    summary: 'Providing sustainable clean water solutions for remote communities in sub-Saharan Africa. Your help can change lives.',
+    goalAmount: 25000,
+    raisedAmount: 18450,
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDZQ5WqI404djBjtac5Fz6r7hTKzvdFzOC7xtPsmBYEvjAwoFjKSOAUsg7NjAqI3e5Ci9ebCJdvwN7nmEtRqaceE0hHFAmrgukUb9zVYexehzmTLAJ8GLAfa8PR2aEZlpAo773uOtmG1rHSqpknCI_TLcS8nFFU6ebB4aRe83hlPEb93U7FJEn8AEf6Mm-sO6LEC1HiPaPZm4BFQPwq7OHdOWhhth_YdphwY-J_ts6sYy3AyXuA7s9kZQ0Ph-YHe3hxuDNOin2xjTVp",
+  },
+  {
+    id: 'books-for-rural-schools',
+    title: 'Books for Rural Schools',
+    category: 'Education',
+    organization: 'Education First Initiative',
+    summary: 'Equipping rural school libraries with modern textbooks and digital learning resources to bridge the education gap.',
+    goalAmount: 12000,
+    raisedAmount: 5200,
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuD3rTWyzHHN8_GnkruqbYuHZiCtCyv8poqxjaGCbnVCszGrFAyomO6aZD_y0QrHZXPf8rambXZtUhQj7PJM0Hsipc96j87V0lZzGMNt5bhhhvuwvnSJxhaqQW9JDB3RIVgHcqenaidIFRm5ylyF9uSERXQncIB9nh8QOxjwbbEsi2jexglwzZZsxJVdWlhjRRd0t-cZrqjpR4DpXazIjB0yCTIFExgnQAxSpCN-wXOPPunbgvLhFPqpRBy14QlJh1JQDqZJzOewjD1Z",
+  },
+  {
+    id: 'medical-aid-for-refugees',
+    title: 'Medical Aid for Refugees',
+    category: 'Medical',
+    organization: 'Medical Aid International',
+    summary: 'Funding mobile clinics to provide essential healthcare services and emergency medicines to displaced families.',
+    goalAmount: 50000,
+    raisedAmount: 42800,
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA7cMFRe6hoTv1oVmbNDNJi3w9vxNJ4XiZ58JrnOyJNxv9RF6iy6ussa_C38R_XWGi4BuHIRhLTD1WA9r-wggo13jXUngMQnqIzQ_RSVDuRZ7dP1oKP2PaOvSiLUnT4SfBDtHjaIL0ZflhcmQqH8HH6cRRCU9CaDnhzk7UIZbt5JRo7iRLJ63J4nBl2s7fi6XLN3ysQ5Xi5-FV4vc1zr8pjv2NpKEm3uzSmtIWtPrFp7Q76hyiDwZqGaYJTrr3LM8iHMJWvWa2hUA0d",
+  },
+  {
+    id: 'urban-forest-initiative',
+    title: 'Urban Forest Initiative',
+    category: 'Environment',
+    organization: 'Green Cities Collective',
+    summary: 'Planting 5,000 trees across major metropolitan areas to combat heat islands and improve air quality.',
+    goalAmount: 30000,
+    raisedAmount: 1200,
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDeEusVTlVpD8B4ufJUqUqSkfNvfgxmDNRR9-KTRoBtoLYUp9fbDl2ejywPrXO0b3nAY9UfsG7fFvWe_ZfdL6ztWgwfhQV_F8Xkrkvu0OoYhuJd_rHKVOlaaJDb-BVz-ThpogDWHVwnnuEzgLB64GJWghFEFEG7lGU5o1hTAIh4-me06Hv-kYlW0WsNVDD_wbvWPoH6lf2JuTmmFNPgQ42VogaMiE1XERvkh57Dm5TPoMrE31cg6IMmwEH5srYllSYUVvUYGjEg-Nbz",
+  },
+  {
+    id: 'winter-warmth-drive',
+    title: 'Winter Warmth Drive',
+    category: 'Social Welfare',
+    organization: 'Community Care Network',
+    summary: 'Providing coats, blankets, and hot meals to those experiencing homelessness during the severe winter months.',
+    goalAmount: 10000,
+    raisedAmount: 8900,
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBw9Y2dqtP6zBfyWnMaDgwrX8jw_23uupzwcONvRQXnv7VNT2yuivXkVBPSXvKda3tnlx4_kNOEwWQpsZKmuNsNE8nvDq7yic42fGBTjRseepxNXXYTQRBs6XoIs2Gds5RbCn6loNkUNOvP0XA48ZCOv0vWGTuhEul_Iwwn0dvTAYMxTvUpzL2gtsBM2oVjec-Erio0MuTvz40VtM_G0PHZ3KXiOymL2l07bp-ENBaD23S4uufAFDovSaNg8y7r6WhiNkXRT1cuiGY-",
+  },
+  {
+    id: 'youth-coding-bootcamp',
+    title: 'Youth Coding Bootcamp',
+    category: 'Education',
+    organization: 'Tech Education Alliance',
+    summary: 'Empowering underprivileged youth with digital skills through intensive 12-week coding and career preparation bootcamps.',
+    goalAmount: 15000,
+    raisedAmount: 2500,
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuBPW1ta5cOWkI1NriX9db0oENxLfSqRpRClDDtWDT2mB9R9KyGKnCFltSAhO3VXXSlCKCor7DgSoIO6JX5E77ZvJJtDDaTJoYKRwJ0SLA8xY5uKJdXLbE4f9tAegwX-KDx6ui0Tz68fazwTVcOnsdEWAb4DYYsOeGByttHt3ZN1wJiLCYdV4MV64u9QKaWS7M-7A5B1cltlHVT_gZwuyWRLBj3wRwUnMrco9_SUXD21AAtLmyfN89hzovt-w1dnPw-Ab3LCFAtI6y11",
+  },
+  {
     id: 'nextgen-solar-charger',
     title: 'NextGen Solar Charger',
     category: 'Technology',
@@ -155,6 +215,6 @@ export const campaigns = [
   },
 ];
 
-export function getCampaignById(id) {
-  return campaigns.find((campaign) => campaign.id === id) ?? null;
+export function getCampaignById(idOrSlug) {
+  return campaigns.find((campaign) => campaign.id === idOrSlug) ?? null;
 }
