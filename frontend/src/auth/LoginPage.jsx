@@ -74,7 +74,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     }
 
     setError(null);
-    onLoginSuccess?.();
+    onLoginSuccess?.({ user: { email: formData.email } });
   };
 
   const handleSocialLogin = (provider) => {
