@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
 use App\Models\Role;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -21,5 +22,13 @@ class DatabaseSeeder extends Seeder
         // ]);
         Role::firstOrCreate(['role_name' => 'Donor']);
         Role::firstOrCreate(['role_name' => 'Organization']);
+
+        Category::firstOrCreate(['category_name' => 'Child Support']);
+        Category::firstOrCreate(['category_name' => 'Disaster Relief']);
+        Category::firstOrCreate(['category_name' => 'Education']);
+        Category::firstOrCreate(['category_name' => 'Food & Nutrition']);
+        Category::firstOrCreate(['category_name' => 'Healthcare']);
+        Category::firstOrCreate(['category_name' => 'Hospital']);
+        Category::firstOrCreate(['category_name' => 'school']);
     }
-}
+}                                                                                                   

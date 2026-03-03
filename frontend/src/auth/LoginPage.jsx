@@ -67,8 +67,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
 
-  // fielsError state
-  const [fielsErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -139,9 +138,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
 
-            {/* show messages below email input: */}
-            {setFieldErrors.email && (
-              <p className="mt-1 text-sm text-red-600">{setFieldErrors.email}</p>
+            {fieldErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
           </div>
         </div>
@@ -164,17 +162,16 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
 
-            {/* show messages below password input: */}
-            {setFieldErrors.password && (
-              <p className='mt-1 text-sm text-red-600'>{setFieldErrors.password}</p>
+            {fieldErrors.password && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#667085]"
-              aria-label="Toggle password visibility"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
             </button>
           </div>
         </div>
