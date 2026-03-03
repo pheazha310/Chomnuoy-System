@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   LayoutGrid, 
   AlertCircle, 
@@ -75,6 +75,7 @@ const CAMPAIGNS = [
 
 export default function App() {
   const [selectedFilter, setSelectedFilter] = useState('All Campaigns');
+  const [visibleCount, setVisibleCount] = useState(6);
   
   const filteredCampaigns = CAMPAIGNS.filter(campaign => {
     if (selectedFilter === 'All Campaigns') return true;
@@ -82,6 +83,12 @@ export default function App() {
     if (selectedFilter === 'Newest') return campaign.isNew;
     return campaign.category === selectedFilter;
   });
+  const visibleCampaigns = filteredCampaigns.slice(0, visibleCount);
+  const hasMoreCampaigns = visibleCount < filteredCampaigns.length;
+
+  useEffect(() => {
+    setVisibleCount(6);
+  }, [selectedFilter]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -184,15 +191,20 @@ export default function App() {
 
         {/* Campaign Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {filteredCampaigns.map((campaign, index) => (
+          {visibleCampaigns.map((campaign, index) => (
             <CampaignCard key={index} {...campaign} />
           ))}
         </div>
 
         {/* Load More */}
         <div className="mt-16 text-center">
-          <button className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-            View More Campaigns
+          <button
+            type="button"
+            onClick={() => setVisibleCount((current) => current + 3)}
+            disabled={!hasMoreCampaigns}
+            className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {hasMoreCampaigns ? 'View More Campaigns' : 'No More Campaigns'}
             <ChevronDown className="w-5 h-5" />
           </button>
         </div>
