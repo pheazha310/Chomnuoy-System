@@ -11,6 +11,7 @@ import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
+import LogoutPage from '@/auth/LogoutPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 
@@ -78,7 +79,10 @@ function RegisterRoute() {
 
 export default function App() {
   const location = useLocation();
-  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
+  const hideShell =
+    location.pathname === ROUTES.LOGIN ||
+    location.pathname === '/register' ||
+    location.pathname === ROUTES.LOGOUT;
 
   return (
     <>
@@ -94,6 +98,14 @@ export default function App() {
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
+        <Route
+          path={ROUTES.LOGOUT}
+          element={
+            <AuthLayout mode="login">
+              <LogoutPage />
+            </AuthLayout>
+          }
+        />
         <Route path="/register" element={<RegisterRoute />} />
         <Route path="/donations" element={<div>My Donations Page</div>} />
         <Route path="/pickup" element={<div>Material Pickup Page</div>} />

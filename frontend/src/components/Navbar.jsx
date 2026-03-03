@@ -29,10 +29,6 @@ function getDonorSession() {
   }
 }
 
-function clearDonorSession() {
-  window.localStorage.removeItem('chomnuoy_session');
-}
-
 function isNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
@@ -49,8 +45,8 @@ function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   const handleLogout = () => {
-    clearDonorSession();
-    window.location.href = '/login';
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.href = `/logout?from=${encodeURIComponent(currentPath)}`;
   };
 
   useEffect(() => {

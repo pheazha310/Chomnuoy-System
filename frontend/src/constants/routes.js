@@ -8,6 +8,7 @@ const ROUTES = {
   HOW_IT_WORKS: '/how-it-works',
   CONTACT: '/contact',
   LOGIN: '/login',
+  LOGOUT: '/logout',
   DASHBOARD: '/dashboard',
 };
 
