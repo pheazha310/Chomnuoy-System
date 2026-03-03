@@ -127,7 +127,7 @@ function Home() {
             communities in need.
           </p>
           <div className="home-hero-actions">
-            <Link to="/login?redirect=%2Fcampaigns" className="home-btn home-btn-primary">
+            <Link to="/login?redirect=%2F" className="home-btn home-btn-primary">
               Donate Now
             </Link>
             <a href="/campaigns" className="home-btn home-btn-secondary">

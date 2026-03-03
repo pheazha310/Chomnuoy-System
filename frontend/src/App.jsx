@@ -1,4 +1,4 @@
-﻿import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import Navbar from '@/components/Navbar.jsx';
@@ -17,7 +17,7 @@ import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -43,6 +43,7 @@ function LoginRoute() {
       impactLevel: 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
       userId: data.user.id,
+      logoutRedirectTo: redirectTo,
     };
     
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
@@ -78,7 +79,9 @@ function RegisterRoute() {
 
 export default function App() {
   const location = useLocation();
-  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
+  const hideShell =
+    location.pathname === ROUTES.LOGIN ||
+    location.pathname === '/register';
 
   return (
     <>
