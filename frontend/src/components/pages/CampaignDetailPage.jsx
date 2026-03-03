@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Heart, 
-  Share2, 
-  Clock, 
-  Users, 
-  Target, 
+import {
+  Heart,
+  Share2,
   ArrowLeft,
-  Calendar,
+  Users,
   MapPin,
-  CheckCircle
+  Building2,
+  Droplets,
+  HandHeart,
 } from 'lucide-react';
 
 import { getCampaignById } from '../../data/campaigns';
@@ -40,10 +39,12 @@ function formatCurrency(amount) {
 }
 
 function CampaignDetailPage({ campaignId }) {
+  const params = useParams();
   const navigate = useNavigate();
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
-  const campaign = getCampaignById(campaignId);
+  const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
+  const campaign = getCampaignById(resolvedCampaignId);
 
   if (!campaign) {
     return (
@@ -65,13 +66,14 @@ function CampaignDetailPage({ campaignId }) {
   const progressWidth = Math.min(percentRaised, 100);
   const backers = Math.max(24, Math.round(campaign.raisedAmount / 35));
   const daysToGo = Math.max(5, 45 - Math.floor(campaign.raisedAmount / 5000));
-  const creatorName = campaign.organization.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || campaign.organization;
+  const creatorName =
+    campaign.organization.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || campaign.organization;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   useEffect(() => {
     const savedIds = getSavedCampaignIds();
-    setIsSaved(savedIds.includes(campaignId));
-  }, [campaignId]);
+    setIsSaved(savedIds.includes(campaign.id));
+  }, [campaign.id]);
 
   async function handleShare() {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
@@ -119,214 +121,153 @@ function CampaignDetailPage({ campaignId }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Navigation */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <button 
-              onClick={() => navigate('/campaigns/donor')}
-              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Campaigns
+    <main className="campaign-detail-page campaign-detail-v2">
+      <a href="/campaigns/donor" className="detail-back-link">
+        <ArrowLeft size={16} /> Back to campaigns
+      </a>
+
+      <section className="campaign-detail-layout campaign-detail-v2-layout" aria-label="Campaign detail">
+        <div className="campaign-main-column">
+          <article className="campaign-hero-panel campaign-hero-v2">
+            <img src={campaign.image} alt={campaign.title} className="campaign-detail-image" referrerPolicy="no-referrer" />
+            <div className="campaign-hero-overlay">
+              <span className="campaign-category">{campaign.category}</span>
+              <h1>{campaign.title}</h1>
+              <p className="campaign-hero-location">
+                <MapPin size={14} /> Kampong Speu, Cambodia
+              </p>
+            </div>
+          </article>
+
+          <nav className="campaign-tabs campaign-tabs-v2" aria-label="Campaign sections">
+            <button type="button" className="tab-active">About</button>
+            <button type="button">Updates (4)</button>
+            <button type="button">Organization</button>
+            <button type="button">Comments</button>
+          </nav>
+
+          <article className="campaign-about">
+            <h2>Project Impact</h2>
+            <p>
+              {campaign.summary} Access to clean water is a fundamental human right, and this project installs reliable
+              systems with long-term local maintenance.
+            </p>
+            <div className="campaign-pillars campaign-pillars-v2">
+              <article>
+                <h3><Droplets size={16} /> 5,000 Liters/Day</h3>
+                <p>Daily filtration capacity per village system.</p>
+              </article>
+              <article>
+                <h3><Users size={16} /> 500+ Families</h3>
+                <p>Directly benefiting from safe water access.</p>
+              </article>
+            </div>
+          </article>
+
+          <article className="campaign-updates campaign-updates-v2">
+            <h2>Recent Updates</h2>
+            <div className="update-item">
+              <p className="update-meta">Yesterday</p>
+              <h3>First Filtration Unit Arrived</h3>
+              <p>
+                The core components for the first solar filtration system have arrived at our central hub and are being
+                inspected by engineers.
+              </p>
+              <img
+                src="https://images.unsplash.com/photo-1618477247222-acbdb0e159b3?auto=format&fit=crop&w=720&q=80"
+                alt="Filtration update"
+                className="update-inline-image"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="update-item">
+              <p className="update-meta">{currentDate}</p>
+              <h3>Local team training completed</h3>
+              <p>Community technicians completed operational training for daily management and maintenance.</p>
+            </div>
+          </article>
+
+          <article className="campaign-updates campaign-donors-v2">
+            <h2>Recent Donors</h2>
+            <div className="donor-list-v2">
+              <div className="donor-item-v2">
+                <span className="donor-avatar donor-avatar-more">JD</span>
+                <div>
+                  <strong>John Doe</strong>
+                  <p>Donated $50 - 2 hours ago</p>
+                </div>
+                <Heart size={14} />
+              </div>
+              <div className="donor-item-v2">
+                <span className="donor-avatar donor-avatar-image">
+                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=64&q=80" alt="" />
+                </span>
+                <div>
+                  <strong>Sarah Miller</strong>
+                  <p>Donated $250 - 5 hours ago</p>
+                </div>
+                <Heart size={14} className="liked" />
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <aside className="campaign-side-column">
+          <article className="detail-stat-card detail-stat-v2">
+            <p className="stat-amount">{formatCurrency(campaign.raisedAmount)}</p>
+            <p className="stat-goal">raised of {formatCurrency(campaign.goalAmount)}</p>
+            <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
+              <span style={{ width: `${progressWidth}%` }} />
+            </div>
+            <div className="detail-mini-stats">
+              <p><strong>{backers}</strong><span>Donors</span></p>
+              <p><strong>{daysToGo}</strong><span>Days Left</span></p>
+              <p><strong>{percentRaised}%</strong><span>Reached</span></p>
+            </div>
+            <div className="quick-amount-grid">
+              {[10, 25, 50, 100, 250].map((amount) => (
+                <button key={amount} type="button" className={amount === 25 ? 'is-selected' : ''}>
+                  ${amount}
+                </button>
+              ))}
+              <button type="button">Custom</button>
+            </div>
+            <p className="selected-amount">$ 25</p>
+            <button type="button" className="donate-button detail-donate-button" onClick={() => alert('Donation functionality coming soon!')}>
+              <HandHeart size={15} /> Donate Now
             </button>
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={handleSaveToggle}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isSaved 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <Heart className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+            <div className="detail-secondary-actions">
+              <button type="button" className="detail-save-btn" onClick={handleSaveToggle}>
                 {isSaved ? 'Saved' : 'Save'}
               </button>
-              <button 
-                onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-                Share
+              <button type="button" className="detail-share-btn" onClick={handleShare}>
+                <Share2 size={14} /> {shareLabel}
               </button>
             </div>
-          </div>
-        </div>
-      </div>
+          </article>
 
-      {/* Hero Section */}
-      <div className="relative">
-        <div className="h-96 bg-slate-200">
-          <img 
-            src={campaign.image} 
-            alt={campaign.title}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full">
-                {campaign.category}
-              </span>
-              <span className="px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-full">
-                Verified Project
-              </span>
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-2">{campaign.title}</h1>
-            <p className="text-xl text-white/90">{campaign.summary}</p>
-          </div>
-        </div>
-      </div>
+          <article className="detail-creator-card">
+            <p className="card-label">Organized by</p>
+            <p className="creator-name">{creatorName}</p>
+            <p className="creator-subtext">{campaign.organization}</p>
+            <button type="button"><Building2 size={14} /> Contact Organizer</button>
+          </article>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Progress Section */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Raised</p>
-                  <p className="text-3xl font-bold text-slate-900">{formatCurrency(campaign.raisedAmount)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-slate-600 mb-1">Goal</p>
-                  <p className="text-xl font-medium text-slate-700">{formatCurrency(campaign.goalAmount)}</p>
-                </div>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-3 mb-4">
-                <div 
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${progressWidth}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>{percentRaised}% funded</span>
-                <span>{formatCurrency(campaign.goalAmount - campaign.raisedAmount)} to go</span>
-              </div>
-            </div>
-
-            {/* Campaign Details */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">About This Campaign</h2>
-              <p className="text-slate-700 leading-relaxed mb-6">
-                {campaign.summary} This campaign focuses on long-term impact through transparent milestones and verified local implementation. 
-                Funding supports implementation, training, and maintenance so results continue after launch.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start gap-3">
-                  <Users className="w-5 h-5 text-slate-400 mt-1" />
-                  <div>
-                    <p className="font-medium text-slate-900">Organizer</p>
-                    <p className="text-slate-600">{campaign.organization}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-slate-400 mt-1" />
-                  <div>
-                    <p className="font-medium text-slate-900">Time Left</p>
-                    <p className="text-slate-600">{daysToGo} days</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Updates */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">Campaign Updates</h2>
-              <div className="space-y-4">
-                <div className="border-l-4 border-blue-600 pl-4">
-                  <p className="text-sm text-slate-600 mb-1">Today | Milestone Reached</p>
-                  <h3 className="font-semibold text-slate-900 mb-1">{percentRaised}% of our goal reached</h3>
-                  <p className="text-slate-700">
-                    Thanks to supporters, this project has crossed a major funding milestone and key procurement can begin.
-                  </p>
-                </div>
-                <div className="border-l-4 border-blue-600 pl-4">
-                  <p className="text-sm text-slate-600 mb-1">{currentDate}</p>
-                  <h3 className="font-semibold text-slate-900 mb-1">Community partners confirmed</h3>
-                  <p className="text-slate-700">
-                    Local teams finalized operations planning to ensure transparent rollout and regular reporting.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Donation Card */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 sticky top-6">
-              <h3 className="text-xl font-bold text-slate-900 mb-4">Make a Donation</h3>
-              
-              {/* Quick Amount Buttons */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {[25, 50, 100, 250].map(amount => (
-                  <button
-                    key={amount}
-                    className="py-2 px-3 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200 transition-colors"
-                  >
-                    ${amount}
-                  </button>
-                ))}
-              </div>
-              
-              {/* Donate Button */}
-              <button
-                onClick={() => alert('Donation functionality coming soon!')}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Back this project
-              </button>
-              
-              {/* Donor Count */}
-              <div className="mt-4 text-center text-sm text-slate-600">
-                <Users className="w-4 h-4 inline mr-1" />
-                {backers} people have donated
-              </div>
-            </div>
-
-            {/* Trust Indicators */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h3 className="font-semibold text-slate-900 mb-3">Why Donate With Us?</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-sm text-slate-700">Verified Campaign</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-sm text-slate-700">Tax Deductible</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-sm text-slate-700">Regular Updates</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-sm text-slate-700">100% Secure</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Creator Info */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-              <h3 className="font-semibold text-slate-900 mb-3">Project Creator</h3>
-              <p className="font-medium text-slate-900 mb-1">{creatorName}</p>
-              <p className="text-sm text-slate-600 mb-4">{campaign.organization}</p>
-              <button className="w-full bg-slate-100 text-slate-700 py-2 rounded-lg font-medium hover:bg-slate-200 transition-colors">
-                Contact Creator
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          <article className="detail-rewards-card detail-location-card">
+            <p className="card-label">Location</p>
+            <img
+              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
+              alt="Project location map"
+              className="location-image"
+              referrerPolicy="no-referrer"
+            />
+            <p className="location-caption">
+              Project sites located across 5 villages in the Thpong district.
+            </p>
+          </article>
+        </aside>
+      </section>
+    </main>
   );
 }
 
