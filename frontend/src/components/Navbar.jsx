@@ -1,9 +1,10 @@
 import "./css/Navbar.css";
+import { Link } from 'react-router-dom';
 
 const navItems = [
   { label: "Home", href: "/" },
   { label: "About Us", href: "/about" },
-  { label: "Organizations", href: "#" },
+  { label: "Organizations", href: "/organizations" },
   { label: "Campaigns", href: "/campaigns" },
   { label: "How It Works", href: "/how-it-works" },
   { label: "Contact", href: "/contact" },
@@ -70,6 +71,10 @@ function Navbar() {
                   ? pathname === "/" || pathname.startsWith("/campaigns")
                     ? "active"
                     : ""
+                  : item.href === "/organizations"
+                    ? pathname === "/organizations"
+                      ? "active"
+                      : ""
                   : item.href === "/how-it-works"
                     ? pathname === "/how-it-works"
                       ? "active"
@@ -93,9 +98,9 @@ function Navbar() {
         ))}
       </ul>
 
-      <button className="nav-cta" type="button">
+      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta">
         Donate Now
-      </button>
+      </Link>
     </nav>
   );
 }

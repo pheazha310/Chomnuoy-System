@@ -1,4 +1,5 @@
 import { getCampaignById } from '../../data/campaigns';
+import { useNavigate } from 'react-router-dom';
 import '../css/Campaigns.css';
 
 function formatCurrency(amount) {
@@ -10,6 +11,7 @@ function formatCurrency(amount) {
 }
 
 function CampaignDetailPage({ campaignId }) {
+  const navigate = useNavigate();
   const campaign = getCampaignById(campaignId);
 
   if (!campaign) {
@@ -112,7 +114,11 @@ function CampaignDetailPage({ campaignId }) {
                 <span>Days to go</span>
               </p>
             </div>
-            <button type="button" className="donate-button detail-donate-button">
+            <button
+              type="button"
+              className="donate-button detail-donate-button"
+              onClick={() => navigate('/login')}
+            >
               Back this project
             </button>
             <div className="detail-secondary-actions">
