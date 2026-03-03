@@ -1,5 +1,34 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Heart,
+  Share2,
+  ArrowLeft,
+  Users,
+  MapPin,
+  Building2,
+  Droplets,
+  HandHeart,
+} from 'lucide-react';
+
 import { getCampaignById } from '../../data/campaigns';
 import '../css/Campaigns.css';
+
+const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
+
+function getSavedCampaignIds() {
+  try {
+    const raw = window.localStorage.getItem(SAVED_CAMPAIGNS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setSavedCampaignIds(ids) {
+  window.localStorage.setItem(SAVED_CAMPAIGNS_STORAGE_KEY, JSON.stringify(ids));
+}
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
@@ -10,16 +39,26 @@ function formatCurrency(amount) {
 }
 
 function CampaignDetailPage({ campaignId }) {
-  const campaign = getCampaignById(campaignId);
+  const params = useParams();
+  const navigate = useNavigate();
+  const [shareLabel, setShareLabel] = useState('Share');
+  const [isSaved, setIsSaved] = useState(false);
+  const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
+  const campaign = getCampaignById(resolvedCampaignId);
 
   if (!campaign) {
     return (
-      <main className="campaign-detail-page">
-        <p>Campaign not found.</p>
-        <a href="/campaigns" className="detail-back-link">
-          Back to campaigns
-        </a>
-      </main>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Campaign Not Found</h1>
+          <button 
+            onClick={() => navigate('/campaigns/donor')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Campaigns
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -27,121 +66,204 @@ function CampaignDetailPage({ campaignId }) {
   const progressWidth = Math.min(percentRaised, 100);
   const backers = Math.max(24, Math.round(campaign.raisedAmount / 35));
   const daysToGo = Math.max(5, 45 - Math.floor(campaign.raisedAmount / 5000));
-  const creatorName = campaign.organization.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || campaign.organization;
+  const creatorName =
+    campaign.organization.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || campaign.organization;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+  useEffect(() => {
+    const savedIds = getSavedCampaignIds();
+    setIsSaved(savedIds.includes(campaign.id));
+  }, [campaign.id]);
+
+  async function handleShare() {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
+    const shareData = {
+      title: campaign.title,
+      text: `${campaign.title} - ${campaign.summary}`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setShareLabel('Shared');
+      } else {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          const tempInput = document.createElement('textarea');
+          tempInput.value = shareUrl;
+          tempInput.setAttribute('readonly', '');
+          tempInput.style.position = 'absolute';
+          tempInput.style.left = '-9999px';
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+        }
+        setShareLabel('Link Copied');
+      }
+    } catch {
+      setShareLabel('Share Failed');
+    } finally {
+      window.setTimeout(() => setShareLabel('Share'), 1800);
+    }
+  }
+
+  function handleSaveToggle() {
+    const savedIds = getSavedCampaignIds();
+    const nextSavedIds = savedIds.includes(campaign.id)
+      ? savedIds.filter((id) => id !== campaign.id)
+      : [...savedIds, campaign.id];
+
+    setSavedCampaignIds(nextSavedIds);
+    setIsSaved(nextSavedIds.includes(campaign.id));
+  }
+
   return (
-    <main className="campaign-detail-page">
-      <a href="/campaigns" className="detail-back-link">
-        Back to campaigns
+    <main className="campaign-detail-page campaign-detail-v2">
+      <a href="/campaigns/donor" className="detail-back-link">
+        <ArrowLeft size={16} /> Back to campaigns
       </a>
 
-      <section className="campaign-detail-layout">
-        <article className="campaign-main-column">
-          <section className="campaign-hero-panel">
-            <img src={campaign.image} alt={campaign.title} className="campaign-detail-image" />
+      <section className="campaign-detail-layout campaign-detail-v2-layout" aria-label="Campaign detail">
+        <div className="campaign-main-column">
+          <article className="campaign-hero-panel campaign-hero-v2">
+            <img src={campaign.image} alt={campaign.title} className="campaign-detail-image" referrerPolicy="no-referrer" />
             <div className="campaign-hero-overlay">
-              <span className="campaign-category">Verified Project | {campaign.category}</span>
+              <span className="campaign-category">{campaign.category}</span>
               <h1>{campaign.title}</h1>
-            </div>
-          </section>
-
-          <section className="campaign-about">
-            <div className="campaign-tabs" role="tablist" aria-label="Campaign sections">
-              <button type="button" className="tab-active">
-                About Campaign
-              </button>
-              <button type="button">Updates</button>
-              <button type="button">FAQ</button>
-              <button type="button">Community</button>
-            </div>
-            <p>
-              {campaign.summary} This campaign focuses on long-term impact through transparent milestones and verified
-              local implementation.
-            </p>
-            <div className="campaign-pillars">
-              <article>
-                <h3>Sustainable Delivery</h3>
-                <p>Funding supports implementation, training, and maintenance so results continue after launch.</p>
-              </article>
-              <article>
-                <h3>Local Training</h3>
-                <p>Community partners receive practical onboarding to operate and maintain project resources.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="campaign-updates">
-            <h2>Campaign Updates</h2>
-            <article className="update-item">
-              <p className="update-meta">Today | Milestone Reached</p>
-              <h3>{percentRaised}% of our goal reached</h3>
-              <p>
-                Thanks to supporters, this project has crossed a major funding milestone and key procurement can begin.
+              <p className="campaign-hero-location">
+                <MapPin size={14} /> Kampong Speu, Cambodia
               </p>
-            </article>
-            <article className="update-item">
+            </div>
+          </article>
+
+          <nav className="campaign-tabs campaign-tabs-v2" aria-label="Campaign sections">
+            <button type="button" className="tab-active">About</button>
+            <button type="button">Updates (4)</button>
+            <button type="button">Organization</button>
+            <button type="button">Comments</button>
+          </nav>
+
+          <article className="campaign-about">
+            <h2>Project Impact</h2>
+            <p>
+              {campaign.summary} Access to clean water is a fundamental human right, and this project installs reliable
+              systems with long-term local maintenance.
+            </p>
+            <div className="campaign-pillars campaign-pillars-v2">
+              <article>
+                <h3><Droplets size={16} /> 5,000 Liters/Day</h3>
+                <p>Daily filtration capacity per village system.</p>
+              </article>
+              <article>
+                <h3><Users size={16} /> 500+ Families</h3>
+                <p>Directly benefiting from safe water access.</p>
+              </article>
+            </div>
+          </article>
+
+          <article className="campaign-updates campaign-updates-v2">
+            <h2>Recent Updates</h2>
+            <div className="update-item">
+              <p className="update-meta">Yesterday</p>
+              <h3>First Filtration Unit Arrived</h3>
+              <p>
+                The core components for the first solar filtration system have arrived at our central hub and are being
+                inspected by engineers.
+              </p>
+              <img
+                src="https://images.unsplash.com/photo-1618477247222-acbdb0e159b3?auto=format&fit=crop&w=720&q=80"
+                alt="Filtration update"
+                className="update-inline-image"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="update-item">
               <p className="update-meta">{currentDate}</p>
-              <h3>Community partners confirmed</h3>
-              <p>Local teams finalized operations planning to ensure transparent rollout and regular reporting.</p>
-            </article>
-          </section>
-        </article>
+              <h3>Local team training completed</h3>
+              <p>Community technicians completed operational training for daily management and maintenance.</p>
+            </div>
+          </article>
+
+          <article className="campaign-updates campaign-donors-v2">
+            <h2>Recent Donors</h2>
+            <div className="donor-list-v2">
+              <div className="donor-item-v2">
+                <span className="donor-avatar donor-avatar-more">JD</span>
+                <div>
+                  <strong>John Doe</strong>
+                  <p>Donated $50 - 2 hours ago</p>
+                </div>
+                <Heart size={14} />
+              </div>
+              <div className="donor-item-v2">
+                <span className="donor-avatar donor-avatar-image">
+                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=64&q=80" alt="" />
+                </span>
+                <div>
+                  <strong>Sarah Miller</strong>
+                  <p>Donated $250 - 5 hours ago</p>
+                </div>
+                <Heart size={14} className="liked" />
+              </div>
+            </div>
+          </article>
+        </div>
 
         <aside className="campaign-side-column">
-          <article className="detail-stat-card">
+          <article className="detail-stat-card detail-stat-v2">
             <p className="stat-amount">{formatCurrency(campaign.raisedAmount)}</p>
-            <p className="stat-goal">pledged of {formatCurrency(campaign.goalAmount)} goal</p>
-            <p className="stat-funded">{percentRaised}% funded</p>
-            <div
-              className="campaign-progress"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={progressWidth}
-            >
+            <p className="stat-goal">raised of {formatCurrency(campaign.goalAmount)}</p>
+            <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
               <span style={{ width: `${progressWidth}%` }} />
             </div>
             <div className="detail-mini-stats">
-              <p>
-                <strong>{backers}</strong>
-                <span>Backers</span>
-              </p>
-              <p>
-                <strong>{daysToGo}</strong>
-                <span>Days to go</span>
-              </p>
+              <p><strong>{backers}</strong><span>Donors</span></p>
+              <p><strong>{daysToGo}</strong><span>Days Left</span></p>
+              <p><strong>{percentRaised}%</strong><span>Reached</span></p>
             </div>
-            <button type="button" className="donate-button detail-donate-button">
-              Back this project
+            <div className="quick-amount-grid">
+              {[10, 25, 50, 100, 250].map((amount) => (
+                <button key={amount} type="button" className={amount === 25 ? 'is-selected' : ''}>
+                  ${amount}
+                </button>
+              ))}
+              <button type="button">Custom</button>
+            </div>
+            <p className="selected-amount">$ 25</p>
+            <button type="button" className="donate-button detail-donate-button" onClick={() => alert('Donation functionality coming soon!')}>
+              <HandHeart size={15} /> Donate Now
             </button>
             <div className="detail-secondary-actions">
-              <button type="button">Share</button>
-              <button type="button">Save</button>
+              <button type="button" className="detail-save-btn" onClick={handleSaveToggle}>
+                {isSaved ? 'Saved' : 'Save'}
+              </button>
+              <button type="button" className="detail-share-btn" onClick={handleShare}>
+                <Share2 size={14} /> {shareLabel}
+              </button>
             </div>
           </article>
 
           <article className="detail-creator-card">
-            <p className="card-label">Project Creator</p>
+            <p className="card-label">Organized by</p>
             <p className="creator-name">{creatorName}</p>
             <p className="creator-subtext">{campaign.organization}</p>
-            <button type="button">Contact Creator</button>
+            <button type="button"><Building2 size={14} /> Contact Organizer</button>
           </article>
 
-          <article className="detail-rewards-card">
-            <p className="card-label">Select a reward</p>
-            <div className="reward-item">
-              <h4>$25 or more</h4>
-              <p>Supporter update access and campaign recognition.</p>
-            </div>
-            <div className="reward-item reward-featured">
-              <h4>$100 or more</h4>
-              <p>Limited reward tier with premium project update package.</p>
-            </div>
-            <div className="reward-item">
-              <h4>$500 or more</h4>
-              <p>Community partner mention and direct impact report.</p>
-            </div>
+          <article className="detail-rewards-card detail-location-card">
+            <p className="card-label">Location</p>
+            <img
+              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
+              alt="Project location map"
+              className="location-image"
+              referrerPolicy="no-referrer"
+            />
+            <p className="location-caption">
+              Project sites located across 5 villages in the Thpong district.
+            </p>
           </article>
         </aside>
       </section>
