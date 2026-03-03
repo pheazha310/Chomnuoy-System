@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
+import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
@@ -14,7 +15,7 @@ import AuthLayout from '@/auth/AuthLayout.jsx';
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -54,13 +55,17 @@ function CampaignDetailRoute() {
 
 export default function App() {
   const location = useLocation();
-  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
+  const isAuthenticated = Boolean(localStorage.getItem('authToken'));
+  const hideShell =
+    location.pathname === ROUTES.LOGIN ||
+    location.pathname === '/register' ||
+    (location.pathname === ROUTES.HOME && isAuthenticated);
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
-        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
