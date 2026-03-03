@@ -71,6 +71,7 @@ const trustPoints = [
 
 function HowItWorksPage() {
   const [activeTab, setActiveTab] = useState('money');
+  const workflowAnimationKey = `workflow-${activeTab}`;
 
   return (
     <main className="how-page">
@@ -118,11 +119,11 @@ function HowItWorksPage() {
         </div>
 
         {activeTab === 'money' ? (
-          <section className="how-cards-grid" aria-label="Money donation steps">
-            {donationMoneySteps.map((step) => {
+          <section key={workflowAnimationKey} className="how-cards-grid" aria-label="Money donation steps">
+            {donationMoneySteps.map((step, index) => {
               const Icon = step.icon;
               return (
-                <article key={step.title} className="how-step-card">
+                <article key={step.title} className="how-step-card" style={{ '--item-index': index }}>
                   <span className="how-step-icon">
                     <Icon size={18} />
                   </span>
@@ -133,16 +134,16 @@ function HowItWorksPage() {
             })}
           </section>
         ) : (
-          <section className="how-material-section" aria-label="Material donation steps">
+          <section key={workflowAnimationKey} className="how-material-section" aria-label="Material donation steps">
             <h2>Donating Materials</h2>
             <p className="how-section-subtitle">
               Have extra supplies? Furniture, books, or electronics can find a new home where they are needed most.
             </p>
             <div className="how-material-flow">
-              {materialSteps.map((step) => {
+              {materialSteps.map((step, index) => {
                 const Icon = step.icon;
                 return (
-                  <article key={step.title} className="how-material-item">
+                  <article key={step.title} className="how-material-item" style={{ '--item-index': index }}>
                     <span className="how-material-icon">
                       <Icon size={22} />
                     </span>
@@ -162,10 +163,10 @@ function HowItWorksPage() {
           We prioritize security and clarity in every transaction to ensure your kindness reaches its destination.
         </p>
         <div className="how-trust-grid">
-          {trustPoints.map((item) => {
+          {trustPoints.map((item, index) => {
             const Icon = item.icon;
             return (
-              <article key={item.title} className="how-trust-card">
+              <article key={item.title} className="how-trust-card" style={{ '--item-index': index }}>
                 <span className="how-trust-icon">
                   <Icon size={14} />
                 </span>

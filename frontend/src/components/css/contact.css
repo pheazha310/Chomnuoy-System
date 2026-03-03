@@ -1,12 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700;900&display=swap');
 
-body {
-  font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+:root {
+  --contact-font-sans: 'Public Sans', ui-sans-serif, system-ui, sans-serif;
+  --contact-color-primary: #196ee6;
+  --contact-color-bg: #f3f4f6;
+  --contact-color-text: #111418;
 }
 
 .contact-shell {
   min-height: 100vh;
-  background: #f3f4f6;
+  background: var(--contact-color-bg);
+  color: var(--contact-color-text);
+  font-family: var(--contact-font-sans);
 }
 
 .contact-container {

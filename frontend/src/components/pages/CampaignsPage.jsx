@@ -161,6 +161,7 @@ function CampaignsPage() {
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedCampaigns = filteredCampaigns.slice(startIndex, startIndex + itemsPerPage);
+  const gridAnimationKey = `${selectedCategory}-${selectedUrgency}-${verifiedOnly}-${selectedSort}-${currentPage}`;
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -266,8 +267,8 @@ function CampaignsPage() {
           </div>
         </header>
 
-        <section className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">
-          {paginatedCampaigns.map((campaign) => {
+        <section key={gridAnimationKey} className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">
+          {paginatedCampaigns.map((campaign, index) => {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
@@ -276,7 +277,7 @@ function CampaignsPage() {
             const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
 
             return (
-              <article key={campaign.id} className="campaign-card campaign-dashboard-card">
+              <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
                 <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
                   <img src={campaign.image} alt={campaign.title} className="campaign-image campaign-dashboard-image" loading="lazy" />
                   <div className="campaign-card-badges">
@@ -365,5 +366,3 @@ function CampaignsPage() {
 }
 
 export default CampaignsPage;
-
-

@@ -20,10 +20,13 @@
     linear-gradient(145deg, #0c1730, #0a1630 42%, #07152d);
   background-size: 74px 128px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: how-fade-up 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .how-hero-content {
   align-self: center;
+  animation: how-fade-up 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 80ms;
 }
 
 .how-hero-content h1 {
@@ -65,13 +68,14 @@
   border-radius: 12px;
   font-size: 1rem;
   font-weight: 700;
-  transition: transform 150ms ease, filter 150ms ease;
+  transition: transform 180ms ease, filter 180ms ease, box-shadow 180ms ease;
 }
 
 .how-button:hover,
 .how-button:focus-visible {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   filter: brightness(1.03);
+  box-shadow: 0 10px 22px rgba(14, 36, 60, 0.18);
 }
 
 .how-button-primary {
@@ -92,6 +96,8 @@
   background: #eef0f3;
   border: 1px solid rgba(255, 255, 255, 0.22);
   /* min-height: 360px; */
+  animation: how-scale-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 120ms;
 }
 
 .how-hero-media img {
@@ -99,11 +105,14 @@
   height: 100%;
   display: block;
   object-fit: cover;
+  transition: transform 380ms ease;
 }
 
 .how-workflow {
   display: grid;
   gap: 1rem;
+  animation: how-fade-up 520ms ease both;
+  animation-delay: 120ms;
 }
 
 .how-tabs {
@@ -126,12 +135,13 @@
   font-weight: 600;
   padding: 0.6rem 1.4rem;
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
 .how-tab.is-active {
   background: #ffffff;
   color: #1f7de2;
+  transform: translateY(-1px);
 }
 
 .how-cards-grid {
@@ -149,6 +159,11 @@
   border: 1px solid #e2e8f0;
   border-radius: 18px;
   padding: 2rem;
+  opacity: 0;
+  transform: translateY(16px) scale(0.985);
+  animation: how-card-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(80ms + (var(--item-index, 0) * 90ms));
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
 }
 
 .how-step-icon {
@@ -161,6 +176,7 @@
   color: #1f7de2;
   border: 1px solid #f3dccd;
   background: #f9efe9;
+  transition: transform 220ms ease, background-color 220ms ease;
 }
 
 .how-step-card h3 {
@@ -180,6 +196,7 @@
 .how-material-section {
   padding: 1.1rem 0.45rem 0.25rem;
   text-align: center;
+  animation: how-fade-up 420ms ease both;
 }
 
 .how-material-section h2,
@@ -226,6 +243,11 @@
 .how-material-item {
   position: relative;
   z-index: 1;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: how-card-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(70ms + (var(--item-index, 0) * 100ms));
+  transition: transform 220ms ease;
 }
 
 .how-material-icon {
@@ -238,6 +260,7 @@
   color: #1f7de2;
   border: 2px solid #1f7de2;
   background: #f8fafe;
+  transition: transform 220ms ease, box-shadow 220ms ease;
 }
 
 .how-material-item h3 {
@@ -260,6 +283,8 @@
   border-radius: 12px;
   padding: 3rem 1.4rem;
   text-align: center;
+  animation: how-fade-up 520ms ease both;
+  animation-delay: 140ms;
 }
 
 .how-trust-section h2 {
@@ -275,6 +300,11 @@
 
 .how-trust-card {
   padding: 0.3rem 2rem;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: how-card-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(100ms + (var(--item-index, 0) * 90ms));
+  transition: transform 220ms ease;
 }
 
 .how-trust-icon {
@@ -310,6 +340,8 @@
     radial-gradient(circle at 80% 24%, rgba(34, 126, 255, 0.24), transparent 45%),
     linear-gradient(135deg, #0e629a, #042639 58%, #022e46);
   border: 1px solid rgba(255, 170, 112, 0.2);
+  animation: how-fade-up 580ms ease both;
+  animation-delay: 200ms;
 }
 
 .how-cta h2 {
@@ -326,6 +358,69 @@
 
 .how-cta .how-button {
   margin-top: 0.95rem;
+}
+
+@media (hover: hover) {
+  .how-step-card:hover {
+    transform: translateY(-4px);
+    border-color: #cfdeee;
+    box-shadow: 0 14px 28px rgba(11, 31, 55, 0.1);
+  }
+
+  .how-step-card:hover .how-step-icon {
+    transform: translateY(-2px) scale(1.03);
+    background: #f3e5da;
+  }
+
+  .how-material-item:hover {
+    transform: translateY(-3px);
+  }
+
+  .how-material-item:hover .how-material-icon {
+    transform: scale(1.04);
+    box-shadow: 0 10px 18px rgba(31, 125, 226, 0.2);
+  }
+
+  .how-trust-card:hover {
+    transform: translateY(-3px);
+  }
+
+  .how-hero-media:hover img {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes how-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes how-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes how-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 1024px) {
@@ -402,5 +497,33 @@
   .how-trust-section {
     border-radius: 20px;
     padding: 1.4rem 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .how-hero,
+  .how-hero-content,
+  .how-hero-media,
+  .how-workflow,
+  .how-material-section,
+  .how-step-card,
+  .how-material-item,
+  .how-trust-section,
+  .how-trust-card,
+  .how-cta {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .how-button,
+  .how-tab,
+  .how-hero-media img,
+  .how-step-card,
+  .how-step-icon,
+  .how-material-item,
+  .how-material-icon,
+  .how-trust-card {
+    transition: none;
   }
 }
