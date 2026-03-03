@@ -13,7 +13,7 @@ const guestNavItems = [
 ];
 
 const donorNavItems = [
-  { label: 'Home', href: '#' },
+  { label: 'Home', href: '/' },
   { label: 'Organizations', href: '#' },
   { label: 'Campaigns', href: '/campaigns/donor' },
   { label: 'My Donations', href: '/donations' },

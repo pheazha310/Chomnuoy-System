@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
+import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
@@ -79,6 +80,17 @@ function RegisterRoute() {
 
 export default function App() {
   const location = useLocation();
+  let hasDonorSession = false;
+  try {
+    const rawSession = window.localStorage.getItem('chomnuoy_session');
+    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
+    hasDonorSession = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
+  } catch {
+    hasDonorSession = false;
+  }
+
+  const hasAuthToken = Boolean(window.localStorage.getItem('authToken'));
+  const isAuthenticated = hasAuthToken || hasDonorSession;
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register';
@@ -87,7 +99,7 @@ export default function App() {
     <>
       {!hideShell && <Navbar />}
       <Routes>
-        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
