@@ -1,35 +1,34 @@
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
-
+import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
-
-import HomeRoute from '@/components/HomeRoute';
-import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
-import DonorCampaignDetailPage from '@/app/compaigns/DonorCampaignDetailPage.jsx';
-import MyDonation from '@/app/donate/myDonation.jsx';
-import ViewDetail from '@/app/donate/viewDetail.jsx';
+import Home from '@/app/home/page.jsx';
+import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
+import Navbar from '@/components/Navbar.jsx';
+import Footer from '@/components/Footer.jsx';
+import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
+import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
+import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
+import Organization from '@/components/pages/organization.jsx';
+import AboutPage from '@/components/pages/AboutPage.jsx';
+import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
-import Footer from '@/components/Footer.jsx';
-import Navbar from '@/components/Navbar.jsx';
-import AboutPage from '@/components/pages/AboutPage.jsx';
-import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
-import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
-import ContactPage from '@/components/pages/ContactPage.jsx';
-import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-import Organization from '@/components/pages/organization.jsx';
+import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
+import MyDonation from '@/app/donate/myDonation.jsx';
+import ViewDetail from '@/app/donate/viewDetail.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
     return ROUTES.HOME;
   }
+
   return redirectParam;
 }
 
 function CampaignDetailRoute() {
-  const { id } = useParams();
-  return <CampaignDetailPage campaignId={id} />;
+  const { campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug} />;
 }
 
 function RequireAuth({ children }) {
@@ -41,9 +40,10 @@ function RequireAuth({ children }) {
   } catch {
     session = null;
   }
+  const isLoggedIn = Boolean(session?.isLoggedIn);
 
-  if (!session?.isLoggedIn) {
-    const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
+  if (!isLoggedIn) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
 
@@ -55,11 +55,28 @@ function LoginRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
+  const handleLoginSuccess = (data) => {
+    // Store user session data
+    const sessionData = {
+      isLoggedIn: true,
+      role: 'Donor',
+      name: data.user.name,
+      email: data.user.email,
+      impactLevel: 'Gold',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+      userId: data.user.id,
+      logoutRedirectTo: redirectTo,
+    };
+    
+    window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+    navigate(redirectTo);
+  };
+
   return (
     <AuthLayout mode="login">
       <LoginPage
         onToggleMode={() => navigate(`/register?redirect=${encodeURIComponent(redirectTo)}`)}
-        onLoginSuccess={() => navigate(redirectTo)}
+        onLoginSuccess={handleLoginSuccess}
       />
     </AuthLayout>
   );
@@ -70,46 +87,47 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
+  const handleRegisterSuccess = (email) => {
+    // After successful registration, redirect to login with email
+    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
+  };
+
   return (
     <AuthLayout mode="register">
-      <RegisterPage
-        onToggleMode={(email) =>
-          navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`)
-        }
-      />
+      <RegisterPage onToggleMode={handleRegisterSuccess} />
     </AuthLayout>
   );
 }
 
 export default function App() {
   const location = useLocation();
-  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
+  let hasDonorSession = false;
+  try {
+    const rawSession = window.localStorage.getItem('chomnuoy_session');
+    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
+    hasDonorSession = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
+  } catch {
+    hasDonorSession = false;
+  }
+
+  const hasAuthToken = Boolean(window.localStorage.getItem('authToken'));
+  const isAuthenticated = hasAuthToken || hasDonorSession;
+  const hideShell =
+    location.pathname === ROUTES.LOGIN ||
+    location.pathname === '/register';
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
-        <Route path={ROUTES.HOME} element={<HomeRoute />} />
+        <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
+        <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
-        <Route
-          path="/campaigns/donor"
-          element={
-            <RequireAuth>
-              <DonorCampaignsPage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/campaigns/donor/:id"
-          element={
-            <RequireAuth>
-              <DonorCampaignDetailPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
+        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />

@@ -1,13 +1,20 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
+﻿/**
+* @license
+* SPDX-License-Identifier: Apache-2.0
+*/
 
 import { loginUser } from '../services/user-service';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  AlertCircle,
+} from 'lucide-react';
 
 function GoogleIcon(props) {
   return (
@@ -44,16 +51,16 @@ function FacebookIcon(props) {
 }
 
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
+  const location = useLocation();
+  const showLogoutMessage = new URLSearchParams(location.search).get('loggedOut') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [socialLoading, setSocialLoading] = useState(null);
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false,
   });
-
   const socialAuthUrls = {
     google:
       import.meta.env.VITE_GOOGLE_AUTH_URL ??
@@ -62,6 +69,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       import.meta.env.VITE_FACEBOOK_AUTH_URL ??
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
+
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -73,31 +82,9 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
-
-      const displayName =
-        data?.user?.name ||
-        formData.email
-          .split('@')[0]
-          .split(/[._-]/)
-          .filter(Boolean)
-          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(' ') ||
-        'Donor User';
-
-      const donorSession = {
-        isLoggedIn: true,
-        role: 'Donor',
-        name: displayName,
-        email: data?.user?.email || formData.email,
-        impactLevel: data?.user?.impactLevel || 'Gold',
-        avatar:
-          data?.user?.avatar ||
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      };
-
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(donorSession));
-      if (data?.token) {
-        window.localStorage.setItem('authToken', data.token);
+      const token = data?.token || data?.access_token || data?.data?.token;
+      if (token) {
+        localStorage.setItem('authToken', token);
       }
 
       onLoginSuccess?.(data);
@@ -130,6 +117,16 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
       </div>
 
+      {showLogoutMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700"
+        >
+          You have been logged out successfully.
+        </motion.div>
+      )}
+
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -156,7 +153,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
-            {fieldErrors.email && <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>}
+
+            {/* show messages below email input: */}
+            {fieldErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+            )}
           </div>
         </div>
 
@@ -177,7 +178,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
-            {fieldErrors.password && <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>}
+
+            {/* show messages below password input: */}
+            {fieldErrors.password && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+            )}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
@@ -201,7 +206,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             Remember Me
           </label>
         </div>
-
         <div className="mt-5 flex items-center gap-3">
           <span className="h-px flex-1 bg-[#E4E7EC]" />
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">or login with email</span>
@@ -228,7 +232,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             Facebook
           </button>
         </div>
-
         <button
           type="submit"
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
