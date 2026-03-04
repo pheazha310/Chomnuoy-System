@@ -1,6 +1,6 @@
-﻿import React from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
+import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
 import '../css/about.css';
 
 const STATS = [
@@ -154,15 +154,21 @@ const Stats = () => (
   <section className="bg-slate-100/50 py-16 border-y border-slate-200">
     <div className="mx-auto max-w-7xl px-6">
       <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-        {STATS.map((stat) => (
-          <div key={stat.label} className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover">
+        {STATS.map((stat, idx) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: idx * 0.1 }}
+            className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
+          >
             <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
             <p className="text-4xl font-black text-slate-900">{stat.value}</p>
             <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
-              <span aria-hidden="true">↗</span>
+              <TrendingUp className="w-4 h-4" />
               {stat.change}
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
@@ -233,12 +239,18 @@ const FeaturedOrgs = () => (
       </div>
       <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xl text-primary hover:text-white hover:border-primary transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-primary/25 transform hover:-translate-y-0.5 whitespace-nowrap mb-4">
         View All Organizations
-        <span className="transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
+        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
       </button>
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
-        <div key={org.id} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover">
+        <motion.div
+          key={org.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: idx * 0.1 }}
+          className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover"
+        >
           <div className="aspect-video w-full overflow-hidden">
             <img src={org.image} alt={org.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
           </div>
@@ -259,7 +271,7 @@ const FeaturedOrgs = () => (
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   </section>

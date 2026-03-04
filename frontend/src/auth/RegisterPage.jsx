@@ -4,7 +4,7 @@
  */
 import { registerUser } from '../services/user-service';
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import {
   User,
   Phone,

@@ -14,6 +14,8 @@ import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
+import MyDonation from '@/app/donate/myDonation.jsx';
+import ViewDetail from '@/app/donate/viewDetail.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -110,7 +112,8 @@ export default function App() {
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
-        <Route path="/donations" element={<div>My Donations Page</div>} />
+        <Route path="/donations" element={<MyDonation />} />
+        <Route path="/donations/view-detail" element={<ViewDetail />} />
         <Route path="/pickup" element={<div>Material Pickup Page</div>} />
       </Routes>
       {!hideShell && <Footer />}
