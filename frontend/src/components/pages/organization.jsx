@@ -64,7 +64,69 @@ const organizations = [
   },
 ];
 
+const donorOrganizations = [
+  {
+    id: 101,
+    name: 'Global Scholars Fund',
+    summary: 'Empowering underprivileged youth through sustainable education scholarships.',
+    category: 'Education',
+    verified: true,
+    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=960&q=80',
+    metricLeftLabel: 'Impact Score',
+    metricLeftValue: '94/100',
+    metricRightLabel: 'Live Projects',
+    metricRightValue: '12 Active',
+  },
+  {
+    id: 102,
+    name: 'Rural Health Alliance',
+    summary: 'Providing essential medical supplies and mobile clinics to underserved areas.',
+    category: 'Healthcare',
+    verified: true,
+    image: 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?auto=format&fit=crop&w=960&q=80',
+    metricLeftLabel: 'Impact Score',
+    metricLeftValue: '88/100',
+    metricRightLabel: 'Funds Raised',
+    metricRightValue: '$240k',
+  },
+  {
+    id: 103,
+    name: 'Ocean Reclaim Project',
+    summary: 'Dedicated to large-scale ocean cleanup and coastal habitat restoration work.',
+    category: 'Environment',
+    verified: true,
+    image: 'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=960&q=80',
+    metricLeftLabel: 'Plastic Removed',
+    metricLeftValue: '45 Tons',
+    metricRightLabel: 'Communities',
+    metricRightValue: '28 Active',
+  },
+  {
+    id: 104,
+    name: 'Equal Voices Network',
+    summary: 'Advocating for legislative change and providing legal access for vulnerable communities.',
+    category: 'Human Rights',
+    verified: true,
+    image: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?auto=format&fit=crop&w=960&q=80',
+    metricLeftLabel: 'Impact Score',
+    metricLeftValue: '91/100',
+    metricRightLabel: 'Volunteers',
+    metricRightValue: '4.2k',
+  },
+];
+
 const PAGE_SIZE = 3;
+const DONOR_PAGE_SIZE = 4;
+
+function getDonorSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+const page_size = 3
 
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
@@ -90,12 +152,17 @@ function getPaginationItems(totalPages, currentPage) {
 }
 
 function Organization() {
+  const donorSession = getDonorSession();
+  const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('4plus');
   const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
+  const [donorPage, setDonorPage] = useState(1);
+  const [donorSortBy, setDonorSortBy] = useState('recent');
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
 
@@ -138,6 +205,14 @@ function Organization() {
 
   const totalPages = Math.max(1, Math.ceil(filteredOrganizations.length / PAGE_SIZE));
   const paginationItems = useMemo(() => getPaginationItems(totalPages, currentPage), [totalPages, currentPage]);
+  const donorSortedOrganizations = useMemo(() => {
+    if (donorSortBy === 'nameAZ') {
+      return [...donorOrganizations].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return donorOrganizations;
+  }, [donorSortBy]);
+  const donorTotalPages = Math.max(1, Math.ceil(donorSortedOrganizations.length / DONOR_PAGE_SIZE));
+  const donorPaginationItems = useMemo(() => getPaginationItems(donorTotalPages, donorPage), [donorTotalPages, donorPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -146,6 +221,10 @@ function Organization() {
   useEffect(() => {
     setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
   }, [totalPages]);
+
+  useEffect(() => {
+    setDonorPage((previousPage) => Math.min(previousPage, donorTotalPages));
+  }, [donorTotalPages]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -173,12 +252,161 @@ function Organization() {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredOrganizations.slice(start, start + PAGE_SIZE);
   }, [filteredOrganizations, currentPage]);
+  const donorPaginatedOrganizations = useMemo(() => {
+    const start = (donorPage - 1) * DONOR_PAGE_SIZE;
+    return donorSortedOrganizations.slice(start, start + DONOR_PAGE_SIZE);
+  }, [donorPage, donorSortedOrganizations]);
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
   const hasActiveSearch = searchTerm.trim().length > 0;
 
   const handleSearch = () => {
     setSearchTerm(searchInput.trim());
   };
+
+  if (isDonorLoggedIn) {
+    return (
+      <main className="donor-org-page">
+        <div className="donor-org-layout">
+          <aside className="donor-org-sidebar">
+            <section className="donor-org-panel donor-user-panel">
+              <div className="donor-user-head">
+                <img
+                  src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+                  alt={donorSession.name || 'Donor'}
+                />
+                <div>
+                  <p>Welcome back,</p>
+                  <strong>{donorSession.name || 'Alex Rivera'}</strong>
+                </div>
+              </div>
+              <div className="donor-user-stat">
+                <span>Total Impact</span>
+                <strong>$4,820.00</strong>
+              </div>
+              <div className="donor-user-stat">
+                <span>Causes Supported</span>
+                <strong>14</strong>
+              </div>
+            </section>
+
+            <section className="donor-org-panel donor-filter-panel">
+              <h3>Filter Results</h3>
+              <label className="donor-filter-label">Category</label>
+              <select defaultValue="All Categories">
+                <option>All Categories</option>
+              </select>
+              <label className="donor-filter-label">Province / Region</label>
+              <select defaultValue="Everywhere">
+                <option>Everywhere</option>
+              </select>
+              <p className="donor-filter-label">Verification Status</p>
+              <label className="donor-check">
+                <input type="checkbox" defaultChecked />
+                Verified Impact
+              </label>
+              <label className="donor-check">
+                <input type="checkbox" />
+                Tax Receipt Eligible
+              </label>
+              <button type="button" className="donor-apply-btn">Apply Filters</button>
+              <button type="button" className="donor-clear-btn">Clear all</button>
+            </section>
+          </aside>
+
+          <section className="donor-org-main">
+            <header className="donor-org-header">
+              <div>
+                <h1>Browse Organizations</h1>
+                <p>Discover 1,248 verified non-profit organizations</p>
+              </div>
+              <label className="donor-sort-wrap" htmlFor="donor-sort">
+                <span>Sort by:</span>
+                <select id="donor-sort" value={donorSortBy} onChange={(event) => setDonorSortBy(event.target.value)}>
+                  <option value="recent">Most Recent</option>
+                  <option value="nameAZ">Name A-Z</option>
+                </select>
+              </label>
+            </header>
+
+            <section className="donor-org-grid">
+              {donorPaginatedOrganizations.map((organization) => {
+                const isFavorite = favoriteIds.has(organization.id);
+                return (
+                  <article key={organization.id} className="donor-org-card">
+                    <div className="donor-org-image-wrap">
+                      <img src={organization.image} alt={organization.name} />
+                      <div className="donor-org-badges">
+                        <span>{organization.category.toUpperCase()}</span>
+                        {organization.verified ? <strong>Verified</strong> : null}
+                      </div>
+                    </div>
+                    <div className="donor-org-card-body">
+                      <div className="donor-org-title-row">
+                        <h2>{organization.name}</h2>
+                        <button
+                          type="button"
+                          className={`donor-favorite ${isFavorite ? 'is-active' : ''}`}
+                          onClick={() =>
+                            setFavoriteIds((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(organization.id)) next.delete(organization.id);
+                              else next.add(organization.id);
+                              return next;
+                            })
+                          }
+                        >
+                          {'\u2665'}
+                        </button>
+                      </div>
+                      <p>{organization.summary}</p>
+                      <div className="donor-org-metrics">
+                        <div>
+                          <span>{organization.metricLeftLabel}</span>
+                          <strong>{organization.metricLeftValue}</strong>
+                        </div>
+                        <div>
+                          <span>{organization.metricRightLabel}</span>
+                          <strong>{organization.metricRightValue}</strong>
+                        </div>
+                      </div>
+                      <div className="donor-org-actions">
+                        <button type="button" className="donor-donate-btn">Donate</button>
+                        <button type="button" className="donor-follow-btn" aria-label="Follow organization">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="9" cy="7" r="4" strokeWidth="2" />
+                            <path d="M19 8v6M22 11h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+
+            <nav className="donor-org-pagination" aria-label="Pagination">
+              <button type="button" onClick={() => setDonorPage((page) => Math.max(1, page - 1))} disabled={donorPage === 1}>
+                {'<'}
+              </button>
+              {donorPaginationItems.map((item, index) =>
+                item === '...' ? (
+                  <span key={`donor-ellipsis-${index}`}>...</span>
+                ) : (
+                  <button key={item} type="button" className={donorPage === item ? 'active' : ''} onClick={() => setDonorPage(item)}>
+                    {item}
+                  </button>
+                )
+              )}
+              <button type="button" onClick={() => setDonorPage((page) => Math.min(donorTotalPages, page + 1))} disabled={donorPage === donorTotalPages}>
+                {'>'}
+              </button>
+            </nav>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="organizations-content">

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import './home.css';
 import { Link } from 'react-router-dom';
 
@@ -53,9 +54,69 @@ const howItWorks = {
 const trustedBy = ['UNICEF', 'Red Cross', 'WWF', 'CARE', 'OXFAM'];
 
 function Home() {
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const elements = Array.from(document.querySelectorAll('[data-reveal]'));
+    const heroVisual = document.querySelector('.home-hero-visual');
+    const heroSection = document.querySelector('.home-hero');
+    let rafId = null;
+
+    if (prefersReducedMotion) {
+      elements.forEach((element) => element.classList.add('is-visible'));
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -8% 0px' },
+    );
+
+    elements.forEach((element) => observer.observe(element));
+
+    const onMouseMove = (event) => {
+      if (!heroVisual || !heroSection) return;
+      const bounds = heroSection.getBoundingClientRect();
+      const relativeX = (event.clientX - bounds.left) / bounds.width - 0.5;
+      const relativeY = (event.clientY - bounds.top) / bounds.height - 0.5;
+
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        heroVisual.style.setProperty('--tilt-x', `${relativeY * -5}deg`);
+        heroVisual.style.setProperty('--tilt-y', `${relativeX * 7}deg`);
+        heroVisual.style.setProperty('--float-x', `${relativeX * 12}px`);
+        heroVisual.style.setProperty('--float-y', `${relativeY * 10}px`);
+      });
+    };
+
+    const onMouseLeave = () => {
+      if (!heroVisual) return;
+      heroVisual.style.setProperty('--tilt-x', '0deg');
+      heroVisual.style.setProperty('--tilt-y', '0deg');
+      heroVisual.style.setProperty('--float-x', '0px');
+      heroVisual.style.setProperty('--float-y', '0px');
+    };
+
+    heroSection?.addEventListener('mousemove', onMouseMove);
+    heroSection?.addEventListener('mouseleave', onMouseLeave);
+
+    return () => {
+      observer.disconnect();
+      heroSection?.removeEventListener('mousemove', onMouseMove);
+      heroSection?.removeEventListener('mouseleave', onMouseLeave);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   return (
     <main className="home-page-body">
-      <section className="home-hero" aria-labelledby="home-title">
+      <section className="home-hero" aria-labelledby="home-title" data-reveal>
         <div className="home-hero-copy">
           <h1 id="home-title">
             Empower Communities,
@@ -86,23 +147,28 @@ function Home() {
         </div>
       </section>
 
-      <section className="home-stats" aria-label="Platform stats">
-        {stats.map((item) => (
-          <article key={item.label}>
+      <section className="home-stats" aria-label="Platform stats" data-reveal>
+        {stats.map((item, index) => (
+          <article key={item.label} data-reveal style={{ '--reveal-delay': `${100 + index * 90}ms` }}>
             <p>{item.value}</p>
             <span>{item.label}</span>
           </article>
         ))}
       </section>
 
-      <section className="home-featured" aria-labelledby="featured-title">
+      <section className="home-featured" aria-labelledby="featured-title" data-reveal>
         <div className="home-section-head">
           <h2 id="featured-title">Featured Causes</h2>
           <a href="/campaigns">View All Causes</a>
         </div>
         <div className="home-cards-grid">
-          {featuredCauses.map((cause) => (
-            <article key={cause.title} className="home-cause-card">
+          {featuredCauses.map((cause, index) => (
+            <article
+              key={cause.title}
+              className="home-cause-card"
+              data-reveal
+              style={{ '--reveal-delay': `${150 + index * 100}ms` }}
+            >
               <div className={`home-cause-media ${cause.tone}`}>
                 <span>{cause.tag}</span>
               </div>
@@ -122,12 +188,12 @@ function Home() {
         </div>
       </section>
 
-      <section className="home-how" aria-labelledby="how-title">
+      <section className="home-how" aria-labelledby="how-title" data-reveal>
         <h2 id="how-title">How Chomnuoy Works</h2>
         <p>Simple, transparent steps for donors and organizations to create meaningful impact together.</p>
 
         <div className="home-how-grid">
-          <article>
+          <article data-reveal style={{ '--reveal-delay': '180ms' }}>
             <div className="home-how-card-head">
               <span className="home-how-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="img">
@@ -152,7 +218,7 @@ function Home() {
             </ul>
           </article>
 
-          <article>
+          <article data-reveal style={{ '--reveal-delay': '260ms' }}>
             <div className="home-how-card-head">
               <span className="home-how-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="img">
@@ -178,16 +244,18 @@ function Home() {
         </div>
       </section>
 
-      <section className="home-trusted" aria-label="Trusted organizations">
+      <section className="home-trusted" aria-label="Trusted organizations" data-reveal>
         <p>Trusted by global organizations</p>
         <div>
-          {trustedBy.map((org) => (
-            <span key={org}>{org}</span>
+          {trustedBy.map((org, index) => (
+            <span key={org} data-reveal style={{ '--reveal-delay': `${160 + index * 60}ms` }}>
+              {org}
+            </span>
           ))}
         </div>
       </section>
 
-      <section className="home-cta" aria-labelledby="cta-title">
+      <section className="home-cta" aria-labelledby="cta-title" data-reveal>
         <h2 id="cta-title">Ready to make a difference?</h2>
         <p>Whether you want to give or start a campaign, Chomnuoy is here to support your journey.</p>
         <div className="home-hero-actions">

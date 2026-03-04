@@ -1,4 +1,4 @@
-/**
+﻿/**
 * @license
 * SPDX-License-Identifier: Apache-2.0
 */
@@ -53,7 +53,10 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+<<<<<<< HEAD
   const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
   const [socialLoading, setSocialLoading] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
@@ -69,6 +72,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
 
+<<<<<<< HEAD
+=======
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -80,6 +88,10 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
+<<<<<<< HEAD
+=======
+
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
@@ -134,12 +146,19 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             <input
               type="email"
               required
-              placeholder="e.g. name@company.com"
+              placeholder="Email"
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
+<<<<<<< HEAD
             {fieldErrors.email && <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>}
+=======
+
+            {fieldErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+            )}
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
           </div>
         </div>
 
@@ -160,14 +179,21 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
+<<<<<<< HEAD
             {fieldErrors.password && <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>}
+=======
+
+            {fieldErrors.password && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+            )}
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#667085]"
-              aria-label="Toggle password visibility"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -214,9 +240,24 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
           type="submit"
           disabled={isSubmitting}
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
+          disabled={isSubmitting}
         >
+<<<<<<< HEAD
           {isSubmitting ? 'Logging in...' : 'Login'}
           <ArrowRight className="h-5 w-5" />
+=======
+          {isSubmitting ? (
+            <>
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              Logging in...
+            </>
+          ) : (
+            <>
+              Login
+              <ArrowRight className="h-5 w-5" />
+            </>
+          )}
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
         </button>
       </form>
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
@@ -65,6 +66,8 @@ function CategoryIcon({ category }) {
 }
 
 function CampaignsPage() {
+  const location = useLocation();
+  const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
 
   const categories = useMemo(() => {
@@ -73,18 +76,24 @@ function CampaignsPage() {
   }, []);
 
   const filteredCampaigns = useMemo(() => {
-    if (selectedCategory === 'All Categories') {
-      return campaigns;
-    }
+    const normalizedQuery = searchQuery.toLowerCase();
+    return campaigns.filter((campaign) => {
+      const matchesCategory =
+        selectedCategory === 'All Categories' || campaign.category === selectedCategory;
+      if (!matchesCategory) return false;
+      if (!normalizedQuery) return true;
 
-    return campaigns.filter((campaign) => campaign.category === selectedCategory);
-  }, [selectedCategory]);
+      const searchableText = `${campaign.title} ${campaign.summary} ${campaign.category}`.toLowerCase();
+      return searchableText.includes(normalizedQuery);
+    });
+  }, [selectedCategory, searchQuery]);
 
   return (
     <main className="campaigns-page">
       <section className="campaigns-header">
         <h1>Explore Campaigns</h1>
         <p>Support impactful projects and choose the campaign you want to back.</p>
+        {searchQuery ? <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p> : null}
       </section>
 
       <section className="campaign-filters" aria-label="Campaign categories">
