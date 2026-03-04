@@ -141,11 +141,6 @@ const DONATION_PAYMENT_METHODS = [
   { id: 'aba', label: 'ABA Pay', badge: 'ABA', badgeClassName: 'payment-badge-aba' },
   { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
 ];
-const DONOR_SORT_OPTIONS = [
-  { id: 'recent', label: 'Most Recent' },
-  { id: 'nameAZ', label: 'Name A-Z' },
-  { id: 'impactHigh', label: 'Impact Score' },
-];
 
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
@@ -194,8 +189,6 @@ function Organization() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
-  const [isDonorSortMenuOpen, setIsDonorSortMenuOpen] = useState(false);
-  const donorSortMenuRef = useRef(null);
 
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
@@ -206,7 +199,6 @@ function Organization() {
   const [donorSortBy, setDonorSortBy] = useState('recent');
   const [donorPage, setDonorPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
-  const [followedIds, setFollowedIds] = useState(() => new Set());
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [selectedDonationOrg, setSelectedDonationOrg] = useState(null);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
@@ -287,15 +279,6 @@ function Organization() {
     const start = (donorPage - 1) * DONOR_PAGE_SIZE;
     return donorFilteredOrganizations.slice(start, start + DONOR_PAGE_SIZE);
   }, [donorFilteredOrganizations, donorPage]);
-  const followOrgId = useMemo(() => new URLSearchParams(location.search).get('followOrg'), [location.search]);
-  const followRouteOrganization = useMemo(() => {
-    if (!followOrgId) return null;
-    return donorOrganizations.find((organization) => String(organization.id) === String(followOrgId)) ?? null;
-  }, [followOrgId]);
-  const donorSortLabel = useMemo(
-    () => DONOR_SORT_OPTIONS.find((option) => option.id === donorSortBy)?.label ?? 'Most Recent',
-    [donorSortBy]
-  );
 
   const donationRouteOrganization = useMemo(() => {
     if (!organizationId) return null;
@@ -323,15 +306,11 @@ function Organization() {
       if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
         setIsCategoryMenuOpen(false);
       }
-      if (donorSortMenuRef.current && !donorSortMenuRef.current.contains(event.target)) {
-        setIsDonorSortMenuOpen(false);
-      }
     };
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setIsCategoryMenuOpen(false);
-        setIsDonorSortMenuOpen(false);
       }
     };
 
@@ -415,15 +394,6 @@ function Organization() {
     navigate(ROUTES.ORGANIZATION_DONATE(organization.id));
   };
 
-  const openFollowProfile = (organization) => {
-    setFollowedIds((previous) => new Set(previous).add(organization.id));
-    navigate(`${ROUTES.ORGANIZATIONS}?followOrg=${organization.id}`);
-  };
-
-  const closeFollowProfile = () => {
-    navigate(ROUTES.ORGANIZATIONS);
-  };
-
   const handleConfirmDonation = () => {
     if (hasInvalidCustomAmount || donationAmount <= 0) {
       return;
@@ -436,10 +406,9 @@ function Organization() {
   };
 
   if (isDonorLoggedIn) {
-    const isCompactLayout = isDonationModalOpen || Boolean(followRouteOrganization);
     return (
       <main className="donor-org-page">
-        <div className={isCompactLayout ? 'donor-org-layout donor-org-layout-donation donor-org-layout-follow' : 'donor-org-layout'}>
+        <div className={isDonationModalOpen ? 'donor-org-layout donor-org-layout-donation' : 'donor-org-layout'}>
           <aside className="donor-org-sidebar">
             <section className="donor-org-panel donor-user-panel">
               <div className="donor-user-head">
@@ -658,172 +627,20 @@ function Organization() {
             ) : null}
 
             {!isDonationModalOpen ? (
-            followRouteOrganization ? (
-            <section className="follow-profile-page" aria-label="Organization Details">
-              <header className="follow-profile-topbar">
-                <button type="button" className="follow-topbar-back" onClick={closeFollowProfile}>
-                  Organization Details
-                </button>
-                <div className="follow-topbar-actions">
-                  <button type="button" aria-label="Share organization">
-                    &#x21AA;
-                  </button>
-                  <button type="button" aria-label="More options">
-                    &#8942;
-                  </button>
-                </div>
-              </header>
-
-              <section className="follow-profile-hero">
-                <img src={followRouteOrganization.image} alt={followRouteOrganization.name} />
-                <h2>{followRouteOrganization.name}</h2>
-                <p>Non-profit - 1.2M Followers</p>
-                <span className="follow-location">{followRouteOrganization.region}</span>
-                <button type="button" className="follow-status-btn">
-                  <span className="follow-badge-icon" aria-hidden="true" />
-                  Following
-                </button>
-                <div className="follow-subscribe-note">
-                  <strong>You're subscribed!</strong> You will now receive updates from {followRouteOrganization.name}.
-                </div>
-              </section>
-
-              <section className="follow-profile-stats">
-                <article>
-                  <strong>$2.4M</strong>
-                  <span>Raised</span>
-                </article>
-                <article>
-                  <strong>45</strong>
-                  <span>Projects</span>
-                </article>
-                <article>
-                  <strong>12</strong>
-                  <span>Countries</span>
-                </article>
-              </section>
-
-              <nav className="follow-tabs" aria-label="Organization tabs">
-                <button type="button" className="follow-tab is-active">
-                  Feed
-                </button>
-                <button type="button" className="follow-tab">
-                  Projects
-                </button>
-                <button type="button" className="follow-tab">
-                  About
-                </button>
-              </nav>
-
-              <section className="follow-profile-feed">
-                <div className="follow-activity-head">
-                  <h3>Recent Activity</h3>
-                  <p>
-                    <span className="follow-live-dot" aria-hidden="true" />
-                    Live Updates
-                  </p>
-                </div>
-                <article className="follow-feed-card">
-                  <div className="follow-feed-meta">
-                    <span className="follow-feed-icon" aria-hidden="true">
-                      &#9993;
-                    </span>
-                    <div>
-                      <strong>{followRouteOrganization.name}</strong>
-                      <small>2h ago</small>
-                    </div>
-                  </div>
-                  <p>
-                    We just deployed a team of 15 emergency responders to the coastal region. Your support made this possible in under
-                    24 hours.
-                  </p>
-                  <img src={followRouteOrganization.image} alt={followRouteOrganization.name} />
-                  <div className="follow-feed-actions">
-                    <span>1.2k</span>
-                    <span>84</span>
-                  </div>
-                </article>
-                <article className="follow-feed-card">
-                  <div className="follow-feed-meta">
-                    <span className="follow-feed-icon" aria-hidden="true">
-                      &#9889;
-                    </span>
-                    <div>
-                      <strong>{followRouteOrganization.name}</strong>
-                      <small>5h ago</small>
-                    </div>
-                  </div>
-                  <p>
-                    <strong>New Project Launched:</strong> The Clean Water Initiative is now live. Help us reach our goal of 100 new
-                    wells.
-                  </p>
-                  <button type="button" className="follow-link-btn">
-                    View Project Details
-                  </button>
-                </article>
-                <article className="follow-feed-card">
-                  <div className="follow-feed-meta">
-                    <span className="follow-feed-icon" aria-hidden="true">
-                      &#9673;
-                    </span>
-                    <div>
-                      <strong>{followRouteOrganization.name}</strong>
-                      <small>Yesterday</small>
-                    </div>
-                  </div>
-                  <p>Annual transparency report is now available. See how your donations are making measurable impact.</p>
-                  <div className="follow-feed-actions">
-                    <span>3.5k</span>
-                  </div>
-                </article>
-              </section>
-
-              <div className="follow-load-more">
-                <button type="button">View Older Activities</button>
-              </div>
-            </section>
-            ) : (
             <div className="donor-main-content">
             <header className="donor-org-header">
               <div>
                 <h1>Browse Organizations</h1>
                 <p>Discover 1,248 verified non-profit organizations</p>
               </div>
-              <div className="donor-sort-wrap" ref={donorSortMenuRef}>
+              <label className="donor-sort-wrap" htmlFor="donor-sort">
                 <span>Sort by:</span>
-                <button
-                  type="button"
-                  className="donor-sort-trigger"
-                  aria-haspopup="listbox"
-                  aria-expanded={isDonorSortMenuOpen}
-                  onClick={() => setIsDonorSortMenuOpen((previous) => !previous)}
-                >
-                  <span>{donorSortLabel}</span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path d="M8 10l4 4 4-4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {isDonorSortMenuOpen ? (
-                  <ul className="donor-sort-menu" role="listbox" aria-label="Sort organizations">
-                    {DONOR_SORT_OPTIONS.map((option) => (
-                      <li key={option.id}>
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={donorSortBy === option.id}
-                          className={donorSortBy === option.id ? 'donor-sort-option is-active' : 'donor-sort-option'}
-                          onClick={() => {
-                            setDonorSortBy(option.id);
-                            setIsDonorSortMenuOpen(false);
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
+                <select id="donor-sort" value={donorSortBy} onChange={(event) => setDonorSortBy(event.target.value)}>
+                  <option value="recent">Most Recent</option>
+                  <option value="nameAZ">Name A-Z</option>
+                  <option value="impactHigh">Impact Score</option>
+                </select>
+              </label>
             </header>
 
             <section className="donor-org-grid" aria-label="Organization List">
@@ -875,13 +692,8 @@ function Organization() {
                         <button type="button" className="donor-donate-btn" onClick={() => openDonationModal(organization)}>
                           Donate
                         </button>
-                        <button
-                          type="button"
-                          className={followedIds.has(organization.id) ? 'donor-follow-btn is-following' : 'donor-follow-btn'}
-                          aria-label={followedIds.has(organization.id) ? 'View followed organization' : 'Follow organization'}
-                          onClick={() => openFollowProfile(organization)}
-                        >
-                          {followedIds.has(organization.id) ? 'Following' : 'Follow'}
+                        <button type="button" className="donor-follow-btn" aria-label="Follow organization">
+                          Follow
                         </button>
                       </div>
                     </div>
@@ -918,7 +730,6 @@ function Organization() {
               </button>
             </nav>
             </div>
-            )
             ) : null}
           </section>
         </div>
