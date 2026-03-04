@@ -27,7 +27,6 @@ function LoginRoute() {
   const loginEmail = new URLSearchParams(location.search).get('email');
 
   const handleLoginSuccess = (data) => {
-<<<<<<< HEAD
     const isOrganization = data?.account_type === 'Organization';
     const profile = isOrganization ? data?.organization : data?.user;
 
@@ -40,22 +39,11 @@ function LoginRoute() {
       isLoggedIn: true,
       role: isOrganization ? 'Organization' : 'Donor',
       name: profile.name,
-      email: profile.email,
+      email: profile.email || loginEmail || '',
       impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
       userId: profile.id,
       accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
-=======
-    const user = data?.user ?? {};
-    const sessionData = {
-      isLoggedIn: true,
-      role: 'Donor',
-      name: user.name || 'Alex Rivera',
-      email: user.email || loginEmail || '',
-      impactLevel: 'Gold',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      userId: user.id || null,
->>>>>>> d8c9456ba38b819c0bf0c1f31ac2d44e09b225ec
     };
 
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));

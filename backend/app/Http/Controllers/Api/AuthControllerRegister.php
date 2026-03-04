@@ -14,11 +14,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-<<<<<<< HEAD
 use Illuminate\Support\Facades\Log;
-=======
 use Illuminate\Support\Facades\Schema;
->>>>>>> d8c9456ba38b819c0bf0c1f31ac2d44e09b225ec
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -183,19 +180,12 @@ class AuthControllerRegister extends Controller
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
         $organization = Organization::whereRaw('LOWER(email) = ?', [$email])->first();
 
-<<<<<<< HEAD
         Log::info('Auth login attempt', [
             'email' => $email,
             'user_found' => (bool) $user,
             'organization_found' => (bool) $organization,
         ]);
 
-        if ($user && Hash::check($password, $user->password)) {
-            Log::info('Auth login success', [
-                'email' => $email,
-                'account_type' => 'Donor',
-            ]);
-=======
         $userPasswordMatches = false;
         if ($user) {
             if (Schema::hasColumn('users', 'password')) {
@@ -207,7 +197,10 @@ class AuthControllerRegister extends Controller
         }
 
         if ($user && $userPasswordMatches) {
->>>>>>> d8c9456ba38b819c0bf0c1f31ac2d44e09b225ec
+            Log::info('Auth login success', [
+                'email' => $email,
+                'account_type' => 'Donor',
+            ]);
             return response()->json([
                 'message' => 'Login successful',
                 'account_type' => 'Donor',
