@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 
+=======
+import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+>>>>>>> 708dc0b94664a10e1616a430f40e5a2ca6966e66
 import ROUTES from '@/constants/routes.js';
 
 import Home from '@/app/home/page.jsx';
@@ -54,7 +58,28 @@ function CampaignDetailRoute() {
 
 }
 
+<<<<<<< HEAD
 
+=======
+function RequireAuth({ children }) {
+  const location = useLocation();
+  const rawSession = window.localStorage.getItem('chomnuoy_session');
+  let session = null;
+  try {
+    session = rawSession ? JSON.parse(rawSession) : null;
+  } catch {
+    session = null;
+  }
+  const isLoggedIn = Boolean(session?.isLoggedIn);
+
+  if (!isLoggedIn) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  return children;
+}
+>>>>>>> 708dc0b94664a10e1616a430f40e5a2ca6966e66
 
 function LoginRoute() {
 
@@ -143,7 +168,27 @@ export default function App() {
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
 
         <Route path="/register" element={<RegisterRoute />} />
+<<<<<<< HEAD
 
+=======
+        <Route
+          path="/donations"
+          element={
+            <RequireAuth>
+              <MyDonation />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/donations/view-detail"
+          element={
+            <RequireAuth>
+              <ViewDetail />
+            </RequireAuth>
+          }
+        />
+        <Route path="/pickup" element={<div>Material Pickup Page</div>} />
+>>>>>>> 708dc0b94664a10e1616a430f40e5a2ca6966e66
       </Routes>
 
       {!hideShell && <Footer />}

@@ -4,12 +4,16 @@ import {
   Banknote,
   Building2,
   CalendarDays,
+  Check,
+  Copy,
   Download,
   Filter,
   GraduationCap,
   HandHeart,
+  Linkedin,
   Reply,
   Search,
+  Send,
   Share2,
   Stethoscope,
   Waves,
@@ -88,6 +92,8 @@ const donations = [
 
 export default function MyDonation() {
   const [selectedDonation, setSelectedDonation] = useState(null);
+  const [shareDonation, setShareDonation] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const handleOpenSavePopup = (donation) => {
     setSelectedDonation(donation);
@@ -95,6 +101,47 @@ export default function MyDonation() {
 
   const handleCloseSavePopup = () => {
     setSelectedDonation(null);
+  };
+
+  const handleOpenSharePopup = (donation) => {
+    setShareDonation(donation);
+    setCopied(false);
+  };
+
+  const handleCloseSharePopup = () => {
+    setShareDonation(null);
+    setCopied(false);
+  };
+
+  const getShareText = (donation) =>
+    `I donated ${donation.amount} to ${donation.recipient} (${donation.subCause}).`;
+
+  const getShareUrl = () => {
+    const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
+    return `${baseUrl}/donations/view-detail`;
+  };
+
+  const handleCopyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const handleShare = (platform) => {
+    if (!shareDonation) return;
+
+    const encodedUrl = encodeURIComponent(getShareUrl());
+
+    const shareUrl =
+      platform === 'telegram'
+        ? `https://t.me/share/url?url=${encodedUrl}`
+        : `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+
+    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    handleCloseSharePopup();
   };
 
   return (
@@ -177,7 +224,12 @@ export default function MyDonation() {
                 <Download className="my-donation-action-icon" />
               </button>
               <div className="my-donation-actions">
-                <button type="button" className="my-donation-icon-btn">
+                <button
+                  type="button"
+                  className="my-donation-icon-btn"
+                  aria-label="Share donation"
+                  onClick={() => handleOpenSharePopup(item)}
+                >
                   <Share2 className="my-donation-action-icon" strokeWidth={2.7} />
                 </button>
                 <Link to="/donations/view-detail" className="my-donation-detail-btn">
@@ -230,6 +282,74 @@ export default function MyDonation() {
               </button>
               <button type="button" className="my-donation-modal-btn primary" onClick={handleCloseSavePopup}>
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareDonation && (
+        <div className="my-donation-modal-overlay" onClick={handleCloseSharePopup}>
+          <div
+            className="my-donation-modal my-donation-share-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="share-donation-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="my-donation-share-head">
+              <div className="my-donation-share-link-icon">
+                <Reply className="my-donation-action-icon" />
+              </div>
+              <h2 id="share-donation-title">Share Your Impact</h2>
+              <p>Share this contribution with your network.</p>
+            </div>
+
+            <div className="my-donation-modal-details my-donation-share-details">
+              <div>
+                <span>Amount</span>
+                <strong>{shareDonation.amount}</strong>
+              </div>
+              <div>
+                <span>Recipient</span>
+                <strong>{shareDonation.recipient}</strong>
+              </div>
+              <div>
+                <span>Project</span>
+                <strong>{shareDonation.subCause}</strong>
+              </div>
+            </div>
+
+            <div className="my-donation-share-link-box">
+              <input
+                type="text"
+                readOnly
+                value={getShareUrl()}
+                className="my-donation-share-link-input"
+                aria-label="Share link"
+              />
+              <button type="button" className="my-donation-copy-btn" onClick={handleCopyShareLink}>
+                {copied ? <Check className="my-donation-btn-icon" /> : <Copy className="my-donation-btn-icon" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+
+            <p className="my-donation-share-message">{getShareText(shareDonation)}</p>
+
+            <div className="my-donation-share-actions">
+              <button type="button" className="my-donation-share-btn linkedin" onClick={() => handleShare('linkedin')}>
+                <Linkedin className="my-donation-btn-icon" />
+                Share on LinkedIn
+              </button>
+              <button type="button" className="my-donation-share-btn telegram" onClick={() => handleShare('telegram')}>
+                <Send className="my-donation-btn-icon" />
+                Share on Telegram
+              </button>
+            </div>
+
+            <div className="my-donation-modal-actions">
+              <button type="button" className="my-donation-modal-btn secondary" onClick={handleCloseSharePopup}>
+                Close
               </button>
             </div>
           </div>
