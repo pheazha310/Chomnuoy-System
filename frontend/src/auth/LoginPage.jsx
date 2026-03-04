@@ -5,8 +5,8 @@
 
 import { loginUser } from '../services/user-service';
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
-import { motion } from 'motion/react';
 import {
   Mail,
   Lock,
@@ -70,8 +70,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
 
-  // fielsError state
-  const [fielsErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -156,8 +155,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             />
 
             {/* show messages below email input: */}
-            {setFieldErrors.email && (
-              <p className="mt-1 text-sm text-red-600">{setFieldErrors.email}</p>
+            {fieldErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
           </div>
         </div>
@@ -181,8 +180,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             />
 
             {/* show messages below password input: */}
-            {setFieldErrors.password && (
-              <p className='mt-1 text-sm text-red-600'>{setFieldErrors.password}</p>
+            {fieldErrors.password && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}
             <button
               type="button"
