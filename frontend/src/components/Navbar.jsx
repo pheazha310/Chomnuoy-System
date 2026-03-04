@@ -131,28 +131,9 @@ function Navbar() {
     if (!query) return;
 
     const encoded = encodeURIComponent(query);
-    if (pathname.startsWith('/organizations')) {
-      navigate(`/organizations?search=${encoded}`);
-      return;
-    }
-    if (pathname.startsWith('/campaigns')) {
-      navigate(`/campaigns/donor?search=${encoded}`);
-      return;
-    }
-    if (pathname.startsWith('/donations')) {
-      navigate(`/donations?search=${encoded}`);
-      return;
-    }
-    if (pathname.startsWith('/pickup')) {
-      navigate(`/pickup?search=${encoded}`);
-      return;
-    }
-    if (pathname.startsWith('/contact')) {
-      navigate(`/contact?search=${encoded}`);
-      return;
-    }
-
-    navigate(`/campaigns/donor?search=${encoded}`);
+    
+    // Always navigate to campaigns page for search
+    navigate(`/campaigns?search=${encoded}`);
   };
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
@@ -285,6 +266,11 @@ function Navbar() {
             placeholder="Search causes..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleSearchSubmit(event);
+              }
+            }}
           />
         </form>
 

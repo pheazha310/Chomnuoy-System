@@ -67,6 +67,7 @@ function CategoryIcon({ category }) {
 
 function CampaignsPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
 
@@ -83,17 +84,32 @@ function CampaignsPage() {
       if (!matchesCategory) return false;
       if (!normalizedQuery) return true;
 
-      const searchableText = `${campaign.title} ${campaign.summary} ${campaign.category}`.toLowerCase();
+      const searchableText = `${campaign.title} ${campaign.summary} ${campaign.category} ${campaign.organization}`.toLowerCase();
       return searchableText.includes(normalizedQuery);
     });
   }, [selectedCategory, searchQuery]);
+
+  const handleSearch = (query) => {
+    const encoded = encodeURIComponent(query.trim());
+    navigate(`/campaigns?search=${encoded}`);
+  };
 
   return (
     <main className="campaigns-page">
       <section className="campaigns-header">
         <h1>Explore Campaigns</h1>
         <p>Support impactful projects and choose the campaign you want to back.</p>
-        {searchQuery ? <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p> : null}
+        {searchQuery && (
+          <div className="search-results-info">
+            <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p>
+            <button 
+              className="clear-search-btn" 
+              onClick={() => handleSearch('')}
+            >
+              Clear Search
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="campaign-filters" aria-label="Campaign categories">
@@ -105,7 +121,12 @@ function CampaignsPage() {
             onClick={() => setSelectedCategory(category)}
           >
             <span className="chip-icon" aria-hidden="true">
-              <CategoryIcon category={category} />
+              {category === 'All Categories' && '🌍'}
+              {category === 'Technology' && '💻'}
+              {category === 'Social Good' && '🤝'}
+              {category === 'Environment' && '🌱'}
+              {category === 'Health' && '🏥'}
+              {category === 'Creative' && '🎨'}
             </span>
             {category}
           </button>
@@ -113,51 +134,76 @@ function CampaignsPage() {
       </section>
 
       <section className="campaign-grid" aria-label="Campaign list">
-        {filteredCampaigns.map((campaign) => {
-          const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
-          const progressWidth = Math.min(percentRaised, 100);
-          const detailPath = `/campaigns/${campaign.id}`;
+        {filteredCampaigns.length === 0 ? (
+          <div className="no-results">
+            <h3>No campaigns found</h3>
+            <p>Try adjusting your search terms or browse all categories.</p>
+            <button 
+              className="reset-btn"
+              onClick={() => {
+                setSelectedCategory('All Categories');
+                handleSearch('');
+              }}
+            >
+              Browse All Campaigns
+            </button>
+          </div>
+        ) : (
+          filteredCampaigns.map((campaign) => {
+            const percentRaised = formatPercent(campaign.raisedAmount, campaign.goalAmount);
+            const progressWidth = Math.min(percentRaised, 100);
+            const detailPath = `/campaigns/${campaign.id}`;
 
-          return (
-            <article key={campaign.id} className="campaign-card">
-              <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
-                <img src={campaign.image} alt={campaign.title} className="campaign-image" loading="lazy" />
-              </a>
-
-              <div className="campaign-content">
-                <span className="campaign-category">{campaign.category}</span>
-                <h2>
-                  <a href={detailPath} className="campaign-title-link">
-                    {campaign.title}
-                  </a>
-                </h2>
-                <p className="campaign-summary">{campaign.summary}</p>
-
-                <div className="campaign-amounts">
-                  <p>
-                    Goal: <strong>{formatCurrency(campaign.goalAmount)}</strong>
-                  </p>
-                  <p>
-                    Raised: <strong>{formatCurrency(campaign.raisedAmount)}</strong>
-                  </p>
+            return (
+              <article key={campaign.id} className="campaign-card">
+                <div className="campaign-image-container">
+                  <img src={campaign.image} alt={campaign.title} className="campaign-image" />
+                  <div className="campaign-category-badge">{campaign.category}</div>
                 </div>
-
-                <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
-                  <span style={{ width: `${progressWidth}%` }} />
-                </div>
-
-                <div className="campaign-actions">
-                  <a href={detailPath} className="campaign-link">
-                    View campaign
+                
+                <div className="campaign-content">
+                  <div className="campaign-header">
+                    <h2 className="campaign-title">{campaign.title}</h2>
+                    <p className="campaign-organization">{campaign.organization}</p>
+                  </div>
+                  
+                  <p className="campaign-summary">{campaign.summary}</p>
+                  
+                  <div className="campaign-metrics">
+                    <div className="progress-container">
+                      <div className="progress-bar">
+                        <div 
+                          className="progress-fill" 
+                          style={{ width: `${progressWidth}%` }}
+                          role="progressbar"
+                          aria-valuenow={percentRaised}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        />
+                      </div>
+                      <span className="progress-text">{percentRaised}% funded</span>
+                    </div>
+                    
+                    <div className="funding-info">
+                      <div className="raised-amount">
+                        <span className="amount">{formatCurrency(campaign.raisedAmount)}</span>
+                        <span className="label">raised</span>
+                      </div>
+                      <div className="goal-amount">
+                        <span className="amount">{formatCurrency(campaign.goalAmount)}</span>
+                        <span className="label">goal</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <a href={detailPath} className="campaign-cta">
+                    Learn More
                   </a>
-                  <a href={detailPath} className="donate-button" aria-label={`Donate to ${campaign.title}`}>
-                    Donate
-                  </a>
                 </div>
-              </div>
-            </article>
-          );
-        })}
+              </article>
+            );
+          })
+        )}
       </section>
     </main>
   );
