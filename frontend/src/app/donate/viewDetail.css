@@ -428,3 +428,35 @@
     display: none;
   }
 }
+
+@media print {
+  .navbar,
+  .donor-navbar,
+  .site-footer,
+  .donation-detail-back-link,
+  .donation-detail-top-actions,
+  .donation-detail-share {
+    display: none !important;
+  }
+
+  .donation-detail-page {
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .donation-detail-container {
+    width: 100%;
+    margin: 0;
+  }
+
+  .donation-detail-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .donation-detail-card,
+  .donation-detail-impact-card,
+  .donation-detail-right-card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}

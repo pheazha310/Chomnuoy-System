@@ -16,6 +16,14 @@ import {
 import './viewDetail.css';
 
 export default function ViewDetail() {
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPdf = () => {
+    window.print();
+  };
+
   return (
     <div className="donation-detail-page">
       <main className="donation-detail-container">
@@ -34,11 +42,8 @@ export default function ViewDetail() {
             <p className="donation-detail-subtitle">Detailed receipt and impact report for your contribution.</p>
           </div>
           <div className="donation-detail-top-actions">
-            <button type="button" className="donation-detail-print-btn">
-              <Printer className="donation-detail-btn-icon" />
-              Print
-            </button>
-            <button type="button" className="donation-detail-download-btn">
+            
+            <button type="button" className="donation-detail-download-btn" onClick={handleDownloadPdf}>
               <Download className="donation-detail-btn-icon" />
               Download Receipt
             </button>
