@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 
 import ROUTES from '@/constants/routes.js';
 
-import Home from '@/app/home/page.jsx';
+import HomeRoute from '@/components/HomeRoute';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import DonorCampaignDetailPage from '@/app/compaigns/DonorCampaignDetailPage.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
@@ -22,7 +22,7 @@ import Organization from '@/components/pages/organization.jsx';
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
   return redirectParam;
 }
@@ -89,7 +89,7 @@ export default function App() {
     <>
       {!hideShell && <Navbar />}
       <Routes>
-        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.HOME} element={<HomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
