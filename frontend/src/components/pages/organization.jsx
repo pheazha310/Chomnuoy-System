@@ -881,7 +881,9 @@ function Organization() {
 
       <nav className="pagination" aria-label="Pagination">
         <button type="button" aria-label="Previous page" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>
-          {'<'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="pagination-icon">
+            <path d="M15 18l-6-6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
         {paginationItems.map((item, index) =>
           item === '...' ? (
@@ -899,7 +901,9 @@ function Organization() {
           )
         )}
         <button type="button" aria-label="Next page" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages}>
-          {'>'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="pagination-icon">
+            <path d="M9 18l6-6-6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
       </nav>
     </main>
