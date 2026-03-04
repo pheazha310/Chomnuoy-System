@@ -26,6 +26,7 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
+<<<<<<< HEAD
 function CampaignDetailRoute() {
   const { campaignSlug } = useParams();
   return <CampaignDetailPage campaignId={campaignSlug} />;
@@ -54,20 +55,48 @@ function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
+  const loginEmail = new URLSearchParams(location.search).get('email');
 
   const handleLoginSuccess = (data) => {
+    const isOrganization = data?.account_type === 'Organization';
+    const profile = isOrganization ? data?.organization : data?.user;
+
+    if (!profile) {
+      // Fallback for different data structures
+      const user = data?.user || data || {};
+      const sessionData = {
+        isLoggedIn: true,
+        role: user.role || 'Donor',
+        name: user.name || 'Donor User',
+        email: user.email || loginEmail || '',
+        impactLevel: 'Gold',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+        userId: user.id || null,
+        accountType: data?.account_type || 'Donor',
+      };
+      if (data?.token) {
+        window.localStorage.setItem('authToken', data.token);
+      }
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+      navigate(redirectTo);
+      return;
+    }
+
     // Store user session data
     const sessionData = {
       isLoggedIn: true,
-      role: 'Donor',
-      name: data.user.name,
-      email: data.user.email,
-      impactLevel: 'Gold',
+      role: isOrganization ? 'Organization' : 'Donor',
+      name: profile.name,
+      email: profile.email || loginEmail || '',
+      impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      userId: data.user.id,
-      logoutRedirectTo: redirectTo,
+      userId: profile.id,
+      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
     };
-    
+
+    if (data?.token) {
+      window.localStorage.setItem('authToken', data.token);
+    }
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
     navigate(redirectTo);
   };
@@ -87,16 +116,16 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
-  const handleRegisterSuccess = (email) => {
-    // After successful registration, redirect to login with email
-    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
-  };
-
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={handleRegisterSuccess} />
+      <RegisterPage onToggleMode={() => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)} />
     </AuthLayout>
   );
+}
+
+function CampaignDetailRoute() {
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
 }
 
 export default function App() {
