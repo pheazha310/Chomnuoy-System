@@ -401,6 +401,27 @@ body {
   border-color: #0ea5e9;
 }
 
+.btn-follow {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.btn-follow:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btn-follow .btn-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
 .btn-outline {
   border: 1px solid var(--line);
   background: #fff;
