@@ -1,6 +1,7 @@
 import "./css/Navbar.css";
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -20,49 +21,6 @@ const donorNavItems = [
   { label: "Contact", href: "/contact" },
 ];
 
-const initialNotifications = [
-  {
-    id: 'donation-confirmed',
-    title: 'Donation Confirmed',
-    message: 'Your $50 donation to the Education Fund was successful. Thank you for your support!',
-    time: '2m ago',
-    type: 'success',
-    isRead: false,
-  },
-  {
-    id: 'delivery-update',
-    title: 'Delivery Update',
-    message: 'The medical supplies you funded for the local clinic are currently out for delivery.',
-    time: '1h ago',
-    type: 'info',
-    isRead: false,
-  },
-  {
-    id: 'message-thankyou',
-    title: 'Message from SaveTheChildren',
-    message: 'Your contribution is making a real difference in the lives of 20 students this semester.',
-    time: '3h ago',
-    type: 'message',
-    isRead: false,
-  },
-  {
-    id: 'campaign-milestone',
-    title: 'Campaign Milestone Reached',
-    message: 'Clean Water Initiative reached 80% of its goal. Share it to help complete funding.',
-    time: '6h ago',
-    type: 'info',
-    isRead: true,
-  },
-  {
-    id: 'tax-receipt',
-    title: 'Tax Receipt Available',
-    message: 'Your monthly donation summary and tax receipt for this period is now ready to download.',
-    time: '1d ago',
-    type: 'success',
-    isRead: true,
-  },
-];
-
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -72,11 +30,24 @@ function getDonorSession() {
   }
 }
 
-function clearDonorSession() {
+function clearAuthState() {
   window.localStorage.removeItem('chomnuoy_session');
+  window.localStorage.removeItem('authToken');
 }
 
 function isNavItemActive(itemHref, pathname) {
+  if (itemHref === '/campaigns') {
+    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
+  }
+
+  if (itemHref === '/campaigns/donor') {
+    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
+  }
+
+  return pathname === itemHref;
+}
+
+function isGuestNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
   }
@@ -92,92 +63,150 @@ function Navbar() {
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
+  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-  const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'success', title: 'Donation Received', message: 'Thank you for supporting Rural Health Alliance.', time: '2m ago', isRead: false },
+    { id: 2, type: 'info', title: 'Campaign Update', message: 'Ocean Reclaim Project shared a new progress update.', time: '1h ago', isRead: false },
+    { id: 3, type: 'message', title: 'Pickup Reminder', message: 'Your material pickup is scheduled for tomorrow.', time: 'Yesterday', isRead: true },
+  ]);
+  const notificationRef = useRef(null);
 
   const handleLogout = () => {
-    clearDonorSession();
-    window.location.href = '/login';
-  };
+    const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
+    const logoutTarget =
+      savedBeforeLoginPath &&
+      savedBeforeLoginPath.startsWith('/') &&
+      !savedBeforeLoginPath.startsWith('/logout')
+        ? savedBeforeLoginPath
+        : '/';
 
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-    const query = searchQuery.trim().replace(/\s+/g, ' ');
-    if (!query) return;
-
-    const normalized = query.toLowerCase();
-    const encodedQuery = encodeURIComponent(query);
-
-    if (pathname.startsWith('/organizations')) {
-      navigate(`/organizations?search=${encodedQuery}`);
-      return;
-    }
-    if (pathname.startsWith('/campaigns')) {
-      navigate(`/campaigns?search=${encodedQuery}`);
-      return;
-    }
-    if (pathname.startsWith('/donations')) {
-      navigate(`/donations?search=${encodedQuery}`);
-      return;
-    }
-    if (pathname.startsWith('/pickup')) {
-      navigate(`/pickup?search=${encodedQuery}`);
-      return;
-    }
-    if (pathname.startsWith('/contact')) {
-      navigate(`/contact?search=${encodedQuery}`);
-      return;
-    }
-
-    if (normalized.includes('organization') || normalized.includes('ngo')) {
-      navigate(`/organizations?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('donation')) {
-      navigate(`/donations?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('pickup') || normalized.includes('material')) {
-      navigate(`/pickup?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('contact') || normalized.includes('support')) {
-      navigate(`/contact?search=${encodedQuery}`);
-      return;
-    }
-
-    navigate(`/campaigns?search=${encodedQuery}`);
+    clearAuthState();
+    window.location.href = logoutTarget;
   };
 
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
-    setIsNotificationOpen(false);
-    setIsAllNotificationsOpen(false);
+    setIsLogoutPopupOpen(false);
+    setIsNotificationsOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
-    setSearchQuery(urlQuery);
-  }, [location.search]);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
-      if (isNotificationOpen && !event.target.closest('.donor-notification')) {
-        setIsNotificationOpen(false);
+      if (isNotificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProfileMenuOpen, isNotificationOpen]);
+  }, [isNotificationsOpen, isProfileMenuOpen]);
+
+  useEffect(() => {
+    if (!isLogoutPopupOpen) return undefined;
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setIsLogoutPopupOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isLogoutPopupOpen]);
+
+  useEffect(() => {
+    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
+    setSearchQuery(urlQuery);
+  }, [location.search]);
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim().replace(/\s+/g, ' ');
+    if (!query) return;
+
+    const encoded = encodeURIComponent(query);
+    if (pathname.startsWith('/organizations')) {
+      navigate(`/organizations?search=${encoded}`);
+      return;
+    }
+    if (pathname.startsWith('/campaigns')) {
+      navigate(`/campaigns/donor?search=${encoded}`);
+      return;
+    }
+    if (pathname.startsWith('/donations')) {
+      navigate(`/donations?search=${encoded}`);
+      return;
+    }
+    if (pathname.startsWith('/pickup')) {
+      navigate(`/pickup?search=${encoded}`);
+      return;
+    }
+    if (pathname.startsWith('/contact')) {
+      navigate(`/contact?search=${encoded}`);
+      return;
+    }
+
+    navigate(`/campaigns/donor?search=${encoded}`);
+  };
+
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const markAllNotificationsRead = () => {
+    setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
+  };
+
+  const logoutPopupMarkup = (
+    <div
+      className="logout-popup-overlay"
+      role="presentation"
+      onClick={() => setIsLogoutPopupOpen(false)}
+    >
+      <div
+        className="logout-popup"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-popup-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="logout-popup-header">
+          <h3 id="logout-popup-title">Log out from your account?</h3>
+          <button
+            type="button"
+            className="logout-popup-close"
+            aria-label="Close logout popup"
+            onClick={() => setIsLogoutPopupOpen(false)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
+              <path d="m18 6-12 12" strokeWidth="2" strokeLinecap="round" />
+              <path d="m6 6 12 12" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <p>You will need to sign in again to access donor features.</p>
+        <div className="logout-popup-actions">
+          <button
+            type="button"
+            className="logout-popup-cancel"
+            onClick={() => setIsLogoutPopupOpen(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="logout-popup-confirm"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
@@ -231,7 +260,7 @@ function Navbar() {
           </svg>
           </span>
           <div className="donor-brand-text">
-            <span className="donor-brand-name">{"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}</span>
+            <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
             <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
           </div>
         </Link>
@@ -260,59 +289,37 @@ function Navbar() {
         </form>
 
         <div className="donor-actions">
-          <div className="donor-notification">
+          <div className="donor-notification" ref={notificationRef}>
             <button
               type="button"
-              className={`donor-notify ${isNotificationOpen ? 'is-active' : ''}`}
+              className={`donor-notify ${isNotificationsOpen ? 'is-active' : ''}`}
               aria-label="Notifications"
-              aria-expanded={isNotificationOpen}
-              aria-pressed={isNotificationOpen}
-              onClick={() => setIsNotificationOpen((previous) => !previous)}
+              aria-expanded={isNotificationsOpen}
+              onClick={() => setIsNotificationsOpen((open) => !open)}
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              {unreadCount > 0 && <span className="notification-dot"></span>}
+              {unreadCount > 0 ? <span className="notification-dot"></span> : null}
             </button>
-
-            {isNotificationOpen && (
-              <div className="donor-notification-dropdown" aria-label="Notifications panel">
+            {isNotificationsOpen ? (
+              <div className="donor-notification-dropdown" aria-label="Notification list">
                 <div className="donor-notification-header">
                   <h4>Notifications</h4>
-                  <button
-                    type="button"
-                    className="donor-mark-read"
-                    onClick={() => setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })))}
-                    disabled={unreadCount === 0}
-                  >
-                    Mark all as read
+                  <button type="button" className="donor-mark-read" onClick={markAllNotificationsRead} disabled={unreadCount === 0}>
+                    Mark all read
                   </button>
                 </div>
-
                 <ul className="donor-notification-list">
-                  {displayedNotifications.map((item) => (
+                  {notifications.map((item) => (
                     <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
-                      <span className={`donor-notification-icon ${item.type}`} aria-hidden="true">
-                        {item.type === 'success' && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <circle cx="12" cy="12" r="9" strokeWidth="2" />
-                            <path d="m8 12 2.2 2.2L16 9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                        {item.type === 'info' && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M3 7h13l4 4v6H7l-4-4z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <circle cx="8.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-                            <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-                          </svg>
-                        )}
-                        {item.type === 'message' && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="m12 20-1.2-1.1C6.2 14.7 3 11.8 3 8.2 3 5.3 5.2 3 8.1 3c1.7 0 3.2.8 4 2.1C12.9 3.8 14.5 3 16.1 3 19 3 21 5.3 21 8.2c0 3.6-3.2 6.5-7.8 10.7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </span>
+                      <div className={`donor-notification-icon ${item.type}`}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                          <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                          <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
                       <div className="donor-notification-content">
                         <div className="donor-notification-topline">
                           <p>{item.title}</p>
@@ -323,18 +330,8 @@ function Navbar() {
                     </li>
                   ))}
                 </ul>
-
-                <button
-                  type="button"
-                  className="donor-view-all-notifications"
-                  onClick={() => {
-                    setIsAllNotificationsOpen((previous) => !previous);
-                  }}
-                >
-                  {isAllNotificationsOpen ? 'View less notifications' : 'View all notifications'}
-                </button>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* <button type="button" className="donor-history" aria-label="History">
@@ -415,8 +412,8 @@ function Navbar() {
                     type="button" 
                     className="donor-profile-menu-item donor-profile-logout"
                     onClick={() => {
-                      handleLogout();
                       setIsProfileMenuOpen(false);
+                      setIsLogoutPopupOpen(true);
                     }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -431,6 +428,10 @@ function Navbar() {
             )}
           </div>
         </div>
+
+        {isLogoutPopupOpen && typeof document !== 'undefined'
+          ? createPortal(logoutPopupMarkup, document.body)
+          : null}
       </nav>
     );
   }
@@ -509,31 +510,7 @@ function Navbar() {
             <a
               href={item.href}
               onClick={() => setIsGuestMenuOpen(false)}
-              className={
-                item.href === "/campaigns"
-                  ? pathname === "/" || pathname.startsWith("/campaigns")
-                    ? "active"
-                    : ""
-                  : item.href === "/organizations"
-                    ? pathname === "/organizations"
-                      ? "active"
-                      : ""
-                  : item.href === "/how-it-works"
-                    ? pathname === "/how-it-works"
-                      ? "active"
-                      : ""
-                    : item.href === "/about"
-                      ? pathname === "/about"
-                        ? "active"
-                        : ""
-                    : item.href === "/contact"
-                      ? pathname === "/contact"
-                        ? "active"
-                        : ""
-                      : pathname === item.href
-                        ? "active"
-                        : ""
-              }
+              className={isGuestNavItemActive(item.href, pathname) ? 'active' : ''}
             >
               {item.label}
             </a>
@@ -541,7 +518,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link to="/login?redirect=%2F" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>
