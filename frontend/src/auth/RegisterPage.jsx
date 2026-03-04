@@ -296,8 +296,17 @@ export default function RegisterPage({ onToggleMode }) {
           className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
           disabled={isSubmitting}
         >
-          {isSubmitting ? 'Registering...' : 'Register'}
-          <ArrowRight className="h-5 w-5" />
+          {isSubmitting ? (
+            <>
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              Registering...
+            </>
+          ) : (
+            <>
+              Register
+              <ArrowRight className="h-5 w-5" />
+            </>
+          )}
         </button>
       </form>
 

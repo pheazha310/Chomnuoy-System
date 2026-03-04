@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -155,7 +156,17 @@ class AuthControllerRegister extends Controller
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
         $organization = Organization::whereRaw('LOWER(email) = ?', [$email])->first();
 
+        Log::info('Auth login attempt', [
+            'email' => $email,
+            'user_found' => (bool) $user,
+            'organization_found' => (bool) $organization,
+        ]);
+
         if ($user && Hash::check($password, $user->password)) {
+            Log::info('Auth login success', [
+                'email' => $email,
+                'account_type' => 'Donor',
+            ]);
             return response()->json([
                 'message' => 'Login successful',
                 'account_type' => 'Donor',
@@ -164,12 +175,29 @@ class AuthControllerRegister extends Controller
             ]);
         }
 
+        if ($user) {
+            Log::warning('Auth login password mismatch', [
+                'email' => $email,
+                'account_type' => 'Donor',
+            ]);
+        }
+
         if ($organization) {
             $organizationPassword = (string) $organization->password;
             $matchesHashed = Hash::check($password, $organizationPassword);
             $matchesPlaintext = hash_equals($organizationPassword, $password);
 
+            Log::info('Auth login organization password check', [
+                'email' => $email,
+                'matches_hashed' => $matchesHashed,
+                'matches_plaintext' => $matchesPlaintext,
+            ]);
+
             if (!($matchesHashed || $matchesPlaintext)) {
+                Log::warning('Auth login password mismatch', [
+                    'email' => $email,
+                    'account_type' => 'Organization',
+                ]);
                 throw ValidationException::withMessages([
                     'password' => ['Password is incorrect.'],
                 ]);
@@ -179,8 +207,15 @@ class AuthControllerRegister extends Controller
             if ($matchesPlaintext && !$matchesHashed) {
                 $organization->password = Hash::make($password);
                 $organization->save();
+                Log::info('Auth login upgraded organization password hash', [
+                    'email' => $email,
+                ]);
             }
 
+            Log::info('Auth login success', [
+                'email' => $email,
+                'account_type' => 'Organization',
+            ]);
             return response()->json([
                 'message' => 'Login successful',
                 'account_type' => 'Organization',

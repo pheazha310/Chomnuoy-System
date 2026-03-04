@@ -52,6 +52,7 @@ function FacebookIcon(props) {
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
@@ -73,6 +74,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     e.preventDefault();
     setError(null);
     setFieldErrors({ email: '', password: '' });
+    setIsSubmitting(true);
 
     try {
       const data = await loginUser({
@@ -88,6 +90,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         password: errors.password?.[0] || '',
       });
       setError(err.response?.data?.message || 'Login failed');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -217,9 +221,19 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <button
           type="submit"
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
+          disabled={isSubmitting}
         >
-          Login
-          <ArrowRight className="h-5 w-5" />
+          {isSubmitting ? (
+            <>
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              Logging in...
+            </>
+          ) : (
+            <>
+              Login
+              <ArrowRight className="h-5 w-5" />
+            </>
+          )}
         </button>
       </form>
 

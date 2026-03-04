@@ -33,15 +33,23 @@ function LoginRoute() {
   const redirectTo = getSafeRedirect(location.search);
 
   const handleLoginSuccess = (data) => {
+    const isOrganization = data?.account_type === 'Organization';
+    const profile = isOrganization ? data?.organization : data?.user;
+
+    if (!profile) {
+      throw new Error('Login response missing profile data');
+    }
+
     // Store user session data
     const sessionData = {
       isLoggedIn: true,
-      role: 'Donor',
-      name: data.user.name,
-      email: data.user.email,
-      impactLevel: 'Gold',
+      role: isOrganization ? 'Organization' : 'Donor',
+      name: profile.name,
+      email: profile.email,
+      impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      userId: data.user.id,
+      userId: profile.id,
+      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
     };
     
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
