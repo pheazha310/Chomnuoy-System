@@ -479,6 +479,14 @@ body {
   gap: 1.1rem;
 }
 
+.donor-org-layout-donation {
+  grid-template-columns: 1fr;
+}
+
+.donor-org-layout-donation .donor-org-sidebar {
+  display: none;
+}
+
 .donor-org-sidebar {
   display: grid;
   gap: 1rem;
@@ -860,13 +868,14 @@ body {
 }
 
 .donation-modal-card {
+  padding: 15px;
   width: 100%;
-  max-width: 980px;
-  margin: 0 auto;
+  max-width: 760px;
+  margin: 30px auto;
   background: linear-gradient(180deg, #fbfdff 0%, #f4f7fb 100%);
   border: 1px solid #d8e0eb;
-  border-radius: 16px;
-  box-shadow: 0 26px 48px rgba(15, 23, 42, 0.24);
+  border-radius: 14px;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.18);
   overflow: hidden;
 }
 
@@ -875,19 +884,19 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 18px 24px;
+  padding: 10px 14px;
   border-bottom: 1px solid #e5ebf3;
 }
 
 .donation-modal-title-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .donation-modal-icon {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   background: #e9f3ff;
   color: #1f80eb;
@@ -904,7 +913,7 @@ body {
 .donation-modal-title-wrap strong {
   display: block;
   color: #111827;
-  font-size: clamp(2.4rem, 4vw, 3.5rem);
+  font-size: 33px;
   line-height: 1.1;
   letter-spacing: -0.01em;
 }
@@ -912,13 +921,13 @@ body {
 .donation-modal-title-wrap p {
   margin: 2px 0 0;
   color: #4b6280;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.2;
 }
 
 .donation-modal-close {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   border: 0;
   background: #eff4f8;
@@ -939,7 +948,7 @@ body {
 }
 
 .donation-modal-body {
-  padding: 22px 24px 18px;
+  padding: 16px 18px 14px;
 }
 
 .donation-supporting {
@@ -948,36 +957,37 @@ body {
 
 .donation-supporting p {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #1f80eb;
 }
 
 .donation-supporting h2 {
-  margin: 8px 0 10px;
+  margin: 10px 0 8px;
   color: #111827;
-  font-size: clamp(2.7rem, 5.4vw, 5.1rem);
+  font-size: clamp(1.4rem, 2vw, 2rem);
   line-height: 1.13;
   letter-spacing: -0.01em;
 }
 
 .donation-supporting span {
+  /* padding-bottom: 20px; */
   color: #3f5573;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.45;
   display: block;
   max-width: 760px;
 }
 
 .donation-section {
-  margin-top: 22px;
+  margin-top: 14px;
 }
 
 .donation-section h3 {
-  margin: 0 0 10px;
+  margin: 30px 0 10px;
   color: #111827;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -989,13 +999,13 @@ body {
 }
 
 .donation-amount-grid button {
-  height: 64px;
+  height: 46px;
   border: 1px solid transparent;
-  border-radius: 11px;
+  border-radius: 10px;
   background: #e9edf3;
   color: #111827;
   font: inherit;
-  font-size: clamp(2rem, 3vw, 3.1rem);
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
@@ -1015,9 +1025,9 @@ body {
 
 .donation-custom-input {
   display: grid;
-  grid-template-columns: 56px 1fr 90px;
+  grid-template-columns: 42px 1fr 62px;
   border: 1px solid #ced7e2;
-  border-radius: 11px;
+  border-radius: 10px;
   overflow: hidden;
   background: #fff;
 }
@@ -1047,12 +1057,12 @@ body {
 }
 
 .donation-custom-input input {
-  height: 64px;
+  height: 46px;
   border: 0;
-  padding: 0 14px;
+  padding: 0 12px;
   color: #0f172a;
   font: inherit;
-  font-size: 20px;
+  font-size: 15px;
 }
 
 .donation-custom-input input:focus {
@@ -1062,17 +1072,17 @@ body {
 .donation-payment-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .donation-payment-grid button {
   border: 2px solid #d0dae7;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fbfcfe;
-  min-height: 124px;
-  padding: 14px 10px;
+  min-height: 78px;
+  padding: 10px 8px;
   font: inherit;
-  font-size: 19px;
+  font-size: 14px;
   font-weight: 700;
   color: #111827;
   cursor: pointer;
@@ -1094,8 +1104,8 @@ body {
 }
 
 .payment-badge {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -1122,32 +1132,32 @@ body {
 
 .donation-section textarea {
   width: 100%;
-  min-height: 132px;
+  min-height: 96px;
   border: 1px solid #ced7e2;
   border-radius: 10px;
   background: #fff;
   resize: vertical;
-  padding: 13px 14px;
+  padding: 10px 12px;
   color: #0f172a;
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
 .donation-modal-footer {
   border-top: 1px solid #e5ebf3;
-  padding: 18px 24px 20px;
+  padding: 14px 18px 16px;
 }
 
 .donation-confirm-btn {
   width: 100%;
-  height: 62px;
+  height: 48px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 10px;
   background: #1f80eb;
   color: #fff;
   font: inherit;
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -1181,10 +1191,10 @@ body {
 }
 
 .donation-note {
-  margin: 10px 10px 0;
+  margin: 8px 4px 0;
   color: #64748b;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
   text-align: center;
 }
 
@@ -1237,19 +1247,19 @@ body {
   }
 
   .donation-modal-head {
-    padding: 14px 16px;
+    padding: 12px 14px;
   }
 
   .donation-modal-body {
-    padding: 18px 16px 16px;
+    padding: 14px 14px 12px;
   }
 
   .donation-modal-footer {
-    padding: 16px;
+    padding: 12px 14px 14px;
   }
 
   .donation-modal-title-wrap strong {
-    font-size: 27px;
+    font-size: 20px;
   }
 
   .donation-modal-title-wrap p {
@@ -1274,8 +1284,8 @@ body {
   }
 
   .donation-supporting h2 {
-    font-size: 32px;
-    margin: 8px 0 10px;
+    font-size: 24px;
+    margin: 6px 0 8px;
   }
 
   .donation-supporting p {
@@ -1291,7 +1301,7 @@ body {
   }
 
   .donation-section h3 {
-    font-size: 16px;
+    font-size: 14px;
     margin-bottom: 10px;
   }
 
@@ -1323,9 +1333,9 @@ body {
   }
 
   .donation-payment-grid button {
-    min-height: 88px;
+    min-height: 74px;
     font-size: 14px;
-    border-radius: 11px;
+    border-radius: 10px;
   }
 
   .payment-badge {
@@ -1342,8 +1352,8 @@ body {
   }
 
   .donation-confirm-btn {
-    height: 52px;
-    font-size: 16px;
+    height: 46px;
+    font-size: 14px;
     border-radius: 10px;
     gap: 7px;
   }
