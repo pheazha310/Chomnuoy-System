@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Sora:wght@600;700;800&display=swap');
+
 .dashboard-home {
   min-height: 100vh;
   background: #f2f4f8;
@@ -114,6 +116,7 @@
   padding: 2rem;
   max-width: 1660px;
   margin: 0 auto;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
 }
 
 .welcome-grid {
@@ -125,16 +128,20 @@
 
 .welcome-copy h1 {
   margin: 0;
-  font-size: 3.6rem;
-  line-height: 1.05;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(1.55rem, 2vw, 2.2rem);
+  line-height: 1.08;
   font-weight: 800;
+  letter-spacing: -0.02em;
   color: #0f1c33;
 }
 
 .welcome-copy p {
   margin: 0.75rem 0 0;
-  font-size: 1.9rem;
-  color: #64758b;
+  font-size: clamp(0.82rem, 0.9vw, 1rem);
+  line-height: 1.45;
+  color: #5f7088;
+  max-width: 42ch;
 }
 
 .metric-card {
@@ -147,7 +154,7 @@
 
 .metric-card span {
   display: block;
-  font-size: 0.92rem;
+  font-size: 0.74rem;
   letter-spacing: 0.11em;
   color: #a1aec0;
   font-weight: 800;
@@ -159,7 +166,9 @@
   align-items: center;
   gap: 0.45rem;
   color: #1f7de2;
-  font-size: 3rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(1.45rem, 1.5vw, 1.9rem);
+  letter-spacing: -0.02em;
 }
 
 .metric-card.is-blue {
@@ -191,19 +200,26 @@
   display: inline-flex;
   gap: 0.6rem;
   align-items: center;
-  font-size: 2rem;
+  font-size: clamp(0.72rem, 0.82vw, 0.88rem);
+  font-weight: 700;
+}
+
+.goal-head h2 svg {
+  width: 12px;
+  height: 12px;
 }
 
 .goal-head p {
   margin: 0;
   color: #1f7de2;
   font-weight: 800;
-  font-size: 2rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(0.74rem, 0.8vw, 0.86rem);
 }
 
 .goal-track {
   margin-top: 1rem;
-  height: 22px;
+  height: 12px;
   border-radius: 999px;
   background: #ebeff5;
   overflow: hidden;
@@ -221,7 +237,7 @@
   display: flex;
   justify-content: space-between;
   color: #98a4b7;
-  font-size: 1.8rem;
+  font-size: clamp(0.58rem, 0.62vw, 0.66rem);
   font-weight: 600;
 }
 
@@ -240,14 +256,16 @@
 
 .section-head h2 {
   margin: 0;
-  font-size: 2.2rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(1.2rem, 1.45vw, 1.5rem);
+  letter-spacing: -0.01em;
 }
 
 .section-head a {
   color: #1f7de2;
   font-weight: 700;
   text-decoration: none;
-  font-size: 1.3rem;
+  font-size: clamp(0.8rem, 0.85vw, 0.92rem);
 }
 
 .campaign-grid {
@@ -295,14 +313,16 @@
 
 .campaign-body h3 {
   margin: 0;
-  font-size: 2rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(0.98rem, 1.15vw, 1.2rem);
+  line-height: 1.28;
 }
 
 .campaign-body p {
   margin: 0.45rem 0 0;
   color: #6d7d92;
   line-height: 1.45;
-  font-size: 1.35rem;
+  font-size: clamp(0.78rem, 0.82vw, 0.9rem);
 }
 
 .campaign-progress {
@@ -324,7 +344,7 @@
   display: flex;
   justify-content: space-between;
   color: #8a99ae;
-  font-size: 1.35rem;
+  font-size: clamp(0.74rem, 0.78vw, 0.85rem);
 }
 
 .campaign-meta strong {
@@ -340,7 +360,8 @@
   background: #1f7de2;
   color: #fff;
   font-weight: 700;
-  font-size: 1.28rem;
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
   cursor: pointer;
 }
 
@@ -362,7 +383,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  font-size: 2rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(1.12rem, 1.35vw, 1.35rem);
 }
 
 .activity-card ul {
@@ -392,7 +414,7 @@
 
 .activity-card li p {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: clamp(0.78rem, 0.82vw, 0.9rem);
   color: #24334c;
   line-height: 1.35;
 }
@@ -401,14 +423,14 @@
   display: block;
   margin-top: 0.25rem;
   color: #1f7de2;
-  font-size: 1.1rem;
+  font-size: clamp(0.78rem, 0.82vw, 0.88rem);
 }
 
 .activity-card li span {
   display: block;
   margin-top: 0.25rem;
   color: #9ca9ba;
-  font-size: 1.1rem;
+  font-size: 0.76rem;
 }
 
 .outline-btn {
@@ -420,6 +442,7 @@
   background: #fff;
   color: #5f6f86;
   font-weight: 700;
+  font-size: 0.86rem;
   cursor: pointer;
 }
 
@@ -429,7 +452,8 @@
 
 .personalized h2 {
   margin: 0;
-  font-size: 2.2rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(1.14rem, 1.4vw, 1.38rem);
 }
 
 .personalized-grid {
@@ -471,12 +495,13 @@
 
 .personalized-grid strong {
   display: block;
-  font-size: 1.6rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(0.92rem, 1vw, 1rem);
 }
 
 .personalized-grid p {
   margin: 0.2rem 0 0;
-  font-size: 1.2rem;
+  font-size: clamp(0.74rem, 0.78vw, 0.85rem);
   color: #78879c;
 }
 
@@ -490,13 +515,14 @@
 
 .cta-card h3 {
   margin: 0;
-  font-size: 2rem;
+  font-family: 'Sora', 'Segoe UI', sans-serif;
+  font-size: clamp(1.08rem, 1.35vw, 1.3rem);
 }
 
 .cta-card p {
   margin: 0.65rem 0 0;
   line-height: 1.4;
-  font-size: 1.35rem;
+  font-size: clamp(0.8rem, 0.85vw, 0.9rem);
   max-width: 26ch;
 }
 
@@ -509,7 +535,7 @@
   border-radius: 10px;
   height: 42px;
   padding: 0 1.2rem;
-  font-size: 1.15rem;
+  font-size: 0.84rem;
   cursor: pointer;
 }
 
