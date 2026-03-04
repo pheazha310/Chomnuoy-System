@@ -786,7 +786,7 @@ body {
 .donor-org-actions {
   margin-top: 0.9rem;
   display: grid;
-  grid-template-columns: 1fr 42px;
+  grid-template-columns: 1fr auto;
   gap: 0.55rem;
 }
 
@@ -810,12 +810,20 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   cursor: pointer;
+  padding: 0 0.75rem;
+  height: 36px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 .donor-follow-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .donor-org-pagination {

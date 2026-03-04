@@ -377,6 +377,7 @@ function Organization() {
                             <circle cx="9" cy="7" r="4" strokeWidth="2" />
                             <path d="M19 8v6M22 11h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
+                          Follow
                         </button>
                       </div>
                     </div>
