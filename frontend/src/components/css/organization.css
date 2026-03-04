@@ -463,3 +463,394 @@ body {
     font-size: 1.5rem;
   }
 }
+
+.donor-org-page {
+  background: #f3f5f9;
+  min-height: calc(100vh - 72px);
+  padding: 1rem 1.1rem 2.2rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.donor-org-layout {
+  max-width: 1220px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  gap: 1.1rem;
+}
+
+.donor-org-sidebar {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.donor-org-panel {
+  background: #ffffff;
+  border: 1px solid #e7edf5;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.donor-user-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.donor-user-head img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.donor-user-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.donor-user-head strong {
+  color: #0f172a;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.donor-user-stat {
+  background: #f6f8fc;
+  border: 1px solid #edf2f9;
+  border-radius: 12px;
+  padding: 0.85rem 0.8rem;
+}
+
+.donor-user-stat + .donor-user-stat {
+  margin-top: 0.8rem;
+}
+
+.donor-user-stat span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.donor-user-stat strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: #1d6fe8;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.donor-user-stat:last-child strong {
+  color: #0f172a;
+}
+
+.donor-filter-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 28px;
+  color: #0f172a;
+}
+
+.donor-filter-label {
+  margin: 0.8rem 0 0.35rem;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.donor-filter-panel select,
+.donor-filter-search {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 0.75rem;
+  color: #334155;
+  font: inherit;
+}
+
+.donor-filter-search {
+  margin-top: 0.9rem;
+}
+
+.donor-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 15px;
+  color: #475569;
+  margin-top: 0.4rem;
+}
+
+.donor-apply-btn {
+  margin-top: 0.95rem;
+  width: 100%;
+  border: 0;
+  height: 42px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #2990ff 0%, #1678e7 100%);
+  cursor: pointer;
+}
+
+.donor-clear-btn {
+  margin-top: 0.55rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.donor-org-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.2rem 0 1rem;
+}
+
+.donor-org-header h1 {
+  margin: 0;
+  font-size: 47px;
+  line-height: 1.05;
+  color: #0f172a;
+}
+
+.donor-org-header p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.donor-sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.donor-sort-wrap select {
+  border: 0;
+  background: transparent;
+  color: #1678e7;
+  font: inherit;
+  font-weight: 700;
+}
+
+.donor-org-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.donor-org-card {
+  background: #fff;
+  border: 1px solid #e4ebf4;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.donor-org-image-wrap {
+  position: relative;
+}
+
+.donor-org-image-wrap img {
+  width: 100%;
+  height: 158px;
+  object-fit: cover;
+}
+
+.donor-org-badges {
+  position: absolute;
+  top: 0.58rem;
+  left: 0.58rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.donor-org-badges span,
+.donor-org-badges strong {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+  padding: 0.3rem 0.46rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+}
+
+.donor-org-badges strong {
+  background: #22c55e;
+  color: #fff;
+}
+
+.donor-org-card-body {
+  padding: 0.9rem;
+}
+
+.donor-org-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.donor-org-title-row h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.donor-org-card-body p {
+  margin: 0.55rem 0 0;
+  color: #64748b;
+  line-height: 1.45;
+  font-size: 12px;
+}
+
+.donor-favorite {
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 1.28rem;
+  line-height: 1;
+}
+
+.donor-favorite.is-active {
+  color: #ef4444;
+}
+
+.donor-org-metrics {
+  margin-top: 0.9rem;
+  padding-top: 0.78rem;
+  border-top: 1px solid #edf2f7;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.donor-org-metrics span {
+  display: block;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.donor-org-metrics strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.donor-org-actions {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: 1fr 42px;
+  gap: 0.55rem;
+}
+
+.donor-donate-btn {
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #2990ff 0%, #1678e7 100%);
+  color: #fff;
+  height: 36px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.donor-follow-btn {
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #4b5563;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.donor-follow-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.donor-org-pagination {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.donor-org-pagination button,
+.donor-org-pagination span {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-weight: 700;
+}
+
+.donor-org-pagination span {
+  border: 0;
+  background: transparent;
+}
+
+.donor-org-pagination .active {
+  background: #1678e7;
+  border-color: #1678e7;
+  color: #fff;
+}
+
+@media (max-width: 1180px) {
+  .donor-org-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .donor-org-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .donor-org-page {
+    padding: 1rem 0.8rem 2rem;
+  }
+
+  .donor-org-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .donor-org-grid {
+    grid-template-columns: 1fr;
+  }
+}
