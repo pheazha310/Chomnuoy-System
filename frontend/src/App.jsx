@@ -31,7 +31,24 @@ function LoginRoute() {
     const profile = isOrganization ? data?.organization : data?.user;
 
     if (!profile) {
-      throw new Error('Login response missing profile data');
+      // Fallback for different data structures
+      const user = data?.user || data || {};
+      const sessionData = {
+        isLoggedIn: true,
+        role: user.role || 'Donor',
+        name: user.name || 'Donor User',
+        email: user.email || loginEmail || '',
+        impactLevel: 'Gold',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+        userId: user.id || null,
+        accountType: data?.account_type || 'Donor',
+      };
+      if (data?.token) {
+        window.localStorage.setItem('authToken', data.token);
+      }
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+      navigate(redirectTo);
+      return;
     }
 
     // Store user session data
@@ -44,22 +61,6 @@ function LoginRoute() {
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
       userId: profile.id,
       accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
-    };
-
-    window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
-    navigate(redirectTo);
-  };
-
-  const handleLoginSuccess = (data) => {
-    const user = data?.user || {};
-    const sessionData = {
-      isLoggedIn: true,
-      role: user.role || 'Donor',
-      name: user.name || 'Donor User',
-      email: user.email || '',
-      impactLevel: 'Gold',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      userId: user.id || null,
     };
 
     if (data?.token) {
