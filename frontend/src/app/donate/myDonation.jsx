@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Banknote,
   Building2,
@@ -7,6 +8,7 @@ import {
   Filter,
   GraduationCap,
   HandHeart,
+  Reply,
   Search,
   Share2,
   Stethoscope,
@@ -85,12 +87,22 @@ const donations = [
 ];
 
 export default function MyDonation() {
+  const [selectedDonation, setSelectedDonation] = useState(null);
+
+  const handleOpenSavePopup = (donation) => {
+    setSelectedDonation(donation);
+  };
+
+  const handleCloseSavePopup = () => {
+    setSelectedDonation(null);
+  };
+
   return (
     <div className="my-donation-page">
       <main className="my-donation-container">
         <div className="my-donation-head">
           <div>
-            <h1 className="my-donation-title">Donation History</h1>
+            <h1 className="my-donation-title">My Donation</h1>
             <p className="my-donation-subtitle">
               Detailed record of your contributions and the organizations you support.
             </p>
@@ -156,39 +168,73 @@ export default function MyDonation() {
               <div className="my-donation-status-wrap">
                 <span className={`my-donation-status ${item.statusClass}`}>{item.status}</span>
               </div>
-              <button type="button" className="my-donation-icon-btn">
-                <Banknote className="my-donation-medium-icon" />
+              <button
+                type="button"
+                className="my-donation-icon-btn"
+                aria-label="Save donation"
+                onClick={() => handleOpenSavePopup(item)}
+              >
+                <Download className="my-donation-action-icon" />
               </button>
               <div className="my-donation-actions">
                 <button type="button" className="my-donation-icon-btn">
-                  <Share2 className="my-donation-medium-icon" />
+                  <Share2 className="my-donation-action-icon" strokeWidth={2.7} />
                 </button>
-                <button type="button" className="my-donation-detail-btn">
+                <Link to="/donations/view-detail" className="my-donation-detail-btn">
                   View Details
-                </button>
+                </Link>
               </div>
             </article>
           ))}
         </section>
 
-        <nav className="my-donation-pagination">
-          <button type="button" className="my-donation-page-btn" aria-label="Previous page">
-            &lt;
+        <div className="my-donation-bottom-action">
+          <button type="button" className="my-donation-view-all-btn">
+            View All
           </button>
-          <button type="button" className="my-donation-page-btn active">
-            1
-          </button>
-          <button type="button" className="my-donation-page-btn">
-            2
-          </button>
-          <button type="button" className="my-donation-page-btn">
-            3
-          </button>
-          <button type="button" className="my-donation-page-btn" aria-label="Next page">
-            &gt;
-          </button>
-        </nav>
+        </div>
       </main>
+
+      {selectedDonation && (
+        <div className="my-donation-modal-overlay" onClick={handleCloseSavePopup}>
+          <div
+            className="my-donation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-donation-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="save-donation-title">Save Donation Record</h2>
+            <p>
+              Save this donation to your quick-access list?
+            </p>
+
+            <div className="my-donation-modal-details">
+              <div>
+                <span>Date</span>
+                <strong>{selectedDonation.date}</strong>
+              </div>
+              <div>
+                <span>Amount</span>
+                <strong>{selectedDonation.amount}</strong>
+              </div>
+              <div>
+                <span>Recipient</span>
+                <strong>{selectedDonation.recipient}</strong>
+              </div>
+            </div>
+
+            <div className="my-donation-modal-actions">
+              <button type="button" className="my-donation-modal-btn secondary" onClick={handleCloseSavePopup}>
+                Cancel
+              </button>
+              <button type="button" className="my-donation-modal-btn primary" onClick={handleCloseSavePopup}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
