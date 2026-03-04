@@ -3,6 +3,8 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import ROUTES from '@/constants/routes.js';
 
 import Home from '@/app/home/page.jsx';
+import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
+import DonorCampaignDetailPage from '@/app/compaigns/DonorCampaignDetailPage.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
@@ -91,6 +93,22 @@ export default function App() {
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
+        <Route
+          path="/campaigns/donor"
+          element={
+            <RequireAuth>
+              <DonorCampaignsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/campaigns/donor/:id"
+          element={
+            <RequireAuth>
+              <DonorCampaignDetailPage />
+            </RequireAuth>
+          }
+        />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />

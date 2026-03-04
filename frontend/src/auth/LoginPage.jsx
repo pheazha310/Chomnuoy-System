@@ -73,6 +73,33 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
+
+      const displayName =
+        data?.user?.name ||
+        formData.email
+          .split('@')[0]
+          .split(/[._-]/)
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ') ||
+        'Donor User';
+
+      const donorSession = {
+        isLoggedIn: true,
+        role: 'Donor',
+        name: displayName,
+        email: data?.user?.email || formData.email,
+        impactLevel: data?.user?.impactLevel || 'Gold',
+        avatar:
+          data?.user?.avatar ||
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+      };
+
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(donorSession));
+      if (data?.token) {
+        window.localStorage.setItem('authToken', data.token);
+      }
+
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
