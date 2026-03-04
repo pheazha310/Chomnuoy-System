@@ -8,11 +8,17 @@ use App\Models\Category;
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserCredential;
+use App\Models\UserRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+<<<<<<< HEAD
 use Illuminate\Support\Facades\Log;
+=======
+use Illuminate\Support\Facades\Schema;
+>>>>>>> d8c9456ba38b819c0bf0c1f31ac2d44e09b225ec
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -119,14 +125,35 @@ class AuthControllerRegister extends Controller
             }
 
             $role = Role::firstOrCreate(['role_name' => 'Donor']);
-            $user = User::create([
+            $userData = [
                 'name' => $data['name'],
                 'phone' => $data['phone'] ?? null,
                 'email' => $data['email'],
-                'password' => Hash::make($data['password']),
                 'status' => 'active',
-                'role_id' => $role->id,
-            ]);
+            ];
+
+            if (Schema::hasColumn('users', 'password')) {
+                $userData['password'] = Hash::make($data['password']);
+            }
+            if (Schema::hasColumn('users', 'role_id')) {
+                $userData['role_id'] = $role->id;
+            }
+
+            $user = User::create($userData);
+
+            if (!Schema::hasColumn('users', 'password')) {
+                UserCredential::create([
+                    'user_id' => $user->id,
+                    'password' => Hash::make($data['password']),
+                ]);
+            }
+
+            if (!Schema::hasColumn('users', 'role_id')) {
+                UserRole::firstOrCreate([
+                    'user_id' => $user->id,
+                    'role_id' => $role->id,
+                ]);
+            }
 
             return [
                 'account_type' => 'Donor',
@@ -156,6 +183,7 @@ class AuthControllerRegister extends Controller
         $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
         $organization = Organization::whereRaw('LOWER(email) = ?', [$email])->first();
 
+<<<<<<< HEAD
         Log::info('Auth login attempt', [
             'email' => $email,
             'user_found' => (bool) $user,
@@ -167,6 +195,19 @@ class AuthControllerRegister extends Controller
                 'email' => $email,
                 'account_type' => 'Donor',
             ]);
+=======
+        $userPasswordMatches = false;
+        if ($user) {
+            if (Schema::hasColumn('users', 'password')) {
+                $userPasswordMatches = Hash::check($password, (string) $user->password);
+            } else {
+                $credential = UserCredential::where('user_id', $user->id)->first();
+                $userPasswordMatches = $credential && Hash::check($password, (string) $credential->password);
+            }
+        }
+
+        if ($user && $userPasswordMatches) {
+>>>>>>> d8c9456ba38b819c0bf0c1f31ac2d44e09b225ec
             return response()->json([
                 'message' => 'Login successful',
                 'account_type' => 'Donor',
