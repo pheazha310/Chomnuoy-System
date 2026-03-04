@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuditLogController::class, 'register']);
+Route::post('/auth/login', [AuditLogController::class, 'login']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',

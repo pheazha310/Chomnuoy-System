@@ -25,11 +25,30 @@ function LoginRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
+  const handleLoginSuccess = (data) => {
+    const user = data?.user || {};
+    const sessionData = {
+      isLoggedIn: true,
+      role: user.role || 'Donor',
+      name: user.name || 'Donor User',
+      email: user.email || '',
+      impactLevel: 'Gold',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+      userId: user.id || null,
+    };
+
+    if (data?.token) {
+      window.localStorage.setItem('authToken', data.token);
+    }
+    window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+    navigate(redirectTo);
+  };
+
   return (
     <AuthLayout mode="login">
       <LoginPage
         onToggleMode={() => navigate(`/register?redirect=${encodeURIComponent(redirectTo)}`)}
-        onLoginSuccess={() => navigate(redirectTo)}
+        onLoginSuccess={handleLoginSuccess}
       />
     </AuthLayout>
   );
