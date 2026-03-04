@@ -440,6 +440,12 @@ body {
   background: transparent;
 }
 
+.pagination-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
 @media (max-width: 1024px) {
   .organization-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
