@@ -104,6 +104,7 @@ export default function App() {
         <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
+        <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
