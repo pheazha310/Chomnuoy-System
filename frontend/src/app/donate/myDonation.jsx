@@ -90,7 +90,7 @@ export default function MyDonation() {
       <main className="my-donation-container">
         <div className="my-donation-head">
           <div>
-            <h1 className="my-donation-title">Donation History</h1>
+            <h1 className="my-donation-title">My Donation</h1>
             <p className="my-donation-subtitle">
               Detailed record of your contributions and the organizations you support.
             </p>
@@ -171,23 +171,11 @@ export default function MyDonation() {
           ))}
         </section>
 
-        <nav className="my-donation-pagination">
-          <button type="button" className="my-donation-page-btn" aria-label="Previous page">
-            &lt;
+        <div className="my-donation-bottom-action">
+          <button type="button" className="my-donation-view-all-btn">
+            View All
           </button>
-          <button type="button" className="my-donation-page-btn active">
-            1
-          </button>
-          <button type="button" className="my-donation-page-btn">
-            2
-          </button>
-          <button type="button" className="my-donation-page-btn">
-            3
-          </button>
-          <button type="button" className="my-donation-page-btn" aria-label="Next page">
-            &gt;
-          </button>
-        </nav>
+        </div>
       </main>
     </div>
   );
