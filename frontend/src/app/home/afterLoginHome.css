@@ -412,6 +412,12 @@
   justify-content: center;
 }
 
+.activity-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .activity-card li p {
   margin: 0;
   font-size: clamp(0.78rem, 0.82vw, 0.9rem);
@@ -426,7 +432,7 @@
   font-size: clamp(0.78rem, 0.82vw, 0.88rem);
 }
 
-.activity-card li span {
+.activity-card li > div > span {
   display: block;
   margin-top: 0.25rem;
   color: #9ca9ba;
