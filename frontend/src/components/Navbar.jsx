@@ -14,7 +14,7 @@ const guestNavItems = [
 
 const donorNavItems = [
   { label: 'Home', href: '/' },
-  { label: 'Organizations', href: '/organizations' },
+  { label: 'Organizations', href: '#' },
   { label: 'Campaigns', href: '/campaigns/donor' },
   { label: 'My Donations', href: '/donations' },
   { label: 'Material Pickup', href: '/pickup' },
@@ -430,4 +430,3 @@ function Navbar() {
 }
 
 export default Navbar;
-
