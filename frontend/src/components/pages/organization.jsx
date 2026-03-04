@@ -541,11 +541,11 @@ function Organization() {
                 ))}
               </div>
               <div className="card-actions">
-                <button type="button" className="btn-primary">
+                <button type="button" className="btn-donate">
                   Donate
                 </button>
-                <button type="button" className="btn-outline">
-                  View Profile
+                <button type="button" className="btn-follow">
+                  Follow
                 </button>
               </div>
             </div>
