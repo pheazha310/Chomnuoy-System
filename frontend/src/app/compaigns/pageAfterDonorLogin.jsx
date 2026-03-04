@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
 export default function CampaignCard({
+  id,
   title,
   description,
   image,
@@ -16,17 +17,15 @@ export default function CampaignCard({
 }) {
   const navigate = useNavigate();
   const progress = Math.min((raised / goal) * 100, 100);
+  const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
 
   const handleCardClick = () => {
-    // Navigate to campaign details page
-    navigate(`/campaigns/${title.toLowerCase().replace(/\s+/g, '-')}`);
+    navigate(campaignPath);
   };
 
   const handleDonateClick = (e) => {
-    e.stopPropagation(); // Prevent card click
-    // Handle donation action - could open modal or navigate to donation page
-    console.log(`Donate to ${title}`);
-    // You could navigate to a donation page: navigate(`/donate/${title.toLowerCase().replace(/\s+/g, '-')}`);
+    e.stopPropagation();
+    navigate(campaignPath);
   };
 
   return (

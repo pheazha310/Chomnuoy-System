@@ -82,6 +82,10 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
+      const token = data?.token || data?.access_token || data?.data?.token;
+      if (token) {
+        localStorage.setItem('authToken', token);
+      }
 
       onLoginSuccess?.(data);
     } catch (err) {
