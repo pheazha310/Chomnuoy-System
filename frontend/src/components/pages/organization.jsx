@@ -142,15 +142,6 @@ const DONATION_PAYMENT_METHODS = [
   { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
 ];
 
-function getDonorSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -172,6 +163,15 @@ function getPaginationItems(totalPages, currentPage) {
   }
 
   return items;
+}
+
+function getDonorSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 function Organization() {
@@ -648,7 +648,7 @@ function Organization() {
                 const isFavorite = favoriteIds.has(organization.id);
                 return (
                   <article key={organization.id} className="donor-org-card">
-                    <div className="donor-org-card-image">
+                    <div className="donor-org-image-wrap">
                       <img src={organization.image} alt={organization.name} />
                       <div className="donor-org-badges">
                         <span>{organization.category.toUpperCase()}</span>
@@ -674,7 +674,7 @@ function Organization() {
                             })
                           }
                         >
-                          {'\u2665'}
+                          &#9829;
                         </button>
                       </div>
                       <p>{organization.summary}</p>
