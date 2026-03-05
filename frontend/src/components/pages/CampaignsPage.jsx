@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
@@ -11,15 +10,10 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-function formatPercent(raised, goal) {
-  if (goal === 0) return 0;
-  return Math.round((raised / goal) * 100);
-}
-
 function CategoryIcon({ category }) {
-  if (category === 'All Categories') {
+  if (category === 'All Campaigns') {
     return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="campaign-nav-icon-svg" aria-hidden="true">
         <rect x="4" y="4" width="7" height="7" rx="1.5" />
         <rect x="13" y="4" width="7" height="7" rx="1.5" />
         <rect x="4" y="13" width="7" height="7" rx="1.5" />
@@ -28,187 +22,344 @@ function CategoryIcon({ category }) {
     );
   }
 
-  if (category === 'Technology') {
+  if (category === 'Education') {
     return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <rect x="4" y="5" width="16" height="11" rx="2" />
-        <path d="M9 19h6M12 16v3" />
+      <svg viewBox="0 0 24 24" className="campaign-nav-icon-svg" aria-hidden="true">
+        <path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5z" />
+        <path d="M7 12.4V16c0 1.9 2.2 3.4 5 3.4s5-1.5 5-3.4v-3.6" />
       </svg>
     );
   }
 
-  if (category === 'Social Good') {
+  if (category === 'Healthcare') {
     return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <path d="M12 20s-6.5-3.9-8.5-7.9C2 9.7 3.5 7 6.4 7c1.8 0 3 1 3.6 2 0.6-1 1.8-2 3.6-2 2.9 0 4.4 2.7 2.9 5.1C18.5 16.1 12 20 12 20z" />
+      <svg viewBox="0 0 24 24" className="campaign-nav-icon-svg" aria-hidden="true">
+        <path d="M12 3.4 18.8 6v5.6c0 4.1-2.6 7.2-6.8 9-4.2-1.8-6.8-4.9-6.8-9V6L12 3.4z" />
+        <path d="M12 8v7M8.5 11.5h7" />
       </svg>
     );
   }
 
-  if (category === 'Environment') {
+  if (category === 'Disaster Relief') {
     return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <path d="M18.8 4.5C11 5.6 7.2 10.5 7.2 16.3c0 2.1 1.7 3.7 3.8 3.7 5.8 0 10.2-4.4 9.3-12.1-.1-.9-.6-1.8-1.5-2.4z" />
-        <path d="M8.5 17c1.7-1.2 3.8-2.7 6.5-4.8" />
-      </svg>
-    );
-  }
-
-  if (category === 'Health') {
-    return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <path d="M12 3l7 3v5.8c0 4.2-2.5 7.3-7 9.2-4.5-1.9-7-5-7-9.2V6l7-3z" />
-        <path d="M12 8v6M9 11h6" />
+      <svg viewBox="0 0 24 24" className="campaign-nav-icon-svg" aria-hidden="true">
+        <path d="M12 4 5 12h4v8h6v-8h4l-7-8z" />
       </svg>
     );
   }
 
   return (
-    <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-      <path d="M4.5 14.5c3.5-.1 5.8 2.2 5.9 5.7-3.5.1-5.8-2.2-5.9-5.7zM10.5 18c3.7-3.5 6.6-7.8 8.1-12.6 1.2 4.6.8 9.8-2.4 13-1.7 1.7-3.9 2.6-5.7 2.6v-3z" />
+    <svg viewBox="0 0 24 24" className="campaign-nav-icon-svg" aria-hidden="true">
+      <path d="M18.8 4.5C11 5.6 7.2 10.5 7.2 16.3c0 2.1 1.7 3.7 3.8 3.7 5.8 0 10.2-4.4 9.3-12.1-.1-.9-.6-1.8-1.5-2.4z" />
+      <path d="M8.5 17c1.7-1.2 3.8-2.7 6.5-4.8" />
     </svg>
   );
 }
 
-function CampaignsPage() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
+const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
+const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
+const donorProfileImages = [
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
+];
 
-  const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(campaigns.map((campaign) => campaign.category))];
-    return ['All Categories', ...uniqueCategories];
+function campaignCategoryToSidebarCategory(category) {
+  if (category === 'Technology' || category === 'Social Good') {
+    return 'Education';
+  }
+
+  if (category === 'Health') {
+    return 'Healthcare';
+  }
+
+  if (category === 'Creative') {
+    return 'Disaster Relief';
+  }
+
+  return category;
+}
+
+function CampaignsPage() {
+  const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
+  const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const sortMenuRef = useRef(null);
+  const itemsPerPage = 4;
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+        setIsSortOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
 
   const filteredCampaigns = useMemo(() => {
-    const normalizedQuery = searchQuery.toLowerCase();
-    return campaigns.filter((campaign) => {
-      const matchesCategory =
-        selectedCategory === 'All Categories' || campaign.category === selectedCategory;
-      if (!matchesCategory) return false;
-      if (!normalizedQuery) return true;
+    const byCategory = campaigns.filter((campaign) => {
+      if (selectedCategory === 'All Campaigns') {
+        return true;
+      }
 
-      const searchableText = `${campaign.title} ${campaign.summary} ${campaign.category} ${campaign.organization}`.toLowerCase();
-      return searchableText.includes(normalizedQuery);
+      return campaignCategoryToSidebarCategory(campaign.category) === selectedCategory;
     });
-  }, [selectedCategory, searchQuery]);
 
-  const handleSearch = (query) => {
-    const encoded = encodeURIComponent(query.trim());
-    navigate(`/campaigns?search=${encoded}`);
-  };
+    const urgencySorted = [...byCategory].sort((a, b) => {
+      const ratioA = a.raisedAmount / a.goalAmount;
+      const ratioB = b.raisedAmount / b.goalAmount;
+
+      if (selectedUrgency === 'Urgent') {
+        return ratioA - ratioB;
+      }
+
+      if (selectedUrgency === 'Nearly Funded') {
+        return ratioB - ratioA;
+      }
+
+      return b.raisedAmount - a.raisedAmount;
+    });
+
+    if (!verifiedOnly) {
+      if (selectedSort === 'Most Funded') {
+        return [...urgencySorted].sort((a, b) => b.raisedAmount - a.raisedAmount);
+      }
+
+      if (selectedSort === 'Ending Soon') {
+        return [...urgencySorted].sort((a, b) => {
+          const remainingA = a.goalAmount - a.raisedAmount;
+          const remainingB = b.goalAmount - b.raisedAmount;
+          return remainingA - remainingB;
+        });
+      }
+
+      return urgencySorted;
+    }
+
+    const verifiedList = urgencySorted.filter((_, index) => index % 2 === 0);
+
+    if (selectedSort === 'Most Funded') {
+      return [...verifiedList].sort((a, b) => b.raisedAmount - a.raisedAmount);
+    }
+
+    if (selectedSort === 'Ending Soon') {
+      return [...verifiedList].sort((a, b) => {
+        const remainingA = a.goalAmount - a.raisedAmount;
+        const remainingB = b.goalAmount - b.raisedAmount;
+        return remainingA - remainingB;
+      });
+    }
+
+    return verifiedList;
+  }, [selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCampaigns = filteredCampaigns.slice(startIndex, startIndex + itemsPerPage);
+  const gridAnimationKey = `${selectedCategory}-${selectedUrgency}-${verifiedOnly}-${selectedSort}-${currentPage}`;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
 
   return (
-    <main className="campaigns-page">
-      <section className="campaigns-header">
-        <h1>Explore Campaigns</h1>
-        <p>Support impactful projects and choose the campaign you want to back.</p>
-        {searchQuery && (
-          <div className="search-results-info">
-            <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p>
-            <button
-              className="clear-search-btn"
-              onClick={() => handleSearch('')}
-            >
-              Clear Search
-            </button>
-          </div>
-        )}
-      </section>
+    <main className="campaigns-page campaigns-dashboard">
+      <aside className="campaign-sidebar">
+        <section className="campaign-sidebar-group" aria-label="Campaign categories">
+          <p className="campaign-sidebar-title">Categories</p>
+          <div className="campaign-nav-list">
+            {sidebarCategories.map((category) => {
+              const isActive = selectedCategory === category;
 
-      <section className="campaign-filters" aria-label="Campaign categories">
-        {categories.map((category) => (
-          <button
-            key={category}
-            type="button"
-            className={`category-chip ${selectedCategory === category ? 'category-chip-active' : ''}`}
-            onClick={() => setSelectedCategory(category)}
-          >
-            <span className="chip-icon" aria-hidden="true">
-              {category === 'All Categories' && '🌍'}
-              {category === 'Technology' && '💻'}
-              {category === 'Social Good' && '🤝'}
-              {category === 'Environment' && '🌱'}
-              {category === 'Health' && '🏥'}
-              {category === 'Creative' && '🎨'}
-            </span>
-            {category}
-          </button>
-        ))}
-      </section>
-
-      <section className="campaign-grid" aria-label="Campaign list">
-        {filteredCampaigns.length === 0 ? (
-          <div className="no-results">
-            <h3>No campaigns found</h3>
-            <p>Try adjusting your search terms or browse all categories.</p>
-            <button
-              className="reset-btn"
-              onClick={() => {
-                setSelectedCategory('All Categories');
-                handleSearch('');
-              }}
-            >
-              Browse All Campaigns
-            </button>
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  className={`campaign-nav-item ${isActive ? 'campaign-nav-item-active' : ''}`}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  <span className="campaign-nav-icon" aria-hidden="true">
+                    <CategoryIcon category={category} />
+                  </span>
+                  {category}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          filteredCampaigns.map((campaign) => {
-            const percentRaised = formatPercent(campaign.raisedAmount, campaign.goalAmount);
+        </section>
+
+        <section className="campaign-sidebar-group" aria-label="Urgency filter">
+          <p className="campaign-sidebar-title">Urgency</p>
+          <div className="campaign-pill-list">
+            {urgencyOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`campaign-pill ${selectedUrgency === option ? 'campaign-pill-active' : ''}`}
+                onClick={() => setSelectedUrgency(option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="campaign-sidebar-group campaign-verified-box" aria-label="Verified filter">
+          <p className="campaign-sidebar-title campaign-verified-title">Verified Only</p>
+          <p className="campaign-verified-text">Show only campaigns verified by our safety team.</p>
+          <label className="campaign-toggle" htmlFor="verified-only-toggle">
+            <input
+              id="verified-only-toggle"
+              type="checkbox"
+              checked={verifiedOnly}
+              onChange={(event) => setVerifiedOnly(event.target.checked)}
+            />
+            <span className="campaign-toggle-track" />
+          </label>
+        </section>
+      </aside>
+
+      <section className="campaign-content-area">
+        <header className="campaigns-toolbar">
+          <div>
+            <h1>Active Campaigns</h1>
+            <p>Discover and support causes that matter to you.</p>
+          </div>
+          <div className="campaign-sorter" ref={sortMenuRef}>
+            <span>Sort by:</span>
+            <button
+              type="button"
+              className={`campaign-sort-trigger ${isSortOpen ? 'is-open' : ''}`}
+              aria-haspopup="listbox"
+              aria-expanded={isSortOpen}
+              onClick={() => setIsSortOpen((previous) => !previous)}
+            >
+              {selectedSort}
+            </button>
+
+            {isSortOpen ? (
+              <ul className="campaign-sort-menu" role="listbox" aria-label="Sort campaigns">
+                {sortOptions.map((option) => (
+                  <li key={option}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selectedSort === option}
+                      className={`campaign-sort-option ${selectedSort === option ? 'is-selected' : ''}`}
+                      onClick={() => {
+                        setSelectedSort(option);
+                        setIsSortOpen(false);
+                      }}
+                    >
+                      {option}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </header>
+
+        <section key={gridAnimationKey} className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">
+          {paginatedCampaigns.map((campaign, index) => {
+            const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
+            const isUrgent = percentRaised < 40;
+            const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
+            const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
 
             return (
-              <article key={campaign.id} className="campaign-card">
-                <div className="campaign-image-container">
-                  <img src={campaign.image} alt={campaign.title} className="campaign-image" />
-                  <div className="campaign-category-badge">{campaign.category}</div>
-                </div>
-
-                <div className="campaign-content">
-                  <div className="campaign-header">
-                    <h2 className="campaign-title">{campaign.title}</h2>
-                    <p className="campaign-organization">{campaign.organization}</p>
+              <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
+                <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                  <img src={campaign.image} alt={campaign.title} className="campaign-image campaign-dashboard-image" loading="lazy" />
+                  <div className="campaign-card-badges">
+                    <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
+                    <span className="campaign-badge campaign-badge-verified">Verified</span>
+                    {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
                   </div>
+                </a>
 
+                <div className="campaign-content campaign-dashboard-content">
+                  <h2>
+                    <a href={detailPath} className="campaign-title-link">
+                      {campaign.title}
+                    </a>
+                  </h2>
                   <p className="campaign-summary">{campaign.summary}</p>
 
-                  <div className="campaign-metrics">
-                    <div className="progress-container">
-                      <div className="progress-bar">
-                        <div
-                          className="progress-fill"
-                          style={{ width: `${progressWidth}%` }}
-                          role="progressbar"
-                          aria-valuenow={percentRaised}
-                          aria-valuemin={0}
-                          aria-valuemax={100}
-                        />
-                      </div>
-                      <span className="progress-text">{percentRaised}% funded</span>
-                    </div>
-
-                    <div className="funding-info">
-                      <div className="raised-amount">
-                        <span className="amount">{formatCurrency(campaign.raisedAmount)}</span>
-                        <span className="label">raised</span>
-                      </div>
-                      <div className="goal-amount">
-                        <span className="amount">{formatCurrency(campaign.goalAmount)}</span>
-                        <span className="label">goal</span>
-                      </div>
-                    </div>
+                  <div className="campaign-funding-row">
+                    <p className="campaign-raised">{formatCurrency(campaign.raisedAmount)} raised</p>
+                    <p className="campaign-target">Target {formatCurrency(campaign.goalAmount)}</p>
                   </div>
 
-                  <a href={detailPath} className="campaign-cta">
-                    Learn More
-                  </a>
+                  <div
+                    className="campaign-progress"
+                    role="progressbar"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={progressWidth}
+                  >
+                    <span style={{ width: `${progressWidth}%` }} />
+                  </div>
+
+                  <div className="campaign-actions campaign-dashboard-actions">
+                    <div className="campaign-donors" aria-label={`${mockDonorCount} donors`}>
+                      <img className="donor-avatar donor-avatar-image" src={donorProfileImages[0]} alt="" aria-hidden="true" />
+                      <img className="donor-avatar donor-avatar-image" src={donorProfileImages[1]} alt="" aria-hidden="true" />
+                      <span className="donor-avatar donor-avatar-more">+{mockDonorCount}</span>
+                    </div>
+                    <a href={detailPath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
+                      Donate Now
+                    </a>
+                  </div>
                 </div>
               </article>
             );
-          })
-        )}
+          })}
+        </section>
+
+        <nav className="campaign-pagination" aria-label="Campaign pages">
+          <button
+            type="button"
+            aria-label="Previous page"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+          >
+            &lsaquo;
+          </button>
+
+          {Array.from({ length: totalPages }, (_, index) => {
+            const page = index + 1;
+            return (
+              <button
+                key={page}
+                type="button"
+                className={currentPage === page ? 'is-active' : ''}
+                aria-current={currentPage === page ? 'page' : undefined}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            aria-label="Next page"
+            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            disabled={currentPage === totalPages}
+          >
+            &rsaquo;
+          </button>
+        </nav>
       </section>
     </main>
   );
