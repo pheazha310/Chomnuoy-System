@@ -54,20 +54,48 @@ function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
+  const loginEmail = new URLSearchParams(location.search).get('email');
 
   const handleLoginSuccess = (data) => {
+    const isOrganization = data?.account_type === 'Organization';
+    const profile = isOrganization ? data?.organization : data?.user;
+
+    if (!profile) {
+      // Fallback for different data structures
+      const user = data?.user || data || {};
+      const sessionData = {
+        isLoggedIn: true,
+        role: user.role || 'Donor',
+        name: user.name || 'Donor User',
+        email: user.email || loginEmail || '',
+        impactLevel: 'Gold',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+        userId: user.id || null,
+        accountType: data?.account_type || 'Donor',
+      };
+      if (data?.token) {
+        window.localStorage.setItem('authToken', data.token);
+      }
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+      navigate(redirectTo);
+      return;
+    }
+
     // Store user session data
     const sessionData = {
       isLoggedIn: true,
-      role: 'Donor',
-      name: data.user.name,
-      email: data.user.email,
-      impactLevel: 'Gold',
+      role: isOrganization ? 'Organization' : 'Donor',
+      name: profile.name,
+      email: profile.email || loginEmail || '',
+      impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      userId: data.user.id,
-      logoutRedirectTo: redirectTo,
+      userId: profile.id,
+      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
     };
-    
+
+    if (data?.token) {
+      window.localStorage.setItem('authToken', data.token);
+    }
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
     navigate(redirectTo);
   };
@@ -88,7 +116,6 @@ function RegisterRoute() {
   const redirectTo = getSafeRedirect(location.search);
 
   const handleRegisterSuccess = (email) => {
-    // After successful registration, redirect to login with email
     navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
   };
 
@@ -97,6 +124,11 @@ function RegisterRoute() {
       <RegisterPage onToggleMode={handleRegisterSuccess} />
     </AuthLayout>
   );
+}
+
+function CampaignDetailRoute2() {
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
 }
 
 export default function App() {
@@ -126,8 +158,8 @@ export default function App() {
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
-        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
-        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
+        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute2 />} />
+        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute2 />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />

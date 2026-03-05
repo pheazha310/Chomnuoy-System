@@ -11,7 +11,16 @@ class Organization extends Model
 
     protected $table = 'organizations';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'category_id',
+        'location',
+        'description',
+        'verified_status',
+    ];
 
+    protected $hidden = ['password'];
     public const UPDATED_AT = null;
 }

@@ -11,7 +11,8 @@ const organizations = [
     tags: ['Education', 'Youth'],
     rating: 4.9,
     reviews: '1.2k',
-    image: 'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=960&q=80',
+    image:
+      'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=960&q=80',
   },
   {
     id: 2,
@@ -20,7 +21,8 @@ const organizations = [
     tags: ['Environment', 'Climate'],
     rating: 4.7,
     reviews: '856',
-    image: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=960&q=80',
+    image:
+      'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=960&q=80',
   },
   {
     id: 3,
@@ -29,7 +31,8 @@ const organizations = [
     tags: ['Health', 'Emergency'],
     rating: 4.8,
     reviews: '520',
-    image: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=960&q=80',
+    image:
+      'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=960&q=80',
   },
   {
     id: 4,
@@ -38,7 +41,8 @@ const organizations = [
     tags: ['Community', 'Social'],
     rating: 4.6,
     reviews: '342',
-    image: 'https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?auto=format&fit=crop&w=960&q=80',
+    image:
+      'https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?auto=format&fit=crop&w=960&q=80',
   },
   {
     id: 5,
@@ -47,7 +51,8 @@ const organizations = [
     tags: ['Health', 'Mental Health'],
     rating: 4.9,
     reviews: '215',
-    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=960&q=80',
+    image:
+      'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=960&q=80',
   },
   {
     id: 6,
@@ -56,7 +61,8 @@ const organizations = [
     tags: ['Economy', 'Training'],
     rating: 4.5,
     reviews: '189',
-    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=960&q=80',
+    image:
+      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=960&q=80',
   },
 ];
 
@@ -66,9 +72,7 @@ const donorOrganizations = [
     name: 'Global Scholars Fund',
     summary: 'Empowering underprivileged youth through sustainable education scholarships.',
     category: 'Education',
-    region: 'Phnom Penh',
     verified: true,
-    taxEligible: true,
     image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=960&q=80',
     metricLeftLabel: 'Impact Score',
     metricLeftValue: '94/100',
@@ -80,9 +84,7 @@ const donorOrganizations = [
     name: 'Rural Health Alliance',
     summary: 'Providing essential medical supplies and mobile clinics to underserved areas.',
     category: 'Healthcare',
-    region: 'Siem Reap',
     verified: true,
-    taxEligible: true,
     image: 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?auto=format&fit=crop&w=960&q=80',
     metricLeftLabel: 'Impact Score',
     metricLeftValue: '88/100',
@@ -94,9 +96,7 @@ const donorOrganizations = [
     name: 'Ocean Reclaim Project',
     summary: 'Dedicated to large-scale ocean cleanup and coastal habitat restoration work.',
     category: 'Environment',
-    region: 'Kampot',
     verified: true,
-    taxEligible: false,
     image: 'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=960&q=80',
     metricLeftLabel: 'Plastic Removed',
     metricLeftValue: '45 Tons',
@@ -106,30 +106,14 @@ const donorOrganizations = [
   {
     id: 104,
     name: 'Equal Voices Network',
-    summary: 'Advocating for legislative change and legal access for vulnerable communities.',
+    summary: 'Advocating for legislative change and providing legal access for vulnerable communities.',
     category: 'Human Rights',
-    region: 'Battambang',
     verified: true,
-    taxEligible: true,
     image: 'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?auto=format&fit=crop&w=960&q=80',
     metricLeftLabel: 'Impact Score',
     metricLeftValue: '91/100',
     metricRightLabel: 'Volunteers',
     metricRightValue: '4.2k',
-  },
-  {
-    id: 105,
-    name: 'Future Skills Hub',
-    summary: 'Building digital literacy and job readiness for youth and women.',
-    category: 'Education',
-    region: 'Phnom Penh',
-    verified: false,
-    taxEligible: true,
-    image: 'https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=960&q=80',
-    metricLeftLabel: 'Impact Score',
-    metricLeftValue: '84/100',
-    metricRightLabel: 'Active Learners',
-    metricRightValue: '1.6k',
   },
 ];
 
@@ -141,6 +125,15 @@ const DONATION_PAYMENT_METHODS = [
   { id: 'aba', label: 'ABA Pay', badge: 'ABA', badgeClassName: 'payment-badge-aba' },
   { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
 ];
+
+function getDonorSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
@@ -165,28 +158,21 @@ function getPaginationItems(totalPages, currentPage) {
   return items;
 }
 
-function getDonorSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 function Organization() {
   const navigate = useNavigate();
   const location = useLocation();
   const { organizationId } = useParams();
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
-
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('4plus');
   const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
+  const [donorPage, setDonorPage] = useState(1);
+  const [donorSortBy, setDonorSortBy] = useState('recent');
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
 
@@ -196,9 +182,6 @@ function Organization() {
   const [donorRegion, setDonorRegion] = useState('Everywhere');
   const [donorVerifiedOnly, setDonorVerifiedOnly] = useState(true);
   const [donorTaxEligibleOnly, setDonorTaxEligibleOnly] = useState(false);
-  const [donorSortBy, setDonorSortBy] = useState('recent');
-  const [donorPage, setDonorPage] = useState(1);
-  const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [selectedDonationOrg, setSelectedDonationOrg] = useState(null);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
@@ -224,7 +207,8 @@ function Organization() {
     const filtered = organizations
       .filter((organization) => {
         if (!query) return true;
-        const searchableText = `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
+        const searchableText =
+          `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
         return searchableText.includes(query);
       })
       .filter((organization) => {
@@ -294,10 +278,6 @@ function Organization() {
   }, [totalPages]);
 
   useEffect(() => {
-    setDonorPage(1);
-  }, [donorSearchTerm, donorCategory, donorRegion, donorVerifiedOnly, donorTaxEligibleOnly, donorSortBy]);
-
-  useEffect(() => {
     setDonorPage((previousPage) => Math.min(previousPage, donorTotalPages));
   }, [donorTotalPages]);
 
@@ -323,19 +303,10 @@ function Organization() {
     };
   }, []);
 
-  useEffect(() => {
-    const query = new URLSearchParams(location.search).get('search')?.trim() || '';
-    setSearchInput(query);
-    setSearchTerm(query);
-    setDonorSearchInput(query);
-    setDonorSearchTerm(query);
-  }, [location.search]);
-
   const paginatedOrganizations = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredOrganizations.slice(start, start + PAGE_SIZE);
   }, [filteredOrganizations, currentPage]);
-
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
   const hasActiveSearch = searchTerm.trim().length > 0;
 
@@ -431,80 +402,27 @@ function Organization() {
               </div>
             </section>
 
-            <section className="donor-org-panel donor-filter-panel" aria-label="Filter Results">
+            <section className="donor-org-panel donor-filter-panel">
               <h3>Filter Results</h3>
-
-              <label className="donor-filter-label" htmlFor="donor-category">
-                Category
-              </label>
-              <select id="donor-category" value={donorCategory} onChange={(event) => setDonorCategory(event.target.value)}>
-                {donorCategories.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
+              <label className="donor-filter-label">Category</label>
+              <select defaultValue="All Categories">
+                <option>All Categories</option>
               </select>
-
-              <label className="donor-filter-label" htmlFor="donor-region">
-                Province / Region
-              </label>
-              <select id="donor-region" value={donorRegion} onChange={(event) => setDonorRegion(event.target.value)}>
-                {donorRegions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
+              <label className="donor-filter-label">Province / Region</label>
+              <select defaultValue="Everywhere">
+                <option>Everywhere</option>
               </select>
-
               <p className="donor-filter-label">Verification Status</p>
               <label className="donor-check">
-                <input
-                  type="checkbox"
-                  checked={donorVerifiedOnly}
-                  onChange={(event) => setDonorVerifiedOnly(event.target.checked)}
-                />
+                <input type="checkbox" defaultChecked />
                 Verified Impact
               </label>
               <label className="donor-check">
-                <input
-                  type="checkbox"
-                  checked={donorTaxEligibleOnly}
-                  onChange={(event) => setDonorTaxEligibleOnly(event.target.checked)}
-                />
+                <input type="checkbox" />
                 Tax Receipt Eligible
               </label>
-
-              <input
-                className="donor-filter-search"
-                type="search"
-                placeholder="Search organizations..."
-                value={donorSearchInput}
-                onChange={(event) => setDonorSearchInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    setDonorSearchTerm(donorSearchInput.trim());
-                  }
-                }}
-              />
-
-              <button type="button" className="donor-apply-btn" onClick={() => setDonorSearchTerm(donorSearchInput.trim())}>
-                Apply Filters
-              </button>
-              <button
-                type="button"
-                className="donor-clear-btn"
-                onClick={() => {
-                  setDonorSearchInput('');
-                  setDonorSearchTerm('');
-                  setDonorCategory('All Categories');
-                  setDonorRegion('Everywhere');
-                  setDonorVerifiedOnly(true);
-                  setDonorTaxEligibleOnly(false);
-                  setDonorSortBy('recent');
-                }}
-              >
-                Clear all
-              </button>
+              <button type="button" className="donor-apply-btn">Apply Filters</button>
+              <button type="button" className="donor-clear-btn">Clear all</button>
             </section>
           </aside>
 
@@ -643,12 +561,12 @@ function Organization() {
               </label>
             </header>
 
-            <section className="donor-org-grid" aria-label="Organization List">
+            <section className="donor-org-grid">
               {donorPaginatedOrganizations.map((organization) => {
                 const isFavorite = favoriteIds.has(organization.id);
                 return (
                   <article key={organization.id} className="donor-org-card">
-                    <div className="donor-org-image-wrap">
+                    <div className="donor-org-card-image">
                       <img src={organization.image} alt={organization.name} />
                       <div className="donor-org-badges">
                         <span>{organization.category.toUpperCase()}</span>
@@ -661,20 +579,16 @@ function Organization() {
                         <button
                           type="button"
                           className={`donor-favorite ${isFavorite ? 'is-active' : ''}`}
-                          aria-label="Toggle favorite"
                           onClick={() =>
                             setFavoriteIds((previous) => {
                               const next = new Set(previous);
-                              if (next.has(organization.id)) {
-                                next.delete(organization.id);
-                              } else {
-                                next.add(organization.id);
-                              }
+                              if (next.has(organization.id)) next.delete(organization.id);
+                              else next.add(organization.id);
                               return next;
                             })
                           }
                         >
-                          &#9829;
+                          {'\u2665'}
                         </button>
                       </div>
                       <p>{organization.summary}</p>
@@ -693,6 +607,11 @@ function Organization() {
                           Donate
                         </button>
                         <button type="button" className="donor-follow-btn" aria-label="Follow organization">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="9" cy="7" r="4" strokeWidth="2" />
+                            <path d="M19 8v6M22 11h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                           Follow
                         </button>
                       </div>
@@ -710,22 +629,12 @@ function Organization() {
                 item === '...' ? (
                   <span key={`donor-ellipsis-${index}`}>...</span>
                 ) : (
-                  <button
-                    key={item}
-                    type="button"
-                    className={donorPage === item ? 'active' : ''}
-                    aria-current={donorPage === item ? 'page' : undefined}
-                    onClick={() => setDonorPage(item)}
-                  >
+                  <button key={item} type="button" className={donorPage === item ? 'active' : ''} onClick={() => setDonorPage(item)}>
                     {item}
                   </button>
                 )
               )}
-              <button
-                type="button"
-                onClick={() => setDonorPage((page) => Math.min(donorTotalPages, page + 1))}
-                disabled={donorPage === donorTotalPages}
-              >
+              <button type="button" onClick={() => setDonorPage((page) => Math.min(donorTotalPages, page + 1))} disabled={donorPage === donorTotalPages}>
                 {'>'}
               </button>
             </nav>
@@ -818,7 +727,11 @@ function Organization() {
               </ul>
             ) : null}
           </div>
-          <select className="filter-select" value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
+          <select
+            className="filter-select"
+            value={ratingFilter}
+            onChange={(event) => setRatingFilter(event.target.value)}
+          >
             <option value="all">All Ratings</option>
             <option value="4plus">Rating: 4+ Stars</option>
             <option value="45plus">Rating: 4.5+ Stars</option>
@@ -853,7 +766,8 @@ function Organization() {
             <img src={organization.image} alt={organization.name} />
             <div className="card-body">
               <p className="rating">
-                <span aria-hidden="true">*</span> {organization.rating} <span className="reviews">({organization.reviews})</span>
+                <span aria-hidden="true">*</span> {organization.rating}{' '}
+                <span className="reviews">({organization.reviews})</span>
               </p>
               <h2>{organization.name}</h2>
               <p className="summary">{organization.summary}</p>
@@ -865,11 +779,16 @@ function Organization() {
                 ))}
               </div>
               <div className="card-actions">
-                <button type="button" className="btn-primary">
+                <button type="button" className="btn-donate">
                   Donate
                 </button>
-                <button type="button" className="btn-outline">
-                  View Profile
+                <button type="button" className="btn-follow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="btn-icon">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="9" cy="7" r="4" strokeWidth="2"/>
+                    <path d="M19 8v6M22 11h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Follow
                 </button>
               </div>
             </div>
@@ -880,7 +799,12 @@ function Organization() {
       {filteredOrganizations.length === 0 ? <p>No organizations found for "{searchTerm}".</p> : null}
 
       <nav className="pagination" aria-label="Pagination">
-        <button type="button" aria-label="Previous page" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>
+        <button
+          type="button"
+          aria-label="Previous page"
+          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          disabled={currentPage === 1}
+        >
           {'<'}
         </button>
         {paginationItems.map((item, index) =>
@@ -898,7 +822,12 @@ function Organization() {
             </button>
           )
         )}
-        <button type="button" aria-label="Next page" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages}>
+        <button
+          type="button"
+          aria-label="Next page"
+          onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+          disabled={currentPage === totalPages}
+        >
           {'>'}
         </button>
       </nav>
@@ -907,5 +836,3 @@ function Organization() {
 }
 
 export default Organization;
-
-
