@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-<<<<<<< HEAD
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '../../constants/routes';
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
 import '../css/organization.css';
 
 const organizations = [
@@ -163,12 +160,9 @@ function getPaginationItems(totalPages, currentPage) {
 }
 
 function Organization() {
-<<<<<<< HEAD
   const navigate = useNavigate();
   const location = useLocation();
   const { organizationId } = useParams();
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [searchInput, setSearchInput] = useState('');
@@ -183,16 +177,12 @@ function Organization() {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
 
-<<<<<<< HEAD
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
   const [donorCategory, setDonorCategory] = useState('All Categories');
   const [donorRegion, setDonorRegion] = useState('Everywhere');
   const [donorVerifiedOnly, setDonorVerifiedOnly] = useState(true);
   const [donorTaxEligibleOnly, setDonorTaxEligibleOnly] = useState(false);
-  const [donorSortBy, setDonorSortBy] = useState('recent');
-  const [donorPage, setDonorPage] = useState(1);
-  const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
   const [selectedDonationOrg, setSelectedDonationOrg] = useState(null);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
@@ -205,8 +195,6 @@ function Organization() {
   const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
   const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
 
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
   const categoryOptions = useMemo(() => {
     const categories = new Set();
     organizations.forEach((organization) => {
@@ -602,8 +590,6 @@ function Organization() {
                           Donate
                         </button>
                         <button type="button" className="donor-follow-btn" aria-label="Follow organization">
-                        <button type="button" className="donor-donate-btn">Donate</button>
-                        <button type="button" className="donor-follow-btn" aria-label="Follow organization">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             <circle cx="9" cy="7" r="4" strokeWidth="2" />
@@ -833,8 +819,3 @@ function Organization() {
 }
 
 export default Organization;
-
-<<<<<<< HEAD
-
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f

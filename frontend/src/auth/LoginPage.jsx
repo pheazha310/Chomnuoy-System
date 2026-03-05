@@ -72,11 +72,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
 
-<<<<<<< HEAD
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
-
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -88,14 +83,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
-<<<<<<< HEAD
       const token = data?.token || data?.access_token || data?.data?.token;
       if (token) {
         localStorage.setItem('authToken', token);
       }
 
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
@@ -165,10 +157,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
 
-<<<<<<< HEAD
-            {/* show messages below email input: */}
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -193,10 +181,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
 
-<<<<<<< HEAD
-            {/* show messages below password input: */}
-=======
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}

@@ -1,11 +1,6 @@
 import "./css/Navbar.css";
-<<<<<<< HEAD
-import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-=======
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
 import { createPortal } from 'react-dom';
 
 const guestNavItems = [
@@ -61,20 +56,14 @@ function isGuestNavItemActive(itemHref, pathname) {
 }
 
 function Navbar() {
-<<<<<<< HEAD
-  const pathname = window.location.pathname;
-=======
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
-<<<<<<< HEAD
-=======
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([
@@ -83,7 +72,6 @@ function Navbar() {
     { id: 3, type: 'message', title: 'Pickup Reminder', message: 'Your material pickup is scheduled for tomorrow.', time: 'Yesterday', isRead: true },
   ]);
   const notificationRef = useRef(null);
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
 
   const handleLogout = () => {
     const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
@@ -102,10 +90,7 @@ function Navbar() {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
     setIsLogoutPopupOpen(false);
-<<<<<<< HEAD
-=======
     setIsNotificationsOpen(false);
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
   }, [pathname]);
 
   useEffect(() => {
@@ -113,21 +98,14 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
-<<<<<<< HEAD
-=======
       if (isNotificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
         setIsNotificationsOpen(false);
       }
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-<<<<<<< HEAD
-  }, [isProfileMenuOpen]);
-=======
   }, [isNotificationsOpen, isProfileMenuOpen]);
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
 
   useEffect(() => {
     if (!isLogoutPopupOpen) return undefined;
@@ -142,8 +120,6 @@ function Navbar() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isLogoutPopupOpen]);
 
-<<<<<<< HEAD
-=======
   useEffect(() => {
     const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
     setSearchQuery(urlQuery);
@@ -155,8 +131,6 @@ function Navbar() {
     if (!query) return;
 
     const encoded = encodeURIComponent(query);
-    
-    // Always navigate to campaigns page for search
     navigate(`/campaigns?search=${encoded}`);
   };
 
@@ -165,7 +139,6 @@ function Navbar() {
     setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
   };
 
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
   const logoutPopupMarkup = (
     <div
       className="logout-popup-overlay"
@@ -281,28 +254,11 @@ function Navbar() {
           ))}
         </ul>
 
-<<<<<<< HEAD
-        <label className="donor-search" aria-label="Search causes">
-=======
         <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>
             <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-<<<<<<< HEAD
-          <input type="search" placeholder="Search causes..." />
-        </label>
-
-        <div className="donor-actions">
-          <button type="button" className="donor-notify" aria-label="Notifications">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="notification-dot"></span>
-          </button>
-=======
           <input
             type="search"
             placeholder="Search causes..."
@@ -361,24 +317,6 @@ function Navbar() {
               </div>
             ) : null}
           </div>
->>>>>>> 98a91b4038f164e7469f5235a468ee2dc3a4e59f
-
-          {/* <button type="button" className="donor-history" aria-label="History">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <circle cx="12" cy="12" r="10" strokeWidth="2"/>
-              <path d="M12 6v6l4 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button> */}
-
-          {/* <button type="button" className="donor-logout" aria-label="Logout" onClick={handleLogout}>
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="m16 17 5-5-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 12H9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button> */}
-
-          {/* <Link to="/campaigns" className="nav-cta">Donate Now</Link> */}
 
           <div className="donor-profile">
             <button 
@@ -555,4 +493,3 @@ function Navbar() {
 }
 
 export default Navbar;
-

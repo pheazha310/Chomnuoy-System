@@ -26,12 +26,6 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
-<<<<<<< HEAD
-function CampaignDetailRoute() {
-  const { campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug} />;
-}
-
 function RequireAuth({ children }) {
   const location = useLocation();
   const rawSession = window.localStorage.getItem('chomnuoy_session');
