@@ -142,7 +142,6 @@ const DONATION_PAYMENT_METHODS = [
   { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
 ];
 
-<<<<<<< HEAD
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -152,8 +151,6 @@ function getDonorSession() {
   }
 }
 
-=======
->>>>>>> 6a8fb188948b72f5f029268f02eafcb725d50351
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -175,15 +172,6 @@ function getPaginationItems(totalPages, currentPage) {
   }
 
   return items;
-}
-
-function getDonorSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
 }
 
 function Organization() {
@@ -347,10 +335,7 @@ function Organization() {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredOrganizations.slice(start, start + PAGE_SIZE);
   }, [filteredOrganizations, currentPage]);
-<<<<<<< HEAD
-=======
 
->>>>>>> 6a8fb188948b72f5f029268f02eafcb725d50351
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
   const hasActiveSearch = searchTerm.trim().length > 0;
 
@@ -689,11 +674,7 @@ function Organization() {
                             })
                           }
                         >
-<<<<<<< HEAD
                           {'\u2665'}
-=======
-                          &#9829;
->>>>>>> 6a8fb188948b72f5f029268f02eafcb725d50351
                         </button>
                       </div>
                       <p>{organization.summary}</p>
