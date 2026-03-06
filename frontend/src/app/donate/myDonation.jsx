@@ -96,11 +96,8 @@ export default function MyDonation() {
   const [shareDonation, setShareDonation] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showAllDonations, setShowAllDonations] = useState(false);
-<<<<<<< HEAD
   const { showDonations } = getPrivacyPreferences();
-  const visibleDonations = showAllDonations ? donations : donations.slice(0, 3);
   const formatAmount = (amount) => (showDonations ? amount : 'Private');
-=======
   const [isTimePopupOpen, setIsTimePopupOpen] = useState(false);
   const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
   const [timeFilterLabel, setTimeFilterLabel] = useState('All Time');
@@ -175,7 +172,6 @@ export default function MyDonation() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
->>>>>>> 08aa8cc4be27afeadac3839e91efc50f998b19c1
 
   const getReceiptNumber = () => `RCP-${Date.now().toString().slice(-8)}`;
   const escapeHtml = (value = '') =>
