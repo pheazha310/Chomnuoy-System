@@ -13,7 +13,7 @@ const guestNavItems = [
 ];
 
 const donorNavItems = [
-  { label: 'Home', href: '/' },
+  { label: 'Home', href: '/AfterLoginHome' },
   { label: 'Organizations', href: '/organizations' },
   { label: 'Campaigns', href: '/campaigns/donor' },
   { label: 'My Donations', href: '/donations' },
@@ -59,6 +59,8 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
+  const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
+  const loginHref = `/login?redirect=${loginRedirectTarget}`;
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
@@ -131,8 +133,6 @@ function Navbar() {
     if (!query) return;
 
     const encoded = encodeURIComponent(query);
-    
-    // Always navigate to campaigns page for search
     navigate(`/campaigns?search=${encoded}`);
   };
 
@@ -378,7 +378,7 @@ function Navbar() {
                     My Profile
                   </Link>
                   
-                  <Link to="/settings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
+                  <Link to="/settings/AccountSettings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                       <circle cx="12" cy="12" r="3" strokeWidth="2"/>
                       <path d="M12 1v6m0 6v6m4.22-13.22 4.22 4.22M1.54 9.54l4.22 4.22M20.46 14.46l-4.22 4.22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -504,7 +504,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2F" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link to={loginHref} className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>
@@ -512,4 +512,3 @@ function Navbar() {
 }
 
 export default Navbar;
-

@@ -199,6 +199,108 @@ export default function MyDonation() {
 </html>`;
   };
 
+  const getAllRecordsHtml = () => {
+    const issuedOn = escapeHtml(new Date().toLocaleString());
+    const totalRecords = donations.length;
+
+    const rowsHtml = donations
+      .map(
+        (item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(item.date)}</td>
+        <td>${escapeHtml(item.amount)}</td>
+        <td>${escapeHtml(item.recipient)}</td>
+        <td>${escapeHtml(item.subCause)}</td>
+        <td>${escapeHtml(item.status)}</td>
+      </tr>`,
+      )
+      .join('');
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>All Donation Records</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f3f6fb;
+      color: #0f172a;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .sheet {
+      max-width: 960px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #dbe3ee;
+      border-radius: 12px;
+      padding: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .meta {
+      margin-top: 6px;
+      color: #475569;
+      font-size: 13px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid #dbe3ee;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #eff6ff;
+      font-weight: 700;
+    }
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .sheet {
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <h1>All Donation Records</h1>
+    <p class="meta">Generated on: ${issuedOn} | Total records: ${totalRecords}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Date</th>
+          <th>Amount</th>
+          <th>Recipient</th>
+          <th>Sub-cause</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>`;
+  };
+
   const handleSaveDonationPdf = () => {
     if (!selectedDonation) return;
 
@@ -213,6 +315,20 @@ export default function MyDonation() {
     setTimeout(() => {
       printWindow.print();
       handleCloseSavePopup();
+    }, 250);
+  };
+
+  const handleExportAllRecords = () => {
+    const printWindow = window.open('', '_blank', 'width=1100,height=760');
+    if (!printWindow) return;
+
+    printWindow.document.write(getAllRecordsHtml());
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onafterprint = () => printWindow.close();
+
+    setTimeout(() => {
+      printWindow.print();
     }, 250);
   };
 
@@ -275,7 +391,7 @@ export default function MyDonation() {
               Detailed record of your contributions and the organizations you support.
             </p>
           </div>
-          <button type="button" className="my-donation-export-btn">
+          <button type="button" className="my-donation-export-btn" onClick={handleExportAllRecords}>
             <Download className="my-donation-btn-icon" />
             Export All Records
           </button>
