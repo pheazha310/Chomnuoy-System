@@ -14,3 +14,8 @@ export async function getCategories() {
     const response = await apiClient.get('/categories');
     return response.data;
 }
+
+export async function changePassword(payload) {
+    const response = await apiClient.post('/auth/change-password', payload);
+    return response.data;
+}

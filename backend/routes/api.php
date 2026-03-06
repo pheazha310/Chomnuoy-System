@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
+Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',

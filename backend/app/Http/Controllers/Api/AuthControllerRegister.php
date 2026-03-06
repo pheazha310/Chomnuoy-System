@@ -268,4 +268,84 @@ class AuthControllerRegister extends Controller
             'email' => ['Email not found. Please register first.'],
         ]);
     }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8', 'confirmed', 'different:current_password'],
+            'account_type' => ['nullable', 'string', Rule::in(['Donor', 'Organization'])],
+        ]);
+
+        $email = strtolower(trim($data['email']));
+        $currentPassword = $data['current_password'];
+        $newPassword = $data['new_password'];
+        $accountType = $data['account_type'] ?? null;
+
+        $user = null;
+        $organization = null;
+
+        if ($accountType === 'Donor' || !$accountType) {
+            $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+        }
+
+        if ($accountType === 'Organization' || (!$accountType && !$user)) {
+            $organization = Organization::whereRaw('LOWER(email) = ?', [$email])->first();
+        }
+
+        if ($user) {
+            $currentMatches = false;
+
+            if (Schema::hasColumn('users', 'password')) {
+                $currentMatches = Hash::check($currentPassword, (string) $user->password);
+            } else {
+                $credential = UserCredential::where('user_id', $user->id)->first();
+                $currentMatches = $credential && Hash::check($currentPassword, (string) $credential->password);
+            }
+
+            if (!$currentMatches) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['Current password is incorrect.'],
+                ]);
+            }
+
+            if (Schema::hasColumn('users', 'password')) {
+                $user->password = Hash::make($newPassword);
+                $user->save();
+            } else {
+                UserCredential::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['password' => Hash::make($newPassword)],
+                );
+            }
+
+            return response()->json([
+                'message' => 'Password updated successfully.',
+            ]);
+        }
+
+        if ($organization) {
+            $organizationPassword = (string) $organization->password;
+            $matchesHashed = Hash::check($currentPassword, $organizationPassword);
+            $matchesPlaintext = hash_equals($organizationPassword, $currentPassword);
+
+            if (!($matchesHashed || $matchesPlaintext)) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['Current password is incorrect.'],
+                ]);
+            }
+
+            $organization->password = Hash::make($newPassword);
+            $organization->save();
+
+            return response()->json([
+                'message' => 'Password updated successfully.',
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => ['Account not found for the provided email.'],
+        ]);
+    }
 }

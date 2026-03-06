@@ -9,6 +9,7 @@ import {
   Sun,
   Banknote
 } from 'lucide-react';
+import { changePassword } from '@/services/user-service';
 import './AccountSettings.css';
 
 const Toggle = ({ checked, onChange }) => (
@@ -32,6 +33,14 @@ export default function AccountSettings() {
   const [publicProfile, setPublicProfile] = useState(true);
   const [showDonations, setShowDonations] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmNewPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   useEffect(() => {
     if (darkMode) {
@@ -40,6 +49,80 @@ export default function AccountSettings() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  const handlePasswordInput = (field) => (event) => {
+    setPasswordError('');
+    setPasswordSuccess('');
+    setPasswordForm((previous) => ({ ...previous, [field]: event.target.value }));
+  };
+
+  const handleUpdatePassword = async (event) => {
+    event.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    const currentPassword = passwordForm.currentPassword.trim();
+    const newPassword = passwordForm.newPassword.trim();
+    const confirmNewPassword = passwordForm.confirmNewPassword.trim();
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordError('All password fields are required.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('New password and confirm password do not match.');
+      return;
+    }
+
+    let session = null;
+    try {
+      const sessionRaw = window.localStorage.getItem('chomnuoy_session');
+      session = sessionRaw ? JSON.parse(sessionRaw) : null;
+    } catch {
+      session = null;
+    }
+
+    const accountEmail = session?.email?.trim();
+    if (!accountEmail) {
+      setPasswordError('Session is missing account email. Please sign in again.');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const response = await changePassword({
+        email: accountEmail,
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirmation: confirmNewPassword,
+        account_type: session?.accountType || session?.role,
+      });
+
+      setPasswordSuccess(response?.message || 'Password updated successfully.');
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmNewPassword: '',
+      });
+    } catch (error) {
+      const fieldErrors = error.response?.data?.errors || {};
+      const firstError =
+        fieldErrors.current_password?.[0] ||
+        fieldErrors.new_password?.[0] ||
+        fieldErrors.email?.[0] ||
+        error.response?.data?.message ||
+        'Unable to update password. Please try again.';
+      setPasswordError(firstError);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f1f5f9] font-sans py-8">
@@ -58,35 +141,51 @@ export default function AccountSettings() {
                 <Shield className="text-blue-600" size={20} />
                 <h3 className="text-lg font-bold">Security</h3>
               </div>
-              <div className="space-y-4">
+              <form className="space-y-4" onSubmit={handleUpdatePassword}>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Change Password</p>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Current Password</label>
                   <input
                     className="w-full rounded-lg border-slate-200 light:border-slate-700 light:bg-slate-800 focus:border-blue-600 focus:ring-blue-600 text-sm p-2 border outline-none"
-                    placeholder="••••••••"
+                    placeholder="********"
                     type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={handlePasswordInput('currentPassword')}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">New Password</label>
                   <input
                     className="w-full rounded-lg border-slate-200 light:border-slate-700 light:bg-slate-800 focus:border-blue-600 focus:ring-blue-600 text-sm p-2 border outline-none"
-                    placeholder="••••••••"
+                    placeholder="********"
                     type="password"
+                    value={passwordForm.newPassword}
+                    onChange={handlePasswordInput('newPassword')}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Confirm New Password</label>
                   <input
                     className="w-full rounded-lg border-slate-200 light:border-slate-700 light:bg-slate-800 focus:border-blue-600 focus:ring-blue-600 text-sm p-2 border outline-none"
-                    placeholder="••••••••"
+                    placeholder="********"
                     type="password"
+                    value={passwordForm.confirmNewPassword}
+                    onChange={handlePasswordInput('confirmNewPassword')}
                   />
                 </div>
+                {passwordError ? (
+                  <p className="text-sm text-red-600">{passwordError}</p>
+                ) : null}
+                {passwordSuccess ? (
+                  <p className="text-sm text-green-600">{passwordSuccess}</p>
+                ) : null}
                 <div className="pt-2">
-                  <button className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                    Update Password
+                  <button
+                    type="submit"
+                    disabled={isUpdatingPassword}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {isUpdatingPassword ? 'Updating...' : 'Update Password'}
                   </button>
                 </div>
                 <hr className="my-6 border-slate-100 light:border-slate-800" />
@@ -97,7 +196,7 @@ export default function AccountSettings() {
                   </div>
                   <Toggle checked={twoFactor} onChange={() => setTwoFactor(!twoFactor)} />
                 </div>
-              </div>
+              </form>
             </section>
 
             {/* Display Section */}
