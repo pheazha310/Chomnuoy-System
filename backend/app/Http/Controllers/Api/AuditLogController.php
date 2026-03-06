@@ -13,6 +13,7 @@ use App\Models\UserCredential;
 use App\Models\UserRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AuditLogController extends Controller
@@ -55,7 +56,7 @@ class AuditLogController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:user, email'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'role' => ['required', 'string', Rule::in(['Donor', 'Organization'])],
         ]);
@@ -63,7 +64,7 @@ class AuditLogController extends Controller
         $user = DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'],
-                'emai' => $data['email'],
+                'email' => $data['email'],
                 'status' => 'active',
             ]);
 
@@ -72,7 +73,7 @@ class AuditLogController extends Controller
                 'password' => Hash::make($data['password']),
             ]);
 
-            $role = Role::where('role_name', $data['role'])->firstOrFail();
+            $role = Role::firstOrCreate(['role_name' => $data['role']]);
 
             UserRole::create([
                 'user_id' => $user->id,
@@ -84,7 +85,60 @@ class AuditLogController extends Controller
 
         return response()->json([
             'message' => 'Registered successfully',
-            'user' => $user,
+            'token' => Str::random(60),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $data['role'],
+            ],
         ], 201);
+    }
+
+    public function login(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'password' => ['required', 'string', 'min:8'],
+        ]);
+
+        $user = User::where('email', $data['email'])->first();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Invalid email or password.',
+                'errors' => [
+                    'email' => ['The provided credentials are incorrect.'],
+                ],
+            ], 422);
+        }
+
+        $credential = UserCredential::where('user_id', $user->id)->first();
+        if (!$credential || !Hash::check($data['password'], $credential->password)) {
+            return response()->json([
+                'message' => 'Invalid email or password.',
+                'errors' => [
+                    'password' => ['The provided credentials are incorrect.'],
+                ],
+            ], 422);
+        }
+
+        $credential->last_login = now();
+        $credential->save();
+
+        $roleName = UserRole::query()
+            ->join('roles', 'roles.id', '=', 'user_roles.role_id')
+            ->where('user_roles.user_id', $user->id)
+            ->value('roles.role_name') ?? 'Donor';
+
+        return response()->json([
+            'message' => 'Logged in successfully',
+            'token' => Str::random(60),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $roleName,
+            ],
+        ]);
     }
 }
