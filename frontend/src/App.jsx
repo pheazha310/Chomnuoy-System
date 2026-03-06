@@ -16,6 +16,9 @@ import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
+import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
+import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
+import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -164,7 +167,9 @@ export default function App() {
         />
         <Route path="/donations" element={<MyDonation />} />
         <Route path="/donations/view-detail" element={<ViewDetail />} />
-        <Route path="/pickup" element={<div style={{ padding: '2rem' }}>Material Pickup Page</div>} />
+        <Route path="/pickup" element={<MaterialPickupPage />} />
+        <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
+        <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
         <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
       </Routes>
