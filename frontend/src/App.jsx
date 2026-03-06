@@ -7,7 +7,8 @@ import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-import Organization from '@/components/pages/organization.jsx';
+import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.jsx';
+import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
@@ -99,6 +100,17 @@ function RegisterRoute() {
   );
 }
 
+function OrganizationRoute() {
+  try {
+    const rawSession = window.localStorage.getItem('chomnuoy_session');
+    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
+    const isDonorLoggedIn = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
+    return isDonorLoggedIn ? <OrganizationAfterLogin /> : <OrganizationBeforeLogin />;
+  } catch {
+    return <OrganizationBeforeLogin />;
+  }
+}
+
 export default function App() {
   const location = useLocation();
   let hasDonorSession = false;
@@ -120,8 +132,8 @@ export default function App() {
       <Routes>
         <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
-        <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
-        <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
+        <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
+        <Route path={ROUTES.ORGANIZATION_DONATE()} element={<OrganizationRoute />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />

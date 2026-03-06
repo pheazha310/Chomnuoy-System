@@ -1,38 +1,128 @@
-function OrganizationBeforeLogin({
-  searchInput,
-  setSearchInput,
-  handleSearch,
-  hasActiveSearch,
-  filteredOrganizations,
-  searchTerm,
-  categoryMenuRef,
-  isCategoryMenuOpen,
-  setIsCategoryMenuOpen,
-  setIsRatingMenuOpen,
-  setIsSortMenuOpen,
-  categoryLabel,
-  selectedCategory,
-  setSelectedCategory,
-  categoryOptions,
-  ratingMenuRef,
-  isRatingMenuOpen,
-  ratingLabel,
-  ratingFilter,
-  setRatingFilter,
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import {
+  PAGE_SIZE,
   RATING_OPTIONS,
-  sortMenuRef,
-  isSortMenuOpen,
-  sortLabel,
-  sortBy,
-  setSortBy,
   SORT_OPTIONS,
-  paginatedOrganizations,
-  paginationItems,
-  currentPage,
-  setCurrentPage,
-  totalPages,
-  setSearchInputAndTerm,
-}) {
+  getPaginationItems,
+  organizations,
+} from './organizationShared';
+import '../css/organization.css';
+
+function OrganizationBeforeLogin() {
+  const location = useLocation();
+
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [ratingFilter, setRatingFilter] = useState('4plus');
+  const [sortBy, setSortBy] = useState('recent');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [isRatingMenuOpen, setIsRatingMenuOpen] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+
+  const categoryMenuRef = useRef(null);
+  const ratingMenuRef = useRef(null);
+  const sortMenuRef = useRef(null);
+
+  const categoryOptions = useMemo(() => {
+    const categories = new Set();
+    organizations.forEach((organization) => {
+      organization.tags.forEach((tag) => categories.add(tag));
+    });
+    return [...categories].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const filteredOrganizations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    const filtered = organizations
+      .filter((organization) => {
+        if (!query) return true;
+        const searchableText = `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
+        return searchableText.includes(query);
+      })
+      .filter((organization) => {
+        if (selectedCategory === 'all') return true;
+        return organization.tags.includes(selectedCategory);
+      })
+      .filter((organization) => {
+        if (ratingFilter === 'all') return true;
+        if (ratingFilter === '45plus') return organization.rating >= 4.5;
+        return organization.rating >= 4;
+      });
+
+    return filtered.sort((left, right) => {
+      if (sortBy === 'oldest') return left.id - right.id;
+      if (sortBy === 'ratingHigh') return right.rating - left.rating;
+      if (sortBy === 'ratingLow') return left.rating - right.rating;
+      if (sortBy === 'nameAZ') return left.name.localeCompare(right.name);
+      if (sortBy === 'nameZA') return right.name.localeCompare(left.name);
+      return right.id - left.id;
+    });
+  }, [searchTerm, selectedCategory, ratingFilter, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrganizations.length / PAGE_SIZE));
+  const paginationItems = useMemo(() => getPaginationItems(totalPages, currentPage), [totalPages, currentPage]);
+
+  const paginatedOrganizations = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredOrganizations.slice(start, start + PAGE_SIZE);
+  }, [filteredOrganizations, currentPage]);
+
+  const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
+  const ratingLabel = RATING_OPTIONS.find((option) => option.value === ratingFilter)?.label || 'All Ratings';
+  const sortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label || 'Most Recent';
+  const hasActiveSearch = searchTerm.trim().length > 0;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, ratingFilter, sortBy]);
+
+  useEffect(() => {
+    setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
+  }, [totalPages]);
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search).get('search')?.trim() || '';
+    setSearchInput(query);
+    setSearchTerm(query);
+  }, [location.search]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
+        setIsCategoryMenuOpen(false);
+      }
+      if (ratingMenuRef.current && !ratingMenuRef.current.contains(event.target)) {
+        setIsRatingMenuOpen(false);
+      }
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+        setIsSortMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsCategoryMenuOpen(false);
+        setIsRatingMenuOpen(false);
+        setIsSortMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput.trim());
+  };
+
   return (
     <main className="organizations-content">
       <section className="organizations-header">
@@ -190,7 +280,8 @@ function OrganizationBeforeLogin({
             className="clear-filters"
             type="button"
             onClick={() => {
-              setSearchInputAndTerm();
+              setSearchInput('');
+              setSearchTerm('');
               setSelectedCategory('all');
               setRatingFilter('4plus');
               setSortBy('recent');

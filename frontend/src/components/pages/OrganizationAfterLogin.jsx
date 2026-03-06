@@ -1,58 +1,193 @@
-function OrganizationAfterLogin({
-  donorSession,
-  isDonationModalOpen,
-  donorCategoryMenuRef,
-  isDonorCategoryMenuOpen,
-  setIsDonorCategoryMenuOpen,
-  setIsDonorRegionMenuOpen,
-  donorCategoryLabel,
-  donorCategories,
-  donorCategory,
-  setDonorCategory,
-  donorRegionMenuRef,
-  isDonorRegionMenuOpen,
-  donorRegionLabel,
-  donorRegions,
-  donorRegion,
-  setDonorRegion,
-  donorVerifiedOnly,
-  setDonorVerifiedOnly,
-  donorTaxEligibleOnly,
-  setDonorTaxEligibleOnly,
-  donorSearchInput,
-  setDonorSearchInput,
-  setDonorSearchTerm,
-  setDonorSortBy,
-  openDonationModal,
-  closeDonationModal,
-  selectedDonationOrg,
-  DONATION_PRESET_AMOUNTS,
-  selectedDonationAmount,
-  customDonationAmount,
-  setSelectedDonationAmount,
-  setCustomDonationAmount,
-  hasInvalidCustomAmount,
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import ROUTES from '../../constants/routes';
+import {
   DONATION_PAYMENT_METHODS,
-  selectedPaymentMethod,
-  setSelectedPaymentMethod,
-  donationMessage,
-  setDonationMessage,
-  handleConfirmDonation,
-  donationAmount,
-  donorSortMenuRef,
-  isDonorSortMenuOpen,
-  setIsDonorSortMenuOpen,
-  donorSortLabel,
+  DONATION_PRESET_AMOUNTS,
+  DONOR_PAGE_SIZE,
   DONOR_SORT_OPTIONS,
-  donorSortBy,
-  donorPaginatedOrganizations,
-  favoriteIds,
-  setFavoriteIds,
-  donorPaginationItems,
-  donorPage,
-  setDonorPage,
-  donorTotalPages,
-}) {
+  donorOrganizations,
+  getDonorSession,
+  getPaginationItems,
+} from './organizationShared';
+import '../css/organization.css';
+
+function OrganizationAfterLogin() {
+  const navigate = useNavigate();
+  const { organizationId } = useParams();
+
+  const donorSession = getDonorSession();
+  const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+
+  const [donorSearchInput, setDonorSearchInput] = useState('');
+  const [donorSearchTerm, setDonorSearchTerm] = useState('');
+  const [donorCategory, setDonorCategory] = useState('All Categories');
+  const [donorRegion, setDonorRegion] = useState('Everywhere');
+  const [donorVerifiedOnly, setDonorVerifiedOnly] = useState(true);
+  const [donorTaxEligibleOnly, setDonorTaxEligibleOnly] = useState(false);
+  const [donorSortBy, setDonorSortBy] = useState('recent');
+  const [isDonorSortMenuOpen, setIsDonorSortMenuOpen] = useState(false);
+  const [isDonorCategoryMenuOpen, setIsDonorCategoryMenuOpen] = useState(false);
+  const [isDonorRegionMenuOpen, setIsDonorRegionMenuOpen] = useState(false);
+  const [donorPage, setDonorPage] = useState(1);
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+  const [selectedDonationOrg, setSelectedDonationOrg] = useState(null);
+  const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
+  const [customDonationAmount, setCustomDonationAmount] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qr');
+  const [donationMessage, setDonationMessage] = useState('');
+
+  const donorSortMenuRef = useRef(null);
+  const donorCategoryMenuRef = useRef(null);
+  const donorRegionMenuRef = useRef(null);
+
+  const parsedCustomAmount = Number(customDonationAmount);
+  const hasCustomInput = customDonationAmount.trim() !== '';
+  const hasValidCustomAmount = hasCustomInput && Number.isFinite(parsedCustomAmount) && parsedCustomAmount > 0;
+  const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
+  const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
+
+  const donorCategories = useMemo(() => ['All Categories', ...new Set(donorOrganizations.map((item) => item.category))], []);
+  const donorRegions = useMemo(() => ['Everywhere', ...new Set(donorOrganizations.map((item) => item.region))], []);
+
+  const donorFilteredOrganizations = useMemo(() => {
+    const query = donorSearchTerm.trim().toLowerCase();
+    return donorOrganizations
+      .filter((organization) => {
+        if (!query) return true;
+        const searchableText = `${organization.name} ${organization.summary} ${organization.category} ${organization.region}`.toLowerCase();
+        return searchableText.includes(query);
+      })
+      .filter((organization) => donorCategory === 'All Categories' || organization.category === donorCategory)
+      .filter((organization) => donorRegion === 'Everywhere' || organization.region === donorRegion)
+      .filter((organization) => !donorVerifiedOnly || organization.verified)
+      .filter((organization) => !donorTaxEligibleOnly || organization.taxEligible)
+      .sort((left, right) => {
+        if (donorSortBy === 'nameAZ') return left.name.localeCompare(right.name);
+        if (donorSortBy === 'impactHigh') return parseInt(right.metricLeftValue, 10) - parseInt(left.metricLeftValue, 10);
+        return right.id - left.id;
+      });
+  }, [donorCategory, donorRegion, donorSearchTerm, donorSortBy, donorTaxEligibleOnly, donorVerifiedOnly]);
+
+  const donorTotalPages = Math.max(1, Math.ceil(donorFilteredOrganizations.length / DONOR_PAGE_SIZE));
+  const donorPaginationItems = useMemo(() => getPaginationItems(donorTotalPages, donorPage), [donorPage, donorTotalPages]);
+
+  const donorPaginatedOrganizations = useMemo(() => {
+    const start = (donorPage - 1) * DONOR_PAGE_SIZE;
+    return donorFilteredOrganizations.slice(start, start + DONOR_PAGE_SIZE);
+  }, [donorFilteredOrganizations, donorPage]);
+
+  const donationRouteOrganization = useMemo(() => {
+    if (!organizationId) return null;
+    return donorOrganizations.find((organization) => String(organization.id) === String(organizationId)) ?? null;
+  }, [organizationId]);
+
+  const donorSortLabel = DONOR_SORT_OPTIONS.find((option) => option.value === donorSortBy)?.label || 'Most Recent';
+  const donorCategoryLabel = donorCategory || 'All Categories';
+  const donorRegionLabel = donorRegion || 'Everywhere';
+
+  useEffect(() => {
+    setDonorPage(1);
+  }, [donorSearchTerm, donorCategory, donorRegion, donorVerifiedOnly, donorTaxEligibleOnly, donorSortBy]);
+
+  useEffect(() => {
+    setDonorPage((previousPage) => Math.min(previousPage, donorTotalPages));
+  }, [donorTotalPages]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (donorSortMenuRef.current && !donorSortMenuRef.current.contains(event.target)) {
+        setIsDonorSortMenuOpen(false);
+      }
+      if (donorCategoryMenuRef.current && !donorCategoryMenuRef.current.contains(event.target)) {
+        setIsDonorCategoryMenuOpen(false);
+      }
+      if (donorRegionMenuRef.current && !donorRegionMenuRef.current.contains(event.target)) {
+        setIsDonorRegionMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsDonorSortMenuOpen(false);
+        setIsDonorCategoryMenuOpen(false);
+        setIsDonorRegionMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
+  const closeDonationModal = () => {
+    setIsDonationModalOpen(false);
+    setSelectedDonationOrg(null);
+    setSelectedDonationAmount(10);
+    setCustomDonationAmount('');
+    setSelectedPaymentMethod('qr');
+    setDonationMessage('');
+    navigate(ROUTES.ORGANIZATIONS);
+  };
+
+  useEffect(() => {
+    if (!isDonationModalOpen) {
+      return undefined;
+    }
+
+    const handleModalEscape = (event) => {
+      if (event.key === 'Escape') {
+        closeDonationModal();
+      }
+    };
+
+    document.addEventListener('keydown', handleModalEscape);
+    return () => document.removeEventListener('keydown', handleModalEscape);
+  }, [isDonationModalOpen]);
+
+  useEffect(() => {
+    if (!isDonorLoggedIn || !donationRouteOrganization) {
+      return;
+    }
+
+    setSelectedDonationOrg(donationRouteOrganization);
+    setSelectedDonationAmount(10);
+    setCustomDonationAmount('');
+    setSelectedPaymentMethod('qr');
+    setDonationMessage('');
+    setIsDonationModalOpen(true);
+  }, [isDonorLoggedIn, donationRouteOrganization]);
+
+  const openDonationModal = (organization) => {
+    setSelectedDonationOrg(organization);
+    setSelectedDonationAmount(10);
+    setCustomDonationAmount('');
+    setSelectedPaymentMethod('qr');
+    setDonationMessage('');
+    setIsDonationModalOpen(true);
+    navigate(ROUTES.ORGANIZATION_DONATE(organization.id));
+  };
+
+  const handleConfirmDonation = () => {
+    if (hasInvalidCustomAmount || donationAmount <= 0) {
+      return;
+    }
+
+    alert(
+      `Donation submitted!\nOrganization: ${selectedDonationOrg?.name}\nAmount: $${donationAmount}\nPayment: ${selectedPaymentMethod.toUpperCase()}`
+    );
+    closeDonationModal();
+  };
+
+  if (!isDonorLoggedIn) {
+    return null;
+  }
+
   return (
     <main className="donor-org-page">
       <div className={isDonationModalOpen ? 'donor-org-layout donor-org-layout-donation' : 'donor-org-layout'}>
@@ -81,9 +216,7 @@ function OrganizationAfterLogin({
           <section className="donor-org-panel donor-filter-panel" aria-label="Filter Results">
             <h3>Filter Results</h3>
 
-            <label className="donor-filter-label" htmlFor="donor-category">
-              Category
-            </label>
+            <label className="donor-filter-label" htmlFor="donor-category">Category</label>
             <div className="category-filter donor-filter-dropdown" ref={donorCategoryMenuRef}>
               <button
                 id="donor-category"
@@ -119,9 +252,7 @@ function OrganizationAfterLogin({
               ) : null}
             </div>
 
-            <label className="donor-filter-label" htmlFor="donor-region">
-              Province / Region
-            </label>
+            <label className="donor-filter-label" htmlFor="donor-region">Province / Region</label>
             <div className="category-filter donor-filter-dropdown" ref={donorRegionMenuRef}>
               <button
                 id="donor-region"
@@ -159,19 +290,11 @@ function OrganizationAfterLogin({
 
             <p className="donor-filter-label">Verification Status</p>
             <label className="donor-check">
-              <input
-                type="checkbox"
-                checked={donorVerifiedOnly}
-                onChange={(event) => setDonorVerifiedOnly(event.target.checked)}
-              />
+              <input type="checkbox" checked={donorVerifiedOnly} onChange={(event) => setDonorVerifiedOnly(event.target.checked)} />
               Verified Impact
             </label>
             <label className="donor-check">
-              <input
-                type="checkbox"
-                checked={donorTaxEligibleOnly}
-                onChange={(event) => setDonorTaxEligibleOnly(event.target.checked)}
-              />
+              <input type="checkbox" checked={donorTaxEligibleOnly} onChange={(event) => setDonorTaxEligibleOnly(event.target.checked)} />
               Tax Receipt Eligible
             </label>
 
@@ -188,9 +311,7 @@ function OrganizationAfterLogin({
               }}
             />
 
-            <button type="button" className="donor-apply-btn" onClick={() => setDonorSearchTerm(donorSearchInput.trim())}>
-              Apply Filters
-            </button>
+            <button type="button" className="donor-apply-btn" onClick={() => setDonorSearchTerm(donorSearchInput.trim())}>Apply Filters</button>
             <button
               type="button"
               className="donor-clear-btn"
@@ -450,11 +571,7 @@ function OrganizationAfterLogin({
                     </button>
                   )
                 )}
-                <button
-                  type="button"
-                  onClick={() => setDonorPage((page) => Math.min(donorTotalPages, page + 1))}
-                  disabled={donorPage === donorTotalPages}
-                >
+                <button type="button" onClick={() => setDonorPage((page) => Math.min(donorTotalPages, page + 1))} disabled={donorPage === donorTotalPages}>
                   {'>'}
                 </button>
               </nav>

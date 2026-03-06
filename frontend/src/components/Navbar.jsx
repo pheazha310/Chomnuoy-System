@@ -2,8 +2,8 @@ import './css/Navbar.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import DonorNotificationsDropdown from './notifications/DonorNotificationsDropdown';
-import { initialNotifications } from './notifications/notificationData';
+import DonorNotificationsDropdown from './pages/notifications/DonorNotificationsDropdown';
+import { initialNotifications } from './pages/notifications/notificationData';
 
 const guestNavItems = [
   { label: 'Home', href: '/' },
