@@ -313,11 +313,11 @@
 .my-donation-sub-cause {
   margin: 0.1rem 0 0;
   color: #243b5a;
-  font-size: 1.08rem;
+  font-size: 0.95rem;
   line-height: 1.25;
   font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
   font-weight: 400;
-  font-style: italic;
+  font-style: normal;
 }
 
 .my-donation-status-wrap {
