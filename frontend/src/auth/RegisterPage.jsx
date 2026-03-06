@@ -2,9 +2,10 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import { registerUser } from '../services/user-service';
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+
+import { getCategories, registerUser } from '../services/user-service';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import {
   User,
   Phone,
@@ -20,14 +21,40 @@ import {
 export default function RegisterPage({ onToggleMode }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [categories, setCategories] = useState([]);
   const [role, setRole] = useState('Donor');
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewCategory, setShowNewCategory] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
     email: '',
     password: '',
+    organizationName: '',
+    categoryId: '',
+    categoryNameNew: '',
+    location: '',
+    description: '',
   });
+
+  const loadCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load categories', err);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    if (role === 'Organization') {
+      loadCategories();
+    }
+  }, [role]);
 
   const passwordRequirements = {
     length: formData.password.length >= 8,
@@ -41,11 +68,18 @@ export default function RegisterPage({ onToggleMode }) {
 
     try {
       await registerUser({
-        name: formData.fullName,
-        phone: formData.phoneNumber,
+        name: role === 'Donor' ? formData.fullName : null,
+        phone: role === 'Donor' ? formData.phoneNumber : null,
         email: formData.email,
         password: formData.password,
         role,
+        organization: role === 'Organization' ? {
+          name: formData.organizationName,
+          category_id: formData.categoryId ? Number(formData.categoryId) : null,
+          category_name_new: formData.categoryNameNew?.trim() || null,
+          location: formData.location,
+          description: formData.description,
+        } : null,
       });
 
       onToggleMode(formData.email); // go to login page
@@ -87,35 +121,126 @@ export default function RegisterPage({ onToggleMode }) {
           </div>
         )}
 
-        <div>
-          <label className="text-sm font-bold text-[#101828]">Full Name</label>
-          <div className="relative mt-2">
-            <User className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
-            <input
-              type="text"
-              required
-              placeholder="e.g. John Doe"
-              className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
-              value={formData.fullName}
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-            />
-          </div>
-        </div>
+        {role === 'Organization' && (
+          <>
+            <div>
+              <label className="text-sm font-bold text-[#101828]">Organization Name</label>
+              <div className="relative mt-2">
+                <User className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter your organization name"
+                  className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                  value={formData.organizationName}
+                  onChange={(e) => setFormData({ ...formData, organizationName: e.target.value })}
+                />
+              </div>
+            </div>
 
-        <div>
-          <label className="text-sm font-bold text-[#101828]">Phone Number</label>
-          <div className="relative mt-2">
-            <Phone className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
-            <input
-              type="tel"
-              required
-              placeholder="Enter your phone number"
-              className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
-              value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-            />
-          </div>
-        </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-bold text-[#101828]">Category</label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategory((prev) => !prev)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8]"
+                >
+                  {showNewCategory ? 'Use Existing Category' : 'Create New Category'}
+                </button>
+              </div>
+              <div className="relative mt-2">
+                <select
+                  required={!showNewCategory}
+                  className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-base text-[#101828] focus:border-[#2563EB] focus:outline-none"
+                  value={formData.categoryId}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                  onFocus={loadCategories}
+                  disabled={showNewCategory}
+                >
+                  <option value="">Select category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.category_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {showNewCategory && (
+                <div className="relative mt-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter new category name"
+                    className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                    value={formData.categoryNameNew}
+                    onChange={(e) => setFormData({ ...formData, categoryNameNew: e.target.value, categoryId: '' })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-[#101828]">Location</label>
+              <div className="relative mt-2">
+                <input
+                  type="text"
+                  placeholder="City / Address"
+                  className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-[#101828]">Description</label>
+              <div className="relative mt-2">
+                <textarea
+                  rows={3}
+                  placeholder="Tell us about your organization"
+                  className="block w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 py-3 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {role === 'Donor' && (
+          <>
+            <div>
+              <label className="text-sm font-bold text-[#101828]">Full Name</label>
+              <div className="relative mt-2">
+                <User className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. John Doe"
+                  className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-bold text-[#101828]">Phone Number</label>
+              <div className="relative mt-2">
+                <Phone className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
+                <input
+                  type="tel"
+                  required
+                  placeholder="Enter your phone number"
+                  className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         <div>
           <label className="text-sm font-bold text-[#101828]">Email Address</label>
@@ -148,9 +273,9 @@ export default function RegisterPage({ onToggleMode }) {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#667085]"
-              aria-label="Toggle password visibility"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -171,8 +296,17 @@ export default function RegisterPage({ onToggleMode }) {
           className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
           disabled={isSubmitting}
         >
-          {isSubmitting ? 'Registering...' : 'Register'}
-          <ArrowRight className="h-5 w-5" />
+          {isSubmitting ? (
+            <>
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              Registering...
+            </>
+          ) : (
+            <>
+              Register
+              <ArrowRight className="h-5 w-5" />
+            </>
+          )}
         </button>
       </form>
 
