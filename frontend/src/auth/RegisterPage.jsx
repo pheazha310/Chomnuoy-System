@@ -2,22 +2,10 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 30f2e5fc0740a798a3d3a47af629ce3356a5e9be
 
 import { getCategories, registerUser } from '../services/user-service';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-<<<<<<< HEAD
-=======
-import { registerUser } from '../services/user-service';
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
->>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
-=======
->>>>>>> 30f2e5fc0740a798a3d3a47af629ce3356a5e9be
 import {
   User,
   Phone,
