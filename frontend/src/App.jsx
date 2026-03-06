@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -15,6 +15,7 @@ import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
+import ViewDetail from '@/app/donate/viewDetail.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -28,6 +29,25 @@ function getSafeRedirect(search) {
 function CampaignDetailRoute() {
   const { campaignSlug } = useParams();
   return <CampaignDetailPage campaignId={campaignSlug} />;
+}
+
+function RequireAuth({ children }) {
+  const location = useLocation();
+  const rawSession = window.localStorage.getItem('chomnuoy_session');
+  let session = null;
+  try {
+    session = rawSession ? JSON.parse(rawSession) : null;
+  } catch {
+    session = null;
+  }
+  const isLoggedIn = Boolean(session?.isLoggedIn);
+
+  if (!isLoggedIn) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  return children;
 }
 
 function LoginRoute() {
@@ -112,7 +132,22 @@ export default function App() {
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
-        <Route path="/donations" element={<MyDonation />} />
+        <Route
+          path="/donations"
+          element={
+            <RequireAuth>
+              <MyDonation />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/donations/view-detail"
+          element={
+            <RequireAuth>
+              <ViewDetail />
+            </RequireAuth>
+          }
+        />
         <Route path="/pickup" element={<div>Material Pickup Page</div>} />
       </Routes>
       {!hideShell && <Footer />}

@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Banknote,
   Building2,
   CalendarDays,
+  Check,
+  Copy,
   Download,
   Filter,
   GraduationCap,
   HandHeart,
+  Linkedin,
+  Reply,
   Search,
+  Send,
   Share2,
   Stethoscope,
   Waves,
@@ -85,12 +91,65 @@ const donations = [
 ];
 
 export default function MyDonation() {
+  const [selectedDonation, setSelectedDonation] = useState(null);
+  const [shareDonation, setShareDonation] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleOpenSavePopup = (donation) => {
+    setSelectedDonation(donation);
+  };
+
+  const handleCloseSavePopup = () => {
+    setSelectedDonation(null);
+  };
+
+  const handleOpenSharePopup = (donation) => {
+    setShareDonation(donation);
+    setCopied(false);
+  };
+
+  const handleCloseSharePopup = () => {
+    setShareDonation(null);
+    setCopied(false);
+  };
+
+  const getShareText = (donation) =>
+    `I donated ${donation.amount} to ${donation.recipient} (${donation.subCause}).`;
+
+  const getShareUrl = () => {
+    const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
+    return `${baseUrl}/donations/view-detail`;
+  };
+
+  const handleCopyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const handleShare = (platform) => {
+    if (!shareDonation) return;
+
+    const encodedUrl = encodeURIComponent(getShareUrl());
+
+    const shareUrl =
+      platform === 'telegram'
+        ? `https://t.me/share/url?url=${encodedUrl}`
+        : `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+
+    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    handleCloseSharePopup();
+  };
+
   return (
     <div className="my-donation-page">
       <main className="my-donation-container">
         <div className="my-donation-head">
           <div>
-            <h1 className="my-donation-title">Donation History</h1>
+            <h1 className="my-donation-title">My Donation</h1>
             <p className="my-donation-subtitle">
               Detailed record of your contributions and the organizations you support.
             </p>
@@ -156,39 +215,146 @@ export default function MyDonation() {
               <div className="my-donation-status-wrap">
                 <span className={`my-donation-status ${item.statusClass}`}>{item.status}</span>
               </div>
-              <button type="button" className="my-donation-icon-btn">
-                <Banknote className="my-donation-medium-icon" />
+              <button
+                type="button"
+                className="my-donation-icon-btn"
+                aria-label="Save donation"
+                onClick={() => handleOpenSavePopup(item)}
+              >
+                <Download className="my-donation-action-icon" />
               </button>
               <div className="my-donation-actions">
-                <button type="button" className="my-donation-icon-btn">
-                  <Share2 className="my-donation-medium-icon" />
+                <button
+                  type="button"
+                  className="my-donation-icon-btn"
+                  aria-label="Share donation"
+                  onClick={() => handleOpenSharePopup(item)}
+                >
+                  <Share2 className="my-donation-action-icon" strokeWidth={2.7} />
                 </button>
-                <button type="button" className="my-donation-detail-btn">
+                <Link to="/donations/view-detail" className="my-donation-detail-btn">
                   View Details
-                </button>
+                </Link>
               </div>
             </article>
           ))}
         </section>
 
-        <nav className="my-donation-pagination">
-          <button type="button" className="my-donation-page-btn" aria-label="Previous page">
-            &lt;
+        <div className="my-donation-bottom-action">
+          <button type="button" className="my-donation-view-all-btn">
+            View All
           </button>
-          <button type="button" className="my-donation-page-btn active">
-            1
-          </button>
-          <button type="button" className="my-donation-page-btn">
-            2
-          </button>
-          <button type="button" className="my-donation-page-btn">
-            3
-          </button>
-          <button type="button" className="my-donation-page-btn" aria-label="Next page">
-            &gt;
-          </button>
-        </nav>
+        </div>
       </main>
+
+      {selectedDonation && (
+        <div className="my-donation-modal-overlay" onClick={handleCloseSavePopup}>
+          <div
+            className="my-donation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-donation-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="save-donation-title">Save Donation Record</h2>
+            <p>
+              Save this donation to your quick-access list?
+            </p>
+
+            <div className="my-donation-modal-details">
+              <div>
+                <span>Date</span>
+                <strong>{selectedDonation.date}</strong>
+              </div>
+              <div>
+                <span>Amount</span>
+                <strong>{selectedDonation.amount}</strong>
+              </div>
+              <div>
+                <span>Recipient</span>
+                <strong>{selectedDonation.recipient}</strong>
+              </div>
+            </div>
+
+            <div className="my-donation-modal-actions">
+              <button type="button" className="my-donation-modal-btn secondary" onClick={handleCloseSavePopup}>
+                Cancel
+              </button>
+              <button type="button" className="my-donation-modal-btn primary" onClick={handleCloseSavePopup}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareDonation && (
+        <div className="my-donation-modal-overlay" onClick={handleCloseSharePopup}>
+          <div
+            className="my-donation-modal my-donation-share-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="share-donation-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="my-donation-share-head">
+              <div className="my-donation-share-link-icon">
+                <Reply className="my-donation-action-icon" />
+              </div>
+              <h2 id="share-donation-title">Share Your Impact</h2>
+              <p>Share this contribution with your network.</p>
+            </div>
+
+            <div className="my-donation-modal-details my-donation-share-details">
+              <div>
+                <span>Amount</span>
+                <strong>{shareDonation.amount}</strong>
+              </div>
+              <div>
+                <span>Recipient</span>
+                <strong>{shareDonation.recipient}</strong>
+              </div>
+              <div>
+                <span>Project</span>
+                <strong>{shareDonation.subCause}</strong>
+              </div>
+            </div>
+
+            <div className="my-donation-share-link-box">
+              <input
+                type="text"
+                readOnly
+                value={getShareUrl()}
+                className="my-donation-share-link-input"
+                aria-label="Share link"
+              />
+              <button type="button" className="my-donation-copy-btn" onClick={handleCopyShareLink}>
+                {copied ? <Check className="my-donation-btn-icon" /> : <Copy className="my-donation-btn-icon" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+
+            <p className="my-donation-share-message">{getShareText(shareDonation)}</p>
+
+            <div className="my-donation-share-actions">
+              <button type="button" className="my-donation-share-btn linkedin" onClick={() => handleShare('linkedin')}>
+                <Linkedin className="my-donation-btn-icon" />
+                Share on LinkedIn
+              </button>
+              <button type="button" className="my-donation-share-btn telegram" onClick={() => handleShare('telegram')}>
+                <Send className="my-donation-btn-icon" />
+                Share on Telegram
+              </button>
+            </div>
+
+            <div className="my-donation-modal-actions">
+              <button type="button" className="my-donation-modal-btn secondary" onClick={handleCloseSharePopup}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

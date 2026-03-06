@@ -267,12 +267,17 @@ body {
 }
 
 .category-option:hover {
-  background: #eff6ff;
+  background: var(--blue);
+  color: #fff;
 }
 
 .category-option-active {
   background: var(--blue);
   color: #fff;
+}
+
+.category-option-active:hover {
+  background: var(--blue-strong);
 }
 
 .clear-filters {
@@ -662,6 +667,12 @@ body {
   color: #1678e7;
   font: inherit;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.donor-sort-wrap select:hover {
+  background: var(--blue);
+  color: #fff;
 }
 
 .donor-org-grid {
