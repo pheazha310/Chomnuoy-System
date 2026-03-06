@@ -16,12 +16,29 @@ import {
 import './viewDetail.css';
 
 export default function ViewDetail() {
+  const shareMessage =
+    'I just supported Girls\' Education Fund through Chomnuoy. Together we can create more impact.';
+
   const handlePrint = () => {
     window.print();
   };
 
   const handleDownloadPdf = () => {
     window.print();
+  };
+
+  const handleShare = (platform) => {
+    const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
+    const shareUrl = `${baseUrl}/donations/view-detail`;
+    const encodedUrl = encodeURIComponent(shareUrl);
+    const encodedMessage = encodeURIComponent(shareMessage);
+
+    const targetUrl =
+      platform === 'telegram'
+        ? `https://t.me/share/url?url=${encodedUrl}&text=${encodedMessage}`
+        : `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -112,11 +129,19 @@ export default function ViewDetail() {
             <section className="donation-detail-share">
               <h2 className="donation-detail-card-title">SHARE THIS IMPACT STORY</h2>
               <div className="donation-detail-share-grid">
-                <button type="button" className="donation-detail-share-btn linkedin">
+                <button
+                  type="button"
+                  className="donation-detail-share-btn linkedin"
+                  onClick={() => handleShare('linkedin')}
+                >
                   <Linkedin className="donation-detail-btn-icon" />
                   LinkedIn
                 </button>
-                <button type="button" className="donation-detail-share-btn telegram">
+                <button
+                  type="button"
+                  className="donation-detail-share-btn telegram"
+                  onClick={() => handleShare('telegram')}
+                >
                   <Send className="donation-detail-btn-icon" />
                   Telegram
                 </button>
