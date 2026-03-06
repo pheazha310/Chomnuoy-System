@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
+<<<<<<< HEAD
 import { Link, useLocation } from 'react-router-dom';
+=======
+import { useLocation } from 'react-router-dom';
+>>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
@@ -119,16 +123,28 @@ function CampaignsPage() {
 
           return (
             <article key={campaign.id} className="campaign-card">
+<<<<<<< HEAD
               <Link to={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
                 <img src={campaign.image} alt={campaign.title} className="campaign-image" loading="lazy" />
               </Link>
+=======
+              <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                <img src={campaign.image} alt={campaign.title} className="campaign-image" loading="lazy" />
+              </a>
+>>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
               <div className="campaign-content">
                 <span className="campaign-category">{campaign.category}</span>
                 <h2>
+<<<<<<< HEAD
                   <Link to={detailPath} className="campaign-title-link">
                     {campaign.title}
                   </Link>
+=======
+                  <a href={detailPath} className="campaign-title-link">
+                    {campaign.title}
+                  </a>
+>>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
                 </h2>
                 <p className="campaign-summary">{campaign.summary}</p>
 
@@ -146,12 +162,21 @@ function CampaignsPage() {
                 </div>
 
                 <div className="campaign-actions">
+<<<<<<< HEAD
                   <Link to={detailPath} className="campaign-link">
                     View campaign
                   </Link>
                   <Link to={detailPath} className="donate-button" aria-label={`Donate to ${campaign.title}`}>
                     Donate
                   </Link>
+=======
+                  <a href={detailPath} className="campaign-link">
+                    View campaign
+                  </a>
+                  <a href={detailPath} className="donate-button" aria-label={`Donate to ${campaign.title}`}>
+                    Donate
+                  </a>
+>>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
                 </div>
               </div>
             </article>
