@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '../../constants/routes';
 import {
   DONATION_PAYMENT_METHODS,
@@ -14,6 +14,7 @@ import '../css/organization.css';
 
 function OrganizationAfterLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { organizationId } = useParams();
 
   const donorSession = getDonorSession();
@@ -31,12 +32,11 @@ function OrganizationAfterLogin() {
   const [isDonorRegionMenuOpen, setIsDonorRegionMenuOpen] = useState(false);
   const [donorPage, setDonorPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
-  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
-  const [selectedDonationOrg, setSelectedDonationOrg] = useState(null);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qr');
   const [donationMessage, setDonationMessage] = useState('');
+  const [donationStatusMessage, setDonationStatusMessage] = useState('');
 
   const donorSortMenuRef = useRef(null);
   const donorCategoryMenuRef = useRef(null);
@@ -78,10 +78,14 @@ function OrganizationAfterLogin() {
     return donorFilteredOrganizations.slice(start, start + DONOR_PAGE_SIZE);
   }, [donorFilteredOrganizations, donorPage]);
 
-  const donationRouteOrganization = useMemo(() => {
+  const isDonationPage = Boolean(organizationId);
+  const selectedDonationOrg = useMemo(() => {
     if (!organizationId) return null;
     return donorOrganizations.find((organization) => String(organization.id) === String(organizationId)) ?? null;
   }, [organizationId]);
+  const fromQuery = new URLSearchParams(location.search).get('from');
+  const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
+  const selectedPaymentLabel = DONATION_PAYMENT_METHODS.find((method) => method.id === selectedPaymentMethod)?.label || 'QR Payment';
 
   const donorSortLabel = DONOR_SORT_OPTIONS.find((option) => option.value === donorSortBy)?.label || 'Most Recent';
   const donorCategoryLabel = donorCategory || 'All Categories';
@@ -125,52 +129,13 @@ function OrganizationAfterLogin() {
     };
   }, []);
 
-  const closeDonationModal = () => {
-    setIsDonationModalOpen(false);
-    setSelectedDonationOrg(null);
+  const navigateToDonatePage = (organization) => {
     setSelectedDonationAmount(10);
     setCustomDonationAmount('');
     setSelectedPaymentMethod('qr');
     setDonationMessage('');
-    navigate(ROUTES.ORGANIZATIONS);
-  };
-
-  useEffect(() => {
-    if (!isDonationModalOpen) {
-      return undefined;
-    }
-
-    const handleModalEscape = (event) => {
-      if (event.key === 'Escape') {
-        closeDonationModal();
-      }
-    };
-
-    document.addEventListener('keydown', handleModalEscape);
-    return () => document.removeEventListener('keydown', handleModalEscape);
-  }, [isDonationModalOpen]);
-
-  useEffect(() => {
-    if (!isDonorLoggedIn || !donationRouteOrganization) {
-      return;
-    }
-
-    setSelectedDonationOrg(donationRouteOrganization);
-    setSelectedDonationAmount(10);
-    setCustomDonationAmount('');
-    setSelectedPaymentMethod('qr');
-    setDonationMessage('');
-    setIsDonationModalOpen(true);
-  }, [isDonorLoggedIn, donationRouteOrganization]);
-
-  const openDonationModal = (organization) => {
-    setSelectedDonationOrg(organization);
-    setSelectedDonationAmount(10);
-    setCustomDonationAmount('');
-    setSelectedPaymentMethod('qr');
-    setDonationMessage('');
-    setIsDonationModalOpen(true);
-    navigate(ROUTES.ORGANIZATION_DONATE(organization.id));
+    setDonationStatusMessage('');
+    navigate(`${ROUTES.ORGANIZATION_DONATE(organization.id)}?from=${encodeURIComponent(ROUTES.ORGANIZATIONS)}`);
   };
 
   const handleConfirmDonation = () => {
@@ -178,19 +143,234 @@ function OrganizationAfterLogin() {
       return;
     }
 
-    alert(
-      `Donation submitted!\nOrganization: ${selectedDonationOrg?.name}\nAmount: $${donationAmount}\nPayment: ${selectedPaymentMethod.toUpperCase()}`
+    setDonationStatusMessage(
+      `Donation submitted: $${donationAmount.toLocaleString()} to ${selectedDonationOrg?.name} via ${selectedPaymentLabel}.`
     );
-    closeDonationModal();
   };
 
   if (!isDonorLoggedIn) {
     return null;
   }
 
+  if (isDonationPage) {
+    if (!selectedDonationOrg) {
+      return (
+        <main className="donation-page">
+          <div className="donation-page-full">
+            <div className="donation-modal-card donation-page-card">
+              <div className="donation-modal-body">
+                <section className="donation-supporting">
+                  <h2>Organization not found</h2>
+                  <p>Please go back and try another organization.</p>
+                </section>
+              </div>
+              <div className="donation-modal-footer">
+                <button type="button" className="donation-confirm-btn" onClick={() => navigate(donationBackTarget)}>
+                  Back to organizations
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <main className="donation-page">
+        <div className="donation-page-full">
+          <div className="donation-layout">
+            <section className="donation-main-column">
+              <div className="donation-modal-card donation-page-card">
+              <div className="donation-modal-head">
+                <div className="donation-modal-brand">
+                  <div className="donation-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div className="donation-modal-title-wrap">
+                    <strong>Donate</strong>
+                    <p>Make a difference today</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="donation-modal-close donation-back-btn"
+                  aria-label="Back to organizations"
+                  onClick={() => navigate(donationBackTarget)}
+                >
+                  {'\u2190'} Back to organizations
+                </button>
+              </div>
+
+              <div className="donation-modal-body">
+                <section className="donation-supporting">
+                  <span>YOU ARE SUPPORTING</span>
+                  <h2>{selectedDonationOrg.name}</h2>
+                  <p>{selectedDonationOrg.summary}</p>
+                </section>
+
+                <section className="donation-section">
+                  <h3>Select Donation Amount</h3>
+                  <div className="donation-amount-grid">
+                    {DONATION_PRESET_AMOUNTS.map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        className={selectedDonationAmount === amount && !hasCustomInput ? 'is-active' : ''}
+                        onClick={() => {
+                          setSelectedDonationAmount(amount);
+                          setCustomDonationAmount('');
+                          setDonationStatusMessage('');
+                        }}
+                      >
+                        ${amount}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="donation-section">
+                  <h3>Custom Amount</h3>
+                  <label className="donation-custom-input">
+                    <span className="donation-input-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <rect x="3.5" y="6.5" width="17" height="11" rx="2.2" strokeWidth="1.8" />
+                        <circle cx="12" cy="12" r="2.2" strokeWidth="1.8" />
+                        <path d="M7 9.8h.01M17 14.2h.01" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      placeholder="Enter amount in USD"
+                      value={customDonationAmount}
+                      onChange={(event) => {
+                        setCustomDonationAmount(event.target.value);
+                        setDonationStatusMessage('');
+                      }}
+                    />
+                    <span className="donation-input-suffix">USD</span>
+                  </label>
+                  {hasInvalidCustomAmount ? <p className="donation-field-error">Enter a valid amount greater than 0.</p> : null}
+                </section>
+
+                <section className="donation-section">
+                  <h3>Payment Method</h3>
+                  <div className="donation-payment-grid">
+                    {DONATION_PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        className={selectedPaymentMethod === method.id ? 'is-active' : ''}
+                        onClick={() => {
+                          setSelectedPaymentMethod(method.id);
+                          setDonationStatusMessage('');
+                        }}
+                      >
+                        <span className={`payment-badge ${method.badgeClassName}`}>{method.badge}</span>
+                        <span>{method.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="donation-section">
+                  <h3>Message to Organization</h3>
+                  <textarea
+                    placeholder="Write a short message of encouragement or specific instructions..."
+                    value={donationMessage}
+                    onChange={(event) => {
+                      setDonationMessage(event.target.value);
+                      setDonationStatusMessage('');
+                    }}
+                  />
+                </section>
+              </div>
+
+              <div className="donation-modal-footer">
+                <div className="donation-separator" />
+                <button
+                  type="button"
+                  className="donation-confirm-btn"
+                  onClick={handleConfirmDonation}
+                  disabled={hasInvalidCustomAmount || donationAmount <= 0}
+                >
+                  <span aria-hidden="true">&#10084;</span> Confirm Donation (${donationAmount.toLocaleString()})
+                </button>
+                {donationStatusMessage ? <p className="donation-status-note">{donationStatusMessage}</p> : null}
+                <p className="donation-legal">
+                  By clicking confirm, you agree to our Terms of Service. 100% of your donation (minus payment processing fees)
+                  goes directly to the organization.
+                </p>
+              </div>
+              </div>
+            </section>
+
+            <aside className="donation-side-column">
+              <div className="donation-summary-card">
+                <p className="donation-summary-label">Donation Summary</p>
+                <h3>{selectedDonationOrg.name}</h3>
+                <p>{selectedDonationOrg.category} - {selectedDonationOrg.region}</p>
+                <div className="donation-summary-item">
+                  <span>Amount</span>
+                  <strong>${donationAmount.toLocaleString()}</strong>
+                </div>
+                <div className="donation-summary-item">
+                  <span>Payment Method</span>
+                  <strong>{selectedPaymentLabel}</strong>
+                </div>
+                <div className="donation-summary-item">
+                  <span>Tax Eligible</span>
+                  <strong>{selectedDonationOrg.taxEligible ? 'Yes' : 'No'}</strong>
+                </div>
+                <button
+                  type="button"
+                  className="donation-summary-back"
+                  onClick={() => navigate(donationBackTarget)}
+                >
+                  Back to organizations
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="donor-org-page">
-      <div className={isDonationModalOpen ? 'donor-org-layout donor-org-layout-donation' : 'donor-org-layout'}>
+      <div className="donor-org-layout">
         <aside className="donor-org-sidebar">
           <section className="donor-org-panel donor-user-panel">
             <div className="donor-user-head">
@@ -334,125 +514,7 @@ function OrganizationAfterLogin() {
         </aside>
 
         <section className="donor-org-main">
-          {isDonationModalOpen && selectedDonationOrg ? (
-            <section className="donation-modal-overlay" onClick={closeDonationModal}>
-              <article className="donation-modal-card" aria-label="Organization donation form" onClick={(event) => event.stopPropagation()}>
-                <header className="donation-modal-head">
-                  <div className="donation-modal-title-wrap">
-                    <span className="donation-modal-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M12 14V4" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M8.5 7.5L12 4l3.5 3.5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                    <div>
-                      <strong>Donate</strong>
-                      <p>Make a difference today</p>
-                    </div>
-                  </div>
-                  <button type="button" className="donation-modal-close" aria-label="Close donation panel" onClick={closeDonationModal}>
-                    &times;
-                  </button>
-                </header>
-
-                <div className="donation-modal-body">
-                  <section className="donation-supporting">
-                    <p>YOU ARE SUPPORTING</p>
-                    <h2>{selectedDonationOrg.name}</h2>
-                    <span>Your contribution directly supports educational supplies and scholarships for underprivileged students.</span>
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Select Donation Amount</h3>
-                    <div className="donation-amount-grid">
-                      {DONATION_PRESET_AMOUNTS.map((amount) => (
-                        <button
-                          key={amount}
-                          type="button"
-                          className={selectedDonationAmount === amount && customDonationAmount.trim() === '' ? 'is-active' : ''}
-                          onClick={() => {
-                            setSelectedDonationAmount(amount);
-                            setCustomDonationAmount('');
-                          }}
-                        >
-                          ${amount}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Custom Amount</h3>
-                    <label className="donation-custom-input">
-                      <span className="donation-input-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <rect x="3.5" y="6.5" width="17" height="11" rx="2.2" strokeWidth="1.8" />
-                          <circle cx="12" cy="12" r="2.2" strokeWidth="1.8" />
-                          <path d="M7 9.8h.01M17 14.2h.01" strokeWidth="1.8" strokeLinecap="round" />
-                        </svg>
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        placeholder="Enter amount in USD"
-                        value={customDonationAmount}
-                        onChange={(event) => setCustomDonationAmount(event.target.value)}
-                      />
-                      <span className="donation-input-suffix">USD</span>
-                    </label>
-                    {hasInvalidCustomAmount ? <p className="donation-field-error">Enter a valid amount greater than 0.</p> : null}
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Payment Method</h3>
-                    <div className="donation-payment-grid">
-                      {DONATION_PAYMENT_METHODS.map((method) => (
-                        <button
-                          key={method.id}
-                          type="button"
-                          className={selectedPaymentMethod === method.id ? 'is-active' : ''}
-                          onClick={() => setSelectedPaymentMethod(method.id)}
-                        >
-                          <span className={`payment-badge ${method.badgeClassName}`}>{method.badge}</span>
-                          <span>{method.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Message to Organization</h3>
-                    <textarea
-                      placeholder="Write a short message of encouragement or specific instructions..."
-                      value={donationMessage}
-                      onChange={(event) => setDonationMessage(event.target.value)}
-                    />
-                  </section>
-                </div>
-
-                <div className="donation-modal-footer">
-                  <button
-                    type="button"
-                    className="donation-confirm-btn"
-                    onClick={handleConfirmDonation}
-                    disabled={hasInvalidCustomAmount || donationAmount <= 0}
-                  >
-                    <span aria-hidden="true">&#10084;</span> Confirm Donation (${donationAmount})
-                  </button>
-                  <p className="donation-note">
-                    By clicking confirm, you agree to our Terms of Service. 100% of your donation (minus payment processing fees)
-                    goes directly to the organization.
-                  </p>
-                </div>
-              </article>
-            </section>
-          ) : null}
-
-          {!isDonationModalOpen ? (
-            <div className="donor-main-content">
+          <div className="donor-main-content">
               <header className="donor-org-header">
                 <div>
                   <h1>Browse Organizations</h1>
@@ -539,7 +601,7 @@ function OrganizationAfterLogin() {
                           </div>
                         </div>
                         <div className="donor-org-actions">
-                          <button type="button" className="donor-donate-btn" onClick={() => openDonationModal(organization)}>
+                          <button type="button" className="donor-donate-btn" onClick={() => navigateToDonatePage(organization)}>
                             Donate
                           </button>
                           <button type="button" className="donor-follow-btn" aria-label="Follow organization">
@@ -576,7 +638,6 @@ function OrganizationAfterLogin() {
                 </button>
               </nav>
             </div>
-          ) : null}
         </section>
       </div>
     </main>

@@ -53,7 +53,11 @@ function CampaignDetailPage({ campaignId }) {
   const location = useLocation();
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
+  const presetAmounts = [10, 25, 50, 100, 250];
   const [selectedAmount, setSelectedAmount] = useState(25);
+  const [customAmountInput, setCustomAmountInput] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('QR Payment');
+  const [donationMessage, setDonationMessage] = useState('');
   const [locationState, setLocationState] = useState({
     loading: false,
     error: '',
@@ -197,17 +201,23 @@ function CampaignDetailPage({ campaignId }) {
     setIsSaved(nextSavedIds.includes(campaign.id));
   }
 
-  function handleCustomAmount() {
-    const input = window.prompt('Enter donation amount (USD):', selectedAmount ? String(selectedAmount) : '');
-    if (!input) return;
-
-    const parsed = Number(input.replace(/[^\d.]/g, ''));
+  function handleCustomAmountApply(event) {
+    event.preventDefault();
+    const parsed = Number(customAmountInput.replace(/[^\d.]/g, ''));
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      window.alert('Please enter a valid amount greater than 0.');
+      setDonationMessage('Please enter a valid custom amount greater than $0.');
       return;
     }
 
-    setSelectedAmount(Math.round(parsed));
+    const roundedAmount = Math.round(parsed);
+    setSelectedAmount(roundedAmount);
+    setDonationMessage(`Custom amount applied: $${roundedAmount.toLocaleString()}.`);
+  }
+
+  function handleDonateNow() {
+    setDonationMessage(
+      `Prepared donation of $${selectedAmount.toLocaleString()} via ${selectedPaymentMethod}. Checkout integration can be connected here.`,
+    );
   }
 
   return (
@@ -315,26 +325,66 @@ function CampaignDetailPage({ campaignId }) {
               <p><strong>{percentRaised}%</strong><span>Reached</span></p>
             </div>
             <div className="quick-amount-grid">
-              {[10, 25, 50, 100, 250].map((amount) => (
+              {presetAmounts.map((amount) => (
                 <button
                   key={amount}
                   type="button"
                   className={amount === selectedAmount ? 'is-selected' : ''}
-                  onClick={() => setSelectedAmount(amount)}
+                  onClick={() => {
+                    setSelectedAmount(amount);
+                    setDonationMessage('');
+                  }}
                 >
                   ${amount}
                 </button>
               ))}
-              <button type="button" onClick={handleCustomAmount}>Custom</button>
+              <button
+                type="button"
+                className={!presetAmounts.includes(selectedAmount) ? 'is-selected' : ''}
+                onClick={() => setDonationMessage('Enter a custom amount below, then press Apply.')}
+              >
+                Custom
+              </button>
+            </div>
+            <form className="custom-amount-form" onSubmit={handleCustomAmountApply}>
+              <label htmlFor="custom-amount-input">Custom amount (USD)</label>
+              <div className="custom-amount-controls">
+                <input
+                  id="custom-amount-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  placeholder="Enter amount"
+                  value={customAmountInput}
+                  onChange={(event) => setCustomAmountInput(event.target.value)}
+                />
+                <button type="submit">Apply</button>
+              </div>
+            </form>
+            <div className="payment-methods-inline" role="radiogroup" aria-label="Payment method">
+              {['QR Payment', 'ABA Pay', 'Wing Bank'].map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedPaymentMethod === method}
+                  className={selectedPaymentMethod === method ? 'is-selected' : ''}
+                  onClick={() => setSelectedPaymentMethod(method)}
+                >
+                  {method}
+                </button>
+              ))}
             </div>
             <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
             <button
               type="button"
               className="donate-button detail-donate-button"
-              onClick={() => alert(`Donation flow coming soon. Selected amount: $${selectedAmount.toLocaleString()}`)}
+              onClick={handleDonateNow}
             >
               <HandHeart size={15} /> Donate Now
             </button>
+            {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
             <div className="detail-secondary-actions">
               <button type="button" className="detail-save-btn" onClick={handleSaveToggle}>
                 {isSaved ? 'Saved' : 'Save'}

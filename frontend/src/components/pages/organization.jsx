@@ -366,6 +366,7 @@ function Organization() {
   );
   const fromQuery = new URLSearchParams(location.search).get('from');
   const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
+  const selectedPaymentLabel = selectedPaymentMethod === 'aba' ? 'ABA Pay' : selectedPaymentMethod === 'wing' ? 'Wing Bank' : 'QR Payment';
 
   const handleSearch = () => {
     setSearchTerm(searchInput.trim());
@@ -383,8 +384,8 @@ function Organization() {
   if (isDonorLoggedIn && isDonationPage) {
     if (!donationOrg) {
       return (
-        <main className="donation-page">
-          <div className="donation-modal-card">
+        <main className="donation-page donation-page-full">
+          <div className="donation-modal-card donation-page-card">
             <div className="donation-modal-body">
               <section className="donation-supporting">
                 <h2>Organization not found</h2>
@@ -402,8 +403,10 @@ function Organization() {
     }
 
     return (
-      <main className="donation-page">
-        <div className="donation-modal-card">
+      <main className="donation-page donation-page-full">
+        <div className="donation-layout">
+          <section className="donation-main-column">
+            <div className="donation-modal-card donation-page-card">
           <div className="donation-modal-head">
             <div className="donation-modal-brand">
               <div className="donation-modal-icon" aria-hidden="true">
@@ -443,8 +446,13 @@ function Organization() {
                 <p>Make a difference today</p>
               </div>
             </div>
-            <button type="button" className="donation-modal-close" aria-label="Close" onClick={() => navigate(donationBackTarget)}>
-              {'\u00D7'}
+            <button
+              type="button"
+              className="donation-modal-close donation-back-btn"
+              aria-label="Back to organizations"
+              onClick={() => navigate(donationBackTarget)}
+            >
+              {'\u2190'} Back to organizations
             </button>
           </div>
 
@@ -504,8 +512,13 @@ function Organization() {
                   className={selectedPaymentMethod === 'qr' ? 'is-active' : ''}
                   onClick={() => setSelectedPaymentMethod('qr')}
                 >
-                  <span className="payment-badge payment-badge-qr">QR</span>
-                  <span>QR Payment</span>
+                  <span className="payment-badge payment-badge-qr" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" stroke="currentColor" strokeWidth="2" />
+                      <path d="M14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor" stroke="none" />
+                    </svg>
+                  </span>
+                  <span className="payment-label">QR Payment</span>
                 </button>
                 <button
                   type="button"
@@ -513,7 +526,7 @@ function Organization() {
                   onClick={() => setSelectedPaymentMethod('aba')}
                 >
                   <span className="payment-badge payment-badge-aba">ABA</span>
-                  <span>ABA Pay</span>
+                  <span className="payment-label">ABA Pay</span>
                 </button>
                 <button
                   type="button"
@@ -521,7 +534,7 @@ function Organization() {
                   onClick={() => setSelectedPaymentMethod('wing')}
                 >
                   <span className="payment-badge payment-badge-wing">Wing</span>
-                  <span>Wing Bank</span>
+                  <span className="payment-label">Wing Bank</span>
                 </button>
               </div>
             </section>
@@ -544,7 +557,7 @@ function Organization() {
               onClick={handleDonationSubmit}
               disabled={hasInvalidCustomAmount}
             >
-              {'\u2665'} Confirm Donation
+              <span aria-hidden="true">{'\u2665'}</span> Confirm Donation
             </button>
             {hasInvalidCustomAmount ? <p className="donation-note">Enter a valid amount greater than 0.</p> : null}
             <p className="donation-legal">
@@ -552,6 +565,39 @@ function Organization() {
               processing fees) goes directly to the organization.
             </p>
           </div>
+            </div>
+          </section>
+
+          <aside className="donation-side-column">
+            <div className="donation-summary-card">
+              <p className="donation-summary-label">Donation Summary</p>
+              <h3>{donationOrg.name}</h3>
+              <p>{donationOrg.category} • {donationOrg.region}</p>
+
+              <div className="donation-summary-item">
+                <span>Amount</span>
+                <strong>${donationAmount.toLocaleString()}</strong>
+              </div>
+
+              <div className="donation-summary-item">
+                <span>Payment Method</span>
+                <strong>{selectedPaymentLabel}</strong>
+              </div>
+
+              <div className="donation-summary-item">
+                <span>Tax Eligible</span>
+                <strong>{donationOrg.taxEligible ? 'Yes' : 'No'}</strong>
+              </div>
+
+              <button
+                type="button"
+                className="donation-summary-back"
+                onClick={() => navigate(donationBackTarget)}
+              >
+                Back to organizations
+              </button>
+            </div>
+          </aside>
         </div>
       </main>
     );

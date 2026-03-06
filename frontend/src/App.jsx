@@ -1,16 +1,12 @@
-<<<<<<< HEAD
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
-=======
-import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
+import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-<<<<<<< HEAD
 import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.jsx';
 import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
@@ -26,12 +22,6 @@ import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
-=======
-import Organization from '@/components/pages/organization.jsx';
-import LoginPage from '@/auth/LoginPage.jsx';
-import RegisterPage from '@/auth/RegisterPage.jsx';
-import AuthLayout from '@/auth/AuthLayout.jsx';
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -42,7 +32,6 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
-<<<<<<< HEAD
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -82,8 +71,6 @@ function RequireOrganizationAuth({ children }) {
   return children;
 }
 
-=======
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -92,7 +79,6 @@ function LoginRoute() {
 
   const handleLoginSuccess = (data) => {
     const isOrganization = data?.account_type === 'Organization';
-<<<<<<< HEAD
     const profile = isOrganization ? data?.organization : data?.user;
 
     if (!profile) {
@@ -117,11 +103,6 @@ function LoginRoute() {
       navigate(redirectTo);
       return;
     }
-=======
-    const profile = isOrganization
-      ? (data?.organization ?? data?.user ?? data)
-      : (data?.user ?? data?.organization ?? data);
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
     const sessionData = {
       isLoggedIn: true,
@@ -130,14 +111,9 @@ function LoginRoute() {
       email: profile?.email || loginEmail || '',
       impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-<<<<<<< HEAD
       userId: profile.id,
       accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
       logoutRedirectTo: redirectTo,
-=======
-      userId: profile?.id ?? null,
-      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
     };
 
     if (data?.token) {
@@ -170,7 +146,6 @@ function RegisterRoute() {
   );
 }
 
-<<<<<<< HEAD
 function OrganizationRoute() {
   try {
     const rawSession = window.localStorage.getItem('chomnuoy_session');
@@ -202,29 +177,19 @@ function AfterLoginHomeRoute() {
   }
 
   return <AfterLoginHome />;
-=======
-function CampaignDetailRoute() {
-  const { id, campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug || id} />;
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 }
 
 export default function App() {
   const location = useLocation();
-<<<<<<< HEAD
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
     location.pathname === ROUTES.ORGANIZATION_DASHBOARD;
-=======
-  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
-<<<<<<< HEAD
         <Route path={ROUTES.HOME} element={<HomeRoute />} />
         <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
@@ -273,21 +238,6 @@ export default function App() {
         <Route path="/pickup" element={<MaterialPickupPage />} />
         <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
         <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
-=======
-        <Route path={ROUTES.HOME} element={<Home />} />
-        <Route path={ROUTES.ABOUT} element={<div style={{ padding: '2rem' }}>About Page</div>} />
-        <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
-        <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
-        <Route path="/campaigns/donor" element={<div style={{ padding: '2rem' }}>Donor Campaigns Page</div>} />
-        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
-        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
-        <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
-        <Route path={ROUTES.CONTACT} element={<div style={{ padding: '2rem' }}>Contact Page</div>} />
-        <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
-        <Route path="/register" element={<RegisterRoute />} />
-        <Route path="/donations" element={<div style={{ padding: '2rem' }}>My Donations Page</div>} />
-        <Route path="/pickup" element={<div style={{ padding: '2rem' }}>Material Pickup Page</div>} />
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
         <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
       </Routes>

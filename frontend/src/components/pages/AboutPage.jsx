@@ -1,27 +1,8 @@
-<<<<<<< HEAD
 import '../css/about.css';
 import React from 'react';
-=======
-﻿import React from 'react';
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
-import { motion } from 'framer-motion';
-<<<<<<< HEAD
-import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
-import '../css/about.css';
-=======
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
-import teamImage1 from '../../images/6129610942573121254_121.jpg';
-import teamImage2 from '../../images/6129631399502351996_121.jpg';
-import teamImage3 from '../../images/6147792428195319150_121.jpg';
-import teamImage4 from '../../images/6147792428195319151_121.jpg';
-import teamImage5 from '../../images/6147792428195319154_121.jpg';
-
-// --- Mock Data ---
-<<<<<<< HEAD
-=======
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
+import { motion } from 'framer-motion';
+import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
 
 const STATS = [
   { label: 'Total Donated', value: '$2.4M', change: '+12% this month' },
@@ -88,53 +69,32 @@ const TEAM = [
     name: 'Sreyvik Von',
     role: 'Founder & CEO',
     bio: 'Passionate about using technology to close social impact gaps across Cambodia.',
-<<<<<<< HEAD
     image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80',
-=======
-    image: teamImage2
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
   },
   {
     name: 'Nita Chroun',
     role: 'Operations Director',
     bio: 'Ensuring every project is executed with precision, integrity, and measurable results.',
-<<<<<<< HEAD
     image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=400&q=80',
-=======
-    image: teamImage1
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
   },
   {
     name: 'Sophea Phal',
     role: 'Product Manager',
     bio: 'Designing user-friendly donation flows that create trust and increase community impact.',
-<<<<<<< HEAD
     image: 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=400&q=80',
-=======
-    image: teamImage3
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
   },
   {
     name: 'Ly Sarl',
     role: 'Partnership Lead',
     bio: 'Building strategic partnerships with NGOs, schools, and local leaders across regions.',
-<<<<<<< HEAD
     image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
-=======
-    image: teamImage4
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
   },
   {
     name: 'Seyha Ny',
     role: 'Community Relations',
     bio: 'Building trusted partnerships with communities and local organizations nationwide.',
-<<<<<<< HEAD
     image: 'https://images.unsplash.com/photo-1544717302-de2939b7ef71?auto=format&fit=crop&w=400&q=80',
   },
-=======
-    image: teamImage5
-  }
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
 ];
 
 const Hero = () => (
@@ -163,21 +123,7 @@ const Hero = () => (
           <Link to="/login" className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-          </button>
-          <button className="about-header-btn about-header-btn-secondary">Start a Campaign</button>
-=======
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
           </Link>
-          <Link to="/campaigns" className="about-header-btn about-header-btn-secondary">
-            Start a Campaign
-          </Link>
-<<<<<<< HEAD
-=======
->>>>>>> bb0d46f7706715fbab7d3311bc669d505fdd8ad2
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
         </div>
         <p className="about-header-meta">Joined by 10K+ active donors</p>
       </motion.div>
@@ -292,7 +238,6 @@ const FeaturedOrgs = () => (
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
-<<<<<<< HEAD
         <motion.div
           key={org.id}
           initial={{ opacity: 0, y: 20 }}
@@ -300,9 +245,6 @@ const FeaturedOrgs = () => (
           transition={{ duration: 0.5, delay: idx * 0.1 }}
           className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover"
         >
-=======
-        <div key={org.id} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover">
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
           <div className="aspect-video w-full overflow-hidden">
             <img src={org.image} alt={org.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
           </div>
@@ -323,7 +265,7 @@ const FeaturedOrgs = () => (
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   </section>

@@ -1,14 +1,8 @@
-<<<<<<< HEAD
 import './css/Navbar.css';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPrivacyPreferences } from '@/utils/user-preferences';
-=======
-import "./css/Navbar.css";
-import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
 const guestNavItems = [
   { label: 'Home', href: '/' },
@@ -28,52 +22,6 @@ const donorNavItems = [
   { label: 'Contact', href: '/contact' },
 ];
 
-<<<<<<< HEAD
-=======
-const initialNotifications = [
-  {
-    id: 'donation-confirmed',
-    title: 'Donation Confirmed',
-    message: 'Your $50 donation to the Education Fund was successful. Thank you for your support!',
-    time: '2m ago',
-    type: 'success',
-    isRead: false,
-  },
-  {
-    id: 'delivery-update',
-    title: 'Delivery Update',
-    message: 'The medical supplies you funded for the local clinic are currently out for delivery.',
-    time: '1h ago',
-    type: 'info',
-    isRead: false,
-  },
-  {
-    id: 'message-thankyou',
-    title: 'Message from SaveTheChildren',
-    message: 'Your contribution is making a real difference in the lives of 20 students this semester.',
-    time: '3h ago',
-    type: 'message',
-    isRead: false,
-  },
-  {
-    id: 'campaign-milestone',
-    title: 'Campaign Milestone Reached',
-    message: 'Clean Water Initiative reached 80% of its goal. Share it to help complete funding.',
-    time: '6h ago',
-    type: 'info',
-    isRead: true,
-  },
-  {
-    id: 'tax-receipt',
-    title: 'Tax Receipt Available',
-    message: 'Your monthly donation summary and tax receipt for this period is now ready to download.',
-    time: '1d ago',
-    type: 'success',
-    isRead: true,
-  },
-];
-
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -83,15 +31,15 @@ function getDonorSession() {
   }
 }
 
-function clearDonorSession() {
+function clearAuthState() {
   window.localStorage.removeItem('chomnuoy_session');
+  window.localStorage.removeItem('authToken');
 }
 
 function isNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns' || itemHref === '/campaigns/donor') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
   }
-<<<<<<< HEAD
   return pathname === itemHref;
 }
 
@@ -99,28 +47,20 @@ function isGuestNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
   }
-=======
-
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
   return pathname === itemHref;
 }
 
 function Navbar() {
   const navigate = useNavigate();
-<<<<<<< HEAD
   const location = useLocation();
   const pathname = location.pathname;
   const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
   const loginHref = `/login?redirect=${loginRedirectTarget}`;
 
-=======
-  const pathname = window.location.pathname;
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-<<<<<<< HEAD
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -160,18 +100,6 @@ function Navbar() {
       savedBeforeLoginPath && savedBeforeLoginPath.startsWith('/') ? savedBeforeLoginPath : '/';
     clearAuthState();
     window.location.href = logoutTarget;
-=======
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-  const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
-
-  const handleLogout = () => {
-    clearDonorSession();
-    window.location.href = '/login';
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
   };
 
   const handleSearchSubmit = (event) => {
@@ -183,36 +111,15 @@ function Navbar() {
     navigate(`/campaigns?search=${encoded}`);
   };
 
-<<<<<<< HEAD
   const markAllNotificationsRead = () => {
     setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
-=======
-    if (normalized.includes('organization') || normalized.includes('ngo')) {
-      navigate(`/organizations?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('donation')) {
-      navigate(`/donations?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('pickup') || normalized.includes('material')) {
-      navigate(`/pickup?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('contact') || normalized.includes('support')) {
-      navigate(`/contact?search=${encodedQuery}`);
-      return;
-    }
-
-    navigate(`/campaigns?search=${encodedQuery}`);
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
   };
 
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
-    setIsNotificationOpen(false);
-    setIsAllNotificationsOpen(false);
+    setIsLogoutPopupOpen(false);
+    setIsNotificationsOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -220,14 +127,13 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
-      if (isNotificationOpen && !event.target.closest('.donor-notification')) {
-        setIsNotificationOpen(false);
+      if (isNotificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-<<<<<<< HEAD
   }, [isNotificationsOpen, isProfileMenuOpen]);
 
   useEffect(() => {
@@ -281,9 +187,6 @@ function Navbar() {
       </div>
     </div>
   );
-=======
-  }, [isProfileMenuOpen, isNotificationOpen]);
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
@@ -295,49 +198,15 @@ function Navbar() {
         <Link to="/" className="donor-brand" aria-label="Donor portal home">
           <span className="donor-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M4.5 15.8v4.5"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4.5 15.8v4.5" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
           <div className="donor-brand-text">
-<<<<<<< HEAD
-            <span className="donor-brand-name">{`\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY`}</span>
-=======
-            <span className="donor-brand-name">{"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}</span>
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
+            <span className="donor-brand-name">{'\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY'}</span>
             <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
           </div>
         </Link>
@@ -366,72 +235,43 @@ function Navbar() {
         </form>
 
         <div className="donor-actions">
-          <div className="donor-notification">
+          <div className="donor-notification" ref={notificationRef}>
             <button
               type="button"
-              className={`donor-notify ${isNotificationOpen ? 'is-active' : ''}`}
+              className={`donor-notify ${isNotificationsOpen ? 'is-active' : ''}`}
               aria-label="Notifications"
-<<<<<<< HEAD
               aria-expanded={isNotificationsOpen}
               aria-pressed={isNotificationsOpen}
               onClick={() => setIsNotificationsOpen((previous) => !previous)}
-=======
-              aria-expanded={isNotificationOpen}
-              aria-pressed={isNotificationOpen}
-              onClick={() => setIsNotificationOpen((previous) => !previous)}
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              {unreadCount > 0 && <span className="notification-dot"></span>}
+              {unreadCount > 0 ? <span className="notification-dot"></span> : null}
             </button>
-
-            {isNotificationOpen && (
-              <div className="donor-notification-dropdown" aria-label="Notifications panel">
+            {isNotificationsOpen ? (
+              <div className="donor-notification-dropdown" aria-label="Notification list">
                 <div className="donor-notification-header">
                   <h4>Notifications</h4>
                   <button
                     type="button"
                     className="donor-mark-read"
-<<<<<<< HEAD
                     onClick={markAllNotificationsRead}
                     disabled={unreadCount === 0}
                   >
                     Mark all read
-=======
-                    onClick={() => setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })))}
-                    disabled={unreadCount === 0}
-                  >
-                    Mark all as read
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
                   </button>
                 </div>
-
                 <ul className="donor-notification-list">
-                  {displayedNotifications.map((item) => (
+                  {notifications.map((item) => (
                     <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
-                      <span className={`donor-notification-icon ${item.type}`} aria-hidden="true">
-                        {item.type === 'success' && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <circle cx="12" cy="12" r="9" strokeWidth="2" />
-                            <path d="m8 12 2.2 2.2L16 9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                        {item.type === 'info' && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M3 7h13l4 4v6H7l-4-4z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <circle cx="8.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-                            <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
-                          </svg>
-                        )}
-                        {item.type === 'message' && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="m12 20-1.2-1.1C6.2 14.7 3 11.8 3 8.2 3 5.3 5.2 3 8.1 3c1.7 0 3.2.8 4 2.1C12.9 3.8 14.5 3 16.1 3 19 3 21 5.3 21 8.2c0 3.6-3.2 6.5-7.8 10.7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </span>
+                      <div className={`donor-notification-icon ${item.type}`}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                          <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                          <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
                       <div className="donor-notification-content">
                         <div className="donor-notification-topline">
                           <p>{item.title}</p>
@@ -442,39 +282,9 @@ function Navbar() {
                     </li>
                   ))}
                 </ul>
-
-                <button
-                  type="button"
-                  className="donor-view-all-notifications"
-                  onClick={() => {
-                    setIsAllNotificationsOpen((previous) => !previous);
-                  }}
-                >
-                  {isAllNotificationsOpen ? 'View less notifications' : 'View all notifications'}
-                </button>
               </div>
-            )}
+            ) : null}
           </div>
-<<<<<<< HEAD
-=======
-
-          {/* <button type="button" className="donor-history" aria-label="History">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <circle cx="12" cy="12" r="10" strokeWidth="2"/>
-              <path d="M12 6v6l4 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button> */}
-
-          {/* <button type="button" className="donor-logout" aria-label="Logout" onClick={handleLogout}>
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="m16 17 5-5-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 12H9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button> */}
-
-          {/* <Link to="/campaigns" className="nav-cta">Donate Now</Link> */}
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 
           <div className="donor-profile">
             <button
@@ -554,8 +364,8 @@ function Navbar() {
                     type="button"
                     className="donor-profile-menu-item donor-profile-logout"
                     onClick={() => {
-                      handleLogout();
                       setIsProfileMenuOpen(false);
+                      setIsLogoutPopupOpen(true);
                     }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -570,11 +380,8 @@ function Navbar() {
             )}
           </div>
         </div>
-<<<<<<< HEAD
 
         {isLogoutPopupOpen && typeof document !== 'undefined' ? createPortal(logoutPopupMarkup, document.body) : null}
-=======
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
       </nav>
     );
   }
@@ -584,41 +391,11 @@ function Navbar() {
       <a href="/" className="brand" aria-label="Chomnuoy home">
         <span className="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M4.5 15.8v4.5"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M4.5 15.8v4.5" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
         <span className="brand-text">
@@ -646,31 +423,7 @@ function Navbar() {
             <a
               href={item.href}
               onClick={() => setIsGuestMenuOpen(false)}
-              className={
-                item.href === "/campaigns"
-                  ? pathname === "/" || pathname.startsWith("/campaigns")
-                    ? "active"
-                    : ""
-                  : item.href === "/organizations"
-                    ? pathname === "/organizations"
-                      ? "active"
-                      : ""
-                  : item.href === "/how-it-works"
-                    ? pathname === "/how-it-works"
-                      ? "active"
-                      : ""
-                    : item.href === "/about"
-                      ? pathname === "/about"
-                        ? "active"
-                        : ""
-                    : item.href === "/contact"
-                      ? pathname === "/contact"
-                        ? "active"
-                        : ""
-                      : pathname === item.href
-                        ? "active"
-                        : ""
-              }
+              className={isGuestNavItemActive(item.href, pathname) ? 'active' : ''}
             >
               {item.label}
             </a>
@@ -678,11 +431,7 @@ function Navbar() {
         ))}
       </ul>
 
-<<<<<<< HEAD
       <Link to={loginHref} className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
-=======
-      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
         Donate Now
       </Link>
     </nav>

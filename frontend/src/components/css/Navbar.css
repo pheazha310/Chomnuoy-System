@@ -441,10 +441,6 @@
   align-items: center;
   min-width: 0;
   justify-self: end;
-<<<<<<< HEAD
-=======
-  margin: 0;
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 }
 
 .donor-search svg {
@@ -535,13 +531,6 @@
   border: 2px solid #ffffff;
 }
 
-<<<<<<< HEAD
-=======
-.donor-notify.is-active .notification-dot {
-  box-shadow: 0 0 0 2px rgba(31, 125, 226, 0.18);
-}
-
->>>>>>> bee7e27391ac0c1f56f076ec0681cd1b81721999
 .donor-notification-dropdown {
   position: absolute;
   top: calc(100% + 0.55rem);
