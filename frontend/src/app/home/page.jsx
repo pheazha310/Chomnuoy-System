@@ -262,9 +262,9 @@ function Home() {
           <a href="/campaigns" className="home-btn home-btn-light">
             Start Your Journey
           </a>
-          <a href="#" className="home-btn home-btn-outline-light">
+          <Link to="/contact" className="home-btn home-btn-outline-light">
             Contact Support
-          </a>
+          </Link>
         </div>
       </section>
     </main>
