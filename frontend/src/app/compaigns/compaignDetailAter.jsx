@@ -102,7 +102,7 @@ export default function App() {
         {/* Welcome & Stats Summary */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Active Fundraising Campaigns</h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Active Fundraising Campaigns</h1>
             <p className="text-slate-600 mt-1">Hello, Alex. You've helped 12 causes this year. Keep the momentum going!</p>
           </div>
           <div className="flex flex-wrap gap-4">
