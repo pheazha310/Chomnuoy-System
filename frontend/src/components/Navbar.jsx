@@ -1,6 +1,6 @@
 import "./css/Navbar.css";
-import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const guestNavItems = [
@@ -56,12 +56,22 @@ function isGuestNavItemActive(itemHref, pathname) {
 }
 
 function Navbar() {
-  const pathname = window.location.pathname;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathname = location.pathname;
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'success', title: 'Donation Received', message: 'Thank you for supporting Rural Health Alliance.', time: '2m ago', isRead: false },
+    { id: 2, type: 'info', title: 'Campaign Update', message: 'Ocean Reclaim Project shared a new progress update.', time: '1h ago', isRead: false },
+    { id: 3, type: 'message', title: 'Pickup Reminder', message: 'Your material pickup is scheduled for tomorrow.', time: 'Yesterday', isRead: true },
+  ]);
+  const notificationRef = useRef(null);
 
   const handleLogout = () => {
     const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
@@ -80,6 +90,7 @@ function Navbar() {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
     setIsLogoutPopupOpen(false);
+    setIsNotificationsOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -87,11 +98,14 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
+      if (isNotificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProfileMenuOpen]);
+  }, [isNotificationsOpen, isProfileMenuOpen]);
 
   useEffect(() => {
     if (!isLogoutPopupOpen) return undefined;
@@ -105,6 +119,27 @@ function Navbar() {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isLogoutPopupOpen]);
+
+  useEffect(() => {
+    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
+    setSearchQuery(urlQuery);
+  }, [location.search]);
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim().replace(/\s+/g, ' ');
+    if (!query) return;
+
+    const encoded = encodeURIComponent(query);
+    
+    // Always navigate to campaigns page for search
+    navigate(`/campaigns?search=${encoded}`);
+  };
+
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const markAllNotificationsRead = () => {
+    setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
+  };
 
   const logoutPopupMarkup = (
     <div
@@ -221,22 +256,69 @@ function Navbar() {
           ))}
         </ul>
 
-        <label className="donor-search" aria-label="Search causes">
+        <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>
             <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <input type="search" placeholder="Search causes..." />
-        </label>
+          <input
+            type="search"
+            placeholder="Search causes..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                handleSearchSubmit(event);
+              }
+            }}
+          />
+        </form>
 
         <div className="donor-actions">
-          <button type="button" className="donor-notify" aria-label="Notifications">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="notification-dot"></span>
-          </button>
+          <div className="donor-notification" ref={notificationRef}>
+            <button
+              type="button"
+              className={`donor-notify ${isNotificationsOpen ? 'is-active' : ''}`}
+              aria-label="Notifications"
+              aria-expanded={isNotificationsOpen}
+              onClick={() => setIsNotificationsOpen((open) => !open)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {unreadCount > 0 ? <span className="notification-dot"></span> : null}
+            </button>
+            {isNotificationsOpen ? (
+              <div className="donor-notification-dropdown" aria-label="Notification list">
+                <div className="donor-notification-header">
+                  <h4>Notifications</h4>
+                  <button type="button" className="donor-mark-read" onClick={markAllNotificationsRead} disabled={unreadCount === 0}>
+                    Mark all read
+                  </button>
+                </div>
+                <ul className="donor-notification-list">
+                  {notifications.map((item) => (
+                    <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
+                      <div className={`donor-notification-icon ${item.type}`}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                          <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                          <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="donor-notification-content">
+                        <div className="donor-notification-topline">
+                          <p>{item.title}</p>
+                          <time>{item.time}</time>
+                        </div>
+                        <span>{item.message}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
 
           {/* <button type="button" className="donor-history" aria-label="History">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">

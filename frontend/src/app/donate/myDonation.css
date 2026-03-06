@@ -313,11 +313,11 @@
 .my-donation-sub-cause {
   margin: 0.1rem 0 0;
   color: #243b5a;
-  font-size: 1.08rem;
+  font-size: 0.95rem;
   line-height: 1.25;
   font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
   font-weight: 400;
-  font-style: italic;
+  font-style: normal;
 }
 
 .my-donation-status-wrap {
@@ -440,6 +440,11 @@
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
 }
 
+.my-donation-share-modal {
+  width: min(560px, 100%);
+  border-radius: 18px;
+}
+
 .my-donation-modal h2 {
   margin: 0;
   color: #0f172a;
@@ -451,6 +456,26 @@
   margin: 0.35rem 0 0;
   color: #64748b;
   font-size: 0.98rem;
+}
+
+.my-donation-share-head {
+  text-align: center;
+}
+
+.my-donation-share-link-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  margin: 0 auto 0.55rem;
+  background: #e8f1ff;
+  display: grid;
+  place-items: center;
+}
+
+.my-donation-share-link-icon .my-donation-action-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: #1f6fe6;
 }
 
 .my-donation-modal-details {
@@ -483,11 +508,81 @@
   font-size: 0.95rem;
 }
 
+.my-donation-share-details {
+  margin-top: 0.85rem;
+}
+
+.my-donation-share-link-box {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.my-donation-share-link-input {
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 0.65rem 0.75rem;
+  color: #334155;
+  font-size: 0.88rem;
+}
+
+.my-donation-copy-btn {
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 0.62rem 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  cursor: pointer;
+}
+
+.my-donation-share-message {
+  margin: 0.7rem 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .my-donation-modal-actions {
   margin-top: 0.9rem;
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.my-donation-share-actions {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.my-donation-share-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.62rem 0.75rem;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+
+.my-donation-share-btn.linkedin {
+  background: #1567be;
+}
+
+.my-donation-share-btn.telegram {
+  background: #2f9cd2;
 }
 
 .my-donation-modal-btn {
@@ -550,5 +645,13 @@
 
   .my-donation-bottom-action {
     justify-content: flex-start;
+  }
+
+  .my-donation-share-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .my-donation-share-link-box {
+    grid-template-columns: 1fr;
   }
 }
