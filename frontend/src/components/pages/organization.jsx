@@ -154,6 +154,11 @@ const SORT_OPTIONS = [
   { value: 'nameAZ', label: 'Name: A to Z' },
   { value: 'nameZA', label: 'Name: Z to A' },
 ];
+const DONOR_SORT_OPTIONS = [
+  { value: 'recent', label: 'Most Recent' },
+  { value: 'nameAZ', label: 'Name A-Z' },
+  { value: 'impactHigh', label: 'Impact Score' },
+];
 
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
@@ -206,6 +211,7 @@ function Organization() {
   const categoryMenuRef = useRef(null);
   const ratingMenuRef = useRef(null);
   const sortMenuRef = useRef(null);
+  const donorSortMenuRef = useRef(null);
 
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
@@ -214,6 +220,7 @@ function Organization() {
   const [donorVerifiedOnly, setDonorVerifiedOnly] = useState(true);
   const [donorTaxEligibleOnly, setDonorTaxEligibleOnly] = useState(false);
   const [donorSortBy, setDonorSortBy] = useState('recent');
+  const [isDonorSortMenuOpen, setIsDonorSortMenuOpen] = useState(false);
   const [donorPage, setDonorPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
@@ -329,6 +336,9 @@ function Organization() {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
         setIsSortMenuOpen(false);
       }
+      if (donorSortMenuRef.current && !donorSortMenuRef.current.contains(event.target)) {
+        setIsDonorSortMenuOpen(false);
+      }
     };
 
     const handleEscape = (event) => {
@@ -336,6 +346,7 @@ function Organization() {
         setIsCategoryMenuOpen(false);
         setIsRatingMenuOpen(false);
         setIsSortMenuOpen(false);
+        setIsDonorSortMenuOpen(false);
       }
     };
 
@@ -364,6 +375,7 @@ function Organization() {
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
   const ratingLabel = RATING_OPTIONS.find((option) => option.value === ratingFilter)?.label || 'All Ratings';
   const sortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label || 'Most Recent';
+  const donorSortLabel = DONOR_SORT_OPTIONS.find((option) => option.value === donorSortBy)?.label || 'Most Recent';
   const hasActiveSearch = searchTerm.trim().length > 0;
 
   const handleSearch = () => {
@@ -660,14 +672,39 @@ function Organization() {
                 <h1>Browse Organizations</h1>
                 <p>Discover 1,248 verified non-profit organizations</p>
               </div>
-              <label className="donor-sort-wrap" htmlFor="donor-sort">
+              <div className="donor-sort-wrap" ref={donorSortMenuRef}>
                 <span>Sort by:</span>
-                <select id="donor-sort" value={donorSortBy} onChange={(event) => setDonorSortBy(event.target.value)}>
-                  <option value="recent">Most Recent</option>
-                  <option value="nameAZ">Name A-Z</option>
-                  <option value="impactHigh">Impact Score</option>
-                </select>
-              </label>
+                <div className="category-filter donor-sort-filter">
+                  <button
+                    type="button"
+                    className="filter-select category-trigger donor-sort-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={isDonorSortMenuOpen}
+                    aria-label="Sort donor organizations"
+                    onClick={() => setIsDonorSortMenuOpen((open) => !open)}
+                  >
+                    {donorSortLabel}
+                  </button>
+                  {isDonorSortMenuOpen ? (
+                    <ul className="category-menu donor-sort-menu" role="listbox" aria-label="Donor sort options">
+                      {DONOR_SORT_OPTIONS.map((option) => (
+                        <li key={option.value}>
+                          <button
+                            type="button"
+                            className={`category-option ${donorSortBy === option.value ? 'category-option-active' : ''}`}
+                            onClick={() => {
+                              setDonorSortBy(option.value);
+                              setIsDonorSortMenuOpen(false);
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              </div>
             </header>
 
             <section className="donor-org-grid" aria-label="Organization List">

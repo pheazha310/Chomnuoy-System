@@ -351,10 +351,10 @@ function Navbar() {
 
                 <button
                   type="button"
-                  className="donor-view-all-notifications"
+                  className={`donor-view-all-notifications ${isAllNotificationsOpen ? 'is-expanded' : ''}`}
                   onClick={() => setIsAllNotificationsOpen((previous) => !previous)}
                 >
-                  {isAllNotificationsOpen ? 'View less notifications' : 'View all notifications'}
+                  {isAllNotificationsOpen ? 'View Fewer Notifications' : 'View All Notifications'}
                 </button>
               </div>
             )}
