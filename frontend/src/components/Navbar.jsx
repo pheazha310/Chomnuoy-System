@@ -1,8 +1,17 @@
+<<<<<<< HEAD
 import "./css/Navbar.css";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getPrivacyPreferences } from "@/utils/user-preferences";
+=======
+import './css/Navbar.css';
+import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import DonorNotificationsDropdown from './pages/notifications/DonorNotificationsDropdown';
+import { initialNotifications } from './pages/notifications/notificationData';
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -52,18 +61,23 @@ function isGuestNavItemActive(itemHref, pathname) {
 
 function Navbar() {
   const navigate = useNavigate();
+<<<<<<< HEAD
   const location = useLocation();
   const pathname = location.pathname;
   const loginRedirectTarget = encodeURIComponent(
     `${location.pathname}${location.search}`,
   );
   const loginHref = `/login?redirect=${loginRedirectTarget}`;
+=======
+  const pathname = window.location.pathname;
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
   const donorSession = getDonorSession();
   const isDonorLoggedIn =
     donorSession?.isLoggedIn && donorSession?.role === "Donor";
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+<<<<<<< HEAD
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [notifications, setNotifications] = useState([
@@ -93,6 +107,13 @@ function Navbar() {
     },
   ]);
   const notificationRef = useRef(null);
+=======
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 
   const handleLogout = () => {
     const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
@@ -104,11 +125,46 @@ function Navbar() {
     window.location.href = logoutTarget;
   };
 
+<<<<<<< HEAD
+=======
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    const normalized = query.toLowerCase();
+    const encodedQuery = encodeURIComponent(query);
+
+    if (normalized.includes('organization') || normalized.includes('ngo')) {
+      navigate(`/organizations?search=${encodedQuery}`);
+      return;
+    }
+    if (normalized.includes('donation')) {
+      navigate(`/donations?search=${encodedQuery}`);
+      return;
+    }
+    if (normalized.includes('pickup') || normalized.includes('material')) {
+      navigate(`/pickup?search=${encodedQuery}`);
+      return;
+    }
+    if (normalized.includes('contact') || normalized.includes('support')) {
+      navigate(`/contact?search=${encodedQuery}`);
+      return;
+    }
+
+    navigate(`/campaigns?search=${encodedQuery}`);
+  };
+
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
     setIsLogoutPopupOpen(false);
+<<<<<<< HEAD
     setIsNotificationsOpen(false);
+=======
+    setIsNotificationOpen(false);
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
   }, [pathname]);
 
   useEffect(() => {
@@ -116,6 +172,7 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest(".donor-profile")) {
         setIsProfileMenuOpen(false);
       }
+<<<<<<< HEAD
       if (
         isNotificationsOpen &&
         notificationRef.current &&
@@ -128,6 +185,16 @@ function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isNotificationsOpen, isProfileMenuOpen]);
+=======
+      if (isNotificationOpen && !event.target.closest('.donor-notification')) {
+        setIsNotificationOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isNotificationOpen, isProfileMenuOpen]);
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 
   useEffect(() => {
     if (!isLogoutPopupOpen) return undefined;
@@ -140,6 +207,7 @@ function Navbar() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isLogoutPopupOpen]);
 
+<<<<<<< HEAD
   useEffect(() => {
     const urlQuery =
       new URLSearchParams(location.search).get("search")?.trim() || "";
@@ -162,6 +230,8 @@ function Navbar() {
     );
   };
 
+=======
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
   const logoutPopupMarkup = (
     <div
       className="logout-popup-overlay"
@@ -268,10 +338,15 @@ function Navbar() {
             </svg>
           </span>
           <div className="donor-brand-text">
+<<<<<<< HEAD
             <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
             <span className="donor-brand-subtitle">
               DIGITAL DONATION PLATFORM
             </span>
+=======
+            <span className="donor-brand-name">{'\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY'}</span>
+            <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
           </div>
         </Link>
 
@@ -312,22 +387,30 @@ function Navbar() {
             placeholder="Search causes..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+<<<<<<< HEAD
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 handleSearchSubmit(event);
               }
             }}
+=======
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
           />
         </form>
 
         <div className="donor-actions">
-          <div className="donor-notification" ref={notificationRef}>
+          <div className="donor-notification">
             <button
               type="button"
+<<<<<<< HEAD
               className={`donor-notify ${isNotificationsOpen ? "is-active" : ""}`}
+=======
+              className={`donor-notify ${isNotificationOpen ? 'is-active' : ''}`}
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
               aria-label="Notifications"
-              aria-expanded={isNotificationsOpen}
-              onClick={() => setIsNotificationsOpen((open) => !open)}
+              aria-expanded={isNotificationOpen}
+              aria-pressed={isNotificationOpen}
+              onClick={() => setIsNotificationOpen((previous) => !previous)}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -348,6 +431,7 @@ function Navbar() {
                   strokeLinejoin="round"
                 />
               </svg>
+<<<<<<< HEAD
               {unreadCount > 0 ? (
                 <span className="notification-dot"></span>
               ) : null}
@@ -402,6 +486,20 @@ function Navbar() {
                 </ul>
               </div>
             ) : null}
+=======
+              {unreadCount > 0 && <span className="notification-dot" />}
+            </button>
+
+            {isNotificationOpen && (
+              <DonorNotificationsDropdown
+                notifications={notifications}
+                unreadCount={unreadCount}
+                isAllNotificationsOpen={isAllNotificationsOpen}
+                onMarkAllRead={() => setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })))}
+                onToggleAll={() => setIsAllNotificationsOpen((previous) => !previous)}
+              />
+            )}
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
           </div>
 
           <div className="donor-profile">

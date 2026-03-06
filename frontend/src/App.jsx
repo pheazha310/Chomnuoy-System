@@ -7,7 +7,8 @@ import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-import Organization from '@/components/pages/organization.jsx';
+import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.jsx';
+import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
@@ -16,11 +17,14 @@ import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
+<<<<<<< HEAD
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
+=======
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -31,6 +35,7 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
+<<<<<<< HEAD
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -38,10 +43,16 @@ function getSession() {
   } catch {
     return null;
   }
+=======
+function CampaignDetailRoute() {
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 }
 
-function RequireOrganizationAuth({ children }) {
+function RequireAuth({ children }) {
   const location = useLocation();
+<<<<<<< HEAD
   const session = getSession();
   const isOrganization = Boolean(session?.isLoggedIn && session?.role === 'Organization');
 
@@ -59,6 +70,17 @@ function RequireAuth({ children }) {
   const isAuthenticated = Boolean(session?.isLoggedIn);
 
   if (!isAuthenticated) {
+=======
+  const rawSession = window.localStorage.getItem('chomnuoy_session');
+  let session = null;
+  try {
+    session = rawSession ? JSON.parse(rawSession) : null;
+  } catch {
+    session = null;
+  }
+
+  if (!session?.isLoggedIn) {
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
@@ -77,6 +99,7 @@ function LoginRoute() {
     const profile = isOrganization ? data?.organization : data?.user;
 
     if (!profile) {
+<<<<<<< HEAD
       const user = data?.user || data || {};
       const sessionData = {
         isLoggedIn: true,
@@ -97,6 +120,9 @@ function LoginRoute() {
       window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
       navigate(redirectTo);
       return;
+=======
+      throw new Error('Login response missing profile data');
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
     }
 
     const sessionData = {
@@ -111,17 +137,14 @@ function LoginRoute() {
       logoutRedirectTo: redirectTo,
     };
 
+<<<<<<< HEAD
     if (data?.token) {
       window.localStorage.setItem('authToken', data.token);
     }
 
+=======
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
-
-    if (isOrganization) {
-      navigate(ROUTES.ORGANIZATION_DASHBOARD);
-      return;
-    }
-
     navigate(redirectTo);
   };
 
@@ -140,20 +163,22 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
-  const handleRegisterSuccess = (email) => {
-    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
-  };
-
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={handleRegisterSuccess} />
+      <RegisterPage onToggleMode={() => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)} />
     </AuthLayout>
   );
 }
 
-function CampaignDetailRoute2() {
-  const { id, campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug || id} />;
+function OrganizationRoute() {
+  try {
+    const rawSession = window.localStorage.getItem('chomnuoy_session');
+    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
+    const isDonorLoggedIn = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
+    return isDonorLoggedIn ? <OrganizationAfterLogin /> : <OrganizationBeforeLogin />;
+  } catch {
+    return <OrganizationBeforeLogin />;
+  }
 }
 
 function HomeRoute() {
@@ -164,6 +189,7 @@ function HomeRoute() {
     return <AfterLoginHome />;
   }
 
+<<<<<<< HEAD
   return <Home />;
 }
 
@@ -184,11 +210,17 @@ export default function App() {
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
     location.pathname === ROUTES.ORGANIZATION_DASHBOARD;
+=======
+  const hasAuthToken = Boolean(window.localStorage.getItem('authToken'));
+  const isAuthenticated = hasAuthToken || hasDonorSession;
+  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
+<<<<<<< HEAD
         <Route path={ROUTES.HOME} element={<HomeRoute />} />
         <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
@@ -201,15 +233,22 @@ export default function App() {
             </RequireAuth>
           )}
         />
+=======
+        <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
+        <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+        <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
+        <Route path={ROUTES.ORGANIZATION_DONATE()} element={<OrganizationRoute />} />
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
-        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute2 />} />
-        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute2 />} />
+        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
+        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
         <Route
+<<<<<<< HEAD
           path={ROUTES.ORGANIZATION_DASHBOARD}
           element={(
             <RequireOrganizationAuth>
@@ -218,6 +257,8 @@ export default function App() {
           )}
         />
         <Route
+=======
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
           path="/donations"
           element={(
             <RequireAuth>
@@ -233,6 +274,7 @@ export default function App() {
             </RequireAuth>
           )}
         />
+<<<<<<< HEAD
         <Route
           path="/settings/AccountSettings"
           element={(
@@ -246,6 +288,9 @@ export default function App() {
         <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
         <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
+=======
+        <Route path="/pickup" element={<div>Material Pickup Page</div>} />
+>>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
       </Routes>
       {!hideShell && <Footer />}
     </>
