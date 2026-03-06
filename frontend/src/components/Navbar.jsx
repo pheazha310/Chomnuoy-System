@@ -1,29 +1,29 @@
 import "./css/Navbar.css";
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const guestNavItems = [
-  { label: 'Home', href: '/' },
-  { label: 'About Us', href: '/about' },
-  { label: 'Organizations', href: '/organizations' },
-  { label: 'Campaigns', href: '/campaigns' },
-  { label: 'How It Works', href: '/how-it-works' },
-  { label: 'Contact', href: '/contact' },
+  { label: "Home", href: "/" },
+  { label: "About Us", href: "/about" },
+  { label: "Organizations", href: "/organizations" },
+  { label: "Campaigns", href: "/campaigns" },
+  { label: "How It Works", href: "/how-it-works" },
+  { label: "Contact", href: "/contact" },
 ];
 
 const donorNavItems = [
-  { label: 'Home', href: '/AfterLoginHome' },
-  { label: 'Organizations', href: '/organizations' },
-  { label: 'Campaigns', href: '/campaigns/donor' },
-  { label: 'My Donations', href: '/donations' },
-  { label: 'Material Pickup', href: '/pickup' },
-  { label: 'Contact', href: '/contact' },
+  { label: "Home", href: "/AfterLoginHome" },
+  { label: "Organizations", href: "/organizations" },
+  { label: "Campaigns", href: "/campaigns/donor" },
+  { label: "My Donations", href: "/donations" },
+  { label: "Material Pickup", href: "/pickup" },
+  { label: "Contact", href: "/contact" },
 ];
 
 function getDonorSession() {
   try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
+    const raw = window.localStorage.getItem("chomnuoy_session");
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -31,20 +31,20 @@ function getDonorSession() {
 }
 
 function clearAuthState() {
-  window.localStorage.removeItem('chomnuoy_session');
-  window.localStorage.removeItem('authToken');
+  window.localStorage.removeItem("chomnuoy_session");
+  window.localStorage.removeItem("authToken");
 }
 
 function isNavItemActive(itemHref, pathname) {
-  if (itemHref === '/campaigns' || itemHref === '/campaigns/donor') {
-    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
+  if (itemHref === "/campaigns" || itemHref === "/campaigns/donor") {
+    return pathname === "/campaigns" || pathname.startsWith("/campaigns/");
   }
   return pathname === itemHref;
 }
 
 function isGuestNavItemActive(itemHref, pathname) {
-  if (itemHref === '/campaigns') {
-    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
+  if (itemHref === "/campaigns") {
+    return pathname === "/campaigns" || pathname.startsWith("/campaigns/");
   }
   return pathname === itemHref;
 }
@@ -53,25 +53,52 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
-  const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
+  const loginRedirectTarget = encodeURIComponent(
+    `${location.pathname}${location.search}`,
+  );
   const loginHref = `/login?redirect=${loginRedirectTarget}`;
   const donorSession = getDonorSession();
-  const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+  const isDonorLoggedIn =
+    donorSession?.isLoggedIn && donorSession?.role === "Donor";
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [notifications, setNotifications] = useState([
-    { id: 1, type: 'success', title: 'Donation Received', message: 'Thank you for supporting Rural Health Alliance.', time: '2m ago', isRead: false },
-    { id: 2, type: 'info', title: 'Campaign Update', message: 'Ocean Reclaim Project shared a new progress update.', time: '1h ago', isRead: false },
-    { id: 3, type: 'message', title: 'Pickup Reminder', message: 'Your material pickup is scheduled for tomorrow.', time: 'Yesterday', isRead: true },
+    {
+      id: 1,
+      type: "success",
+      title: "Donation Received",
+      message: "Thank you for supporting Rural Health Alliance.",
+      time: "2m ago",
+      isRead: false,
+    },
+    {
+      id: 2,
+      type: "info",
+      title: "Campaign Update",
+      message: "Ocean Reclaim Project shared a new progress update.",
+      time: "1h ago",
+      isRead: false,
+    },
+    {
+      id: 3,
+      type: "message",
+      title: "Pickup Reminder",
+      message: "Your material pickup is scheduled for tomorrow.",
+      time: "Yesterday",
+      isRead: true,
+    },
   ]);
   const notificationRef = useRef(null);
 
   const handleLogout = () => {
     const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
-    const logoutTarget = savedBeforeLoginPath && savedBeforeLoginPath.startsWith('/') ? savedBeforeLoginPath : '/';
+    const logoutTarget =
+      savedBeforeLoginPath && savedBeforeLoginPath.startsWith("/")
+        ? savedBeforeLoginPath
+        : "/";
     clearAuthState();
     window.location.href = logoutTarget;
   };
@@ -85,37 +112,42 @@ function Navbar() {
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
+      if (isProfileMenuOpen && !event.target.closest(".donor-profile")) {
         setIsProfileMenuOpen(false);
       }
-      if (isNotificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
+      if (
+        isNotificationsOpen &&
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
         setIsNotificationsOpen(false);
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isNotificationsOpen, isProfileMenuOpen]);
 
   useEffect(() => {
     if (!isLogoutPopupOpen) return undefined;
     function handleEscape(event) {
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         setIsLogoutPopupOpen(false);
       }
     }
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, [isLogoutPopupOpen]);
 
   useEffect(() => {
-    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
+    const urlQuery =
+      new URLSearchParams(location.search).get("search")?.trim() || "";
     setSearchQuery(urlQuery);
   }, [location.search]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
-    const query = searchQuery.trim().replace(/\s+/g, ' ');
+    const query = searchQuery.trim().replace(/\s+/g, " ");
     if (!query) return;
 
     const encoded = encodeURIComponent(query);
@@ -124,11 +156,17 @@ function Navbar() {
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
   const markAllNotificationsRead = () => {
-    setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
+    setNotifications((previous) =>
+      previous.map((item) => ({ ...item, isRead: true })),
+    );
   };
 
   const logoutPopupMarkup = (
-    <div className="logout-popup-overlay" role="presentation" onClick={() => setIsLogoutPopupOpen(false)}>
+    <div
+      className="logout-popup-overlay"
+      role="presentation"
+      onClick={() => setIsLogoutPopupOpen(false)}
+    >
       <div
         className="logout-popup"
         role="dialog"
@@ -144,7 +182,12 @@ function Navbar() {
             aria-label="Close logout popup"
             onClick={() => setIsLogoutPopupOpen(false)}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              fill="none"
+              stroke="currentColor"
+            >
               <path d="m18 6-12 12" strokeWidth="2" strokeLinecap="round" />
               <path d="m6 6 12 12" strokeWidth="2" strokeLinecap="round" />
             </svg>
@@ -152,10 +195,18 @@ function Navbar() {
         </div>
         <p>You will need to sign in again to access donor features.</p>
         <div className="logout-popup-actions">
-          <button type="button" className="logout-popup-cancel" onClick={() => setIsLogoutPopupOpen(false)}>
+          <button
+            type="button"
+            className="logout-popup-cancel"
+            onClick={() => setIsLogoutPopupOpen(false)}
+          >
             Cancel
           </button>
-          <button type="button" className="logout-popup-confirm" onClick={handleLogout}>
+          <button
+            type="button"
+            className="logout-popup-confirm"
+            onClick={handleLogout}
+          >
             Logout
           </button>
         </div>
@@ -164,14 +215,19 @@ function Navbar() {
   );
 
   if (isDonorLoggedIn) {
-    const donorName = donorSession.name || 'Donor User';
-    const donorImpact = donorSession.impactLevel || 'Gold';
+    const donorName = donorSession.name || "Donor User";
+    const donorImpact = donorSession.impactLevel || "Gold";
 
     return (
       <nav className="donor-navbar" aria-label="Donor navigation">
         <Link to="/" className="donor-brand" aria-label="Donor portal home">
           <span className="donor-brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg
+              viewBox="0 0 24 24"
+              className="logo-mark"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
               <path
                 d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
                 stroke="currentColor"
@@ -200,29 +256,54 @@ function Navbar() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <path d="M4.5 15.8v4.5" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M4.5 15.8v4.5"
+                stroke="currentColor"
+                strokeWidth="2.35"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </span>
           <div className="donor-brand-text">
             <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
-            <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
+            <span className="donor-brand-subtitle">
+              DIGITAL DONATION PLATFORM
+            </span>
           </div>
         </Link>
 
         <ul className="donor-links">
           {donorNavItems.map((item) => (
             <li key={item.label}>
-              <Link to={item.href} className={isNavItemActive(item.href, pathname) ? 'active' : ''}>
+              <Link
+                to={item.href}
+                className={isNavItemActive(item.href, pathname) ? "active" : ""}
+              >
                 {item.label}
               </Link>
             </li>
           ))}
         </ul>
 
-        <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
+        <form
+          className="donor-search"
+          aria-label="Search causes"
+          onSubmit={handleSearchSubmit}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+          >
             <circle cx="11" cy="11" r="8" strokeWidth="2" />
-            <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="m21 21-4.35-4.35"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <input
             type="search"
@@ -230,7 +311,7 @@ function Navbar() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') {
+              if (event.key === "Enter") {
                 handleSearchSubmit(event);
               }
             }}
@@ -241,32 +322,70 @@ function Navbar() {
           <div className="donor-notification" ref={notificationRef}>
             <button
               type="button"
-              className={`donor-notify ${isNotificationsOpen ? 'is-active' : ''}`}
+              className={`donor-notify ${isNotificationsOpen ? "is-active" : ""}`}
               aria-label="Notifications"
               aria-expanded={isNotificationsOpen}
               onClick={() => setIsNotificationsOpen((open) => !open)}
             >
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                stroke="currentColor"
+              >
+                <path
+                  d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M13.73 21a2 2 0 0 1-3.46 0"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
-              {unreadCount > 0 ? <span className="notification-dot"></span> : null}
+              {unreadCount > 0 ? (
+                <span className="notification-dot"></span>
+              ) : null}
             </button>
             {isNotificationsOpen ? (
-              <div className="donor-notification-dropdown" aria-label="Notification list">
+              <div
+                className="donor-notification-dropdown"
+                aria-label="Notification list"
+              >
                 <div className="donor-notification-header">
                   <h4>Notifications</h4>
-                  <button type="button" className="donor-mark-read" onClick={markAllNotificationsRead} disabled={unreadCount === 0}>
+                  <button
+                    type="button"
+                    className="donor-mark-read"
+                    onClick={markAllNotificationsRead}
+                    disabled={unreadCount === 0}
+                  >
                     Mark all read
                   </button>
                 </div>
                 <ul className="donor-notification-list">
                   {notifications.map((item) => (
-                    <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
+                    <li
+                      key={item.id}
+                      className={`donor-notification-item ${item.isRead ? "is-read" : ""}`}
+                    >
                       <div className={`donor-notification-icon ${item.type}`}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
                           <circle cx="12" cy="12" r="8" strokeWidth="2" />
-                          <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path
+                            d="M12 8v4l2 2"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                       </div>
                       <div className="donor-notification-content">
@@ -283,23 +402,6 @@ function Navbar() {
             ) : null}
           </div>
 
-          {/* <button type="button" className="donor-history" aria-label="History">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <circle cx="12" cy="12" r="10" strokeWidth="2"/>
-              <path d="M12 6v6l4 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button> */}
-
-          {/* <button type="button" className="donor-logout" aria-label="Logout" onClick={handleLogout}>
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="m16 17 5-5-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 12H9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button> */}
-
-          {/* <Link to="/campaigns" className="nav-cta">Donate Now</Link> */}
-
           <div className="donor-profile">
             <button
               type="button"
@@ -309,50 +411,109 @@ function Navbar() {
               aria-expanded={isProfileMenuOpen}
             >
               <img
-                src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+                src={
+                  donorSession.avatar ||
+                  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80"
+                }
                 alt={donorName}
                 className="donor-avatar-photo"
               />
             </button>
 
             {isProfileMenuOpen && (
-              <div className="donor-profile-dropdown" aria-label="Profile menu" style={{ display: 'block' }}>
+              <div
+                className="donor-profile-dropdown"
+                aria-label="Profile menu"
+                style={{ display: "block" }}
+              >
                 <div className="donor-profile-header">
                   <img
-                    src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+                    src={
+                      donorSession.avatar ||
+                      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80"
+                    }
                     alt={donorName}
                     className="donor-profile-avatar"
                   />
                   <div className="donor-profile-info">
                     <p className="donor-profile-name">{donorName}</p>
-                    <p className="donor-profile-email">{donorSession.email || 'donor@example.com'}</p>
-                    <p className="donor-profile-impact">Impact Level: {donorImpact}</p>
+                    <p className="donor-profile-email">
+                      {donorSession.email || "donor@example.com"}
+                    </p>
+                    <p className="donor-profile-impact">
+                      Impact Level: {donorImpact}
+                    </p>
                   </div>
                 </div>
 
                 <div className="donor-profile-divider" />
 
                 <div className="donor-profile-menu">
-                  <Link to="/profile" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <Link
+                    to="/profile"
+                    className="donor-profile-menu-item"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                    >
+                      <path
+                        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                       <circle cx="12" cy="7" r="4" strokeWidth="2" />
                     </svg>
                     My Profile
                   </Link>
-                  
-                  <Link to="/settings/AccountSettings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-                      <circle cx="12" cy="12" r="3" strokeWidth="2" />
-                      <path d="M12 1v6m0 6v6m4.22-13.22 4.22 4.22M1.54 9.54l4.22 4.22M20.46 14.46l-4.22 4.22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+                  <Link
+                    to="/settings/AccountSettings"
+                    className="donor-profile-menu-item"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path
+                        d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z"
+                        strokeWidth="1.8"
+                      />
+                      <path
+                        d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.06V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.06-.4H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.6 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.06V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.06.4H21a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"
+                        strokeWidth="1.2"
+                      />
                     </svg>
                     Settings
                   </Link>
 
-                  <Link to="/donations" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-                      <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="2" />
-                      <path d="M3 9h18M9 21V9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <Link
+                    to="/donations"
+                    className="donor-profile-menu-item"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                    >
+                      <rect
+                        x="3"
+                        y="3"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M3 9h18M9 21V9"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     My Donations
                   </Link>
@@ -365,10 +526,30 @@ function Navbar() {
                       setIsLogoutPopupOpen(true);
                     }}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="m16 17 5-5-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M21 12H9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      stroke="currentColor"
+                    >
+                      <path
+                        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="m16 17 5-5-5-5"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M21 12H9"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     Logout
                   </button>
@@ -378,16 +559,26 @@ function Navbar() {
           </div>
         </div>
 
-        {isLogoutPopupOpen && typeof document !== 'undefined' ? createPortal(logoutPopupMarkup, document.body) : null}
+        {isLogoutPopupOpen && typeof document !== "undefined"
+          ? createPortal(logoutPopupMarkup, document.body)
+          : null}
       </nav>
     );
   }
 
   return (
-    <nav className={`navbar ${isGuestMenuOpen ? 'menu-open' : ''}`} aria-label="Primary">
+    <nav
+      className={`navbar ${isGuestMenuOpen ? "menu-open" : ""}`}
+      aria-label="Primary"
+    >
       <a href="/" className="brand" aria-label="Chomnuoy home">
         <span className="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            viewBox="0 0 24 24"
+            className="logo-mark"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <path
               d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
               stroke="currentColor"
@@ -416,11 +607,19 @@ function Navbar() {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <path d="M4.5 15.8v4.5" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M4.5 15.8v4.5"
+              stroke="currentColor"
+              strokeWidth="2.35"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </span>
         <span className="brand-text">
-          <span className="brand-name">{'\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY'}</span>
+          <span className="brand-name">
+            {"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}
+          </span>
           <span className="brand-subtitle">DIGITAL DONATION PLATFORM</span>
         </span>
       </a>
@@ -428,7 +627,9 @@ function Navbar() {
       <button
         type="button"
         className="nav-toggle"
-        aria-label={isGuestMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-label={
+          isGuestMenuOpen ? "Close navigation menu" : "Open navigation menu"
+        }
         aria-expanded={isGuestMenuOpen}
         aria-controls="guest-primary-links"
         onClick={() => setIsGuestMenuOpen((previous) => !previous)}
@@ -438,13 +639,18 @@ function Navbar() {
         <span className="nav-toggle-line" />
       </button>
 
-      <ul id="guest-primary-links" className={`nav-links ${isGuestMenuOpen ? 'is-open' : ''}`}>
+      <ul
+        id="guest-primary-links"
+        className={`nav-links ${isGuestMenuOpen ? "is-open" : ""}`}
+      >
         {guestNavItems.map((item) => (
           <li key={item.label}>
             <a
               href={item.href}
               onClick={() => setIsGuestMenuOpen(false)}
-              className={isGuestNavItemActive(item.href, pathname) ? 'active' : ''}
+              className={
+                isGuestNavItemActive(item.href, pathname) ? "active" : ""
+              }
             >
               {item.label}
             </a>
@@ -452,7 +658,11 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to={loginHref} className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link
+        to={loginHref}
+        className="nav-cta"
+        onClick={() => setIsGuestMenuOpen(false)}
+      >
         Donate Now
       </Link>
     </nav>
