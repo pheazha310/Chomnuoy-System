@@ -80,7 +80,30 @@ const pickupAlerts = [
   },
 ];
 
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getInitials(name) {
+  if (!name) return 'OR';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+}
+
 function Topbar() {
+  const session = getOrganizationSession();
+  const organizationName = session?.name || 'Organization';
+  const roleLabel = session?.role === 'Organization' ? 'Administrator' : (session?.role || 'Administrator');
+  const initials = getInitials(organizationName);
+
   return (
     <header className="org-topbar">
       <div>
@@ -90,10 +113,10 @@ function Topbar() {
 
       <div className="org-account">
         <div>
-          <p>St. Mary's School</p>
-          <span>Administrator</span>
+          <p>{organizationName}</p>
+          <span>{roleLabel}</span>
         </div>
-        <span className="org-avatar">SV</span>
+        <span className="org-avatar">{initials}</span>
       </div>
     </header>
   );

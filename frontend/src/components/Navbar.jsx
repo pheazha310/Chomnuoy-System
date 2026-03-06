@@ -317,6 +317,26 @@ function Navbar() {
               </div>
             ) : null}
           </div>
+<<<<<<< HEAD
+=======
+
+          {/* <button type="button" className="donor-history" aria-label="History">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+              <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+              <path d="M12 6v6l4 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button> */}
+
+          {/* <button type="button" className="donor-logout" aria-label="Logout" onClick={handleLogout}>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="m16 17 5-5-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M21 12H9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button> */}
+
+          {/* <Link to="/campaigns" className="nav-cta">Donate Now</Link> */}
+>>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 
           <div className="donor-profile">
             <button 
