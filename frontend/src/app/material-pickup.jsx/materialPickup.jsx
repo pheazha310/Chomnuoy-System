@@ -58,7 +58,7 @@ export default function MaterialPickupPage() {
       <section className="mp-shell">
         <header className="mp-head">
           <div>
-            <h1>Material Pickup & Delivery</h1>
+            <h1 style={{fontWeight:'bold'}}>Material Pickup & Delivery</h1>
             <p>Track your material donations and coordinate with our delivery teams.</p>
           </div>
           <button type="button" className="mp-new-btn">
