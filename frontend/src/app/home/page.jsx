@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import './home.css';
 import { Link } from 'react-router-dom';
+import AfterLoginHome from './AfterLoginHome';
 
 const stats = [
   { value: '$2.5M+', label: 'Total donated' },
@@ -54,6 +55,22 @@ const howItWorks = {
 const trustedBy = ['UNICEF', 'Red Cross', 'WWF', 'CARE', 'OXFAM'];
 
 function Home() {
+  // Check if user is logged in
+  const isLoggedIn = (() => {
+    try {
+      const session = window.localStorage.getItem('chomnuoy_session');
+      return session ? JSON.parse(session).isLoggedIn : false;
+    } catch {
+      return false;
+    }
+  })();
+
+  // If logged in, show the after-login dashboard
+  if (isLoggedIn) {
+    return <AfterLoginHome />;
+  }
+
+  // Otherwise, show the landing page
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const elements = Array.from(document.querySelectorAll('[data-reveal]'));
@@ -262,9 +279,9 @@ function Home() {
           <a href="/campaigns" className="home-btn home-btn-light">
             Start Your Journey
           </a>
-          <a href="#" className="home-btn home-btn-outline-light">
+          <Link to="/contact" className="home-btn home-btn-outline-light">
             Contact Support
-          </a>
+          </Link>
         </div>
       </section>
     </main>

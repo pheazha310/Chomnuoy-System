@@ -11,6 +11,7 @@ const ROUTES = {
   LOGIN: '/login',
   LOGOUT: '/logout',
   DASHBOARD: '/dashboard',
+  ORGANIZATION_DASHBOARD: '/organization/dashboard',
 };
 
 export default ROUTES;
