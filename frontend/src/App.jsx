@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+=======
+import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -8,8 +12,11 @@ import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
 import Organization from '@/components/pages/organization.jsx';
+<<<<<<< HEAD
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
@@ -26,6 +33,7 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
+<<<<<<< HEAD
 function CampaignDetailRoute() {
   const { campaignSlug } = useParams();
   return <CampaignDetailPage campaignId={campaignSlug} />;
@@ -50,24 +58,42 @@ function RequireAuth({ children }) {
   return children;
 }
 
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
+<<<<<<< HEAD
+=======
+  const loginEmail = new URLSearchParams(location.search).get('email');
 
   const handleLoginSuccess = (data) => {
+    const isOrganization = data?.account_type === 'Organization';
+    const profile = isOrganization ? data?.organization : data?.user;
+
+    if (!profile) {
+      throw new Error('Login response missing profile data');
+    }
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+
     // Store user session data
     const sessionData = {
       isLoggedIn: true,
-      role: 'Donor',
-      name: data.user.name,
-      email: data.user.email,
-      impactLevel: 'Gold',
+      role: isOrganization ? 'Organization' : 'Donor',
+      name: profile.name,
+      email: profile.email || loginEmail || '',
+      impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+<<<<<<< HEAD
       userId: data.user.id,
       logoutRedirectTo: redirectTo,
+=======
+      userId: profile.id,
+      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
     };
-    
+
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
     navigate(redirectTo);
   };
@@ -87,17 +113,20 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
-  const handleRegisterSuccess = (email) => {
-    // After successful registration, redirect to login with email
-    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
-  };
-
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={handleRegisterSuccess} />
+      <RegisterPage onToggleMode={() => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)} />
     </AuthLayout>
   );
 }
+<<<<<<< HEAD
+=======
+
+function CampaignDetailRoute() {
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
+}
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
 export default function App() {
   const location = useLocation();
@@ -120,8 +149,13 @@ export default function App() {
     <>
       {!hideShell && <Navbar />}
       <Routes>
+<<<<<<< HEAD
         <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+=======
+        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.ABOUT} element={<div style={{ padding: '2rem' }}>About Page</div>} />
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
@@ -129,7 +163,11 @@ export default function App() {
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
+<<<<<<< HEAD
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
+=======
+        <Route path={ROUTES.CONTACT} element={<div style={{ padding: '2rem' }}>Contact Page</div>} />
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
         <Route

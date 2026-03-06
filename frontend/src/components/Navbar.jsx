@@ -1,5 +1,9 @@
 import "./css/Navbar.css";
+<<<<<<< HEAD
 import { Link } from 'react-router-dom';
+=======
+import { Link, useNavigate } from 'react-router-dom';
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -21,6 +25,52 @@ const donorNavItems = [
   { label: "Contact", href: "/contact" },
 ];
 
+<<<<<<< HEAD
+=======
+const initialNotifications = [
+  {
+    id: 'donation-confirmed',
+    title: 'Donation Confirmed',
+    message: 'Your $50 donation to the Education Fund was successful. Thank you for your support!',
+    time: '2m ago',
+    type: 'success',
+    isRead: false,
+  },
+  {
+    id: 'delivery-update',
+    title: 'Delivery Update',
+    message: 'The medical supplies you funded for the local clinic are currently out for delivery.',
+    time: '1h ago',
+    type: 'info',
+    isRead: false,
+  },
+  {
+    id: 'message-thankyou',
+    title: 'Message from SaveTheChildren',
+    message: 'Your contribution is making a real difference in the lives of 20 students this semester.',
+    time: '3h ago',
+    type: 'message',
+    isRead: false,
+  },
+  {
+    id: 'campaign-milestone',
+    title: 'Campaign Milestone Reached',
+    message: 'Clean Water Initiative reached 80% of its goal. Share it to help complete funding.',
+    time: '6h ago',
+    type: 'info',
+    isRead: true,
+  },
+  {
+    id: 'tax-receipt',
+    title: 'Tax Receipt Available',
+    message: 'Your monthly donation summary and tax receipt for this period is now ready to download.',
+    time: '1d ago',
+    type: 'success',
+    isRead: true,
+  },
+];
+
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -61,7 +111,16 @@ function Navbar() {
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+<<<<<<< HEAD
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+=======
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+  const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
   const handleLogout = () => {
     const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
@@ -72,8 +131,37 @@ function Navbar() {
         ? savedBeforeLoginPath
         : '/';
 
+<<<<<<< HEAD
     clearAuthState();
     window.location.href = logoutTarget;
+=======
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    const normalized = query.toLowerCase();
+    const encodedQuery = encodeURIComponent(query);
+
+    if (normalized.includes('organization') || normalized.includes('ngo')) {
+      navigate(`/organizations?search=${encodedQuery}`);
+      return;
+    }
+    if (normalized.includes('donation')) {
+      navigate(`/donations?search=${encodedQuery}`);
+      return;
+    }
+    if (normalized.includes('pickup') || normalized.includes('material')) {
+      navigate(`/pickup?search=${encodedQuery}`);
+      return;
+    }
+    if (normalized.includes('contact') || normalized.includes('support')) {
+      navigate(`/contact?search=${encodedQuery}`);
+      return;
+    }
+
+    navigate(`/campaigns?search=${encodedQuery}`);
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
   };
 
   useEffect(() => {
@@ -206,7 +294,11 @@ function Navbar() {
           </svg>
           </span>
           <div className="donor-brand-text">
+<<<<<<< HEAD
             <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
+=======
+            <span className="donor-brand-name">{"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}</span>
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
             <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
           </div>
         </Link>
@@ -221,11 +313,16 @@ function Navbar() {
           ))}
         </ul>
 
+<<<<<<< HEAD
         <label className="donor-search" aria-label="Search causes">
+=======
+        <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>
             <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
+<<<<<<< HEAD
           <input type="search" placeholder="Search causes..." />
         </label>
 
@@ -237,6 +334,93 @@ function Navbar() {
             </svg>
             <span className="notification-dot"></span>
           </button>
+=======
+          <input
+            type="search"
+            placeholder="Search causes..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+        </form>
+
+        <div className="donor-actions">
+          <div className="donor-notification">
+            <button
+              type="button"
+              className={`donor-notify ${isNotificationOpen ? 'is-active' : ''}`}
+              aria-label="Notifications"
+              aria-expanded={isNotificationOpen}
+              aria-pressed={isNotificationOpen}
+              onClick={() => setIsNotificationOpen((previous) => !previous)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {unreadCount > 0 && <span className="notification-dot"></span>}
+            </button>
+
+            {isNotificationOpen && (
+              <div className="donor-notification-dropdown" aria-label="Notifications panel">
+                <div className="donor-notification-header">
+                  <h4>Notifications</h4>
+                  <button
+                    type="button"
+                    className="donor-mark-read"
+                    onClick={() => setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })))}
+                    disabled={unreadCount === 0}
+                  >
+                    Mark all as read
+                  </button>
+                </div>
+
+                <ul className="donor-notification-list">
+                  {displayedNotifications.map((item) => (
+                    <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
+                      <span className={`donor-notification-icon ${item.type}`} aria-hidden="true">
+                        {item.type === 'success' && (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="9" strokeWidth="2" />
+                            <path d="m8 12 2.2 2.2L16 9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                        {item.type === 'info' && (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M3 7h13l4 4v6H7l-4-4z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="8.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
+                            <circle cx="16.5" cy="16.5" r="1.5" fill="currentColor" stroke="none" />
+                          </svg>
+                        )}
+                        {item.type === 'message' && (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="m12 20-1.2-1.1C6.2 14.7 3 11.8 3 8.2 3 5.3 5.2 3 8.1 3c1.7 0 3.2.8 4 2.1C12.9 3.8 14.5 3 16.1 3 19 3 21 5.3 21 8.2c0 3.6-3.2 6.5-7.8 10.7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="donor-notification-content">
+                        <div className="donor-notification-topline">
+                          <p>{item.title}</p>
+                          <time>{item.time}</time>
+                        </div>
+                        <span>{item.message}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  type="button"
+                  className="donor-view-all-notifications"
+                  onClick={() => {
+                    setIsAllNotificationsOpen((previous) => !previous);
+                  }}
+                >
+                  {isAllNotificationsOpen ? 'View less notifications' : 'View all notifications'}
+                </button>
+              </div>
+            )}
+          </div>
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
           {/* <button type="button" className="donor-history" aria-label="History">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
