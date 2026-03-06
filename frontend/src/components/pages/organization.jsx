@@ -135,6 +135,28 @@ const donorOrganizations = [
 
 const PAGE_SIZE = 3;
 const DONOR_PAGE_SIZE = 4;
+<<<<<<< HEAD
+=======
+const DONATION_PRESET_AMOUNTS = [5, 10, 20, 50];
+const DONATION_PAYMENT_METHODS = [
+  { id: 'qr', label: 'QR Payment', badge: 'QR', badgeClassName: 'payment-badge-qr' },
+  { id: 'aba', label: 'ABA Pay', badge: 'ABA', badgeClassName: 'payment-badge-aba' },
+  { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
+];
+const RATING_OPTIONS = [
+  { value: 'all', label: 'All Ratings' },
+  { value: '4plus', label: 'Rating: 4+ Stars' },
+  { value: '45plus', label: 'Rating: 4.5+ Stars' },
+];
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Most Recent' },
+  { value: 'oldest', label: 'Oldest' },
+  { value: 'ratingHigh', label: 'Rating: High to Low' },
+  { value: 'ratingLow', label: 'Rating: Low to High' },
+  { value: 'nameAZ', label: 'Name: A to Z' },
+  { value: 'nameZA', label: 'Name: Z to A' },
+];
+>>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {
@@ -182,7 +204,11 @@ function Organization() {
   const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [isRatingMenuOpen, setIsRatingMenuOpen] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
+  const ratingMenuRef = useRef(null);
+  const sortMenuRef = useRef(null);
 
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
@@ -294,11 +320,19 @@ function Organization() {
       if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
         setIsCategoryMenuOpen(false);
       }
+      if (ratingMenuRef.current && !ratingMenuRef.current.contains(event.target)) {
+        setIsRatingMenuOpen(false);
+      }
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+        setIsSortMenuOpen(false);
+      }
     };
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setIsCategoryMenuOpen(false);
+        setIsRatingMenuOpen(false);
+        setIsSortMenuOpen(false);
       }
     };
 
@@ -325,6 +359,8 @@ function Organization() {
   }, [filteredOrganizations, currentPage]);
 
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
+  const ratingLabel = RATING_OPTIONS.find((option) => option.value === ratingFilter)?.label || 'All Ratings';
+  const sortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label || 'Most Recent';
   const hasActiveSearch = searchTerm.trim().length > 0;
   const isDonationPage = Boolean(organizationId);
   const donationOrg = useMemo(
@@ -791,7 +827,11 @@ function Organization() {
               aria-haspopup="listbox"
               aria-expanded={isCategoryMenuOpen}
               aria-label="Filter by category"
-              onClick={() => setIsCategoryMenuOpen((open) => !open)}
+              onClick={() => {
+                setIsCategoryMenuOpen((open) => !open);
+                setIsRatingMenuOpen(false);
+                setIsSortMenuOpen(false);
+              }}
             >
               {categoryLabel}
             </button>
@@ -826,19 +866,74 @@ function Organization() {
               </ul>
             ) : null}
           </div>
-          <select className="filter-select" value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
-            <option value="all">All Ratings</option>
-            <option value="4plus">Rating: 4+ Stars</option>
-            <option value="45plus">Rating: 4.5+ Stars</option>
-          </select>
-          <select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-            <option value="recent">Most Recent</option>
-            <option value="oldest">Oldest</option>
-            <option value="ratingHigh">Rating: High to Low</option>
-            <option value="ratingLow">Rating: Low to High</option>
-            <option value="nameAZ">Name: A to Z</option>
-            <option value="nameZA">Name: Z to A</option>
-          </select>
+          <div className="category-filter" ref={ratingMenuRef}>
+            <button
+              type="button"
+              className="filter-select category-trigger"
+              aria-haspopup="listbox"
+              aria-expanded={isRatingMenuOpen}
+              aria-label="Filter by rating"
+              onClick={() => {
+                setIsRatingMenuOpen((open) => !open);
+                setIsCategoryMenuOpen(false);
+                setIsSortMenuOpen(false);
+              }}
+            >
+              {ratingLabel}
+            </button>
+            {isRatingMenuOpen ? (
+              <ul className="category-menu" role="listbox" aria-label="Ratings">
+                {RATING_OPTIONS.map((option) => (
+                  <li key={option.value}>
+                    <button
+                      type="button"
+                      className={`category-option ${ratingFilter === option.value ? 'category-option-active' : ''}`}
+                      onClick={() => {
+                        setRatingFilter(option.value);
+                        setIsRatingMenuOpen(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <div className="category-filter" ref={sortMenuRef}>
+            <button
+              type="button"
+              className="filter-select category-trigger"
+              aria-haspopup="listbox"
+              aria-expanded={isSortMenuOpen}
+              aria-label="Sort organizations"
+              onClick={() => {
+                setIsSortMenuOpen((open) => !open);
+                setIsCategoryMenuOpen(false);
+                setIsRatingMenuOpen(false);
+              }}
+            >
+              {sortLabel}
+            </button>
+            {isSortMenuOpen ? (
+              <ul className="category-menu" role="listbox" aria-label="Sort options">
+                {SORT_OPTIONS.map((option) => (
+                  <li key={option.value}>
+                    <button
+                      type="button"
+                      className={`category-option ${sortBy === option.value ? 'category-option-active' : ''}`}
+                      onClick={() => {
+                        setSortBy(option.value);
+                        setIsSortMenuOpen(false);
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
           <button
             className="clear-filters"
             type="button"
@@ -848,6 +943,9 @@ function Organization() {
               setSelectedCategory('all');
               setRatingFilter('4plus');
               setSortBy('recent');
+              setIsCategoryMenuOpen(false);
+              setIsRatingMenuOpen(false);
+              setIsSortMenuOpen(false);
             }}
           >
             Clear Filters

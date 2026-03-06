@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -27,10 +27,10 @@ function getSafeRedirect(search) {
   if (!redirectParam || !redirectParam.startsWith('/')) {
     return ROUTES.HOME;
   }
-
   return redirectParam;
 }
 
+<<<<<<< HEAD
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -59,6 +59,24 @@ function RequireAuth({ children }) {
   const isAuthenticated = Boolean(session?.isLoggedIn);
 
   if (!isAuthenticated) {
+=======
+function CampaignDetailRoute() {
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
+}
+
+function RequireAuth({ children }) {
+  const location = useLocation();
+  const rawSession = window.localStorage.getItem('chomnuoy_session');
+  let session = null;
+  try {
+    session = rawSession ? JSON.parse(rawSession) : null;
+  } catch {
+    session = null;
+  }
+
+  if (!session?.isLoggedIn) {
+>>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
@@ -75,7 +93,6 @@ function LoginRoute() {
   const handleLoginSuccess = (data) => {
     const isOrganization = data?.account_type === 'Organization';
     const profile = isOrganization ? data?.organization : data?.user;
-
     if (!profile) {
       // Fallback for different data structures
       const user = data?.user || data || {};
@@ -97,7 +114,6 @@ function LoginRoute() {
       return;
     }
 
-    // Store user session data
     const sessionData = {
       isLoggedIn: true,
       role: isOrganization ? 'Organization' : 'Donor',
@@ -107,6 +123,10 @@ function LoginRoute() {
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
       userId: profile.id,
       accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
+<<<<<<< HEAD
+=======
+      logoutRedirectTo: redirectTo,
+>>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
     };
 
     if (data?.token) {
@@ -147,6 +167,7 @@ function RegisterRoute() {
     </AuthLayout>
   );
 }
+<<<<<<< HEAD
 
 function CampaignDetailRoute2() {
   const { id, campaignSlug } = useParams();
@@ -181,13 +202,34 @@ export default function App() {
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
     location.pathname === ROUTES.ORGANIZATION_DASHBOARD;
+=======
+
+export default function App() {
+  const location = useLocation();
+  let hasDonorSession = false;
+  try {
+    const rawSession = window.localStorage.getItem('chomnuoy_session');
+    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
+    hasDonorSession = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
+  } catch {
+    hasDonorSession = false;
+  }
+
+  const hasAuthToken = Boolean(window.localStorage.getItem('authToken'));
+  const isAuthenticated = hasAuthToken || hasDonorSession;
+  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
+>>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
+<<<<<<< HEAD
         <Route path={ROUTES.HOME} element={<HomeRoute />} />
         <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
+=======
+        <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
+>>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
@@ -200,21 +242,29 @@ export default function App() {
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
         <Route
+<<<<<<< HEAD
           path={ROUTES.ORGANIZATION_DASHBOARD}
           element={(
             <RequireOrganizationAuth>
               <OrganizationDashboardPage />
             </RequireOrganizationAuth>
+=======
+          path="/donations"
+          element={(
+            <RequireAuth>
+              <MyDonation />
+            </RequireAuth>
+>>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
           )}
         />
         <Route path="/donations" element={<MyDonation />} />
         <Route
           path="/donations/view-detail"
-          element={
+          element={(
             <RequireAuth>
               <ViewDetail />
             </RequireAuth>
-          }
+          )}
         />
         <Route
           path="/settings/AccountSettings"
