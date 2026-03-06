@@ -54,6 +54,12 @@ function CampaignDetailPage({ campaignId }) {
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(25);
+  const [locationState, setLocationState] = useState({
+    loading: false,
+    error: '',
+    coords: null,
+    lastUpdated: null,
+  });
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
   const campaign = getCampaignById(resolvedCampaignId);
   const session = getSession();
@@ -91,6 +97,60 @@ function CampaignDetailPage({ campaignId }) {
     const savedIds = getSavedCampaignIds();
     setIsSaved(savedIds.includes(campaign.id));
   }, [campaign.id]);
+
+  function requestRealLocation() {
+    if (!navigator.geolocation) {
+      setLocationState({
+        loading: false,
+        error: 'Geolocation is not supported by your browser.',
+        coords: null,
+        lastUpdated: null,
+      });
+      return;
+    }
+
+    setLocationState((previous) => ({
+      ...previous,
+      loading: true,
+      error: '',
+    }));
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationState({
+          loading: false,
+          error: '',
+          coords: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          },
+          lastUpdated: new Date(),
+        });
+      },
+      (error) => {
+        const errorMessage =
+          error.code === 1
+            ? 'Location access denied. Enable location permission and try again.'
+            : 'Unable to get your current location.';
+        setLocationState({
+          loading: false,
+          error: errorMessage,
+          coords: null,
+          lastUpdated: null,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      },
+    );
+  }
+
+  useEffect(() => {
+    requestRealLocation();
+  }, []);
 
   async function handleShare() {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
@@ -294,15 +354,47 @@ function CampaignDetailPage({ campaignId }) {
 
           <article className="detail-rewards-card detail-location-card">
             <p className="card-label">Location</p>
-            <img
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
-              alt="Project location map"
-              className="location-image"
-              referrerPolicy="no-referrer"
-            />
+            {locationState.coords ? (
+              <iframe
+                title="Current location map"
+                src={`https://maps.google.com/maps?q=${locationState.coords.lat},${locationState.coords.lng}&z=14&output=embed`}
+                className="location-image"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <img
+                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
+                alt="Project location map"
+                className="location-image"
+                referrerPolicy="no-referrer"
+              />
+            )}
             <p className="location-caption">
-              Project sites located across 5 villages in the Thpong district.
+              {locationState.loading
+                ? 'Detecting your real-time location...'
+                : locationState.coords
+                  ? `Live location: ${locationState.coords.lat.toFixed(5)}, ${locationState.coords.lng.toFixed(5)} (±${Math.round(locationState.coords.accuracy)}m)`
+                  : locationState.error || 'Project sites located across 5 villages in the Thpong district.'}
             </p>
+            {locationState.lastUpdated ? (
+              <p className="location-caption">Updated: {locationState.lastUpdated.toLocaleTimeString()}</p>
+            ) : null}
+            <div className="detail-secondary-actions">
+              <button type="button" className="detail-save-btn" onClick={requestRealLocation}>
+                Refresh Location
+              </button>
+              {locationState.coords ? (
+                <a
+                  className="detail-share-btn"
+                  href={`https://www.google.com/maps?q=${locationState.coords.lat},${locationState.coords.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Maps
+                </a>
+              ) : null}
+            </div>
           </article>
         </aside>
       </section>
