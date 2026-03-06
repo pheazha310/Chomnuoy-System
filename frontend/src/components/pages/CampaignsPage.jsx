@@ -1,4 +1,13 @@
+<<<<<<< HEAD
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
+=======
+<<<<<<< HEAD
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+=======
+import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
@@ -56,6 +65,10 @@ function CategoryIcon({ category }) {
   );
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
 const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
 const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
@@ -63,6 +76,15 @@ const donorProfileImages = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
 ];
+<<<<<<< HEAD
+=======
+=======
+function CampaignsPage() {
+  const location = useLocation();
+  const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
+  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 
 function campaignCategoryToSidebarCategory(category) {
   if (category === 'Technology' || category === 'Social Good') {
@@ -102,6 +124,10 @@ function CampaignsPage() {
   }, []);
 
   const filteredCampaigns = useMemo(() => {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
     const byCategory = campaigns.filter((campaign) => {
       if (selectedCategory === 'All Campaigns') {
         return true;
@@ -177,6 +203,16 @@ function CampaignsPage() {
           <div className="campaign-nav-list">
             {sidebarCategories.map((category) => {
               const isActive = selectedCategory === category;
+<<<<<<< HEAD
+=======
+=======
+    const normalizedQuery = searchQuery.toLowerCase();
+    return campaigns.filter((campaign) => {
+      const matchesCategory =
+        selectedCategory === 'All Categories' || campaign.category === selectedCategory;
+      if (!matchesCategory) return false;
+      if (!normalizedQuery) return true;
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 
               return (
                 <button
@@ -195,6 +231,7 @@ function CampaignsPage() {
           </div>
         </section>
 
+<<<<<<< HEAD
         <section className="campaign-sidebar-group" aria-label="Urgency filter">
           <p className="campaign-sidebar-title">Urgency</p>
           <div className="campaign-pill-list">
@@ -210,6 +247,16 @@ function CampaignsPage() {
             ))}
           </div>
         </section>
+=======
+  return (
+    <main className="campaigns-page">
+      <section className="campaigns-header">
+        <h1>Explore Campaigns</h1>
+        <p>Support impactful projects and choose the campaign you want to back.</p>
+        {searchQuery ? <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p> : null}
+      </section>
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 
         <section className="campaign-sidebar-group campaign-verified-box" aria-label="Verified filter">
           <p className="campaign-sidebar-title campaign-verified-title">Verified Only</p>

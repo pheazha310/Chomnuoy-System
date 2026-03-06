@@ -156,6 +156,14 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
+<<<<<<< HEAD
+=======
+
+<<<<<<< HEAD
+            {/* show messages below email input: */}
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -179,6 +187,14 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
+<<<<<<< HEAD
+=======
+
+<<<<<<< HEAD
+            {/* show messages below password input: */}
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}

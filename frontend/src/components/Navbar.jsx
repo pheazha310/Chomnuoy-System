@@ -1,5 +1,13 @@
 import "./css/Navbar.css";
+<<<<<<< HEAD
 import { Link, useNavigate } from 'react-router-dom';
+=======
+<<<<<<< HEAD
+import { Link } from 'react-router-dom';
+=======
+import { Link, useNavigate } from 'react-router-dom';
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 import { useEffect, useState } from 'react';
 
 const guestNavItems = [
@@ -20,6 +28,11 @@ const donorNavItems = [
   { label: "Contact", href: "/contact" },
 ];
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 const initialNotifications = [
   {
     id: 'donation-confirmed',
@@ -63,6 +76,10 @@ const initialNotifications = [
   },
 ];
 
+<<<<<<< HEAD
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -91,18 +108,35 @@ function Navbar() {
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+=======
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(initialNotifications);
   const unreadCount = notifications.filter((item) => !item.isRead).length;
   const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
+<<<<<<< HEAD
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 
   const handleLogout = () => {
     clearDonorSession();
     window.location.href = '/login';
   };
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+    clearAuthState();
+    window.location.href = logoutTarget;
+=======
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
   const handleSearchSubmit = (event) => {
     event.preventDefault();
     const query = searchQuery.trim();
@@ -129,6 +163,10 @@ function Navbar() {
     }
 
     navigate(`/campaigns?search=${encodedQuery}`);
+<<<<<<< HEAD
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
   };
 
   useEffect(() => {
@@ -204,7 +242,15 @@ function Navbar() {
           </svg>
           </span>
           <div className="donor-brand-text">
+<<<<<<< HEAD
             <span className="donor-brand-name">{"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}</span>
+=======
+<<<<<<< HEAD
+            <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
+=======
+            <span className="donor-brand-name">{"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}</span>
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
             <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
           </div>
         </Link>
@@ -219,11 +265,35 @@ function Navbar() {
           ))}
         </ul>
 
+<<<<<<< HEAD
         <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
+=======
+<<<<<<< HEAD
+        <label className="donor-search" aria-label="Search causes">
+=======
+        <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>
             <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+          <input type="search" placeholder="Search causes..." />
+        </label>
+
+        <div className="donor-actions">
+          <button type="button" className="donor-notify" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="notification-dot"></span>
+          </button>
+=======
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
           <input
             type="search"
             placeholder="Search causes..."
@@ -309,6 +379,10 @@ function Navbar() {
               </div>
             )}
           </div>
+<<<<<<< HEAD
+=======
+>>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
+>>>>>>> cb91254f17bf3b33525d32fdea323e59e46ae4c0
 
           {/* <button type="button" className="donor-history" aria-label="History">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
