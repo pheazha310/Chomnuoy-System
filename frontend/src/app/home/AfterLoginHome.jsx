@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
 import {
   Bell,
   CircleUserRound,
@@ -70,13 +71,28 @@ const activity = [
   },
 ];
 
+function getLoggedInUserName() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    if (!raw) return 'Donor';
+
+    const session = JSON.parse(raw);
+    const name = typeof session?.name === 'string' ? session.name.trim() : '';
+    return name || 'Donor';
+  } catch {
+    return 'Donor';
+  }
+}
+
 function AfterLoginHome() {
+  const donorName = useMemo(() => getLoggedInUserName(), []);
+
   return (
     <div className="dashboard-home">
       <main className="dashboard-content">
         <section className="welcome-grid">
           <div className="welcome-copy">
-            <h1>Welcome back, Rithy!</h1>
+            <h1>Welcome back, {donorName}!</h1>
             <p>
               You've helped 5 local communities this month through your
               contributions.
