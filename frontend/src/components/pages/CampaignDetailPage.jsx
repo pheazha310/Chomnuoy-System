@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import {
   Heart,
   Share2,
@@ -30,6 +30,15 @@ function setSavedCampaignIds(ids) {
   window.localStorage.setItem(SAVED_CAMPAIGNS_STORAGE_KEY, JSON.stringify(ids));
 }
 
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -41,18 +50,25 @@ function formatCurrency(amount) {
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
   const campaign = getCampaignById(resolvedCampaignId);
+  const session = getSession();
+  const fallbackCampaignPath = session?.isLoggedIn && session?.role === 'Donor' ? '/campaigns/donor' : '/campaigns';
+  const backTarget =
+    typeof location.state?.from === 'string' && location.state.from.startsWith('/')
+      ? location.state.from
+      : fallbackCampaignPath;
 
   if (!campaign) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-4">Campaign Not Found</h1>
-          <button 
-            onClick={() => navigate('/campaigns/donor')}
+          <button
+            onClick={() => navigate(backTarget)}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Back to Campaigns
@@ -122,9 +138,9 @@ function CampaignDetailPage({ campaignId }) {
 
   return (
     <main className="campaign-detail-page campaign-detail-v2">
-      <a href="/campaigns" className="detail-back-link">
+      <Link to={backTarget} className="detail-back-link">
         <ArrowLeft size={16} /> Back to campaigns
-      </a>
+      </Link>
 
       <section className="campaign-detail-layout campaign-detail-v2-layout" aria-label="Campaign detail">
         <div className="campaign-main-column">

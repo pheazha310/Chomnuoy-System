@@ -59,6 +59,8 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
+  const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
+  const loginHref = `/login?redirect=${loginRedirectTarget}`;
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
@@ -502,7 +504,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2F" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link to={loginHref} className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>
@@ -510,4 +512,3 @@ function Navbar() {
 }
 
 export default Navbar;
-
