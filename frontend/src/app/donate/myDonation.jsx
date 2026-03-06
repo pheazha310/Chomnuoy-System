@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Banknote,
@@ -95,7 +95,80 @@ export default function MyDonation() {
   const [shareDonation, setShareDonation] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showAllDonations, setShowAllDonations] = useState(false);
-  const visibleDonations = showAllDonations ? donations : donations.slice(0, 3);
+  const [isTimePopupOpen, setIsTimePopupOpen] = useState(false);
+  const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
+  const [timeFilterLabel, setTimeFilterLabel] = useState('All Time');
+  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [sortOrder, setSortOrder] = useState('Newest');
+  const timeFilterRef = useRef(null);
+  const mainFilterRef = useRef(null);
+  const timeFilterOptions = ['All Time', 'This Month', 'Last Month', 'Last 3 Months', 'This Year'];
+  const statusFilterOptions = ['All Status', 'COMPLETED', 'RECURRING', 'PENDING'];
+  const sortOptions = ['Newest', 'Oldest'];
+
+  const latestDonationTime = donations.reduce((latest, item) => {
+    const itemTime = new Date(item.date).getTime();
+    return itemTime > latest ? itemTime : latest;
+  }, 0);
+  const referenceDate = new Date(latestDonationTime || Date.now());
+
+  const isInTimeRange = (itemDate) => {
+    if (timeFilterLabel === 'All Time') return true;
+
+    const date = new Date(itemDate);
+    if (Number.isNaN(date.getTime())) return false;
+
+    const itemYear = date.getFullYear();
+    const itemMonth = date.getMonth();
+    const refYear = referenceDate.getFullYear();
+    const refMonth = referenceDate.getMonth();
+
+    if (timeFilterLabel === 'This Year') {
+      return itemYear === refYear;
+    }
+
+    if (timeFilterLabel === 'This Month') {
+      return itemYear === refYear && itemMonth === refMonth;
+    }
+
+    if (timeFilterLabel === 'Last Month') {
+      const lastMonthDate = new Date(refYear, refMonth - 1, 1);
+      return itemYear === lastMonthDate.getFullYear() && itemMonth === lastMonthDate.getMonth();
+    }
+
+    if (timeFilterLabel === 'Last 3 Months') {
+      const start = new Date(refYear, refMonth - 2, 1);
+      const end = new Date(refYear, refMonth + 1, 0, 23, 59, 59, 999);
+      return date >= start && date <= end;
+    }
+
+    return true;
+  };
+
+  const filteredDonations = donations
+    .filter((item) => isInTimeRange(item.date))
+    .filter((item) => statusFilter === 'All Status' || item.status === statusFilter)
+    .sort((a, b) => {
+      const aDate = new Date(a.date).getTime();
+      const bDate = new Date(b.date).getTime();
+      if (sortOrder === 'Oldest') return aDate - bDate;
+      return bDate - aDate;
+    });
+
+  const visibleDonations = showAllDonations ? filteredDonations : filteredDonations.slice(0, 3);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const clickedTimeFilter = timeFilterRef.current?.contains(event.target);
+      const clickedMainFilter = mainFilterRef.current?.contains(event.target);
+
+      if (!clickedTimeFilter) setIsTimePopupOpen(false);
+      if (!clickedMainFilter) setIsFilterPopupOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const getReceiptNumber = () => `RCP-${Date.now().toString().slice(-8)}`;
   const escapeHtml = (value = '') =>
@@ -419,13 +492,86 @@ export default function MyDonation() {
               className="my-donation-search-input"
             />
           </label>
-          <button type="button" className="my-donation-filter-time">
-            <CalendarDays className="my-donation-small-icon" />
-            All Time
-          </button>
-          <button type="button" className="my-donation-filter-btn">
-            <Filter className="my-donation-medium-icon" />
-          </button>
+          <div className="my-donation-time-filter-wrap" ref={timeFilterRef}>
+            <button
+              type="button"
+              className="my-donation-filter-time"
+              onClick={() => {
+                setIsFilterPopupOpen(false);
+                setIsTimePopupOpen((prev) => !prev);
+              }}
+              aria-expanded={isTimePopupOpen}
+              aria-haspopup="menu"
+            >
+              <CalendarDays className="my-donation-small-icon" />
+              {timeFilterLabel}
+            </button>
+            {isTimePopupOpen && (
+              <div className="my-donation-time-popup" role="menu">
+                {timeFilterOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="menuitem"
+                    className={`my-donation-time-option ${timeFilterLabel === option ? 'active' : ''}`}
+                    onClick={() => {
+                      setTimeFilterLabel(option);
+                      setIsTimePopupOpen(false);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="my-donation-main-filter-wrap" ref={mainFilterRef}>
+            <button
+              type="button"
+              className="my-donation-filter-btn"
+              onClick={() => {
+                setIsTimePopupOpen(false);
+                setIsFilterPopupOpen((prev) => !prev);
+              }}
+              aria-expanded={isFilterPopupOpen}
+              aria-haspopup="menu"
+            >
+              <Filter className="my-donation-medium-icon" />
+            </button>
+            {isFilterPopupOpen && (
+              <div className="my-donation-main-filter-popup" role="menu">
+                <p className="my-donation-main-filter-title">Status</p>
+                <div className="my-donation-main-filter-row">
+                  {statusFilterOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="menuitem"
+                      className={`my-donation-main-filter-chip ${statusFilter === option ? 'active' : ''}`}
+                      onClick={() => setStatusFilter(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="my-donation-main-filter-title">Sort By</p>
+                <div className="my-donation-main-filter-row">
+                  {sortOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="menuitem"
+                      className={`my-donation-main-filter-chip ${sortOrder === option ? 'active' : ''}`}
+                      onClick={() => setSortOrder(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="my-donation-list">
@@ -596,6 +742,7 @@ export default function MyDonation() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
