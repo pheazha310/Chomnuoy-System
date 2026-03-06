@@ -2,6 +2,8 @@ import "./css/Navbar.css";
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import DonorNotificationsDropdown from './notifications/DonorNotificationsDropdown';
+import { initialNotifications } from './notifications/notificationData';
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -65,12 +67,9 @@ function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'success', title: 'Donation Received', message: 'Thank you for supporting Rural Health Alliance.', time: '2m ago', isRead: false },
-    { id: 2, type: 'info', title: 'Campaign Update', message: 'Ocean Reclaim Project shared a new progress update.', time: '1h ago', isRead: false },
-    { id: 3, type: 'message', title: 'Pickup Reminder', message: 'Your material pickup is scheduled for tomorrow.', time: 'Yesterday', isRead: true },
-  ]);
+  const [notifications, setNotifications] = useState(initialNotifications);
   const notificationRef = useRef(null);
 
   const handleLogout = () => {
@@ -91,6 +90,7 @@ function Navbar() {
     setIsProfileMenuOpen(false);
     setIsLogoutPopupOpen(false);
     setIsNotificationsOpen(false);
+    setIsAllNotificationsOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -290,33 +290,13 @@ function Navbar() {
               {unreadCount > 0 ? <span className="notification-dot"></span> : null}
             </button>
             {isNotificationsOpen ? (
-              <div className="donor-notification-dropdown" aria-label="Notification list">
-                <div className="donor-notification-header">
-                  <h4>Notifications</h4>
-                  <button type="button" className="donor-mark-read" onClick={markAllNotificationsRead} disabled={unreadCount === 0}>
-                    Mark all read
-                  </button>
-                </div>
-                <ul className="donor-notification-list">
-                  {notifications.map((item) => (
-                    <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
-                      <div className={`donor-notification-icon ${item.type}`}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                          <circle cx="12" cy="12" r="8" strokeWidth="2" />
-                          <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                      <div className="donor-notification-content">
-                        <div className="donor-notification-topline">
-                          <p>{item.title}</p>
-                          <time>{item.time}</time>
-                        </div>
-                        <span>{item.message}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <DonorNotificationsDropdown
+                notifications={notifications}
+                unreadCount={unreadCount}
+                isAllNotificationsOpen={isAllNotificationsOpen}
+                onMarkAllRead={markAllNotificationsRead}
+                onToggleAll={() => setIsAllNotificationsOpen((previous) => !previous)}
+              />
             ) : null}
           </div>
 
