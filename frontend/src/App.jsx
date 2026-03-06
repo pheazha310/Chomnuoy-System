@@ -10,6 +10,7 @@ import Organization from '@/components/pages/organization.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -20,6 +21,14 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
+<<<<<<< HEAD
+=======
+function CampaignDetailRoute() {
+  const { campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug} />;
+}
+
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,17 +98,26 @@ export default function App() {
         <Route path={ROUTES.ABOUT} element={<div style={{ padding: '2rem' }}>About Page</div>} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
+<<<<<<< HEAD
         <Route path="/campaigns/donor" element={<div style={{ padding: '2rem' }}>Donor Campaigns Page</div>} />
+=======
+        <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<div style={{ padding: '2rem' }}>Contact Page</div>} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
+<<<<<<< HEAD
         <Route path="/donations" element={<div style={{ padding: '2rem' }}>My Donations Page</div>} />
         <Route path="/pickup" element={<div style={{ padding: '2rem' }}>Material Pickup Page</div>} />
         <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
+=======
+        <Route path="/donations" element={<div>My Donations Page</div>} />
+        <Route path="/pickup" element={<div>Material Pickup Page</div>} />
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
       </Routes>
       {!hideShell && <Footer />}
     </>

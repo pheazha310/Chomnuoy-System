@@ -12,12 +12,18 @@ const guestNavItems = [
 ];
 
 const donorNavItems = [
+<<<<<<< HEAD
   { label: 'Home', href: '/' },
   { label: 'Organizations', href: '/organizations' },
+=======
+  { label: 'Home', href: '#' },
+  { label: 'Organizations', href: '#' },
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
   { label: 'Campaigns', href: '/campaigns/donor' },
   { label: 'My Donations', href: '/donations' },
   { label: 'Material Pickup', href: '/pickup' },
   { label: "Contact", href: "/contact" },
+<<<<<<< HEAD
 ];
 
 const initialNotifications = [
@@ -61,6 +67,8 @@ const initialNotifications = [
     type: 'success',
     isRead: true,
   },
+=======
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
 ];
 
 function getDonorSession() {
@@ -91,12 +99,15 @@ function Navbar() {
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+<<<<<<< HEAD
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(initialNotifications);
   const unreadCount = notifications.filter((item) => !item.isRead).length;
   const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
+=======
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
 
   const handleLogout = () => {
     clearDonorSession();
@@ -134,8 +145,11 @@ function Navbar() {
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
+<<<<<<< HEAD
     setIsNotificationOpen(false);
     setIsAllNotificationsOpen(false);
+=======
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
   }, [pathname]);
 
   useEffect(() => {
@@ -143,14 +157,21 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
+<<<<<<< HEAD
       if (isNotificationOpen && !event.target.closest('.donor-notification')) {
         setIsNotificationOpen(false);
       }
+=======
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+<<<<<<< HEAD
   }, [isProfileMenuOpen, isNotificationOpen]);
+=======
+  }, [isProfileMenuOpen]);
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
 
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
@@ -249,6 +270,7 @@ function Navbar() {
               {unreadCount > 0 && <span className="notification-dot"></span>}
             </button>
 
+<<<<<<< HEAD
             {isNotificationOpen && (
               <div className="donor-notification-dropdown" aria-label="Notifications panel">
                 <div className="donor-notification-header">
@@ -310,6 +332,8 @@ function Navbar() {
             )}
           </div>
 
+=======
+>>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
           {/* <button type="button" className="donor-history" aria-label="History">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
               <circle cx="12" cy="12" r="10" strokeWidth="2"/>
