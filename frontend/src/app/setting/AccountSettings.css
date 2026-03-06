@@ -1,3 +1,73 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.account-settings {
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.account-settings section,
+.account-settings input,
+.account-settings button {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.account-settings.is-dark {
+  background: #0f172a !important;
+}
+
+.account-settings.is-dark h1,
+.account-settings.is-dark h3,
+.account-settings.is-dark p,
+.account-settings.is-dark label,
+.account-settings.is-dark span {
+  color: #e2e8f0 !important;
+}
+
+.account-settings.is-dark section {
+  background: #111827 !important;
+  border-color: #334155 !important;
+}
+
+.account-settings.is-dark input {
+  background: #0b1220 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.account-settings.is-dark .text-slate-500,
+.account-settings.is-dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+.account-settings.is-high-contrast {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.account-settings.is-high-contrast h1,
+.account-settings.is-high-contrast h3,
+.account-settings.is-high-contrast p,
+.account-settings.is-high-contrast label,
+.account-settings.is-high-contrast span {
+  color: #000000 !important;
+}
+
+.account-settings.is-high-contrast section {
+  background: #ffffff !important;
+  border: 2px solid #000000 !important;
+}
+
+.account-settings.is-high-contrast input {
+  background: #ffffff !important;
+  border: 2px solid #000000 !important;
+  color: #000000 !important;
+}
+
+.account-settings.is-high-contrast button {
+  outline: 2px solid transparent;
+}
+
+.account-settings.is-high-contrast button:focus-visible {
+  outline-color: #000000;
+}

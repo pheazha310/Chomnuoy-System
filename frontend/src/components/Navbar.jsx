@@ -2,6 +2,7 @@ import "./css/Navbar.css";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { getPrivacyPreferences } from "@/utils/user-preferences";
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -217,6 +218,7 @@ function Navbar() {
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || "Donor User";
     const donorImpact = donorSession.impactLevel || "Gold";
+    const { publicProfile } = getPrivacyPreferences();
 
     return (
       <nav className="donor-navbar" aria-label="Donor navigation">
@@ -440,9 +442,13 @@ function Navbar() {
                     <p className="donor-profile-email">
                       {donorSession.email || "donor@example.com"}
                     </p>
-                    <p className="donor-profile-impact">
-                      Impact Level: {donorImpact}
-                    </p>
+                    {publicProfile ? (
+                      <p className="donor-profile-impact">
+                        Impact Level: {donorImpact}
+                      </p>
+                    ) : (
+                      <p className="donor-profile-impact">Profile visibility: Private</p>
+                    )}
                   </div>
                 </div>
 

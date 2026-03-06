@@ -19,3 +19,10 @@ export async function changePassword(payload) {
     const response = await apiClient.post('/auth/change-password', payload);
     return response.data;
 }
+
+export async function deactivateAccount({ accountType, userId }) {
+    const normalizedType = (accountType || '').toLowerCase();
+    const resource = normalizedType === 'organization' ? 'organizations' : 'users';
+    const response = await apiClient.delete(`/${resource}/${userId}`);
+    return response.data;
+}

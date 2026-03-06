@@ -18,6 +18,7 @@ import {
   Stethoscope,
   Waves,
 } from 'lucide-react';
+import { getPrivacyPreferences } from '@/utils/user-preferences';
 import './myDonation.css';
 
 const summaryCards = [
@@ -95,7 +96,9 @@ export default function MyDonation() {
   const [shareDonation, setShareDonation] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showAllDonations, setShowAllDonations] = useState(false);
+  const { showDonations } = getPrivacyPreferences();
   const visibleDonations = showAllDonations ? donations : donations.slice(0, 3);
+  const formatAmount = (amount) => (showDonations ? amount : 'Private');
 
   const getReceiptNumber = () => `RCP-${Date.now().toString().slice(-8)}`;
   const escapeHtml = (value = '') =>
@@ -189,7 +192,7 @@ export default function MyDonation() {
     <div class="line"><span>Issued On</span><strong>${issuedOn}</strong></div>
     <div class="sep"></div>
     <div class="line"><span>Date</span><strong>${escapeHtml(donation.date)}</strong></div>
-    <div class="line"><span>Amount</span><strong>${escapeHtml(donation.amount)}</strong></div>
+    <div class="line"><span>Amount</span><strong>${escapeHtml(formatAmount(donation.amount))}</strong></div>
     <div class="line"><span>Recipient</span><strong>${escapeHtml(donation.recipient)}</strong></div>
     <div class="line"><span>Sub-cause</span><strong>${escapeHtml(donation.subCause)}</strong></div>
     <div class="sep"></div>
@@ -209,7 +212,7 @@ export default function MyDonation() {
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(item.date)}</td>
-        <td>${escapeHtml(item.amount)}</td>
+        <td>${escapeHtml(formatAmount(item.amount))}</td>
         <td>${escapeHtml(item.recipient)}</td>
         <td>${escapeHtml(item.subCause)}</td>
         <td>${escapeHtml(item.status)}</td>
@@ -351,7 +354,7 @@ export default function MyDonation() {
   };
 
   const getShareText = (donation) =>
-    `I donated ${donation.amount} to ${donation.recipient} (${donation.subCause}).`;
+    `I donated ${formatAmount(donation.amount)} to ${donation.recipient} (${donation.subCause}).`;
 
   const getShareUrl = () => {
     const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
@@ -437,7 +440,7 @@ export default function MyDonation() {
               </div>
               <div>
                 <p className="my-donation-label">AMOUNT</p>
-                <p className="my-donation-amount">{item.amount}</p>
+                <p className="my-donation-amount">{formatAmount(item.amount)}</p>
               </div>
               <div>
                 <p className="my-donation-label">CAUSE & RECIPIENT</p>
@@ -509,7 +512,7 @@ export default function MyDonation() {
               </div>
               <div>
                 <span>Amount</span>
-                <strong>{selectedDonation.amount}</strong>
+                <strong>{formatAmount(selectedDonation.amount)}</strong>
               </div>
               <div>
                 <span>Recipient</span>
@@ -549,7 +552,7 @@ export default function MyDonation() {
             <div className="my-donation-modal-details my-donation-share-details">
               <div>
                 <span>Amount</span>
-                <strong>{shareDonation.amount}</strong>
+                <strong>{formatAmount(shareDonation.amount)}</strong>
               </div>
               <div>
                 <span>Recipient</span>
