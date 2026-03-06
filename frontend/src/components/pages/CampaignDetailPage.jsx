@@ -53,6 +53,7 @@ function CampaignDetailPage({ campaignId }) {
   const location = useLocation();
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
+  const [selectedAmount, setSelectedAmount] = useState(25);
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
   const campaign = getCampaignById(resolvedCampaignId);
   const session = getSession();
@@ -134,6 +135,19 @@ function CampaignDetailPage({ campaignId }) {
 
     setSavedCampaignIds(nextSavedIds);
     setIsSaved(nextSavedIds.includes(campaign.id));
+  }
+
+  function handleCustomAmount() {
+    const input = window.prompt('Enter donation amount (USD):', selectedAmount ? String(selectedAmount) : '');
+    if (!input) return;
+
+    const parsed = Number(input.replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      window.alert('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    setSelectedAmount(Math.round(parsed));
   }
 
   return (
@@ -242,14 +256,23 @@ function CampaignDetailPage({ campaignId }) {
             </div>
             <div className="quick-amount-grid">
               {[10, 25, 50, 100, 250].map((amount) => (
-                <button key={amount} type="button" className={amount === 25 ? 'is-selected' : ''}>
+                <button
+                  key={amount}
+                  type="button"
+                  className={amount === selectedAmount ? 'is-selected' : ''}
+                  onClick={() => setSelectedAmount(amount)}
+                >
                   ${amount}
                 </button>
               ))}
-              <button type="button">Custom</button>
+              <button type="button" onClick={handleCustomAmount}>Custom</button>
             </div>
-            <p className="selected-amount">$ 25</p>
-            <button type="button" className="donate-button detail-donate-button" onClick={() => alert('Donation functionality coming soon!')}>
+            <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
+            <button
+              type="button"
+              className="donate-button detail-donate-button"
+              onClick={() => alert(`Donation flow coming soon. Selected amount: $${selectedAmount.toLocaleString()}`)}
+            >
               <HandHeart size={15} /> Donate Now
             </button>
             <div className="detail-secondary-actions">

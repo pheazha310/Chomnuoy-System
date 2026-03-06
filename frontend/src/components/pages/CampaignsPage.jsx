@@ -35,8 +35,23 @@ function CategoryIcon({ category }) {
   if (category === 'Healthcare') {
     return (
       <svg viewBox="0 0 24 24" className="campaign-nav-icon-svg" aria-hidden="true">
-        <path d="M12 3.4 18.8 6v5.6c0 4.1-2.6 7.2-6.8 9-4.2-1.8-6.8-4.9-6.8-9V6L12 3.4z" />
-        <path d="M12 8v7M8.5 11.5h7" />
+        <path
+          d="M12 2.8 19.1 5.6v6.1c0 4.5-2.9 8-7.1 9.8-4.2-1.8-7.1-5.3-7.1-9.8V5.6L12 2.8z"
+          fill="currentColor"
+          stroke="none"
+        />
+        <path
+          d="M12 6.7v10.8"
+          stroke="#ffffff"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M8.2 9.8H12"
+          stroke="#ffffff"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
