@@ -1,6 +1,7 @@
 import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
+import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
@@ -15,6 +16,7 @@ import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
+import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
@@ -23,7 +25,7 @@ import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -44,6 +46,19 @@ function RequireOrganizationAuth({ children }) {
   const isOrganization = Boolean(session?.isLoggedIn && session?.role === 'Organization');
 
   if (!isOrganization) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  return children;
+}
+
+function RequireAuth({ children }) {
+  const location = useLocation();
+  const session = getSession();
+  const isAuthenticated = Boolean(session?.isLoggedIn);
+
+  if (!isAuthenticated) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
@@ -122,16 +137,42 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
+  const handleRegisterSuccess = (email) => {
+    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
+  };
+
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={() => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)} />
+      <RegisterPage onToggleMode={handleRegisterSuccess} />
     </AuthLayout>
   );
 }
 
-function CampaignDetailRoute() {
+function CampaignDetailRoute2() {
   const { id, campaignSlug } = useParams();
   return <CampaignDetailPage campaignId={campaignSlug || id} />;
+}
+
+function HomeRoute() {
+  const session = getSession();
+  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  
+  if (isDonorLoggedIn) {
+    return <AfterLoginHome />;
+  }
+  
+  return <Home />;
+}
+
+function AfterLoginHomeRoute() {
+  const session = getSession();
+  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  
+  if (!isDonorLoggedIn) {
+    return <Navigate to={ROUTES.HOME} replace />;
+  }
+  
+  return <AfterLoginHome />;
 }
 
 export default function App() {
@@ -145,14 +186,15 @@ export default function App() {
     <>
       {!hideShell && <Navbar />}
       <Routes>
-        <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.HOME} element={<HomeRoute />} />
+        <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
-        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
-        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
+        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute2 />} />
+        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute2 />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
@@ -166,7 +208,22 @@ export default function App() {
           )}
         />
         <Route path="/donations" element={<MyDonation />} />
-        <Route path="/donations/view-detail" element={<ViewDetail />} />
+        <Route
+          path="/donations/view-detail"
+          element={
+            <RequireAuth>
+              <ViewDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/AccountSettings"
+          element={
+            <RequireAuth>
+              <AccountSettings />
+            </RequireAuth>
+          }
+        />
         <Route path="/pickup" element={<MaterialPickupPage />} />
         <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
         <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />

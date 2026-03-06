@@ -143,28 +143,6 @@
   transition: transform 160ms ease, opacity 160ms ease;
 }
 
-.nav-toggle {
-  display: none;
-  border: 1px solid #d3deea;
-  border-radius: 10px;
-  width: 42px;
-  height: 42px;
-  background: #ffffff;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.nav-toggle-line {
-  width: 18px;
-  height: 2px;
-  border-radius: 99px;
-  background: #355170;
-  transition: transform 160ms ease, opacity 160ms ease;
-}
-
 .nav-cta {
   border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 14px;
@@ -661,9 +639,9 @@
 
 .donor-notification-topline p {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
   font-size: 0.83rem;
   color: #f2f8ff;
+  font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
 }
 
@@ -697,6 +675,7 @@
 .donor-view-all-notifications:hover {
   background: rgba(36, 71, 120, 0.92);
 }
+
 .donor-history,
 .donor-logout {
   width: 40px;
