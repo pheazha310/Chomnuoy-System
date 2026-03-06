@@ -13,7 +13,7 @@ const guestNavItems = [
 ];
 
 const donorNavItems = [
-  { label: 'Home', href: '/' },
+  { label: 'Home', href: '/AfterLoginHome' },
   { label: 'Organizations', href: '/organizations' },
   { label: 'Campaigns', href: '/campaigns/donor' },
   { label: 'My Donations', href: '/donations' },
@@ -317,8 +317,6 @@ function Navbar() {
               </div>
             ) : null}
           </div>
-<<<<<<< HEAD
-=======
 
           {/* <button type="button" className="donor-history" aria-label="History">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -336,7 +334,6 @@ function Navbar() {
           </button> */}
 
           {/* <Link to="/campaigns" className="nav-cta">Donate Now</Link> */}
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 
           <div className="donor-profile">
             <button 

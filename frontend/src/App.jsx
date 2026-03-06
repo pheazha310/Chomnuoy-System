@@ -1,6 +1,7 @@
 import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
+import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
@@ -15,29 +16,21 @@ import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
-<<<<<<< HEAD
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
-=======
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
 }
 
-<<<<<<< HEAD
-function CampaignDetailRoute() {
-  const { campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug} />;
-=======
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -45,7 +38,6 @@ function getSession() {
   } catch {
     return null;
   }
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 }
 
 function RequireOrganizationAuth({ children }) {
@@ -54,6 +46,19 @@ function RequireOrganizationAuth({ children }) {
   const isOrganization = Boolean(session?.isLoggedIn && session?.role === 'Organization');
 
   if (!isOrganization) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  return children;
+}
+
+function RequireAuth({ children }) {
+  const location = useLocation();
+  const session = getSession();
+  const isAuthenticated = Boolean(session?.isLoggedIn);
+
+  if (!isAuthenticated) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
@@ -148,6 +153,28 @@ function CampaignDetailRoute2() {
   return <CampaignDetailPage campaignId={campaignSlug || id} />;
 }
 
+function HomeRoute() {
+  const session = getSession();
+  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  
+  if (isDonorLoggedIn) {
+    return <AfterLoginHome />;
+  }
+  
+  return <Home />;
+}
+
+function AfterLoginHomeRoute() {
+  const session = getSession();
+  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  
+  if (!isDonorLoggedIn) {
+    return <Navigate to={ROUTES.HOME} replace />;
+  }
+  
+  return <AfterLoginHome />;
+}
+
 export default function App() {
   const location = useLocation();
   const hideShell =
@@ -159,11 +186,8 @@ export default function App() {
     <>
       {!hideShell && <Navbar />}
       <Routes>
-<<<<<<< HEAD
-        <Route path={ROUTES.HOME} element={isAuthenticated ? <AfterLoginHome /> : <Home />} />
-=======
-        <Route path={ROUTES.HOME} element={<Home />} />
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
+        <Route path={ROUTES.HOME} element={<HomeRoute />} />
+        <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
@@ -183,7 +207,7 @@ export default function App() {
             </RequireOrganizationAuth>
           )}
         />
-<<<<<<< HEAD
+        <Route path="/donations" element={<MyDonation />} />
         <Route
           path="/donations/view-detail"
           element={
@@ -200,16 +224,11 @@ export default function App() {
             </RequireAuth>
           }
         />
-        <Route path="/pickup" element={<div>Material Pickup Page</div>} />
-=======
-        <Route path="/donations" element={<MyDonation />} />
-        <Route path="/donations/view-detail" element={<ViewDetail />} />
         <Route path="/pickup" element={<MaterialPickupPage />} />
         <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
         <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
         <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
       </Routes>
       {!hideShell && <Footer />}
     </>

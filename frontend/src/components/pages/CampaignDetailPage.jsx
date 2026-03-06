@@ -122,7 +122,7 @@ function CampaignDetailPage({ campaignId }) {
 
   return (
     <main className="campaign-detail-page campaign-detail-v2">
-      <a href="/campaigns/donor" className="detail-back-link">
+      <a href="/campaigns" className="detail-back-link">
         <ArrowLeft size={16} /> Back to campaigns
       </a>
 

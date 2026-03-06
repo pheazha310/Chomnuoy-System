@@ -80,14 +80,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
-<<<<<<< HEAD
       const token = data?.token || data?.access_token || data?.data?.token;
       if (token) {
         localStorage.setItem('authToken', token);
       }
 
-=======
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
@@ -147,10 +144,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
-<<<<<<< HEAD
-=======
 
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -174,10 +168,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
-<<<<<<< HEAD
-=======
 
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}

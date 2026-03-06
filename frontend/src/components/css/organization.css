@@ -764,15 +764,9 @@ body {
 
 .donor-org-actions {
   margin-top: 0.9rem;
-<<<<<<< HEAD
-  display: flex;
-  align-items: center;
-  gap: 8px;
-=======
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.55rem;
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 }
 
 .donor-donate-btn {
@@ -795,23 +789,16 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-<<<<<<< HEAD
-  white-space: nowrap;
-=======
   gap: 0.4rem;
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
+  white-space: nowrap;
   cursor: pointer;
 }
 
-<<<<<<< HEAD
-=======
 .donor-follow-btn svg {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
 }
-
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 .donor-org-pagination {
   margin-top: 1.5rem;
   display: flex;
@@ -868,7 +855,6 @@ body {
   .donor-org-grid {
     grid-template-columns: 1fr;
   }
-<<<<<<< HEAD
 
   .donation-modal-card {
     max-width: 100%;
@@ -990,6 +976,3 @@ body {
     font-size: 12px;
   }
 }
-=======
-}
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339

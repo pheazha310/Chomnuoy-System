@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-<<<<<<< HEAD
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '../../constants/routes';
-=======
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
 import '../css/organization.css';
 
 const organizations = [
@@ -172,12 +169,9 @@ function getDonorSession() {
 }
 
 function Organization() {
-<<<<<<< HEAD
   const navigate = useNavigate();
   const location = useLocation();
   const { organizationId } = useParams();
-=======
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
 
@@ -190,7 +184,6 @@ function Organization() {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
 
-<<<<<<< HEAD
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
   const [donorCategory, setDonorCategory] = useState('All Categories');
@@ -212,8 +205,6 @@ function Organization() {
   const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
   const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
 
-=======
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
   const categoryOptions = useMemo(() => {
     const categories = new Set();
     organizations.forEach((organization) => {
@@ -491,11 +482,7 @@ function Organization() {
                             })
                           }
                         >
-<<<<<<< HEAD
-                          &#9829;
-=======
                           {'\u2665'}
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
                         </button>
                       </div>
                       <p>{organization.summary}</p>
@@ -510,20 +497,15 @@ function Organization() {
                         </div>
                       </div>
                       <div className="donor-org-actions">
-<<<<<<< HEAD
                         <button type="button" className="donor-donate-btn" onClick={() => openDonationModal(organization)}>
                           Donate
                         </button>
-                        <button type="button" className="donor-follow-btn" aria-label="Follow organization">
-=======
-                        <button type="button" className="donor-donate-btn">Donate</button>
                         <button type="button" className="donor-follow-btn" aria-label="Follow organization">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                             <circle cx="9" cy="7" r="4" strokeWidth="2" />
                             <path d="M19 8v6M22 11h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
                           Follow
                         </button>
                       </div>
@@ -735,9 +717,4 @@ function Organization() {
   );
 }
 
-<<<<<<< HEAD
 export default Organization;
-=======
-export default Organization;
-
->>>>>>> 87bed37462b83c325ea8152a2df7e1783c0fe339
