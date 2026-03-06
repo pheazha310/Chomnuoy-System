@@ -94,6 +94,127 @@ export default function MyDonation() {
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [shareDonation, setShareDonation] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showAllDonations, setShowAllDonations] = useState(false);
+  const visibleDonations = showAllDonations ? donations : donations.slice(0, 3);
+
+  const getReceiptNumber = () => `RCP-${Date.now().toString().slice(-8)}`;
+  const escapeHtml = (value = '') =>
+    String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+
+  const getReceiptHtml = (donation) => {
+    const issuedOn = escapeHtml(new Date().toLocaleString());
+    const receiptNumber = escapeHtml(getReceiptNumber());
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Donation Receipt</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 30px;
+      background: #f3f6fb;
+      color: #0f172a;
+      font-family: "Courier New", Courier, monospace;
+    }
+    .receipt {
+      width: min(430px, 100%);
+      margin: 0 auto;
+      background: #fff;
+      border: 1px dashed #94a3b8;
+      border-radius: 10px;
+      padding: 22px 18px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
+    }
+    .center { text-align: center; }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.06em;
+    }
+    .muted {
+      color: #475569;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .sep {
+      margin: 12px 0;
+      border-top: 1px dashed #cbd5e1;
+    }
+    .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      margin: 7px 0;
+      font-size: 14px;
+    }
+    .line strong {
+      text-align: right;
+      max-width: 62%;
+      word-break: break-word;
+    }
+    .thanks {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #334155;
+    }
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .receipt {
+        box-shadow: none;
+        border-color: #64748b;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="receipt">
+    <div class="center">
+      <h1>DONATION RECEIPT</h1>
+      <div class="muted">Chomnuoy System</div>
+    </div>
+    <div class="sep"></div>
+    <div class="line"><span>Receipt #</span><strong>${receiptNumber}</strong></div>
+    <div class="line"><span>Issued On</span><strong>${issuedOn}</strong></div>
+    <div class="sep"></div>
+    <div class="line"><span>Date</span><strong>${escapeHtml(donation.date)}</strong></div>
+    <div class="line"><span>Amount</span><strong>${escapeHtml(donation.amount)}</strong></div>
+    <div class="line"><span>Recipient</span><strong>${escapeHtml(donation.recipient)}</strong></div>
+    <div class="line"><span>Sub-cause</span><strong>${escapeHtml(donation.subCause)}</strong></div>
+    <div class="sep"></div>
+    <p class="thanks">Thank you for your contribution.</p>
+  </main>
+</body>
+</html>`;
+  };
+
+  const handleSaveDonationPdf = () => {
+    if (!selectedDonation) return;
+
+    const printWindow = window.open('', '_blank', 'width=560,height=760');
+    if (!printWindow) return;
+
+    printWindow.document.write(getReceiptHtml(selectedDonation));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onafterprint = () => printWindow.close();
+
+    setTimeout(() => {
+      printWindow.print();
+      handleCloseSavePopup();
+    }, 250);
+  };
 
   const handleOpenSavePopup = (donation) => {
     setSelectedDonation(donation);
@@ -192,7 +313,7 @@ export default function MyDonation() {
         </section>
 
         <section className="my-donation-list">
-          {donations.map((item) => (
+          {visibleDonations.map((item) => (
             <article key={`${item.recipient}-${item.amount}`} className="my-donation-row">
               <div>
                 <p className="my-donation-label">DATE</p>
@@ -241,8 +362,12 @@ export default function MyDonation() {
         </section>
 
         <div className="my-donation-bottom-action">
-          <button type="button" className="my-donation-view-all-btn">
-            View All
+          <button
+            type="button"
+            className="my-donation-view-all-btn"
+            onClick={() => setShowAllDonations((prev) => !prev)}
+          >
+            {showAllDonations ? 'View Less' : 'View All'}
           </button>
         </div>
       </main>
@@ -280,7 +405,7 @@ export default function MyDonation() {
               <button type="button" className="my-donation-modal-btn secondary" onClick={handleCloseSavePopup}>
                 Cancel
               </button>
-              <button type="button" className="my-donation-modal-btn primary" onClick={handleCloseSavePopup}>
+              <button type="button" className="my-donation-modal-btn primary" onClick={handleSaveDonationPdf}>
                 Save
               </button>
             </div>

@@ -46,6 +46,24 @@ export default function MaterialPickupPage() {
   const navigate = useNavigate();
   const [pickupRows, setPickupRows] = useState(rows);
   const [openMenuKey, setOpenMenuKey] = useState(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const [newPickupForm, setNewPickupForm] = useState({
+    date: '',
+    timeFrom: '',
+    timeTo: '',
+    organization: '',
+    items: '',
+    detail: '',
+    address: '',
+  });
+
+  const formatDateLabel = (rawDate) => {
+    if (!rawDate) return '';
+    const parsedDate = new Date(rawDate);
+    return Number.isNaN(parsedDate.getTime())
+      ? rawDate
+      : parsedDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  };
 
   useEffect(() => {
     const handleCloseMenu = () => setOpenMenuKey(null);
@@ -53,15 +71,50 @@ export default function MaterialPickupPage() {
     return () => window.removeEventListener('click', handleCloseMenu);
   }, []);
 
+  const handleOpenSchedulePopup = () => {
+    setIsScheduleOpen(true);
+  };
+
+  const handleCloseSchedulePopup = () => {
+    setIsScheduleOpen(false);
+  };
+
+  const handleScheduleSubmit = (event) => {
+    event.preventDefault();
+
+    const nextRow = {
+      date: formatDateLabel(newPickupForm.date),
+      time: `${newPickupForm.timeFrom} - ${newPickupForm.timeTo}`,
+      org: newPickupForm.organization,
+      items: newPickupForm.items,
+      detail: newPickupForm.detail || 'No additional details',
+      address: newPickupForm.address,
+      status: 'Pending',
+      statusTone: 'pending',
+    };
+
+    setPickupRows((prev) => [nextRow, ...prev]);
+    setNewPickupForm({
+      date: '',
+      timeFrom: '',
+      timeTo: '',
+      organization: '',
+      items: '',
+      detail: '',
+      address: '',
+    });
+    setIsScheduleOpen(false);
+  };
+
   return (
     <main className="mp-page">
       <section className="mp-shell">
         <header className="mp-head">
           <div>
-            <h1>Material Pickup & Delivery</h1>
+            <h1 style={{fontWeight:'bold'}}>Material Pickup & Delivery</h1>
             <p>Track your material donations and coordinate with our delivery teams.</p>
           </div>
-          <button type="button" className="mp-new-btn">
+          <button type="button" className="mp-new-btn" onClick={handleOpenSchedulePopup}>
             <CalendarPlus2 />
             Schedule New Pickup
           </button>
@@ -219,6 +272,89 @@ export default function MaterialPickupPage() {
           </article>
         </section>
       </section>
+
+      {isScheduleOpen && (
+        <div className="mp-modal-overlay" onClick={handleCloseSchedulePopup}>
+          <div className="mp-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <h2>Schedule New Pickup</h2>
+            <p>Fill in the details and save your pickup request.</p>
+
+            <form className="mp-modal-form" onSubmit={handleScheduleSubmit}>
+              <label>
+                Pickup Date
+                <input
+                  type="date"
+                  value={newPickupForm.date}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, date: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Time From
+                <input
+                  type="time"
+                  value={newPickupForm.timeFrom}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, timeFrom: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Time To
+                <input
+                  type="time"
+                  value={newPickupForm.timeTo}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, timeTo: event.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                Organization
+                <input
+                  type="text"
+                  value={newPickupForm.organization}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, organization: event.target.value }))}
+                  placeholder="Organization name"
+                  required
+                />
+              </label>
+              <label className="full">
+                Items
+                <input
+                  type="text"
+                  value={newPickupForm.items}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, items: event.target.value }))}
+                  placeholder="Items for pickup"
+                  required
+                />
+              </label>
+              <label className="full">
+                Detail
+                <input
+                  type="text"
+                  value={newPickupForm.detail}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, detail: event.target.value }))}
+                  placeholder="e.g. 3 boxes total"
+                />
+              </label>
+              <label className="full">
+                Address
+                <input
+                  type="text"
+                  value={newPickupForm.address}
+                  onChange={(event) => setNewPickupForm((prev) => ({ ...prev, address: event.target.value }))}
+                  placeholder="Pickup address"
+                  required
+                />
+              </label>
+
+              <div className="mp-modal-actions">
+                <button type="button" className="cancel" onClick={handleCloseSchedulePopup}>Cancel</button>
+                <button type="submit" className="submit">Save Pickup</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
