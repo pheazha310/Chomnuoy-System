@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -15,7 +15,6 @@ import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
-import ViewDetail from '@/app/donate/viewDetail.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -26,15 +25,11 @@ function getSafeRedirect(search) {
   return redirectParam;
 }
 
-<<<<<<< HEAD
-=======
 function CampaignDetailRoute() {
-  const { campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug} />;
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
 }
 
-=========
->>>>>>>>> Temporary merge branch 2
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,27 +41,9 @@ function LoginRoute() {
     const profile = isOrganization ? data?.organization : data?.user;
 
     if (!profile) {
-      // Fallback for different data structures
-      const user = data?.user || data || {};
-      const sessionData = {
-        isLoggedIn: true,
-        role: user.role || 'Donor',
-        name: user.name || 'Donor User',
-        email: user.email || loginEmail || '',
-        impactLevel: 'Gold',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-        userId: user.id || null,
-        accountType: data?.account_type || 'Donor',
-      };
-      if (data?.token) {
-        window.localStorage.setItem('authToken', data.token);
-      }
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
-      navigate(redirectTo);
-      return;
+      throw new Error('Login response missing profile data');
     }
 
-    // Store user session data
     const sessionData = {
       isLoggedIn: true,
       role: isOrganization ? 'Organization' : 'Donor',
@@ -111,11 +88,6 @@ function RegisterRoute() {
   );
 }
 
-function CampaignDetailRoute2() {
-  const { id, campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug || id} />;
-}
-
 export default function App() {
   const location = useLocation();
   let hasDonorSession = false;
@@ -129,9 +101,7 @@ export default function App() {
 
   const hasAuthToken = Boolean(window.localStorage.getItem('authToken'));
   const isAuthenticated = hasAuthToken || hasDonorSession;
-  const hideShell =
-    location.pathname === ROUTES.LOGIN ||
-    location.pathname === '/register';
+  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
 
   return (
     <>
@@ -142,26 +112,17 @@ export default function App() {
         <Route path={ROUTES.ORGANIZATIONS} element={<Organization />} />
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<Organization />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
-<<<<<<<<< Temporary merge branch 1
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
-=========
-        <Route path="/campaigns/donor" element={<div style={{ padding: '2rem' }}>Donor Campaigns Page</div>} />
->>>>>>>>> Temporary merge branch 2
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
         <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
         <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
-<<<<<<< HEAD
-        <Route path="/donations" element={<div style={{ padding: '2rem' }}>My Donations Page</div>} />
+        <Route path="/donations" element={<MyDonation />} />
         <Route path="/pickup" element={<div style={{ padding: '2rem' }}>Material Pickup Page</div>} />
         <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
-=======
-        <Route path="/donations" element={<div>My Donations Page</div>} />
-        <Route path="/pickup" element={<div>Material Pickup Page</div>} />
->>>>>>> 6302858a648a56ab43552b93bf4b414deefa1fed
       </Routes>
       {!hideShell && <Footer />}
     </>
