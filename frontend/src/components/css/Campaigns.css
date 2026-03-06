@@ -10,6 +10,10 @@
   content: '';
   position: fixed;
   inset: 0;
+  background:
+    radial-gradient(circle at 12% 6%, rgba(31, 125, 226, 0.16), transparent 42%),
+    radial-gradient(circle at 88% 94%, rgba(24, 104, 203, 0.11), transparent 35%),
+    linear-gradient(170deg, #f8fbff 0%, #edf4fc 52%, #e6eef8 100%);
   z-index: -1;
   pointer-events: none;
 }
