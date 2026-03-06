@@ -135,8 +135,6 @@ const donorOrganizations = [
 
 const PAGE_SIZE = 3;
 const DONOR_PAGE_SIZE = 4;
-<<<<<<< HEAD
-=======
 const DONATION_PRESET_AMOUNTS = [5, 10, 20, 50];
 const DONATION_PAYMENT_METHODS = [
   { id: 'qr', label: 'QR Payment', badge: 'QR', badgeClassName: 'payment-badge-qr' },
@@ -156,7 +154,6 @@ const SORT_OPTIONS = [
   { value: 'nameAZ', label: 'Name: A to Z' },
   { value: 'nameZA', label: 'Name: Z to A' },
 ];
->>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 
 function getPaginationItems(totalPages, currentPage) {
   if (totalPages <= 5) {

@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-=======
-import { useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
->>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
@@ -77,7 +72,6 @@ function CategoryIcon({ category }) {
   );
 }
 
-<<<<<<< HEAD
 const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
 const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
 const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
@@ -85,12 +79,6 @@ const donorProfileImages = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
 ];
-=======
-function CampaignsPage() {
-  const location = useLocation();
-  const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
->>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 
 function campaignCategoryToSidebarCategory(category) {
   if (category === 'Technology' || category === 'Social Good') {
@@ -131,7 +119,6 @@ function CampaignsPage() {
   }, []);
 
   const filteredCampaigns = useMemo(() => {
-<<<<<<< HEAD
     const byCategory = campaigns.filter((campaign) => {
       if (selectedCategory === 'All Campaigns') {
         return true;
@@ -208,26 +195,6 @@ function CampaignsPage() {
           <div className="campaign-nav-list">
             {sidebarCategories.map((category) => {
               const isActive = selectedCategory === category;
-=======
-    const normalizedQuery = searchQuery.toLowerCase();
-    return campaigns.filter((campaign) => {
-      const matchesCategory = selectedCategory === 'All Categories' || campaign.category === selectedCategory;
-      if (!matchesCategory) return false;
-      if (!normalizedQuery) return true;
-
-      const searchableText = `${campaign.title} ${campaign.summary} ${campaign.category}`.toLowerCase();
-      return searchableText.includes(normalizedQuery);
-    });
-  }, [selectedCategory, searchQuery]);
-
-  return (
-    <main className="campaigns-page">
-      <section className="campaigns-header">
-        <h1>Explore Campaigns</h1>
-        <p>Support impactful projects and choose the campaign you want to back.</p>
-        {searchQuery ? <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p> : null}
-      </section>
->>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 
               return (
                 <button

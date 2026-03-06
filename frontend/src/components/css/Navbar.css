@@ -532,13 +532,6 @@
   border: 2px solid #ffffff;
 }
 
-<<<<<<< HEAD
-=======
-.donor-notify.is-active .notification-dot {
-  box-shadow: 0 0 0 2px rgba(31, 125, 226, 0.18);
-}
-
->>>>>>> 0590e302a2de50d5d4c4936197ffa35e0dc29223
 .donor-notification-dropdown {
   position: absolute;
   top: calc(100% + 0.55rem);
