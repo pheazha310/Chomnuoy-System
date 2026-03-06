@@ -1,4 +1,4 @@
-import { Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -22,13 +22,12 @@ function getSafeRedirect(search) {
   if (!redirectParam || !redirectParam.startsWith('/')) {
     return ROUTES.HOME;
   }
-
   return redirectParam;
 }
 
 function CampaignDetailRoute() {
-  const { campaignSlug } = useParams();
-  return <CampaignDetailPage campaignId={campaignSlug} />;
+  const { id, campaignSlug } = useParams();
+  return <CampaignDetailPage campaignId={campaignSlug || id} />;
 }
 
 function RequireAuth({ children }) {
@@ -40,9 +39,8 @@ function RequireAuth({ children }) {
   } catch {
     session = null;
   }
-  const isLoggedIn = Boolean(session?.isLoggedIn);
 
-  if (!isLoggedIn) {
+  if (!session?.isLoggedIn) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
@@ -54,20 +52,27 @@ function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
+  const loginEmail = new URLSearchParams(location.search).get('email');
 
   const handleLoginSuccess = (data) => {
-    // Store user session data
+    const isOrganization = data?.account_type === 'Organization';
+    const profile = isOrganization ? data?.organization : data?.user;
+    if (!profile) {
+      throw new Error('Login response missing profile data');
+    }
+
     const sessionData = {
       isLoggedIn: true,
-      role: 'Donor',
-      name: data.user.name,
-      email: data.user.email,
-      impactLevel: 'Gold',
+      role: isOrganization ? 'Organization' : 'Donor',
+      name: profile.name,
+      email: profile.email || loginEmail || '',
+      impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
-      userId: data.user.id,
+      userId: profile.id,
+      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
       logoutRedirectTo: redirectTo,
     };
-    
+
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
     navigate(redirectTo);
   };
@@ -87,14 +92,9 @@ function RegisterRoute() {
   const location = useLocation();
   const redirectTo = getSafeRedirect(location.search);
 
-  const handleRegisterSuccess = (email) => {
-    // After successful registration, redirect to login with email
-    navigate(`/login?redirect=${encodeURIComponent(redirectTo)}&email=${encodeURIComponent(email || '')}`);
-  };
-
   return (
     <AuthLayout mode="register">
-      <RegisterPage onToggleMode={handleRegisterSuccess} />
+      <RegisterPage onToggleMode={() => navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`)} />
     </AuthLayout>
   );
 }
@@ -112,9 +112,7 @@ export default function App() {
 
   const hasAuthToken = Boolean(window.localStorage.getItem('authToken'));
   const isAuthenticated = hasAuthToken || hasDonorSession;
-  const hideShell =
-    location.pathname === ROUTES.LOGIN ||
-    location.pathname === '/register';
+  const hideShell = location.pathname === ROUTES.LOGIN || location.pathname === '/register';
 
   return (
     <>
@@ -134,19 +132,19 @@ export default function App() {
         <Route path="/register" element={<RegisterRoute />} />
         <Route
           path="/donations"
-          element={
+          element={(
             <RequireAuth>
               <MyDonation />
             </RequireAuth>
-          }
+          )}
         />
         <Route
           path="/donations/view-detail"
-          element={
+          element={(
             <RequireAuth>
               <ViewDetail />
             </RequireAuth>
-          }
+          )}
         />
         <Route path="/pickup" element={<div>Material Pickup Page</div>} />
       </Routes>
