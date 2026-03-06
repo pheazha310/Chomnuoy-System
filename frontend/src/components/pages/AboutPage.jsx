@@ -1,7 +1,13 @@
 import '../css/about.css';
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
+import teamImage1 from '../../images/6129610942573121254_121.jpg';
+import teamImage2 from '../../images/6129631399502351996_121.jpg';
+import teamImage3 from '../../images/6147792428195319150_121.jpg';
+import teamImage4 from '../../images/6147792428195319151_121.jpg';
+import teamImage5 from '../../images/6147792428195319154_121.jpg';
 
 // --- Mock Data ---
 
@@ -67,34 +73,34 @@ const CORE_VALUES = [
 
 const TEAM = [
   {
-    name: 'Sophea Leng',
+    name: 'Sreyvik Von',
     role: 'Founder & CEO',
     bio: 'Passionate about using technology to close social impact gaps across Cambodia.',
-    image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80'
+    image: teamImage2
   },
   {
-    name: 'Chanthou Mean',
+    name: 'Nita Chroun',
     role: 'Operations Director',
     bio: 'Ensuring every project is executed with precision, integrity, and measurable results.',
-    image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=400&q=80'
+    image: teamImage1
   },
   {
-    name: 'Dara Phan',
+    name: 'Sophea Phal',
     role: 'Product Manager',
     bio: 'Designing user-friendly donation flows that create trust and increase community impact.',
-    image: 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=400&q=80'
+    image: teamImage3
   },
   {
-    name: 'Sokunthea Kim',
+    name: 'Ly Sarl',
     role: 'Partnership Lead',
     bio: 'Building strategic partnerships with NGOs, schools, and local leaders across regions.',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80'
+    image: teamImage4
   },
   {
-    name: 'Rithy Sam',
+    name: 'Seyha Ny',
     role: 'Community Relations',
     bio: 'Building trusted partnerships with communities and local organizations nationwide.',
-    image: 'https://images.unsplash.com/photo-1544717302-de2939b7ef71?auto=format&fit=crop&w=400&q=80'
+    image: teamImage5
   }
 ];
 
@@ -122,13 +128,13 @@ const Hero = () => (
           Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate donors with grassroots initiatives making a real difference.
         </p>
         <div className="about-header-actions">
-          <button className="about-header-btn about-header-btn-primary group">
+          <Link to="/login" className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </button>
-          <button className="about-header-btn about-header-btn-secondary">
+          </Link>
+          <Link to="/campaigns" className="about-header-btn about-header-btn-secondary">
             Start a Campaign
-          </button>
+          </Link>
         </div>
         <p className="about-header-meta">Joined by 10K+ active donors</p>
       </motion.div>
