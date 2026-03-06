@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
-=======
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
@@ -69,20 +65,10 @@ function CategoryIcon({ category }) {
   );
 }
 
-<<<<<<< HEAD
-const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
-const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
-const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
-const donorProfileImages = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
-];
-=======
 function CampaignsPage() {
   const location = useLocation();
   const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(campaigns.map((campaign) => campaign.category))];
@@ -90,83 +76,6 @@ function CampaignsPage() {
   }, []);
 
   const filteredCampaigns = useMemo(() => {
-<<<<<<< HEAD
-    const byCategory = campaigns.filter((campaign) => {
-      if (selectedCategory === 'All Campaigns') {
-        return true;
-      }
-
-      return campaignCategoryToSidebarCategory(campaign.category) === selectedCategory;
-    });
-
-    const urgencySorted = [...byCategory].sort((a, b) => {
-      const ratioA = a.raisedAmount / a.goalAmount;
-      const ratioB = b.raisedAmount / b.goalAmount;
-
-      if (selectedUrgency === 'Urgent') {
-        return ratioA - ratioB;
-      }
-
-      if (selectedUrgency === 'Nearly Funded') {
-        return ratioB - ratioA;
-      }
-
-      return b.raisedAmount - a.raisedAmount;
-    });
-
-    if (!verifiedOnly) {
-      if (selectedSort === 'Most Funded') {
-        return [...urgencySorted].sort((a, b) => b.raisedAmount - a.raisedAmount);
-      }
-
-      if (selectedSort === 'Ending Soon') {
-        return [...urgencySorted].sort((a, b) => {
-          const remainingA = a.goalAmount - a.raisedAmount;
-          const remainingB = b.goalAmount - b.raisedAmount;
-          return remainingA - remainingB;
-        });
-      }
-
-      return urgencySorted;
-    }
-
-    const verifiedList = urgencySorted.filter((_, index) => index % 2 === 0);
-
-    if (selectedSort === 'Most Funded') {
-      return [...verifiedList].sort((a, b) => b.raisedAmount - a.raisedAmount);
-    }
-
-    if (selectedSort === 'Ending Soon') {
-      return [...verifiedList].sort((a, b) => {
-        const remainingA = a.goalAmount - a.raisedAmount;
-        const remainingB = b.goalAmount - b.raisedAmount;
-        return remainingA - remainingB;
-      });
-    }
-
-    return verifiedList;
-  }, [selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCampaigns = filteredCampaigns.slice(startIndex, startIndex + itemsPerPage);
-  const gridAnimationKey = `${selectedCategory}-${selectedUrgency}-${verifiedOnly}-${selectedSort}-${currentPage}`;
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
-
-  return (
-    <main className="campaigns-page campaigns-dashboard">
-      <aside className="campaign-sidebar">
-        <section className="campaign-sidebar-group" aria-label="Campaign categories">
-          <p className="campaign-sidebar-title">Categories</p>
-          <div className="campaign-nav-list">
-            {sidebarCategories.map((category) => {
-              const isActive = selectedCategory === category;
-=======
     const normalizedQuery = searchQuery.toLowerCase();
     return campaigns.filter((campaign) => {
       const matchesCategory =
@@ -186,7 +95,6 @@ function CampaignsPage() {
         <p>Support impactful projects and choose the campaign you want to back.</p>
         {searchQuery ? <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p> : null}
       </section>
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
       <section className="campaign-filters" aria-label="Campaign categories">
         {categories.map((category) => (

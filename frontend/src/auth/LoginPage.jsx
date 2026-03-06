@@ -1,12 +1,11 @@
-﻿/**
+/**
 * @license
 * SPDX-License-Identifier: Apache-2.0
 */
 
 import { loginUser } from '../services/user-service';
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { motion } from 'motion/react';
 import {
   Mail,
   Lock,
@@ -51,8 +50,6 @@ function FacebookIcon(props) {
 }
 
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
-  const location = useLocation();
-  const showLogoutMessage = new URLSearchParams(location.search).get('loggedOut') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,10 +81,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
-      const token = data?.token || data?.access_token || data?.data?.token;
-      if (token) {
-        localStorage.setItem('authToken', token);
-      }
 
       onLoginSuccess?.(data);
     } catch (err) {
@@ -121,15 +114,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
       </div>
 
-      {showLogoutMessage && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700"
-        >
-          You have been logged out successfully.
-        </motion.div>
-      )}
 
       {error && (
         <motion.div
@@ -158,10 +142,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
 
-<<<<<<< HEAD
-            {/* show messages below email input: */}
-=======
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -186,10 +166,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
 
-<<<<<<< HEAD
-            {/* show messages below password input: */}
-=======
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}

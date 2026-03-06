@@ -1,11 +1,6 @@
 import "./css/Navbar.css";
-<<<<<<< HEAD
-import { Link } from 'react-router-dom';
-=======
 import { Link, useNavigate } from 'react-router-dom';
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -25,8 +20,6 @@ const donorNavItems = [
   { label: "Contact", href: "/contact" },
 ];
 
-<<<<<<< HEAD
-=======
 const initialNotifications = [
   {
     id: 'donation-confirmed',
@@ -70,7 +63,6 @@ const initialNotifications = [
   },
 ];
 
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -80,24 +72,11 @@ function getDonorSession() {
   }
 }
 
-function clearAuthState() {
+function clearDonorSession() {
   window.localStorage.removeItem('chomnuoy_session');
-  window.localStorage.removeItem('authToken');
 }
 
 function isNavItemActive(itemHref, pathname) {
-  if (itemHref === '/campaigns') {
-    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
-  }
-
-  if (itemHref === '/campaigns/donor') {
-    return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
-  }
-
-  return pathname === itemHref;
-}
-
-function isGuestNavItemActive(itemHref, pathname) {
   if (itemHref === '/campaigns') {
     return pathname === '/campaigns' || pathname.startsWith('/campaigns/');
   }
@@ -106,35 +85,24 @@ function isGuestNavItemActive(itemHref, pathname) {
 }
 
 function Navbar() {
+  const navigate = useNavigate();
   const pathname = window.location.pathname;
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-<<<<<<< HEAD
-  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
-=======
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(initialNotifications);
   const unreadCount = notifications.filter((item) => !item.isRead).length;
   const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
   const handleLogout = () => {
-    const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
-    const logoutTarget =
-      savedBeforeLoginPath &&
-      savedBeforeLoginPath.startsWith('/') &&
-      !savedBeforeLoginPath.startsWith('/logout')
-        ? savedBeforeLoginPath
-        : '/';
+    clearDonorSession();
+    window.location.href = '/login';
+  };
 
-<<<<<<< HEAD
-    clearAuthState();
-    window.location.href = logoutTarget;
-=======
   const handleSearchSubmit = (event) => {
     event.preventDefault();
     const query = searchQuery.trim();
@@ -161,13 +129,13 @@ function Navbar() {
     }
 
     navigate(`/campaigns?search=${encodedQuery}`);
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
   };
 
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
-    setIsLogoutPopupOpen(false);
+    setIsNotificationOpen(false);
+    setIsAllNotificationsOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -175,72 +143,14 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
+      if (isNotificationOpen && !event.target.closest('.donor-notification')) {
+        setIsNotificationOpen(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProfileMenuOpen]);
-
-  useEffect(() => {
-    if (!isLogoutPopupOpen) return undefined;
-
-    function handleEscape(event) {
-      if (event.key === 'Escape') {
-        setIsLogoutPopupOpen(false);
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isLogoutPopupOpen]);
-
-  const logoutPopupMarkup = (
-    <div
-      className="logout-popup-overlay"
-      role="presentation"
-      onClick={() => setIsLogoutPopupOpen(false)}
-    >
-      <div
-        className="logout-popup"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="logout-popup-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="logout-popup-header">
-          <h3 id="logout-popup-title">Log out from your account?</h3>
-          <button
-            type="button"
-            className="logout-popup-close"
-            aria-label="Close logout popup"
-            onClick={() => setIsLogoutPopupOpen(false)}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
-              <path d="m18 6-12 12" strokeWidth="2" strokeLinecap="round" />
-              <path d="m6 6 12 12" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-        <p>You will need to sign in again to access donor features.</p>
-        <div className="logout-popup-actions">
-          <button
-            type="button"
-            className="logout-popup-cancel"
-            onClick={() => setIsLogoutPopupOpen(false)}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="logout-popup-confirm"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  }, [isProfileMenuOpen, isNotificationOpen]);
 
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
@@ -294,11 +204,7 @@ function Navbar() {
           </svg>
           </span>
           <div className="donor-brand-text">
-<<<<<<< HEAD
-            <span className="donor-brand-name">ជំនួយ / CHOMNUOY</span>
-=======
             <span className="donor-brand-name">{"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}</span>
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
             <span className="donor-brand-subtitle">DIGITAL DONATION PLATFORM</span>
           </div>
         </Link>
@@ -313,28 +219,11 @@ function Navbar() {
           ))}
         </ul>
 
-<<<<<<< HEAD
-        <label className="donor-search" aria-label="Search causes">
-=======
         <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
             <circle cx="11" cy="11" r="8" strokeWidth="2"/>
             <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-<<<<<<< HEAD
-          <input type="search" placeholder="Search causes..." />
-        </label>
-
-        <div className="donor-actions">
-          <button type="button" className="donor-notify" aria-label="Notifications">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="notification-dot"></span>
-          </button>
-=======
           <input
             type="search"
             placeholder="Search causes..."
@@ -420,7 +309,6 @@ function Navbar() {
               </div>
             )}
           </div>
->>>>>>> dc0d7f5ef42ec18bf989219fbaab3f39829e2c44
 
           {/* <button type="button" className="donor-history" aria-label="History">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -500,8 +388,8 @@ function Navbar() {
                     type="button" 
                     className="donor-profile-menu-item donor-profile-logout"
                     onClick={() => {
+                      handleLogout();
                       setIsProfileMenuOpen(false);
-                      setIsLogoutPopupOpen(true);
                     }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -516,10 +404,6 @@ function Navbar() {
             )}
           </div>
         </div>
-
-        {isLogoutPopupOpen && typeof document !== 'undefined'
-          ? createPortal(logoutPopupMarkup, document.body)
-          : null}
       </nav>
     );
   }
@@ -598,7 +482,31 @@ function Navbar() {
             <a
               href={item.href}
               onClick={() => setIsGuestMenuOpen(false)}
-              className={isGuestNavItemActive(item.href, pathname) ? 'active' : ''}
+              className={
+                item.href === "/campaigns"
+                  ? pathname === "/" || pathname.startsWith("/campaigns")
+                    ? "active"
+                    : ""
+                  : item.href === "/organizations"
+                    ? pathname === "/organizations"
+                      ? "active"
+                      : ""
+                  : item.href === "/how-it-works"
+                    ? pathname === "/how-it-works"
+                      ? "active"
+                      : ""
+                    : item.href === "/about"
+                      ? pathname === "/about"
+                        ? "active"
+                        : ""
+                    : item.href === "/contact"
+                      ? pathname === "/contact"
+                        ? "active"
+                        : ""
+                      : pathname === item.href
+                        ? "active"
+                        : ""
+              }
             >
               {item.label}
             </a>
@@ -606,7 +514,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2F" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link to="/login?redirect=%2Fcampaigns" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>
