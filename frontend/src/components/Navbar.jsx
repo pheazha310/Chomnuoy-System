@@ -359,7 +359,7 @@ function Navbar() {
                     My Profile
                   </Link>
                   
-                  <Link to="/settings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
+                  <Link to="/settings/AccountSettings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                       <circle cx="12" cy="12" r="3" strokeWidth="2"/>
                       <path d="M12 1v6m0 6v6m4.22-13.22 4.22 4.22M1.54 9.54l4.22 4.22M20.46 14.46l-4.22 4.22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

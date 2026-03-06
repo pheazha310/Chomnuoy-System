@@ -16,6 +16,7 @@ import AuthLayout from '@/auth/AuthLayout.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
+import AccountSettings from '@/app/setting/AccountSettings.jsx';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
@@ -177,6 +178,14 @@ export default function App() {
           element={
             <RequireAuth>
               <ViewDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/AccountSettings"
+          element={
+            <RequireAuth>
+              <AccountSettings />
             </RequireAuth>
           }
         />
