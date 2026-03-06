@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 import '../css/about.css';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
 
 // --- Mock Data ---
+=======
+import React from 'react';
+import { motion } from 'framer-motion';
+import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
+import '../css/about.css';
+>>>>>>> 30f2e5fc0740a798a3d3a47af629ce3356a5e9be
 
 const STATS = [
   { label: 'Total Donated', value: '$2.4M', change: '+12% this month', trend: 'up' },
@@ -125,9 +132,12 @@ const Hero = () => (
           <button className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+<<<<<<< HEAD
           </button>
           <button className="about-header-btn about-header-btn-secondary">
             Start a Campaign
+=======
+>>>>>>> 30f2e5fc0740a798a3d3a47af629ce3356a5e9be
           </button>
         </div>
         <p className="about-header-meta">Joined by 10K+ active donors</p>
@@ -139,9 +149,15 @@ const Hero = () => (
         className="about-header-media"
       >
         <div className="about-header-media-card">
+<<<<<<< HEAD
           <img 
             src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cG9vciUyMHBlb3BsZXxlbnwwfHwwfHx8MA%3D%3D" 
             alt="Community support" 
+=======
+          <img
+            src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cG9vciUyMHBlb3BsZXxlbnwwfHwwfHx8MA%3D%3D"
+            alt="Community support"
+>>>>>>> 30f2e5fc0740a798a3d3a47af629ce3356a5e9be
             className="h-full w-full object-cover"
             referrerPolicy="no-referrer"
           />
@@ -162,7 +178,7 @@ const Stats = () => (
     <div className="mx-auto max-w-7xl px-6">
       <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
         {STATS.map((stat, idx) => (
-          <motion.div 
+          <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -251,7 +267,11 @@ const FeaturedOrgs = () => (
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
+<<<<<<< HEAD
         <motion.div 
+=======
+        <motion.div
+>>>>>>> 30f2e5fc0740a798a3d3a47af629ce3356a5e9be
           key={org.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

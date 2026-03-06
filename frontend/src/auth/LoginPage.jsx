@@ -6,6 +6,7 @@
 import { loginUser } from '../services/user-service';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import {
   Mail,
   Lock,
@@ -50,9 +51,12 @@ function FacebookIcon(props) {
 }
 
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
+  const location = useLocation();
+  const showLogoutMessage = new URLSearchParams(location.search).get('loggedOut') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
   const [socialLoading, setSocialLoading] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
@@ -68,8 +72,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
 
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
@@ -81,6 +83,10 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
+      const token = data?.token || data?.access_token || data?.data?.token;
+      if (token) {
+        localStorage.setItem('authToken', token);
+      }
 
       onLoginSuccess?.(data);
     } catch (err) {
@@ -114,6 +120,15 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
       </div>
 
+      {showLogoutMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700"
+        >
+          You have been logged out successfully.
+        </motion.div>
+      )}
 
       {error && (
         <motion.div
@@ -141,7 +156,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
-
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -165,7 +179,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
-
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}
@@ -220,8 +233,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         </div>
         <button
           type="submit"
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
           disabled={isSubmitting}
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
         >
           {isSubmitting ? (
             <>
