@@ -441,7 +441,6 @@
   align-items: center;
   min-width: 0;
   justify-self: end;
-  margin: 0;
 }
 
 .donor-search svg {
@@ -532,14 +531,10 @@
   border: 2px solid #ffffff;
 }
 
-.donor-notify.is-active .notification-dot {
-  box-shadow: 0 0 0 2px rgba(31, 125, 226, 0.18);
-}
-
 .donor-notification-dropdown {
   position: absolute;
   top: calc(100% + 0.55rem);
-  right: -2px;
+  right: 0;
   width: min(360px, 92vw);
   border-radius: 12px;
   border: 1px solid #1a3a67;
@@ -661,23 +656,6 @@
   font-size: 0.73rem;
   line-height: 1.35;
   color: #9eb0cc;
-}
-
-.donor-view-all-notifications {
-  width: 100%;
-  border: none;
-  border-top: 1px solid rgba(121, 150, 194, 0.2);
-  background: rgba(29, 57, 97, 0.78);
-  color: #e5efff;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 0.72rem 0.9rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.donor-view-all-notifications:hover {
-  background: rgba(36, 71, 120, 0.92);
 }
 
 .donor-history,
