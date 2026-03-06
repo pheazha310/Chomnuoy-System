@@ -864,12 +864,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-<<<<<<< HEAD
   gap: 0.5rem;
   white-space: nowrap;
-=======
   gap: 0.4rem;
->>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
   cursor: pointer;
   padding: 0 0.75rem;
   height: 36px;
@@ -884,10 +881,7 @@ body {
   height: 16px;
   flex-shrink: 0;
 }
-<<<<<<< HEAD
-=======
 
->>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
 .donor-org-pagination {
   margin-top: 1.5rem;
   display: flex;
@@ -919,8 +913,6 @@ body {
   background: #1678e7;
   border-color: #1678e7;
   color: #fff;
-}
-
 .donation-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1259,7 +1251,6 @@ body {
   .donor-org-grid {
     grid-template-columns: 1fr;
   }
-<<<<<<< HEAD
 
   .donation-modal-card {
     max-width: 100%;
@@ -1381,7 +1372,6 @@ body {
     font-size: 12px;
   }
 }
-=======
 }
 
 .donation-modal-overlay {
@@ -1450,4 +1440,3 @@ body {
   font-size: 13px;
   line-height: 1.2;
 }
->>>>>>> 858d8f8053a40d2a03432d1b31c60943f62e9c61
