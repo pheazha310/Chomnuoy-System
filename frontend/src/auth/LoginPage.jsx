@@ -1,19 +1,15 @@
 /**
-* @license
-* SPDX-License-Identifier: Apache-2.0
-*/
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-import { loginUser } from '../services/user-service';
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  AlertCircle,
-} from 'lucide-react';
+import { loginUser } from "../services/user-service";
+import React, { useState } from "react";
+import { motion } from "motion/react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
 
 function GoogleIcon(props) {
   return (
@@ -55,25 +51,28 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState(null);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
     rememberMe: false,
   });
   const socialAuthUrls = {
     google:
       import.meta.env.VITE_GOOGLE_AUTH_URL ??
-      `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/google/redirect`,
+      `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/google/redirect`,
     facebook:
       import.meta.env.VITE_FACEBOOK_AUTH_URL ??
-      `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
+      `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/facebook/redirect`,
   };
+  const googleClientId =
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ??
+    "529901988862-344m0simfhfr0bh0ufukptkmdnb0chpr.apps.googleusercontent.com";
 
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
-    setFieldErrors({ email: '', password: '' });
+    setFieldErrors({ email: "", password: "" });
     setIsSubmitting(true);
 
     try {
@@ -86,10 +85,10 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     } catch (err) {
       const errors = err.response?.data?.errors || {};
       setFieldErrors({
-        email: errors.email?.[0] || '',
-        password: errors.password?.[0] || '',
+        email: errors.email?.[0] || "",
+        password: errors.password?.[0] || "",
       });
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || "Login failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -107,13 +106,50 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     window.location.assign(authUrl);
   };
 
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-      <div className="text-center lg:pt-4">
-        <h1 className="text-4xl font-bold tracking-tight text-[#101828]">Welcome back</h1>
-        <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
-      </div>
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      const credential = credentialResponse?.credential;
+      if (!credential) {
+        setError("Google did not return a credential. Please try again.");
+        return;
+      }
 
+      const payload = jwtDecode(credential);
+      const profile = {
+        id: payload?.sub ?? null,
+        name: payload?.name ?? payload?.email ?? "Google User",
+        email: payload?.email ?? "",
+        avatar: payload?.picture ?? null,
+      };
+
+      onLoginSuccess?.({
+        message: "Login successful",
+        account_type: "Donor",
+        user: profile,
+        organization: null,
+        google_id_token: credential,
+      });
+    } catch (decodeError) {
+      console.error("Failed to process Google credential:", decodeError);
+      setError("Unable to process Google login response. Please try again.");
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <div className="text-center lg:pt-4">
+        <h1 className="text-4xl font-bold tracking-tight text-[#101828]">
+          Welcome back
+        </h1>
+        <p className="mt-2.5 text-base font-medium text-[#4B617A]">
+          Login to your Chomnuoy account to continue
+        </p>
+      </div>
 
       {error && (
         <motion.div
@@ -130,7 +166,9 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
 
       <form onSubmit={handleLogin} className="mt-6 space-y-4">
         <div>
-          <label className="text-lg font-bold text-[#101828]">Email Address</label>
+          <label className="text-lg font-bold text-[#101828]">
+            Email Address
+          </label>
           <div className="relative mt-2">
             <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
             <input
@@ -139,7 +177,9 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               placeholder="Email"
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
             />
 
             {fieldErrors.email && (
@@ -151,31 +191,42 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <div>
           <div className="flex items-center justify-between">
             <label className="text-lg font-bold text-[#101828]">Password</label>
-            <a href="#" className="text-sm font-bold text-[#2563EB] hover:text-[#1D4ED8]">
+            <a
+              href="#"
+              className="text-sm font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+            >
               Forgot Password?
             </a>
           </div>
           <div className="relative mt-2">
             <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
             <input
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               required
               placeholder="********"
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-12 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
             />
 
             {fieldErrors.password && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {fieldErrors.password}
+              </p>
             )}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#667085]"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+              {showPassword ? (
+                <Eye className="h-5 w-5" />
+              ) : (
+                <EyeOff className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -186,20 +237,27 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             id="rememberMe"
             className="h-4 w-4 rounded-md border-[#98A2B3] text-[#2563EB] focus:ring-[#2563EB]/20"
             checked={formData.rememberMe}
-            onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+            onChange={(e) =>
+              setFormData({ ...formData, rememberMe: e.target.checked })
+            }
           />
-          <label htmlFor="rememberMe" className="text-lg font-bold text-[#101828]">
+          <label
+            htmlFor="rememberMe"
+            className="text-lg font-bold text-[#101828]"
+          >
             Remember Me
           </label>
         </div>
         <div className="mt-5 flex items-center gap-3">
           <span className="h-px flex-1 bg-[#E4E7EC]" />
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">or login with email</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+            or login with email
+          </span>
           <span className="h-px flex-1 bg-[#E4E7EC]" />
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
+          {/* <button
             type="button"
             onClick={() => handleSocialLogin('google')}
             disabled={socialLoading !== null}
@@ -207,10 +265,19 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
           >
             <GoogleIcon className="h-5 w-5" />
             Gmail
-          </button>
+          </button> */}
+
+          <GoogleOAuthProvider clientId={googleClientId}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                setError("Google login failed. Please try again.");
+              }}
+            />
+          </GoogleOAuthProvider>
           <button
             type="button"
-            onClick={() => handleSocialLogin('facebook')}
+            onClick={() => handleSocialLogin("facebook")}
             disabled={socialLoading !== null}
             className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -238,8 +305,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       </form>
 
       <p className="mt-6 text-center text-base font-medium text-[#4B617A]">
-        Don&apos;t have an account?{' '}
-        <button onClick={onToggleMode} className="font-bold text-[#2563EB] hover:text-[#1D4ED8]">
+        Don&apos;t have an account?{" "}
+        <button
+          onClick={onToggleMode}
+          className="font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+        >
           Register now
         </button>
       </p>

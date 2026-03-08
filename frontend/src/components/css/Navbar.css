@@ -982,4 +982,127 @@
   }
 }
 
+.logout-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(7, 20, 39, 0.56);
+  backdrop-filter: blur(2px);
+}
+
+.logout-popup {
+  width: min(460px, 100%);
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #d9e2ef;
+  box-shadow: 0 24px 44px rgba(4, 26, 47, 0.3);
+  padding: 1.1rem 1.1rem 1rem;
+}
+
+.logout-popup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.logout-popup-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.2rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.logout-popup-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d4deec;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #556b87;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.logout-popup-close:hover {
+  background: #f5f8fc;
+  color: #1f7de2;
+}
+
+.logout-popup-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.logout-popup p {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  font-size: 0.97rem;
+  line-height: 1.55;
+}
+
+.logout-popup-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.logout-popup-cancel,
+.logout-popup-confirm {
+  border-radius: 10px;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.logout-popup-cancel {
+  background: #f8fafc;
+  border-color: #d6dfeb;
+  color: #334155;
+}
+
+.logout-popup-cancel:hover {
+  background: #edf2f9;
+}
+
+.logout-popup-confirm {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.logout-popup-confirm:hover {
+  background: #b91c1c;
+}
+
+@media (max-width: 520px) {
+  .logout-popup {
+    padding: 1rem 0.9rem 0.9rem;
+    border-radius: 14px;
+  }
+
+  .logout-popup-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .logout-popup-actions {
+    flex-direction: column-reverse;
+  }
+
+  .logout-popup-cancel,
+  .logout-popup-confirm {
+    width: 100%;
+  }
+}
 
