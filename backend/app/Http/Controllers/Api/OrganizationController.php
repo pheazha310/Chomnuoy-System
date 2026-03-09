@@ -7,6 +7,7 @@ use App\Models\Organization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 // Define a controller class for handling Organization API requests
 class OrganizationController extends Controller
@@ -41,7 +42,20 @@ class OrganizationController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $record = Organization::findOrFail($id);
-        $record->update($request->all());
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('organizations', 'email')->ignore($record->id)],
+            'location' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        if ($request->hasFile('avatar')) {
+            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+        }
+
+        $record->update($data);
 
         return response()->json($record);
     }

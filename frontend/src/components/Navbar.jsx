@@ -1,6 +1,7 @@
 import "./css/Navbar.css";
 import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { updateOrganizationProfile, updateUserProfile } from '@/services/user-service.js';
 
 const guestNavItems = [
   { label: "Home", href: "/" },
@@ -72,6 +73,17 @@ function getDonorSession() {
   }
 }
 
+function getStorageFileUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  return `${appBase}/storage/${path}`;
+}
+
 function clearDonorSession() {
   window.localStorage.removeItem('chomnuoy_session');
 }
@@ -87,21 +99,38 @@ function isNavItemActive(itemHref, pathname) {
 function Navbar() {
   const navigate = useNavigate();
   const pathname = window.location.pathname;
-  const donorSession = getDonorSession();
-  const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+  const [sessionData, setSessionData] = useState(() => getDonorSession());
+  const isDonorLoggedIn = sessionData?.isLoggedIn && sessionData?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(initialNotifications);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const uploadInputRef = useRef(null);
   const unreadCount = notifications.filter((item) => !item.isRead).length;
   const displayedNotifications = isAllNotificationsOpen ? notifications : notifications.slice(0, 3);
 
   const handleLogout = () => {
     clearDonorSession();
+    setSessionData(null);
     window.location.href = '/login';
   };
+
+  useEffect(() => {
+    const syncSessionFromStorage = () => {
+      setSessionData(getDonorSession());
+    };
+
+    window.addEventListener('storage', syncSessionFromStorage);
+    window.addEventListener('chomnuoy-session-updated', syncSessionFromStorage);
+
+    return () => {
+      window.removeEventListener('storage', syncSessionFromStorage);
+      window.removeEventListener('chomnuoy-session-updated', syncSessionFromStorage);
+    };
+  }, []);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -131,6 +160,54 @@ function Navbar() {
     navigate(`/campaigns?search=${encodedQuery}`);
   };
 
+  const syncSession = (nextSession) => {
+    window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+    setSessionData(nextSession);
+    window.dispatchEvent(new Event('chomnuoy-session-updated'));
+  };
+
+  const handleProfileHeaderClick = () => {
+    setIsProfileMenuOpen(false);
+    navigate('/profile');
+  };
+
+  const handleAvatarFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !sessionData?.userId) return;
+    if (!sessionData?.email) {
+      window.alert('Please update your profile email first, then try uploading picture again.');
+      return;
+    }
+
+    setIsAvatarUploading(true);
+    try {
+      const payload = new FormData();
+      payload.append('name', sessionData?.name || 'User');
+      payload.append('email', sessionData?.email || '');
+      payload.append('avatar', file);
+
+      const isOrganization = sessionData?.role === 'Organization' || sessionData?.accountType === 'Organization';
+      const updated = isOrganization
+        ? await updateOrganizationProfile(sessionData.userId, payload)
+        : await updateUserProfile(sessionData.userId, payload);
+
+      const nextSession = {
+        ...sessionData,
+        name: updated?.name || sessionData?.name || 'User',
+        email: updated?.email || sessionData?.email || '',
+        avatar: getStorageFileUrl(updated?.avatar_path) || sessionData?.avatar || '',
+      };
+
+      syncSession(nextSession);
+    } catch (error) {
+      console.error('Failed to update avatar', error);
+      window.alert('Failed to update profile picture. Please try again.');
+    } finally {
+      setIsAvatarUploading(false);
+    }
+  };
+
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
@@ -153,8 +230,8 @@ function Navbar() {
   }, [isProfileMenuOpen, isNotificationOpen]);
 
   if (isDonorLoggedIn) {
-    const donorName = donorSession.name || 'Donor User';
-    const donorImpact = donorSession.impactLevel || 'Gold';
+    const donorName = sessionData.name || 'Donor User';
+    const donorImpact = sessionData.impactLevel || 'Gold';
 
     return (
       <nav className="donor-navbar" aria-label="Donor navigation">
@@ -336,7 +413,7 @@ function Navbar() {
               aria-expanded={isProfileMenuOpen}
             >
               <img
-                src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+                src={sessionData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
                 alt={donorName}
                 className="donor-avatar-photo"
               />
@@ -344,21 +421,60 @@ function Navbar() {
             
             {isProfileMenuOpen && (
               <div className="donor-profile-dropdown" aria-label="Profile menu" style={{display: 'block'}}>
-                <div className="donor-profile-header">
-                  <img
-                    src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                    alt={donorName}
-                    className="donor-profile-avatar"
-                  />
-                  <div className="donor-profile-info">
+                <button
+                  type="button"
+                  className="donor-profile-header donor-profile-header-button"
+                  onClick={handleProfileHeaderClick}
+                >
+                  <span className="donor-profile-avatar-wrap">
+                    <img
+                      src={sessionData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+                      alt={donorName}
+                      className="donor-profile-avatar"
+                    />
+                    <span
+                      className={`donor-profile-avatar-camera ${isAvatarUploading ? 'is-uploading' : ''}`}
+                      aria-label="Edit profile picture"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (isAvatarUploading) return;
+                        uploadInputRef.current?.click();
+                      }}
+                      onKeyDown={(event) => {
+                        if (isAvatarUploading) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          uploadInputRef.current?.click();
+                        }
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
+                        <path d="M4 8h4l1.5-2h5L16 8h4v10H4z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="12" cy="13" r="3.25" strokeWidth="2"/>
+                      </svg>
+                    </span>
+                  </span>
+                  <span className="donor-profile-info">
                     <p className="donor-profile-name">{donorName}</p>
-                    <p className="donor-profile-email">{donorSession.email || 'donor@example.com'}</p>
+                    <p className="donor-profile-email">{sessionData.email || 'donor@example.com'}</p>
                     <p className="donor-profile-impact">Impact Level: {donorImpact}</p>
-                  </div>
-                </div>
-                
+                    <p className="donor-profile-view-hint">Click to view profile</p>
+                  </span>
+                </button>
+
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="donor-hidden-input"
+                  onChange={handleAvatarFileChange}
+                />
+
                 <div className="donor-profile-divider"></div>
-                
+
                 <div className="donor-profile-menu">
                   <Link to="/profile" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
@@ -367,7 +483,7 @@ function Navbar() {
                     </svg>
                     My Profile
                   </Link>
-                  
+
                   <Link to="/settings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                       <circle cx="12" cy="12" r="3" strokeWidth="2"/>
@@ -375,7 +491,7 @@ function Navbar() {
                     </svg>
                     Settings
                   </Link>
-                  
+
                   <Link to="/donations" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                       <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="2"/>
@@ -383,7 +499,7 @@ function Navbar() {
                     </svg>
                     My Donations
                   </Link>
-                  
+
                   <button 
                     type="button" 
                     className="donor-profile-menu-item donor-profile-logout"

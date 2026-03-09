@@ -7,6 +7,7 @@ import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
 import Organization from '@/components/pages/organization.jsx';
+import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
@@ -99,7 +100,7 @@ export default function App() {
         <Route path="/register" element={<RegisterRoute />} />
         <Route path="/donations" element={<div style={{ padding: '2rem' }}>My Donations Page</div>} />
         <Route path="/pickup" element={<div style={{ padding: '2rem' }}>Material Pickup Page</div>} />
-        <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
+        <Route path="/profile" element={<MyProfilePage />} />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
       </Routes>
       {!hideShell && <Footer />}
