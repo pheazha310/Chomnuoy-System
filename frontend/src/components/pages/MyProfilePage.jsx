@@ -2,7 +2,9 @@
 import { Camera, ImageIcon, Mail, MoreVertical, Pencil, Phone, Save, Upload, User, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
+  findUserByEmail,
   getOrganizationById,
+  registerUser,
   getUserById,
   updateOrganizationProfile,
   updateUserProfile,
@@ -45,13 +47,23 @@ function saveAvatarOverride(overrideKey, avatarUrl) {
 
 function getStorageFileUrl(path) {
   if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
   }
 
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
-  return `${appBase}/storage/${path}`;
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
 }
 
 function withCacheBust(url) {
@@ -75,6 +87,31 @@ function getInitials(name) {
     return parts[0].slice(0, 2).toUpperCase();
   }
   return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+}
+
+function normalizeAccountId(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (!/^\d+$/.test(String(value))) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function generateSocialFallbackPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+  let result = '';
+  for (let index = 0; index < 20; index += 1) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `${result}1aA!`;
 }
 
 export default function MyProfilePage() {
@@ -109,7 +146,8 @@ export default function MyProfilePage() {
   });
 
   const isOrganization = session?.role === 'Organization' || session?.accountType === 'Organization';
-  const accountId = session?.userId;
+  const accountId = normalizeAccountId(session?.userId);
+  const [resolvedAccountId, setResolvedAccountId] = useState(accountId);
   const avatarInitials = getInitials(formData.name || session?.name || 'Donor User');
   const hasAvatarImage = Boolean(normalizeAvatarUrl(formData.avatar));
   const illustrationOptions = [
@@ -137,10 +175,87 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (!session?.isLoggedIn || !accountId) {
+      if (!session?.isLoggedIn) {
         navigate('/login', { replace: true });
         return;
       }
+
+      if (!accountId) {
+        if (isOrganization) {
+          setFormData({
+            name: session?.name || '',
+            email: session?.email || '',
+            phone: '',
+            avatar: normalizeAvatarUrl(session?.avatar || ''),
+          });
+          setLoading(false);
+          return;
+        }
+
+        const sessionEmail = String(session?.email || '').trim().toLowerCase();
+        if (!sessionEmail) {
+          setFormData({
+            name: session?.name || '',
+            email: session?.email || '',
+            phone: '',
+            avatar: normalizeAvatarUrl(session?.avatar || ''),
+          });
+          setLoading(false);
+          return;
+        }
+
+        try {
+          let linkedUser = await findUserByEmail(sessionEmail);
+          if (!linkedUser) {
+            const registerResult = await registerUser({
+              role: 'Donor',
+              name: session?.name || sessionEmail.split('@')[0] || 'Donor User',
+              email: sessionEmail,
+              password: generateSocialFallbackPassword(),
+            });
+            linkedUser = registerResult?.user || null;
+          }
+
+          const linkedId = normalizeAccountId(linkedUser?.id);
+          if (linkedId) {
+            const nextSession = {
+              ...(getSession() || {}),
+              userId: linkedId,
+              role: 'Donor',
+              accountType: 'Donor',
+              email: linkedUser?.email || session?.email || '',
+              name: linkedUser?.name || session?.name || 'Donor User',
+            };
+            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+            window.dispatchEvent(new Event('chomnuoy-session-updated'));
+            setResolvedAccountId(linkedId);
+
+            const data = await getUserById(linkedId);
+            setFormData({
+              name: data?.name || nextSession.name || '',
+              email: data?.email || nextSession.email || '',
+              phone: data?.phone || '',
+              avatar: normalizeAvatarUrl(getStorageFileUrl(data?.avatar_path) || nextSession?.avatar || ''),
+            });
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Fall through to session-only profile state.
+        }
+
+        setFormData({
+          name: session?.name || '',
+          email: session?.email || '',
+          phone: '',
+          avatar: normalizeAvatarUrl(session?.avatar || ''),
+        });
+        setError('Unable to link this account to backend profile automatically. Please sign in with email/password.');
+        setLoading(false);
+        return;
+      }
+
+      setResolvedAccountId(accountId);
 
       try {
         const data = isOrganization
@@ -260,11 +375,20 @@ export default function MyProfilePage() {
     setIsEditing(true);
   };
 
+  const handleAvatarImageError = () => {
+    setFormData((prev) => ({ ...prev, avatar: '' }));
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     clearSyncTimers();
     setError('');
     setSuccess('');
+    const currentAccountId = resolvedAccountId || normalizeAccountId(getSession()?.userId);
+    if (!currentAccountId) {
+      setError('This account is not linked to a backend profile yet. Please sign in with email/password to edit profile.');
+      return;
+    }
     setSaving(true);
 
     try {
@@ -279,8 +403,8 @@ export default function MyProfilePage() {
       }
 
       const updated = isOrganization
-        ? await updateOrganizationProfile(accountId, payload)
-        : await updateUserProfile(accountId, payload);
+        ? await updateOrganizationProfile(currentAccountId, payload)
+        : await updateUserProfile(currentAccountId, payload);
 
       const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || normalizeAvatarUrl(formData.avatar) || normalizeAvatarUrl(session?.avatar || '') || '';
@@ -386,6 +510,7 @@ export default function MyProfilePage() {
                   <img
                     src={formData.avatar}
                     alt="Profile preview"
+                    onError={handleAvatarImageError}
                     className="h-36 w-36 rounded-full border-4 border-white object-cover shadow-[0_14px_28px_rgba(15,23,42,0.22)] sm:h-40 sm:w-40"
                   />
                 ) : (
@@ -530,6 +655,7 @@ export default function MyProfilePage() {
                   <img
                     src={formData.avatar}
                     alt="Profile avatar"
+                    onError={handleAvatarImageError}
                     className="h-20 w-20 rounded-full border border-[#CBD5E1] object-cover"
                   />
                 ) : (

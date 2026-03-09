@@ -123,7 +123,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
 
       const payload = jwtDecode(credential);
       const profile = {
-        id: payload?.sub ?? null,
+        id: null,
         name: payload?.name ?? payload?.email ?? "Google User",
         email: payload?.email ?? "",
         avatar: payload?.picture ?? null,

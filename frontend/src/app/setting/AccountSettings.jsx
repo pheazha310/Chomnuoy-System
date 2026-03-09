@@ -340,7 +340,8 @@ export default function AccountSettings() {
       session = null;
     }
 
-    const userId = session?.userId;
+    const parsedUserId = Number(session?.userId);
+    const userId = Number.isSafeInteger(parsedUserId) && parsedUserId > 0 ? parsedUserId : null;
     const accountType = session?.accountType || session?.role || 'Donor';
 
     if (!userId) {
