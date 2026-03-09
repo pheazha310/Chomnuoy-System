@@ -39,7 +39,9 @@ export default function OrganizationProfileEditPage() {
     about: storedProfile?.about || '',
     email: storedProfile?.email || session?.email || '',
     phone: storedProfile?.phone || '',
-    location: storedProfile?.location || '',
+    location:
+      storedProfile?.location ||
+      'Passerelles numériques Cambodia (PNC), BP 511, Phum Tropeang Chhuk (Borey Sorla) Sangtak, Street 371, Phnom Penh, Cambodia',
     website: storedProfile?.website || '',
     socials: {
       facebook: storedProfile?.socials?.facebook || '',

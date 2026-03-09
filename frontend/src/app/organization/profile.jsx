@@ -49,6 +49,9 @@ export default function OrganizationProfilePage() {
         ]
       : fallbackSocials;
 
+  const mapQuery = encodeURIComponent(
+    storedProfile?.mapQuery || storedProfile?.location || 'Passerelles numériques Cambodia (PNC)'
+  );
   const profile = {
     name: organizationName,
     joined: storedProfile?.joined || 'October 2021',
@@ -58,7 +61,9 @@ export default function OrganizationProfilePage() {
     contact: {
       email: storedProfile?.email || session?.email || 'contact@chomnuoy.org',
       phone: storedProfile?.phone || '+1 (555) 123-4567',
-      location: storedProfile?.location || '123 Eco Plaza, San Francisco, CA',
+      location:
+        storedProfile?.location ||
+        'Passerelles numériques Cambodia (PNC), BP 511, Phum Tropeang Chhuk (Borey Sorla) Sangtak, Street 371, Phnom Penh, Cambodia',
       website: storedProfile?.website || 'www.chomnuoy.org',
     },
     stats: [
@@ -116,7 +121,13 @@ export default function OrganizationProfilePage() {
                 <h2>Headquarters</h2>
                 <span className="org-profile-meta">{profile.contact.location}</span>
               </div>
-              <div className="org-profile-map-img" role="img" aria-label="Map preview" />
+              <iframe
+                title="PNC Map"
+                className="org-profile-map-embed"
+                src={`https://www.google.com/maps?q=${mapQuery}&output=embed`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
               <div className="org-profile-tags">
                 {profile.impactAreas.map((area) => (
                   <span key={area} className="org-profile-tag">{area}</span>

@@ -1306,8 +1306,6 @@
   height: 48px;
   border-radius: 12px;
   object-fit: cover;
-  border: 1px solid #d8e4f4;
-  background: #fff;
 }
 
 .org-profile-header h1 {
@@ -1404,6 +1402,14 @@
   border: 1px solid #d8e4f4;
 }
 
+.org-profile-map-embed {
+  width: 100%;
+  height: 210px;
+  border: 1px solid #d8e4f4;
+  border-radius: 14px;
+  margin-top: 12px;
+}
+
 .org-profile-tags {
   margin-top: 12px;
   display: flex;
@@ -1437,6 +1443,11 @@
   margin: 4px 0 0;
   font-weight: 700;
   color: #0f172a;
+}
+
+.org-profile-right {
+  display: grid;
+  gap: 14px;
 }
 
 .org-profile-socials {
@@ -1542,8 +1553,6 @@
   height: 64px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #d8e4f4;
-  background: #fff;
 }
 
 .org-profile-edit-grid {
