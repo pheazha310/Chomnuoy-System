@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
@@ -51,8 +52,11 @@ class UserController extends Controller
 
         // Check if avatar file is uploaded
         if ($request->hasFile('avatar')) {
-            // Store avatar in storage/app/public/avatars and save path in database
-            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            // Store avatar file and only persist path when schema has avatar_path.
+            $storedPath = $request->file('avatar')->store('avatars', 'public');
+            if (Schema::hasColumn('users', 'avatar_path')) {
+                $data['avatar_path'] = $storedPath;
+            }
         }
 
         // Update user data in database

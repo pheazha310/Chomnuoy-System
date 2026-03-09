@@ -25,6 +25,10 @@ import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
 
+const DEFAULT_AVATAR_URL =
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
+const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
+
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
@@ -41,6 +45,42 @@ function getSession() {
   } catch {
     return null;
   }
+}
+
+function getStorageFileUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  return `${appBase}/storage/${path}`;
+}
+
+function getProfileAvatarOverrides() {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_AVATAR_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function resolveAvatar(profile) {
+  return (
+    profile?.avatar ||
+    profile?.avatar_url ||
+    getStorageFileUrl(profile?.avatar_path) ||
+    ''
+  );
+}
+
+function buildAvatarOverrideKey(role, profile, fallbackEmail = '') {
+  const normalizedRole = String(role || 'Donor').toLowerCase();
+  const email = String(profile?.email || fallbackEmail || '').trim().toLowerCase();
+  const identity = profile?.id ? `id:${profile.id}` : (email ? `email:${email}` : 'anonymous');
+  return `${normalizedRole}:${identity}`;
 }
 
 function CampaignDetailRoute() {
@@ -88,16 +128,24 @@ function LoginRoute() {
 
     if (!profile) {
       const user = data?.user || data || {};
+      const avatarOverrideKey = isOrganization
+        ? null
+        : buildAvatarOverrideKey(normalizedAccountType, user, loginEmail || user.email);
+      const avatarOverrides = getProfileAvatarOverrides();
+      const resolvedAvatar = isOrganization
+        ? DEFAULT_AVATAR_URL
+        : (avatarOverrides[avatarOverrideKey] || resolveAvatar(user) || '');
       const sessionData = {
         isLoggedIn: true,
         role: normalizedAccountType,
         name: user.name || 'Donor User',
         email: user.email || loginEmail || '',
         impactLevel: isOrganization ? 'Organization' : 'Gold',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+        avatar: resolvedAvatar,
         userId: user.id || null,
         accountType: normalizedAccountType,
         logoutRedirectTo: redirectTo,
+        avatarOverrideKey: avatarOverrideKey || undefined,
       };
 
       if (data?.token) {
@@ -113,16 +161,24 @@ function LoginRoute() {
       return;
     }
 
+    const avatarOverrideKey = isOrganization
+      ? null
+      : buildAvatarOverrideKey(normalizedAccountType, profile, loginEmail || profile?.email);
+    const avatarOverrides = getProfileAvatarOverrides();
+    const resolvedAvatar = isOrganization
+      ? DEFAULT_AVATAR_URL
+      : (avatarOverrides[avatarOverrideKey] || resolveAvatar(profile) || '');
     const sessionData = {
       isLoggedIn: true,
       role: isOrganization ? 'Organization' : 'Donor',
       name: profile?.name || 'User',
       email: profile?.email || loginEmail || '',
       impactLevel: isOrganization ? 'Organization' : 'Gold',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+      avatar: resolvedAvatar,
       userId: profile.id,
       accountType: normalizedAccountType,
       logoutRedirectTo: redirectTo,
+      avatarOverrideKey: avatarOverrideKey || undefined,
     };
 
     if (data?.token) {
