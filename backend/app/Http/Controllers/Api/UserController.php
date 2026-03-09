@@ -62,6 +62,24 @@ class UserController extends Controller
         return response()->json($user);
     }
 
+    public function getAvatars(): JsonResponse
+    {
+        // Get only avatar_path column
+        $avatars = User::select('avatar_path')->get();
+
+        return response()->json($avatars);
+    }
+
+    public function getAvatarById(int $id): JsonResponse
+    {
+        $user = User::select('id', 'avatar_path')->findOrFail($id);
+
+        return response()->json([
+            'id' => $user->id,
+            'avatar_path' => $user->avatar_path,
+        ]);
+    }
+
     public function destroy(int $id): JsonResponse
     {
         $record = User::findOrFail($id);

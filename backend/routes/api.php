@@ -38,6 +38,8 @@ Route::get('/health', function (): JsonResponse {
     ]);
 });
 
+Route::get('/users/{id}/avatar', [UserController::class, 'getAvatarById']);
+Route::get('/users/avatars', [UserController::class, 'getAvatars']);
 Route::apiResource('users', UserController::class);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('user_roles', UserRoleController::class);

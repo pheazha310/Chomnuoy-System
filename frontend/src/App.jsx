@@ -7,15 +7,11 @@ import Footer from '@/components/Footer.jsx';
 import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
 import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-<<<<<<< HEAD
-import Organization from '@/components/pages/organization.jsx';
-import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
-=======
 import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.jsx';
 import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
+import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
@@ -208,11 +204,6 @@ export default function App() {
         <Route path={ROUTES.CONTACT} element={<ContactPage />} />
         <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
         <Route path="/register" element={<RegisterRoute />} />
-<<<<<<< HEAD
-        <Route path="/donations" element={<div style={{ padding: '2rem' }}>My Donations Page</div>} />
-        <Route path="/pickup" element={<div style={{ padding: '2rem' }}>Material Pickup Page</div>} />
-        <Route path="/profile" element={<MyProfilePage />} />
-=======
         <Route
           path={ROUTES.ORGANIZATION_DASHBOARD}
           element={(
@@ -248,8 +239,14 @@ export default function App() {
         <Route path="/pickup" element={<MaterialPickupPage />} />
         <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
         <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
-        <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
+        <Route
+          path="/profile"
+          element={(
+            <RequireAuth>
+              <MyProfilePage />
+            </RequireAuth>
+          )}
+        />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
       </Routes>
       {!hideShell && <Footer />}

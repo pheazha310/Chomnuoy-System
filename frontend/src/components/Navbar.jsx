@@ -1,15 +1,9 @@
-<<<<<<< HEAD
 import "./css/Navbar.css";
-import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
-import { updateOrganizationProfile, updateUserProfile } from '@/services/user-service.js';
-=======
-import './css/Navbar.css';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getPrivacyPreferences } from '@/utils/user-preferences';
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
+import { updateOrganizationProfile, updateUserProfile } from '@/services/user-service.js';
+import { initialNotifications } from '@/components/pages/notifications/notificationData.js';
 
 const guestNavItems = [
   { label: 'Home', href: '/' },
@@ -38,7 +32,6 @@ function getDonorSession() {
   }
 }
 
-<<<<<<< HEAD
 function getStorageFileUrl(path) {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -51,9 +44,6 @@ function getStorageFileUrl(path) {
 }
 
 function clearDonorSession() {
-=======
-function clearAuthState() {
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
   window.localStorage.removeItem('chomnuoy_session');
   window.localStorage.removeItem('authToken');
 }
@@ -74,72 +64,27 @@ function isGuestNavItemActive(itemHref, pathname) {
 
 function Navbar() {
   const navigate = useNavigate();
-<<<<<<< HEAD
-  const pathname = window.location.pathname;
-  const [sessionData, setSessionData] = useState(() => getDonorSession());
-  const isDonorLoggedIn = sessionData?.isLoggedIn && sessionData?.role === 'Donor';
-=======
   const location = useLocation();
   const pathname = location.pathname;
   const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
   const loginHref = `/login?redirect=${loginRedirectTarget}`;
-
-  const donorSession = getDonorSession();
-  const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
+  const [sessionData, setSessionData] = useState(() => getDonorSession());
+  const isDonorLoggedIn = sessionData?.isLoggedIn && sessionData?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-<<<<<<< HEAD
   const [notifications, setNotifications] = useState(initialNotifications);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const uploadInputRef = useRef(null);
-=======
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'success',
-      title: 'Donation Received',
-      message: 'Thank you for supporting Rural Health Alliance.',
-      time: '2m ago',
-      isRead: false,
-    },
-    {
-      id: 2,
-      type: 'info',
-      title: 'Campaign Update',
-      message: 'Ocean Reclaim Project shared a new progress update.',
-      time: '1h ago',
-      isRead: false,
-    },
-    {
-      id: 3,
-      type: 'message',
-      title: 'Pickup Reminder',
-      message: 'Your material pickup is scheduled for tomorrow.',
-      time: 'Yesterday',
-      isRead: true,
-    },
-  ]);
   const notificationRef = useRef(null);
-
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   const handleLogout = () => {
-<<<<<<< HEAD
     clearDonorSession();
     setSessionData(null);
     window.location.href = '/login';
-=======
-    const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
-    const logoutTarget =
-      savedBeforeLoginPath && savedBeforeLoginPath.startsWith('/') ? savedBeforeLoginPath : '/';
-    clearAuthState();
-    window.location.href = logoutTarget;
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
   };
 
   useEffect(() => {
@@ -291,14 +236,8 @@ function Navbar() {
   );
 
   if (isDonorLoggedIn) {
-<<<<<<< HEAD
     const donorName = sessionData.name || 'Donor User';
     const donorImpact = sessionData.impactLevel || 'Gold';
-=======
-    const donorName = donorSession.name || 'Donor User';
-    const donorImpact = donorSession.impactLevel || 'Gold';
-    const { publicProfile } = getPrivacyPreferences();
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
 
     return (
       <nav className="donor-navbar" aria-label="Donor navigation">
@@ -402,21 +341,13 @@ function Navbar() {
               aria-expanded={isProfileMenuOpen}
             >
               <img
-<<<<<<< HEAD
                 src={sessionData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-=======
-                src={
-                  donorSession.avatar ||
-                  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'
-                }
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
                 alt={donorName}
                 className="donor-avatar-photo"
               />
             </button>
 
             {isProfileMenuOpen && (
-<<<<<<< HEAD
               <div className="donor-profile-dropdown" aria-label="Profile menu" style={{display: 'block'}}>
                 <button
                   type="button"
@@ -471,30 +402,6 @@ function Navbar() {
                 />
 
                 <div className="donor-profile-divider"></div>
-=======
-              <div className="donor-profile-dropdown" aria-label="Profile menu" style={{ display: 'block' }}>
-                <div className="donor-profile-header">
-                  <img
-                    src={
-                      donorSession.avatar ||
-                      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'
-                    }
-                    alt={donorName}
-                    className="donor-profile-avatar"
-                  />
-                  <div className="donor-profile-info">
-                    <p className="donor-profile-name">{donorName}</p>
-                    <p className="donor-profile-email">{donorSession.email || 'donor@example.com'}</p>
-                    {publicProfile ? (
-                      <p className="donor-profile-impact">Impact Level: {donorImpact}</p>
-                    ) : (
-                      <p className="donor-profile-impact">Profile visibility: Private</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="donor-profile-divider" />
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
 
                 <div className="donor-profile-menu">
                   <Link to="/profile" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
@@ -505,24 +412,10 @@ function Navbar() {
                     My Profile
                   </Link>
 
-<<<<<<< HEAD
                   <Link to="/settings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                       <circle cx="12" cy="12" r="3" strokeWidth="2"/>
                       <path d="M12 1v6m0 6v6m4.22-13.22 4.22 4.22M1.54 9.54l4.22 4.22M20.46 14.46l-4.22 4.22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-=======
-                  <Link
-                    to="/settings/AccountSettings"
-                    className="donor-profile-menu-item"
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" strokeWidth="1.8" />
-                      <path
-                        d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.06V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.06-.4H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.6 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.06V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.06.4H21a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"
-                        strokeWidth="1.2"
-                      />
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
                     </svg>
                     Settings
                   </Link>
@@ -535,13 +428,8 @@ function Navbar() {
                     My Donations
                   </Link>
 
-<<<<<<< HEAD
                   <button 
                     type="button" 
-=======
-                  <button
-                    type="button"
->>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
                     className="donor-profile-menu-item donor-profile-logout"
                     onClick={() => {
                       setIsProfileMenuOpen(false);
