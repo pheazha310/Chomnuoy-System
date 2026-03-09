@@ -99,6 +99,15 @@ export default function OrganizationProfileEditPage() {
     }, 600);
   };
 
+  const handleDeleteAccount = () => {
+    const confirmed = window.confirm('Delete organization account? This cannot be undone.');
+    if (!confirmed) return;
+    window.localStorage.removeItem('chomnuoy_org_profile');
+    window.localStorage.removeItem('chomnuoy_session');
+    window.localStorage.removeItem('authToken');
+    navigate('/', { replace: true });
+  };
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
@@ -205,7 +214,9 @@ export default function OrganizationProfileEditPage() {
           <section className="org-profile-danger">
             <h2>Danger Zone</h2>
             <p>Deleting your organization profile will remove all associated campaigns and donor history.</p>
-            <button type="button" className="org-profile-danger-btn">Delete Organization Account</button>
+            <button type="button" className="org-profile-danger-btn" onClick={handleDeleteAccount}>
+              Delete Organization Account
+            </button>
           </section>
 
           <div className="org-profile-edit-actions">
