@@ -1,7 +1,21 @@
 .campaigns-page,
 .campaign-detail-page {
+  position: relative;
+  z-index: 0;
   width: min(1200px, calc(100% - 2rem));
   margin: 1.25rem auto;
+}
+
+.campaigns-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 6%, rgba(31, 125, 226, 0.16), transparent 42%),
+    radial-gradient(circle at 88% 94%, rgba(24, 104, 203, 0.11), transparent 35%),
+    linear-gradient(170deg, #f8fbff 0%, #edf4fc 52%, #e6eef8 100%);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .campaigns-dashboard {
@@ -72,22 +86,24 @@
 }
 
 .campaign-nav-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   color: #293645;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 18px;
 }
 
 .campaign-nav-icon-svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
+  shape-rendering: geometricPrecision;
 }
 
 .campaign-pill-list {
@@ -1017,10 +1033,97 @@
   color: #1f7de2;
 }
 
+.custom-amount-form {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.custom-amount-form label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #5e7288;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.custom-amount-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+
+.custom-amount-controls input {
+  border: 1px solid #d4e0ed;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+  color: #1f3349;
+  background: #ffffff;
+}
+
+.custom-amount-controls input:focus-visible {
+  outline: 2px solid #1f7de2;
+  outline-offset: 1px;
+}
+
+.custom-amount-controls button {
+  border: 1px solid #cde0f6;
+  border-radius: 8px;
+  padding: 0.45rem 0.72rem;
+  background: #eef5ff;
+  color: #1f5ea5;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.custom-amount-controls button:hover,
+.custom-amount-controls button:focus-visible {
+  border-color: #abc8ea;
+  background: #e4efff;
+  outline: none;
+}
+
+.payment-methods-inline {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.payment-methods-inline button {
+  border: 1px solid #d7e4f1;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #354c65;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.52rem 0.35rem;
+  cursor: pointer;
+}
+
+.payment-methods-inline button.is-selected {
+  border-color: #1f7de2;
+  background: #e8f1ff;
+  color: #1f5ea5;
+}
+
 .selected-amount {
   margin: 0.68rem 0 0;
   color: #24384f;
   font-weight: 700;
+}
+
+.donation-inline-message {
+  margin: 0.52rem 0 0;
+  border: 1px solid #cde5d4;
+  border-radius: 8px;
+  background: #f2fbf5;
+  color: #2f6040;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.6rem;
 }
 
 .detail-donate-button {
@@ -1288,6 +1391,10 @@
 
   .quick-amount-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .payment-methods-inline {
+    grid-template-columns: 1fr;
   }
 
   .campaign-about h2,

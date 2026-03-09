@@ -31,6 +31,7 @@ export async function getCategories() {
     return response.data;
 }
 
+<<<<<<< HEAD
 /**
  * Update user profile
  * userId - ID of the user to update
@@ -70,5 +71,16 @@ export async function getUserById(userId) {
 
 export async function getOrganizationById(orgId) {
     const response = await apiClient.get(`/organizations/${orgId}`);
+=======
+export async function changePassword(payload) {
+    const response = await apiClient.post('/auth/change-password', payload);
+    return response.data;
+}
+
+export async function deactivateAccount({ accountType, userId }) {
+    const normalizedType = (accountType || '').toLowerCase();
+    const resource = normalizedType === 'organization' ? 'organizations' : 'users';
+    const response = await apiClient.delete(`/${resource}/${userId}`);
+>>>>>>> 34319637759cbe96035bd1fd1a7a891555e93a45
     return response.data;
 }

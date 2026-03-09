@@ -1,0 +1,221 @@
+.pd-page {
+  min-height: 100vh;
+  background: #f2f5fa;
+  padding: 1.1rem 0 2rem;
+}
+
+.pd-shell {
+  width: min(980px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.pd-back {
+  border: 0;
+  background: transparent;
+  color: #1f6fe6;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  margin-bottom: 0.8rem;
+}
+
+.pd-back svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.pd-card {
+  border: 1px solid #dbe3ee;
+  border-radius: 16px;
+  background: #fff;
+  padding: 1rem;
+}
+
+.pd-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.pd-head h1 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.pd-status {
+  border-radius: 999px;
+  padding: 0.25rem 0.58rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.pd-status.pending {
+  background: #fff6dd;
+  color: #a17207;
+}
+
+.pd-status.transit {
+  background: #dcecff;
+  color: #1d4ed8;
+}
+
+.pd-status.delivered {
+  background: #dff8ea;
+  color: #0f8c5f;
+}
+
+.pd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.pd-grid > div {
+  border: 1px solid #e6edf6;
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 0.7rem;
+}
+
+.pd-grid p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.84rem;
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.pd-grid p svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.pd-grid strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: #0f172a;
+}
+
+.pd-grid span {
+  display: block;
+  margin-top: 0.18rem;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.pd-track {
+  margin-top: 0.9rem;
+  border: 1px solid #e6edf6;
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.pd-track h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pd-track h3 svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.pd-track ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1rem;
+  color: #94a3b8;
+}
+
+.pd-track li {
+  margin: 0.35rem 0;
+}
+
+.pd-track li.done {
+  color: #0f8c5f;
+}
+
+.pr-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.pr-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.pr-form label.full {
+  grid-column: 1 / -1;
+}
+
+.pr-form input,
+.pr-form textarea {
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #0f172a;
+}
+
+.pr-form input {
+  height: 2.45rem;
+  padding: 0 0.7rem;
+}
+
+.pr-form textarea {
+  padding: 0.65rem 0.7rem;
+  resize: vertical;
+}
+
+.pr-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.pr-actions button {
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pr-actions .cancel {
+  border: 1px solid #dbe3ee;
+  background: #fff;
+  color: #334155;
+}
+
+.pr-actions .submit {
+  border: 0;
+  background: #1f6fe6;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pr-actions .submit svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+@media (max-width: 920px) {
+  .pd-grid,
+  .pr-form {
+    grid-template-columns: 1fr;
+  }
+}

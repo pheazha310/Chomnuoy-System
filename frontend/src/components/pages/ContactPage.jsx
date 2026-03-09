@@ -4,7 +4,28 @@ import ContactForm from '../pages/ContactForm';
 import ContactInfo from '../pages/ContactInfo';
 import SupportSection from '../pages/Suppourtsection';
 import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function ContactPage() {
+  const session = getSession();
+  const isLoggedIn = Boolean(session?.isLoggedIn);
+  const isDonor = session?.role === 'Donor';
+  const donateTarget = isDonor ? '/campaigns/donor' : '/campaigns';
+
+  const scrollToContactForm = () => {
+    const target = document.querySelector('.contact-main-wrap');
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="contact-shell">
       <section className="contact-hero-wrap">
@@ -22,11 +43,19 @@ export default function ContactPage() {
               A bridge between those who want to help and those who need it most. Join our ecosystem of transparent giving.
             </p>
             <div className="contact-hero-actions">
-              <button className="contact-hero-btn contact-hero-btn-primary">
+              <Link to={donateTarget} className="contact-hero-btn contact-hero-btn-primary">
                 Donate Now
                 <ArrowRight className="h-4 w-4" />
-              </button>
-              <button className="contact-hero-btn contact-hero-btn-secondary">Join Us</button>
+              </Link>
+              {isLoggedIn ? (
+                <button type="button" className="contact-hero-btn contact-hero-btn-secondary" onClick={scrollToContactForm}>
+                  Contact Team
+                </button>
+              ) : (
+                <Link to="/login" className="contact-hero-btn contact-hero-btn-secondary">
+                  Join Us
+                </Link>
+              )}
             </div>
           </div>
         </div>

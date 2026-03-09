@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useParams, useNavigate } from 'react-router-dom';
 import {
   Heart,
   Share2,
@@ -30,6 +30,15 @@ function setSavedCampaignIds(ids) {
   window.localStorage.setItem(SAVED_CAMPAIGNS_STORAGE_KEY, JSON.stringify(ids));
 }
 
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -41,18 +50,36 @@ function formatCurrency(amount) {
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
+  const presetAmounts = [10, 25, 50, 100, 250];
+  const [selectedAmount, setSelectedAmount] = useState(25);
+  const [customAmountInput, setCustomAmountInput] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('QR Payment');
+  const [donationMessage, setDonationMessage] = useState('');
+  const [locationState, setLocationState] = useState({
+    loading: false,
+    error: '',
+    coords: null,
+    lastUpdated: null,
+  });
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
   const campaign = getCampaignById(resolvedCampaignId);
+  const session = getSession();
+  const fallbackCampaignPath = session?.isLoggedIn && session?.role === 'Donor' ? '/campaigns/donor' : '/campaigns';
+  const backTarget =
+    typeof location.state?.from === 'string' && location.state.from.startsWith('/')
+      ? location.state.from
+      : fallbackCampaignPath;
 
   if (!campaign) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-900 mb-4">Campaign Not Found</h1>
-          <button 
-            onClick={() => navigate('/campaigns/donor')}
+          <button
+            onClick={() => navigate(backTarget)}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             Back to Campaigns
@@ -74,6 +101,60 @@ function CampaignDetailPage({ campaignId }) {
     const savedIds = getSavedCampaignIds();
     setIsSaved(savedIds.includes(campaign.id));
   }, [campaign.id]);
+
+  function requestRealLocation() {
+    if (!navigator.geolocation) {
+      setLocationState({
+        loading: false,
+        error: 'Geolocation is not supported by your browser.',
+        coords: null,
+        lastUpdated: null,
+      });
+      return;
+    }
+
+    setLocationState((previous) => ({
+      ...previous,
+      loading: true,
+      error: '',
+    }));
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationState({
+          loading: false,
+          error: '',
+          coords: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          },
+          lastUpdated: new Date(),
+        });
+      },
+      (error) => {
+        const errorMessage =
+          error.code === 1
+            ? 'Location access denied. Enable location permission and try again.'
+            : 'Unable to get your current location.';
+        setLocationState({
+          loading: false,
+          error: errorMessage,
+          coords: null,
+          lastUpdated: null,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      },
+    );
+  }
+
+  useEffect(() => {
+    requestRealLocation();
+  }, []);
 
   async function handleShare() {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
@@ -120,11 +201,30 @@ function CampaignDetailPage({ campaignId }) {
     setIsSaved(nextSavedIds.includes(campaign.id));
   }
 
+  function handleCustomAmountApply(event) {
+    event.preventDefault();
+    const parsed = Number(customAmountInput.replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setDonationMessage('Please enter a valid custom amount greater than $0.');
+      return;
+    }
+
+    const roundedAmount = Math.round(parsed);
+    setSelectedAmount(roundedAmount);
+    setDonationMessage(`Custom amount applied: $${roundedAmount.toLocaleString()}.`);
+  }
+
+  function handleDonateNow() {
+    setDonationMessage(
+      `Prepared donation of $${selectedAmount.toLocaleString()} via ${selectedPaymentMethod}. Checkout integration can be connected here.`,
+    );
+  }
+
   return (
     <main className="campaign-detail-page campaign-detail-v2">
-      <a href="/campaigns/donor" className="detail-back-link">
+      <Link to={backTarget} className="detail-back-link">
         <ArrowLeft size={16} /> Back to campaigns
-      </a>
+      </Link>
 
       <section className="campaign-detail-layout campaign-detail-v2-layout" aria-label="Campaign detail">
         <div className="campaign-main-column">
@@ -225,17 +325,66 @@ function CampaignDetailPage({ campaignId }) {
               <p><strong>{percentRaised}%</strong><span>Reached</span></p>
             </div>
             <div className="quick-amount-grid">
-              {[10, 25, 50, 100, 250].map((amount) => (
-                <button key={amount} type="button" className={amount === 25 ? 'is-selected' : ''}>
+              {presetAmounts.map((amount) => (
+                <button
+                  key={amount}
+                  type="button"
+                  className={amount === selectedAmount ? 'is-selected' : ''}
+                  onClick={() => {
+                    setSelectedAmount(amount);
+                    setDonationMessage('');
+                  }}
+                >
                   ${amount}
                 </button>
               ))}
-              <button type="button">Custom</button>
+              <button
+                type="button"
+                className={!presetAmounts.includes(selectedAmount) ? 'is-selected' : ''}
+                onClick={() => setDonationMessage('Enter a custom amount below, then press Apply.')}
+              >
+                Custom
+              </button>
             </div>
-            <p className="selected-amount">$ 25</p>
-            <button type="button" className="donate-button detail-donate-button" onClick={() => alert('Donation functionality coming soon!')}>
+            <form className="custom-amount-form" onSubmit={handleCustomAmountApply}>
+              <label htmlFor="custom-amount-input">Custom amount (USD)</label>
+              <div className="custom-amount-controls">
+                <input
+                  id="custom-amount-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  placeholder="Enter amount"
+                  value={customAmountInput}
+                  onChange={(event) => setCustomAmountInput(event.target.value)}
+                />
+                <button type="submit">Apply</button>
+              </div>
+            </form>
+            <div className="payment-methods-inline" role="radiogroup" aria-label="Payment method">
+              {['QR Payment', 'ABA Pay', 'Wing Bank'].map((method) => (
+                <button
+                  key={method}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedPaymentMethod === method}
+                  className={selectedPaymentMethod === method ? 'is-selected' : ''}
+                  onClick={() => setSelectedPaymentMethod(method)}
+                >
+                  {method}
+                </button>
+              ))}
+            </div>
+            <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
+            <button
+              type="button"
+              className="donate-button detail-donate-button"
+              onClick={handleDonateNow}
+            >
               <HandHeart size={15} /> Donate Now
             </button>
+            {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
             <div className="detail-secondary-actions">
               <button type="button" className="detail-save-btn" onClick={handleSaveToggle}>
                 {isSaved ? 'Saved' : 'Save'}
@@ -255,15 +404,47 @@ function CampaignDetailPage({ campaignId }) {
 
           <article className="detail-rewards-card detail-location-card">
             <p className="card-label">Location</p>
-            <img
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
-              alt="Project location map"
-              className="location-image"
-              referrerPolicy="no-referrer"
-            />
+            {locationState.coords ? (
+              <iframe
+                title="Current location map"
+                src={`https://maps.google.com/maps?q=${locationState.coords.lat},${locationState.coords.lng}&z=14&output=embed`}
+                className="location-image"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <img
+                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
+                alt="Project location map"
+                className="location-image"
+                referrerPolicy="no-referrer"
+              />
+            )}
             <p className="location-caption">
-              Project sites located across 5 villages in the Thpong district.
+              {locationState.loading
+                ? 'Detecting your real-time location...'
+                : locationState.coords
+                  ? `Live location: ${locationState.coords.lat.toFixed(5)}, ${locationState.coords.lng.toFixed(5)} (±${Math.round(locationState.coords.accuracy)}m)`
+                  : locationState.error || 'Project sites located across 5 villages in the Thpong district.'}
             </p>
+            {locationState.lastUpdated ? (
+              <p className="location-caption">Updated: {locationState.lastUpdated.toLocaleTimeString()}</p>
+            ) : null}
+            <div className="detail-secondary-actions">
+              <button type="button" className="detail-save-btn" onClick={requestRealLocation}>
+                Refresh Location
+              </button>
+              {locationState.coords ? (
+                <a
+                  className="detail-share-btn"
+                  href={`https://www.google.com/maps?q=${locationState.coords.lat},${locationState.coords.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Maps
+                </a>
+              ) : null}
+            </div>
           </article>
         </aside>
       </section>
