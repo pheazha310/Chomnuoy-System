@@ -63,9 +63,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       import.meta.env.VITE_FACEBOOK_AUTH_URL ??
       `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/facebook/redirect`,
   };
-  const googleClientId =
-    import.meta.env.VITE_GOOGLE_CLIENT_ID ??
-    "529901988862-344m0simfhfr0bh0ufukptkmdnb0chpr.apps.googleusercontent.com";
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
+  const isGoogleSignInConfigured = Boolean(googleClientId);
 
   const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
@@ -84,11 +83,19 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
+      const firstErrorMessage =
+        errors.email?.[0] ||
+        errors.password?.[0] ||
+        err.response?.data?.message ||
+        (err.request
+          ? "Unable to connect to the server. Please check that backend is running."
+          : "Login failed");
+
       setFieldErrors({
         email: errors.email?.[0] || "",
         password: errors.password?.[0] || "",
       });
-      setError(err.response?.data?.message || "Login failed");
+      setError(firstErrorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -267,14 +274,31 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             Gmail
           </button> */}
 
-          <GoogleOAuthProvider clientId={googleClientId}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => {
-                setError("Google login failed. Please try again.");
-              }}
-            />
-          </GoogleOAuthProvider>
+          {isGoogleSignInConfigured ? (
+            <GoogleOAuthProvider clientId={googleClientId}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  const currentOrigin =
+                    typeof window !== "undefined"
+                      ? window.location.origin
+                      : "your-app-origin";
+                  setError(
+                    `Google login failed. Ensure ${currentOrigin} is added to Authorized JavaScript origins for this OAuth client ID.`
+                  );
+                }}
+              />
+            </GoogleOAuthProvider>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 text-sm font-semibold text-[#98A2B3]"
+              title="Set VITE_GOOGLE_CLIENT_ID in frontend/.env and restart the frontend server."
+            >
+              Google not configured
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handleSocialLogin("facebook")}
