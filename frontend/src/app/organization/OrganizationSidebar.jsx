@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import ROUTES from '@/constants/routes.js';
 
 export default function OrganizationSidebar() {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
@@ -54,22 +56,29 @@ export default function OrganizationSidebar() {
         </div>
 
         <nav className="org-nav">
-          <button className="org-nav-item active" type="button">
+          <NavLink
+            to={ROUTES.ORGANIZATION_DASHBOARD}
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+            end
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M3 13h8V3H3zM13 21h8v-6h-8zM13 11h8V3h-8zM3 21h8v-6H3z" strokeWidth="1.8" />
               </svg>
             </span>
             Dashboard
-          </button>
-          <button className="org-nav-item" type="button">
+          </NavLink>
+          <NavLink
+            to={ROUTES.ORGANIZATION_CAMPAIGNS}
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M4 7h16M4 12h16M4 17h10" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </span>
             Campaigns
-          </button>
+          </NavLink>
           <button className="org-nav-item" type="button">
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">

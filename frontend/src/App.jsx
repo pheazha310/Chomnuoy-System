@@ -20,6 +20,7 @@ import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
+import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
@@ -27,7 +28,7 @@ import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -196,7 +197,7 @@ export default function App() {
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
-    location.pathname === ROUTES.ORGANIZATION_DASHBOARD;
+    location.pathname.startsWith('/organization/');
 
   return (
     <>
@@ -220,6 +221,14 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationDashboardPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGNS}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignsPage />
             </RequireOrganizationAuth>
           )}
         />
