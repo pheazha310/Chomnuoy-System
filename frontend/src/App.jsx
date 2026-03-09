@@ -21,6 +21,7 @@ import ViewDetail from '@/app/donate/viewDetail.jsx';
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import OrganizationDonationsPage from '@/app/organization/donations.jsx';
+import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
@@ -32,7 +33,7 @@ const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -285,6 +286,14 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationDonationsPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGNS}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignsPage />
             </RequireOrganizationAuth>
           )}
         />
