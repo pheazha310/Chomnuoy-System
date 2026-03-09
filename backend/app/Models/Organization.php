@@ -19,6 +19,7 @@ class Organization extends Model
         'location',
         'description',
         'verified_status',
+        'avatar_path',
     ];
 
     protected $hidden = ['password'];

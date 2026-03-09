@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -28,12 +29,37 @@ class UserController extends Controller
         return response()->json($record);
     }
 
+
+    /**
+     * Update user information
+     * 
+     * This function receives a request from the client (frontend/Postman),
+     * validates the input data, uploads avatar if provided, and updates the user record.
+     */
     public function update(Request $request, int $id): JsonResponse
     {
-        $record = User::findOrFail($id);
-        $record->update($request->all());
+        // Find the user by ID. If not found, Laravel automatically returns 404 error.
+        $user = User::findOrFail($id);
 
-        return response()->json($record);
+        // Validate request data before updating
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        // Check if avatar file is uploaded
+        if ($request->hasFile('avatar')) {
+            // Store avatar in storage/app/public/avatars and save path in database
+            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+        }
+
+        // Update user data in database
+        $user->update($data);
+
+        // Return updated user data as JSON response
+        return response()->json($user);
     }
 
     public function destroy(int $id): JsonResponse

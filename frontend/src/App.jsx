@@ -11,6 +11,7 @@ import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.
 import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
+import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
@@ -238,7 +239,14 @@ export default function App() {
         <Route path="/pickup" element={<MaterialPickupPage />} />
         <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
         <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
-        <Route path="/profile" element={<div style={{ padding: '2rem' }}>My Profile Page</div>} />
+        <Route
+          path="/profile"
+          element={(
+            <RequireAuth>
+              <MyProfilePage />
+            </RequireAuth>
+          )}
+        />
         <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
       </Routes>
       {!hideShell && <Footer />}
