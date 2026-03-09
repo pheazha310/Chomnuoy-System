@@ -62,7 +62,8 @@ function RequireAuth({ children }) {
 function RequireOrganizationAuth({ children }) {
   const location = useLocation();
   const session = getSession();
-  const isOrganization = Boolean(session?.isLoggedIn && session?.role === 'Organization');
+  const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
+  const isOrganization = Boolean(session?.isLoggedIn && roleValue === 'organization');
 
   if (!isOrganization) {
     const redirect = encodeURIComponent(location.pathname + location.search);
@@ -79,20 +80,22 @@ function LoginRoute() {
   const loginEmail = new URLSearchParams(location.search).get('email');
 
   const handleLoginSuccess = (data) => {
-    const isOrganization = data?.account_type === 'Organization';
-    const profile = isOrganization ? data?.organization : data?.user;
+    const rawAccountType = data?.account_type ?? data?.accountType ?? data?.user?.role ?? '';
+    const normalizedAccountType = String(rawAccountType).toLowerCase() === 'organization' ? 'Organization' : 'Donor';
+    const isOrganization = normalizedAccountType === 'Organization';
+    const profile = isOrganization ? (data?.organization ?? data?.user) : (data?.user ?? data?.organization);
 
     if (!profile) {
       const user = data?.user || data || {};
       const sessionData = {
         isLoggedIn: true,
-        role: user.role || 'Donor',
+        role: normalizedAccountType,
         name: user.name || 'Donor User',
         email: user.email || loginEmail || '',
-        impactLevel: 'Gold',
+        impactLevel: isOrganization ? 'Organization' : 'Gold',
         avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
         userId: user.id || null,
-        accountType: data?.account_type || 'Donor',
+        accountType: normalizedAccountType,
         logoutRedirectTo: redirectTo,
       };
 
@@ -101,6 +104,10 @@ function LoginRoute() {
       }
 
       window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+      if (isOrganization) {
+        navigate(ROUTES.ORGANIZATION_DASHBOARD);
+        return;
+      }
       navigate(redirectTo);
       return;
     }
@@ -113,7 +120,7 @@ function LoginRoute() {
       impactLevel: isOrganization ? 'Organization' : 'Gold',
       avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
       userId: profile.id,
-      accountType: data?.account_type ?? (isOrganization ? 'Organization' : 'Donor'),
+      accountType: normalizedAccountType,
       logoutRedirectTo: redirectTo,
     };
 
@@ -122,6 +129,10 @@ function LoginRoute() {
     }
 
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+    if (isOrganization) {
+      navigate(ROUTES.ORGANIZATION_DASHBOARD);
+      return;
+    }
     navigate(redirectTo);
   };
 
