@@ -21,6 +21,8 @@ import ViewDetail from '@/app/donate/viewDetail.jsx';
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import OrganizationDonationsPage from '@/app/organization/donations.jsx';
+import OrganizationProfilePage from '@/app/organization/profile.jsx';
+import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
@@ -229,6 +231,22 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationDonationsPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path="/organization/profile"
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationProfilePage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path="/organization/profile/edit"
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationProfileEditPage />
             </RequireOrganizationAuth>
           )}
         />
