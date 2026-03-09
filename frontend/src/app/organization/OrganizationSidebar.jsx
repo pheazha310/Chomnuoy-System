@@ -1,7 +1,12 @@
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 export default function OrganizationSidebar() {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+  const location = useLocation();
+  const pathname = location.pathname;
+
+  const isActive = (targetPath) => pathname === targetPath;
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -54,14 +59,14 @@ export default function OrganizationSidebar() {
         </div>
 
         <nav className="org-nav">
-          <button className="org-nav-item active" type="button">
+          <Link to="/organization/dashboard" className={`org-nav-item ${isActive('/organization/dashboard') ? 'active' : ''}`}>
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M3 13h8V3H3zM13 21h8v-6h-8zM13 11h8V3h-8zM3 21h8v-6H3z" strokeWidth="1.8" />
               </svg>
             </span>
             Dashboard
-          </button>
+          </Link>
           <button className="org-nav-item" type="button">
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -70,14 +75,14 @@ export default function OrganizationSidebar() {
             </span>
             Campaigns
           </button>
-          <button className="org-nav-item" type="button">
+          <Link to="/organization/donations" className={`org-nav-item ${isActive('/organization/donations') ? 'active' : ''}`}>
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z" strokeWidth="1.8" />
               </svg>
             </span>
             Donations
-          </button>
+          </Link>
           <button className="org-nav-item" type="button">
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
