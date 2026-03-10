@@ -101,10 +101,6 @@ export default function OrganizationSidebar() {
             </span>
             Reports
           </button>
-<<<<<<< HEAD
-
-=======
->>>>>>> 76627d13aaae2458b72a4e2d31e591e513616277
           <NavLink
             to="/organization/profile"
             className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
