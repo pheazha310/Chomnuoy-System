@@ -211,7 +211,6 @@ export default function MyProfilePage() {
   const syncTimersRef = useRef([]);
   const session = useMemo(() => getSession(), []);
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
@@ -266,29 +265,20 @@ export default function MyProfilePage() {
         return;
       }
 
+      setFormData((prev) => ({
+        ...prev,
+        name: session?.name || prev.name || '',
+        email: session?.email || prev.email || '',
+        avatar: normalizeAvatarUrl(session?.avatar || prev.avatar || ''),
+      }));
+
       if (!accountId) {
         if (isOrganization) {
-          setFormData({
-            name: session?.name || '',
-            email: session?.email || '',
-            phone: '',
-            avatar: normalizeAvatarUrl(session?.avatar || ''),
-          });
-          setLoading(false);
           return;
         }
 
         const sessionEmail = String(session?.email || '').trim().toLowerCase();
-        if (!sessionEmail) {
-          setFormData({
-            name: session?.name || '',
-            email: session?.email || '',
-            phone: '',
-            avatar: normalizeAvatarUrl(session?.avatar || ''),
-          });
-          setLoading(false);
-          return;
-        }
+        if (!sessionEmail) return;
 
         try {
           let linkedUser = await findUserByEmail(sessionEmail);
@@ -323,21 +313,13 @@ export default function MyProfilePage() {
               phone: data?.phone || '',
               avatar: normalizeAvatarUrl(getStorageFileUrl(data?.avatar_path) || nextSession?.avatar || ''),
             });
-            setLoading(false);
             return;
           }
         } catch {
           // Fall through to session-only profile state.
         }
 
-        setFormData({
-          name: session?.name || '',
-          email: session?.email || '',
-          phone: '',
-          avatar: normalizeAvatarUrl(session?.avatar || ''),
-        });
         setError('Unable to link this account to backend profile automatically. Please sign in with email/password.');
-        setLoading(false);
         return;
       }
 
@@ -361,8 +343,6 @@ export default function MyProfilePage() {
           phone: '',
           avatar: normalizeAvatarUrl(session?.avatar || ''),
         });
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -561,14 +541,6 @@ export default function MyProfilePage() {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <main className="mx-auto w-full max-w-5xl px-4 py-8">
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 text-[#64748B]">Loading profile...</div>
-      </main>
-    );
-  }
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
