@@ -22,6 +22,7 @@ import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import OrganizationDonationsPage from '@/app/organization/donations.jsx';
 import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
+import OrganizationCampaignCreatePage from '@/app/organization/OrganizationCampaignCreatePage.jsx';
 import OrganizationProfilePage from '@/app/organization/profile.jsx';
 import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
@@ -322,6 +323,14 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationCampaignsPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignCreatePage />
             </RequireOrganizationAuth>
           )}
         />

@@ -13,6 +13,7 @@ const ROUTES = {
   DASHBOARD: '/dashboard',
   ORGANIZATION_DASHBOARD: '/organization/dashboard',
   ORGANIZATION_CAMPAIGNS: '/organization/campaigns',
+  ORGANIZATION_CAMPAIGN_CREATE: '/organization/campaigns/create',
 };
 
 export default ROUTES;

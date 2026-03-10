@@ -217,6 +217,10 @@ export default function OrganizationCampaignsPage() {
     return { activeCount, totalRaised, avgCompletion };
   }, [dataSource]);
 
+  const openCreateModal = () => {
+    navigate(ROUTES.ORGANIZATION_CAMPAIGN_CREATE);
+  };
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
@@ -233,7 +237,7 @@ export default function OrganizationCampaignsPage() {
                 placeholder="Search campaigns, donors, or categories..."
               />
             </label>
-            <button type="button" className="org-cpg-create-btn">
+            <button type="button" className="org-cpg-create-btn" onClick={openCreateModal}>
               <PlusCircle size={14} />
               Create New Campaign
             </button>
