@@ -197,13 +197,16 @@ class AuthControllerRegister extends Controller
         }
 
         if ($user && $userPasswordMatches) {
+            $roleName = Role::query()
+                ->where('id', $user->role_id)
+                ->value('role_name') ?? 'Donor';
             Log::info('Auth login success', [
                 'email' => $email,
-                'account_type' => 'Donor',
+                'account_type' => $roleName,
             ]);
             return response()->json([
                 'message' => 'Login successful',
-                'account_type' => 'Donor',
+                'account_type' => $roleName,
                 'user' => $user,
                 'organization' => null,
             ]);
