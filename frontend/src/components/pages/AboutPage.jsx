@@ -1,6 +1,7 @@
 import '../css/about.css';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import ROUTES from '@/constants/routes.js';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
 import teamImage1 from '../../images/6129610942573121254_121.jpg';
@@ -236,10 +237,13 @@ const FeaturedOrgs = () => (
           Discover vetted organizations that are making real measurable impact in their local communities.
         </p>
       </div>
-      <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xl text-primary hover:text-white hover:border-primary transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-primary/25 transform hover:-translate-y-0.5 whitespace-nowrap mb-4">
+      <Link
+        to={ROUTES.ORGANIZATIONS}
+        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xl text-primary hover:text-white hover:border-primary transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-primary/25 transform hover:-translate-y-0.5 whitespace-nowrap mb-4"
+      >
         View All Organizations
         <span className="transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
-      </button>
+      </Link>
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
