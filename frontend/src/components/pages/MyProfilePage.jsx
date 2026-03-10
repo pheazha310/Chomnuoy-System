@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, ImageIcon, Mail, MoreVertical, Pencil, Phone, Save, Upload, User, X } from 'lucide-react';
+import { Camera, ImageIcon, Mail, Pencil, Phone, Save, Upload, User, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   findUserByEmail,
@@ -12,6 +12,7 @@ import {
 
 const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
 const LEGACY_DEFAULT_AVATAR_IDENTIFIER = 'photo-1500648767791-00dcc994a43e';
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
 
 function getSession() {
   try {
@@ -114,6 +115,90 @@ function generateSocialFallbackPassword() {
   return `${result}1aA!`;
 }
 
+function createAvatarSizeErrorMessage() {
+  return 'Avatar must be 2MB or smaller.';
+}
+
+function isAvatarFileTooLarge(file) {
+  return Boolean(file && Number(file.size) > MAX_AVATAR_SIZE_BYTES);
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Invalid image file.'));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function canvasToBlob(canvas, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+  });
+}
+
+async function optimizeAvatarFile(file) {
+  if (!file || !isAvatarFileTooLarge(file)) {
+    return { file, optimized: false, originalSize: file?.size || 0 };
+  }
+
+  const sourceImage = await loadImageFromFile(file);
+  const dimensions = [1280, 1080, 960, 840];
+  const qualities = [0.85, 0.78, 0.7, 0.62, 0.54];
+
+  for (const maxDimension of dimensions) {
+    const scale = Math.min(1, maxDimension / Math.max(sourceImage.width, sourceImage.height));
+    const width = Math.max(1, Math.round(sourceImage.width * scale));
+    const height = Math.max(1, Math.round(sourceImage.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) continue;
+
+    context.drawImage(sourceImage, 0, 0, width, height);
+
+    for (const quality of qualities) {
+      const blob = await canvasToBlob(canvas, quality);
+      if (!blob) continue;
+      const optimizedFile = new File(
+        [blob],
+        file.name.replace(/\.[^.]+$/, '') + '.jpg',
+        { type: 'image/jpeg' },
+      );
+      if (!isAvatarFileTooLarge(optimizedFile)) {
+        return { file: optimizedFile, optimized: true, originalSize: file.size };
+      }
+    }
+  }
+
+  throw new Error(createAvatarSizeErrorMessage());
+}
+
+function extractRequestErrorMessage(err) {
+  const avatarValidationError = err?.response?.data?.errors?.avatar?.[0];
+  if (avatarValidationError) {
+    return createAvatarSizeErrorMessage();
+  }
+  return err?.response?.data?.message || 'Failed to update profile.';
+}
+
 export default function MyProfilePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -136,6 +221,7 @@ export default function MyProfilePage() {
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [avatarHint, setAvatarHint] = useState('');
   const [showIllustrations, setShowIllustrations] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [formData, setFormData] = useState({
@@ -288,23 +374,36 @@ export default function MyProfilePage() {
     stopLiveCamera();
   }, []);
 
-  const handleAvatarChange = (event) => {
+  const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
 
-    setAvatarFile(file);
-    setFormData((prev) => ({
-      ...prev,
-      avatar: URL.createObjectURL(file),
-    }));
-    setIsEditing(true);
-    setIsCameraModalOpen(false);
-    setShowIllustrations(false);
+    try {
+      const { file: acceptedFile, optimized, originalSize } = await optimizeAvatarFile(file);
+      setError('');
+      setAvatarHint(
+        optimized
+          ? `Image optimized from ${formatFileSize(originalSize)} to ${formatFileSize(acceptedFile.size)}.`
+          : '',
+      );
+      setAvatarFile(acceptedFile);
+      setFormData((prev) => ({
+        ...prev,
+        avatar: URL.createObjectURL(acceptedFile),
+      }));
+      setIsEditing(true);
+      setIsCameraModalOpen(false);
+      setShowIllustrations(false);
+    } catch (optimizationError) {
+      setAvatarHint('');
+      setError(optimizationError?.message || createAvatarSizeErrorMessage());
+    }
   };
 
   const handleSelectIllustration = (url) => {
     setAvatarFile(null);
+    setAvatarHint('');
     setFormData((prev) => ({
       ...prev,
       avatar: url,
@@ -346,9 +445,11 @@ export default function MyProfilePage() {
     const video = liveCameraVideoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) return;
 
+    const maxDimension = 1080;
+    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
     const context = canvas.getContext('2d');
     if (!context) return;
 
@@ -357,6 +458,8 @@ export default function MyProfilePage() {
       if (!blob) return;
 
       const file = new File([blob], `camera-profile-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setError('');
+      setAvatarHint('');
       setAvatarFile(file);
       setFormData((prev) => ({
         ...prev,
@@ -367,7 +470,7 @@ export default function MyProfilePage() {
       setIsCameraModalOpen(false);
       setShowIllustrations(false);
       stopLiveCamera();
-    }, 'image/jpeg', 0.95);
+    }, 'image/jpeg', 0.82);
   };
 
   const focusInput = (ref) => {
@@ -399,6 +502,9 @@ export default function MyProfilePage() {
         payload.append('phone', formData.phone);
       }
       if (avatarFile) {
+        if (isAvatarFileTooLarge(avatarFile)) {
+          throw new Error(createAvatarSizeErrorMessage());
+        }
         payload.append('avatar', avatarFile);
       }
 
@@ -450,7 +556,7 @@ export default function MyProfilePage() {
 
       syncTimersRef.current = [hideTimer, syncTimer];
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update profile.');
+      setError(err?.message === createAvatarSizeErrorMessage() ? err.message : extractRequestErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -477,105 +583,136 @@ export default function MyProfilePage() {
       ) : null}
 
       {isCameraModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/55 px-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[26px] border border-[#D7E2F2] bg-gradient-to-b from-[#F8FAFF] to-[#F2F6FC] p-3 sm:p-4 shadow-[0_22px_56px_rgba(15,23,42,0.35)]">
-            <div className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A1324]/70 px-3 py-4 backdrop-blur-[4px] sm:px-6">
+          <div className="w-full max-w-5xl rounded-[30px] border border-[#C5D6EC] bg-gradient-to-b from-[#FDFEFF] via-[#F6FAFF] to-[#EDF3FB] p-3 shadow-[0_36px_90px_rgba(2,12,27,0.52)] sm:p-6">
+            <div className="flex items-center justify-between rounded-2xl border border-[#DFEAF8] bg-white px-3 py-3 sm:px-5">
               <button
                 type="button"
                 onClick={() => {
                   setIsCameraModalOpen(false);
                   setShowIllustrations(false);
                 }}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#BFD3EF] bg-white text-[#0F172A] transition hover:bg-[#EEF5FF]"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#BCD0EA] bg-white text-[#0F172A] transition hover:bg-[#EEF4FF]"
                 aria-label="Close picture modal"
               >
                 <X className="h-6 w-6" />
               </button>
-              <div className="px-3 text-center">
-                <h3 className="text-xl font-bold tracking-tight text-[#0F172A] sm:text-2xl">Change profile picture</h3>
-                <p className="text-xs font-medium text-[#64748B] sm:text-sm">Choose a source and update your account image.</p>
+              <div className="px-3 text-center sm:px-4">
+                <h3 className="text-2xl font-extrabold tracking-tight text-[#0B1A34] sm:text-[2.3rem]">Change profile picture</h3>
+                <p className="text-xs font-medium text-[#4D6281] sm:text-sm">Choose a source, confirm preview, then press Save Changes.</p>
               </div>
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#BFD3EF] bg-white text-[#4B5563] transition hover:bg-[#EEF5FF]"
-                aria-label="More options"
-              >
-                <MoreVertical className="h-6 w-6" />
-              </button>
+              <span className="rounded-full border border-[#D4E1F4] bg-[#F3F8FF] px-3 py-1 text-[11px] font-bold tracking-[0.08em] text-[#1E40AF] sm:text-xs">
+                PROFILE PHOTO
+              </span>
             </div>
 
-            <div className="mt-4 rounded-[22px] border border-[#DCE8F6] bg-white px-3 pb-4 pt-5 sm:px-5 sm:pb-6 sm:pt-7">
-              <div className="relative mx-auto h-36 w-36 sm:h-40 sm:w-40">
-                {hasAvatarImage ? (
-                  <img
-                    src={formData.avatar}
-                    alt="Profile preview"
-                    onError={handleAvatarImageError}
-                    className="h-36 w-36 rounded-full border-4 border-white object-cover shadow-[0_14px_28px_rgba(15,23,42,0.22)] sm:h-40 sm:w-40"
-                  />
-                ) : (
-                  <span className="inline-flex h-36 w-36 items-center justify-center rounded-full border-4 border-white bg-[#EAF2FF] text-3xl font-extrabold tracking-[0.04em] text-[#1D4ED8] shadow-[0_14px_28px_rgba(15,23,42,0.14)] sm:h-40 sm:w-40 sm:text-4xl">
-                    {avatarInitials}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-1 right-0 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D5E2F2] bg-white text-[#475569] shadow-md transition hover:bg-[#F8FAFC] sm:h-11 sm:w-11"
-                  aria-label="Upload avatar"
-                >
-                  <Camera className="h-5 w-5" />
-                </button>
-              </div>
-
-              {showIllustrations ? (
-                <div className="mx-auto mt-7 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-3">
-                  {illustrationOptions.map((imageUrl) => (
+            <div className="mt-4 rounded-[26px] border border-[#D4E2F4] bg-white p-3 sm:p-5">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[340px_1fr]">
+                <div className="rounded-3xl border border-[#D7E5F6] bg-[linear-gradient(165deg,#F7FBFF_0%,#ECF4FF_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#5B7293]">Preview</p>
+                  <div className="relative mx-auto mt-4 h-40 w-40 sm:h-52 sm:w-52">
+                    <div className="absolute -inset-3 rounded-full bg-[radial-gradient(circle,_rgba(37,99,235,0.24),_rgba(37,99,235,0)_70%)]" />
+                    {hasAvatarImage ? (
+                      <img
+                        src={formData.avatar}
+                        alt="Profile preview"
+                        onError={handleAvatarImageError}
+                        className="relative h-40 w-40 rounded-full border-[6px] border-white object-cover shadow-[0_20px_36px_rgba(15,23,42,0.3)] sm:h-52 sm:w-52"
+                      />
+                    ) : (
+                      <span className="relative inline-flex h-40 w-40 items-center justify-center rounded-full border-[6px] border-white bg-[#EAF2FF] text-4xl font-extrabold tracking-[0.04em] text-[#1D4ED8] shadow-[0_20px_36px_rgba(15,23,42,0.2)] sm:h-52 sm:w-52 sm:text-5xl">
+                        {avatarInitials}
+                      </span>
+                    )}
                     <button
-                      key={imageUrl}
                       type="button"
-                      onClick={() => handleSelectIllustration(imageUrl)}
-                      className="rounded-xl border border-[#D0D5DD] bg-white p-1 transition hover:border-[#60A5FA] hover:shadow-[0_10px_24px_rgba(37,99,235,0.16)]"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-2 right-1 inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#BFD3EA] bg-white text-[#334155] shadow-[0_8px_16px_rgba(15,23,42,0.24)] transition hover:-translate-y-0.5 hover:bg-[#F3F8FF]"
+                      aria-label="Upload avatar"
                     >
-                      <img src={imageUrl} alt="Illustration option" className="h-20 w-full rounded-lg object-cover" />
+                      <Camera className="h-5 w-5" />
                     </button>
-                  ))}
+                  </div>
+                  <p className="mt-4 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#64748B]">Live Preview</p>
+                  <p className="mt-2 text-center text-xs font-medium text-[#627794]">Tip: square or centered portraits look best.</p>
                 </div>
-              ) : null}
 
-              <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-2 text-center sm:grid-cols-3 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowIllustrations((prev) => !prev)}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FBFF] p-3 transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EEF5FF]"
-                >
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#DFE9F8] text-[#4B5563] transition group-hover:bg-[#D4E4FB]">
-                    <ImageIcon className="h-7 w-7" />
-                  </span>
-                  <span className="text-base font-semibold text-[#1F2937]">Browse Illustrations</span>
-                </button>
+                <div className="rounded-3xl border border-[#DCE8F6] bg-[#F9FCFF] p-3 sm:p-4">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowIllustrations((prev) => !prev)}
+                      className={`group flex min-h-[124px] flex-col items-start justify-center rounded-2xl border px-4 py-3 text-left transition ${
+                        showIllustrations
+                          ? 'border-[#2563EB] bg-[#EAF3FF] shadow-[0_10px_24px_rgba(37,99,235,0.22)]'
+                          : 'border-[#D6E2F2] bg-white hover:-translate-y-0.5 hover:border-[#8CB8F4] hover:shadow-[0_8px_20px_rgba(37,99,235,0.16)]'
+                      }`}
+                    >
+                      <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${
+                        showIllustrations ? 'bg-[#DBEAFE] text-[#1D4ED8]' : 'bg-[#ECF2FA] text-[#4B5563]'
+                      }`}>
+                        <ImageIcon className="h-5 w-5" />
+                      </span>
+                      <span className="mt-3 text-lg font-semibold leading-tight text-[#1F2937]">Illustrations</span>
+                      <span className="mt-1 text-xs font-medium text-[#64748B]">Preset options</span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FBFF] p-3 transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EEF5FF]"
-                >
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#DFE9F8] text-[#4B5563] transition group-hover:bg-[#D4E4FB]">
-                    <Upload className="h-7 w-7" />
-                  </span>
-                  <span className="text-base font-semibold text-[#1F2937]">Upload from Device</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group flex min-h-[124px] flex-col items-start justify-center rounded-2xl border border-[#1E40AF] bg-gradient-to-br from-[#2D67E6] via-[#2459D1] to-[#1E40AF] px-4 py-3 text-left text-white shadow-[0_14px_30px_rgba(30,64,175,0.34)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(30,64,175,0.4)]"
+                    >
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white">
+                        <Upload className="h-5 w-5" />
+                      </span>
+                      <span className="mt-3 text-lg font-semibold leading-tight">Upload File</span>
+                      <span className="mt-1 text-xs font-medium text-[#DCE7FF]">Recommended source</span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={handleOpenLiveCamera}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FBFF] p-3 transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EEF5FF]"
-                >
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#DFE9F8] text-[#4B5563] transition group-hover:bg-[#D4E4FB]">
-                    <Camera className="h-7 w-7" />
-                  </span>
-                  <span className="text-base font-semibold text-[#1F2937]">Take a picture</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenLiveCamera}
+                      className="group flex min-h-[124px] flex-col items-start justify-center rounded-2xl border border-[#D6E2F2] bg-white px-4 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#8CB8F4] hover:shadow-[0_8px_20px_rgba(37,99,235,0.16)]"
+                    >
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECF2FA] text-[#4B5563]">
+                        <Camera className="h-5 w-5" />
+                      </span>
+                      <span className="mt-3 text-lg font-semibold leading-tight text-[#1F2937]">Take Photo</span>
+                      <span className="mt-1 text-xs font-medium text-[#64748B]">Webcam or mobile</span>
+                    </button>
+                  </div>
+
+                  {showIllustrations ? (
+                    <div className="mt-3 rounded-2xl border border-[#D7E4F5] bg-white p-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#5F7492]">Choose an illustration</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {illustrationOptions.map((imageUrl) => (
+                          <button
+                            key={imageUrl}
+                            type="button"
+                            onClick={() => handleSelectIllustration(imageUrl)}
+                            className={`group relative overflow-hidden rounded-2xl border bg-white p-1.5 transition ${
+                              formData.avatar === imageUrl
+                                ? 'border-[#2563EB] shadow-[0_12px_26px_rgba(37,99,235,0.25)]'
+                                : 'border-[#D2DDEB] hover:-translate-y-0.5 hover:border-[#60A5FA] hover:shadow-[0_10px_22px_rgba(37,99,235,0.18)]'
+                            }`}
+                          >
+                            <img src={imageUrl} alt="Illustration option" className="h-24 w-full rounded-xl object-cover" />
+                            {formData.avatar === imageUrl ? (
+                              <span className="absolute right-2 top-2 rounded-full bg-[#2563EB] px-2 py-0.5 text-[10px] font-bold text-white">
+                                Selected
+                              </span>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <p className="mt-3 rounded-xl border border-[#D8E4F2] bg-white px-3 py-2 text-center text-xs font-medium text-[#5A6F8A]">
+                    JPG, PNG, WEBP up to 2MB. Larger files are optimized automatically.
+                  </p>
+                </div>
               </div>
               {cameraError ? (
                 <p className="mt-3 text-center text-xs font-semibold text-red-600">{cameraError}</p>
@@ -644,6 +781,11 @@ export default function MyProfilePage() {
         {success ? (
           <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
             {success}
+          </div>
+        ) : null}
+        {avatarHint ? (
+          <div className="mb-4 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm font-medium text-[#1D4ED8]">
+            {avatarHint}
           </div>
         ) : null}
 
