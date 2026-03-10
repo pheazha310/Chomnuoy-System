@@ -3,6 +3,11 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
+import teamImage1 from '../../images/6129610942573121254_121.jpg';
+import teamImage2 from '../../images/6129631399502351996_121.jpg';
+import teamImage3 from '../../images/6147792428195319150_121.jpg';
+import teamImage4 from '../../images/6147792428195319151_121.jpg';
+import teamImage5 from '../../images/6147792428195319154_121.jpg';
 
 const STATS = [
   { label: 'Total Donated', value: '$2.4M', change: '+12% this month' },
@@ -69,31 +74,31 @@ const TEAM = [
     name: 'Sreyvik Von',
     role: 'Founder & CEO',
     bio: 'Passionate about using technology to close social impact gaps across Cambodia.',
-    image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80',
+    image: teamImage2,
   },
   {
     name: 'Nita Chroun',
     role: 'Operations Director',
     bio: 'Ensuring every project is executed with precision, integrity, and measurable results.',
-    image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=400&q=80',
+    image: teamImage1,
   },
   {
     name: 'Sophea Phal',
     role: 'Product Manager',
     bio: 'Designing user-friendly donation flows that create trust and increase community impact.',
-    image: 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=400&q=80',
+    image: teamImage3,
   },
   {
     name: 'Ly Sarl',
     role: 'Partnership Lead',
     bio: 'Building strategic partnerships with NGOs, schools, and local leaders across regions.',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+    image: teamImage4,
   },
   {
     name: 'Seyha Ny',
     role: 'Community Relations',
     bio: 'Building trusted partnerships with communities and local organizations nationwide.',
-    image: 'https://images.unsplash.com/photo-1544717302-de2939b7ef71?auto=format&fit=crop&w=400&q=80',
+    image: teamImage5,
   },
 ];
 

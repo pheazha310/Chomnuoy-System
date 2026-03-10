@@ -101,8 +101,22 @@ export default function OrganizationSidebar() {
             </span>
             Reports
           </button>
-
-          <button className="org-nav-item" type="button">
+          <NavLink
+            to="/organization/profile"
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
+            <span className="org-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 12.5a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" strokeWidth="1.8" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </span>
+            Profile
+          </NavLink>
+          <NavLink
+            to="/settings/AccountSettings"
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" strokeWidth="1.8" />
@@ -110,7 +124,7 @@ export default function OrganizationSidebar() {
               </svg>
             </span>
             Settings
-          </button>
+          </NavLink>
         </nav>
 
         <div className="org-plan-card">
