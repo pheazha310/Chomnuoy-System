@@ -21,7 +21,7 @@
     radial-gradient(circle at 20% 40%, rgba(56, 189, 248, 0.16), transparent 50%),
     var(--admin-bg);
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 300px 1fr;
   font-family: "Poppins", "Segoe UI", sans-serif;
   color: var(--admin-text);
 }
@@ -31,8 +31,8 @@
   border-right: 1px solid #eef2f8;
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
-  gap: 14px;
+  padding: 22px 18px;
+  gap: 18px;
   height: 100vh;
   margin: 0;
   border-radius: 0;
@@ -42,13 +42,13 @@
 .admin-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .admin-brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: #e9efff;
   color: #2e5cff;
   display: grid;
@@ -56,49 +56,49 @@
 }
 
 .admin-brand-icon {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
 }
 
 .admin-brand-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .admin-brand-name {
   font-weight: 700;
   margin: 0;
   letter-spacing: 0.02em;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .admin-brand-sub {
   margin: 0;
   color: #6b7280;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.06em;
 }
 
 .admin-nav {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  
 }
 
 .admin-nav-item {
   border: none;
   background: transparent;
   text-align: left;
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 8px 14px;
+  border-radius: 14px;
   font-weight: 500;
   color: #5b6475;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .admin-nav-item.is-active {
@@ -107,9 +107,9 @@
 }
 
 .admin-nav-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   background: #f1f4ff;
@@ -117,8 +117,8 @@
 }
 
 .admin-nav-icon svg {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8px;
@@ -128,23 +128,23 @@
 
 .admin-sidebar-footer {
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 16px;
   border-top: 1px solid #eef2f8;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .admin-user {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
 }
 
 .admin-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: #e9efff;
   color: #2e5cff;
   font-weight: 700;
@@ -155,12 +155,12 @@
 .admin-user-name {
   margin: 0;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .admin-user-role {
   margin: 0;
-  font-size: 10px;
+  font-size: 13px;
   color: #6b7280;
 }
 
@@ -505,10 +505,10 @@
   border: none;
   background: #fde5e5;
   color: #b91c1c;
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 15px;
   cursor: pointer;
   text-align: left;
 }
@@ -573,7 +573,7 @@
 
 @media (max-width: 1200px) {
   .admin-shell {
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 280px 1fr;
   }
 
   .admin-stats {
