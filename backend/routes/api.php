@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CampaignUpdateController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DonationController;
 use App\Http\Controllers\Api\DonationStatusHistoryController;
+use App\Http\Controllers\Api\DonationTrendController;
 use App\Http\Controllers\Api\MaterialItemController;
 use App\Http\Controllers\Api\MaterialPickupController;
 use App\Http\Controllers\Api\NotificationController;
@@ -50,6 +51,7 @@ Route::apiResource('organization_document', OrganizationDocumentController::clas
 Route::apiResource('categories', CategoryController::class);
 Route::apiResource('donations', DonationController::class);
 Route::apiResource('donation_status_history', DonationStatusHistoryController::class);
+Route::apiResource('donation_trends', DonationTrendController::class);
 Route::apiResource('material_items', MaterialItemController::class);
 Route::apiResource('material_pickups', MaterialPickupController::class);
 Route::apiResource('payment_methods', PaymentMethodController::class);

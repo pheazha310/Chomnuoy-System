@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Download,
   Filter,
@@ -18,6 +18,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import './organization.css';
 import './organization-reports.css';
+import apiClient from '@/services/api-client';
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -34,7 +35,7 @@ const summaryCards = [
 ];
 
 // Donation Trends data in overview
-const trendData = [
+const defaultTrendData = [
   { month: 'Jan', financial: 32, material: 24 },
   { month: 'Feb', financial: 44, material: 35 },
   { month: 'Mar', financial: 36, material: 47 },
@@ -164,7 +165,7 @@ function StatCard({ card }) {
   );
 }
 
-function TrendChart() {
+function TrendChart({ data }) {
   return (
     <article className="report-panel">
       <div className="report-panel-head">
@@ -176,7 +177,7 @@ function TrendChart() {
         <span><i className="material" /> Material (Units)</span>
       </div>
       <div className="trend-chart">
-        {trendData.map((item) => (
+        {data.map((item) => (
           <div key={item.month} className="trend-bar-group">
             <div className="trend-bars">
               <span className="bar financial" style={{ height: `${item.financial}%` }} />
@@ -244,6 +245,40 @@ function FinancialLineChart() {
 
 export default function OrganizationReports() {
   const [activeTab, setActiveTab] = useState('overview');
+  const [trendData, setTrendData] = useState(defaultTrendData);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTrends = async () => {
+      try {
+        const response = await apiClient.get('/donation_trends');
+        if (!Array.isArray(response.data)) {
+          return;
+        }
+
+        const sorted = [...response.data]
+          .sort((a, b) => (a?.month_index ?? 0) - (b?.month_index ?? 0))
+          .map((item) => ({
+            month: item.month,
+            financial: Number(item.financial) || 0,
+            material: Number(item.material) || 0,
+          }));
+
+        if (isMounted && sorted.length) {
+          setTrendData(sorted);
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadTrends();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="org-page report-page">
@@ -277,7 +312,7 @@ export default function OrganizationReports() {
             </section>
 
             <section className="report-grid-top">
-              <TrendChart />
+              <TrendChart data={trendData} />
               <TypeBreakdown />
             </section>
 
