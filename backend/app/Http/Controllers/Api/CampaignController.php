@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Campaign;
+use App\Models\CampaignImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -11,7 +12,17 @@ class CampaignController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Campaign::query()->orderByDesc('id')->get());
+        $records = Campaign::query()
+            ->select('campaigns.*')
+            ->addSelect([
+                'image_path' => CampaignImage::select('image_path')
+                    ->whereColumn('campaign_id', 'campaigns.id')
+                    ->limit(1),
+            ])
+            ->orderByDesc('campaigns.id')
+            ->get();
+
+        return response()->json($records);
     }
 
     public function store(Request $request): JsonResponse
@@ -23,7 +34,14 @@ class CampaignController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $record = Campaign::findOrFail($id);
+        $record = Campaign::query()
+            ->select('campaigns.*')
+            ->addSelect([
+                'image_path' => CampaignImage::select('image_path')
+                    ->whereColumn('campaign_id', 'campaigns.id')
+                    ->limit(1),
+            ])
+            ->findOrFail($id);
 
         return response()->json($record);
     }

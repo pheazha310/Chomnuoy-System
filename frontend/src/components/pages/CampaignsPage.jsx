@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { campaigns } from '../../data/campaigns';
 import '../css/Campaigns.css';
 

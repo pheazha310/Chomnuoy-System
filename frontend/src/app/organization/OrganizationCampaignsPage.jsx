@@ -1,389 +1,293 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ArrowRight,
-  Bell,
-  CircleDollarSign,
-  CirclePercent,
-  Clock3,
-  MoreHorizontal,
-  PlusCircle,
-  Rocket,
-  Search,
-  Users,
-} from 'lucide-react';
-import ROUTES from '@/constants/routes.js';
-import OrganizationSidebar from './OrganizationSidebar.jsx';
-import './organization.css';
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Bell, ChevronDown, Plus, Search } from "lucide-react";
+import ROUTES from "@/constants/routes.js";
+import OrganizationSidebar from "./OrganizationSidebar.jsx";
+import "./organization.css";
 
-const fallbackImages = [
-  'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=640&q=80',
-  'https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=640&q=80',
-  'https://images.unsplash.com/photo-1602154663343-89fe0bf541ab?auto=format&fit=crop&w=640&q=80',
-];
-const demoCampaignSeed = [
+const campaignData = [
   {
-    id: 'seed-1',
-    title: 'Education for All: Rural Schools Development',
-    category: 'Education',
-    goal: 20000,
-    raised: 12450,
-    progress: 62,
-    daysLeft: 15,
-    status: 'Active',
-    donors: 482,
-    image: fallbackImages[0],
+    id: "c1",
+    status: "Active",
+    statusTone: "bg-emerald-500 text-white",
+    category: "Medical Equipment",
+    title: "Emergency Oxygen Supply for Rural Clinics",
+    description:
+      "Providing 50 new oxygen concentrators to underserved provinces.",
+    raised: 45200,
+    goal: 60000,
+    action: "View Details",
+    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
+    art: "from-[#FCD9B6] via-[#FDEAD6] to-[#FFF7ED]",
   },
   {
-    id: 'seed-2',
-    title: 'Mobile Medical Units for Remote Villages',
-    category: 'Medical',
-    goal: 45000,
-    raised: 38200,
-    progress: 85,
-    daysLeft: 22,
-    status: 'Active',
-    donors: 1204,
-    image: fallbackImages[1],
+    id: "c2",
+    status: "Completed",
+    statusTone: "bg-[#64748B] text-white",
+    category: "Surgery Fund",
+    title: "Pediatric Heart Surgery Program 2023",
+    description:
+      "Funding life-saving cardiac procedures for children in low-income families.",
+    raised: 125000,
+    goal: 120000,
+    action: "View Results",
+    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#F1F5F9]",
+    art: "from-[#E2E8F0] via-[#EEF2F7] to-[#F8FAFC]",
   },
   {
-    id: 'seed-3',
-    title: 'Clean Water Access in Northern Provinces',
-    category: 'Infrastructure',
+    id: "c3",
+    status: "Draft",
+    statusTone: "bg-[#F97316] text-white",
+    category: "Public Health",
+    title: "Community Wellness & Nutrition Drive",
+    description:
+      "Launching a new initiative to educate and provide nutrition support.",
+    raised: 0,
     goal: 15000,
-    raised: 1500,
-    progress: 10,
-    daysLeft: 45,
-    status: 'Active',
-    donors: 42,
-    image: fallbackImages[2],
+    action: "Resume Editing",
+    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
+    art: "from-[#FFE6C7] via-[#FFF1DF] to-[#FFFBF5]",
+  },
+  {
+    id: "c4",
+    status: "Active",
+    statusTone: "bg-emerald-500 text-white",
+    category: "Cancer Care",
+    title: "Mobile Screening Unit Fund",
+    description:
+      "Purchasing a fully equipped mobile unit for early cancer screening.",
+    raised: 18750,
+    goal: 85000,
+    action: "View Details",
+    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
+    art: "from-[#FBC7B7] via-[#FBD9CF] to-[#FFECE7]",
   },
 ];
-const demoCampaigns = Array.from({ length: 12 }).map((_, idx) => {
-  const base = demoCampaignSeed[idx % demoCampaignSeed.length];
-  const cycle = Math.floor(idx / demoCampaignSeed.length);
-  const status = cycle === 3 ? 'Draft' : cycle === 2 ? 'Ended' : 'Active';
-  const progressDelta = cycle * 8;
-  return {
-    ...base,
-    id: `demo-${idx + 1}`,
-    title: `${base.title}${cycle > 0 ? ` #${cycle + 1}` : ''}`,
-    raised: Math.max(0, base.raised - cycle * 1300),
-    progress: Math.max(0, base.progress - progressDelta),
-    donors: Math.max(0, base.donors - cycle * 90),
-    daysLeft: status === 'Ended' ? -5 : base.daysLeft + cycle * 4,
-    status,
-    image: fallbackImages[idx % fallbackImages.length],
-  };
-});
 
-function getOrganizationSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
 
-function getDaysLeft(endDate) {
-  if (!endDate) return null;
-  const end = new Date(endDate).getTime();
-  const now = Date.now();
-  return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-}
-
-function getBadgeLabel(item) {
-  if (item.status === 'Ended') return 'ENDED';
-  if (item.status === 'Draft') return 'DRAFT';
-  if (item.daysLeft !== null && item.daysLeft <= 15 && item.daysLeft >= 0) return 'URGENT';
-  if (item.progress <= 15) return 'NEW';
-  return 'ACTIVE';
-}
-
-function getInitials(name) {
-  const value = String(name || '').trim();
-  if (!value) return 'OR';
-  const parts = value.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+function formatMoney(value) {
+  return `$${value.toLocaleString("en-US")}`;
 }
 
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
-  const [campaigns, setCampaigns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('active');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const pageSize = 3;
+  const [activeTab, setActiveTab] = useState("All Campaigns");
 
-  useEffect(() => {
-    let mounted = true;
-    const session = getOrganizationSession();
-    const orgId = Number(session?.userId ?? 0);
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-
-    async function load() {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await fetch(`${apiBase}/campaigns`);
-        if (!response.ok) {
-          throw new Error(`Failed to load campaigns (${response.status})`);
-        }
-        const data = await response.json();
-        const own = Array.isArray(data) ? data.filter((item) => Number(item.organization_id) === orgId) : [];
-        if (mounted) {
-          setCampaigns(own);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Unable to load campaigns');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const session = getOrganizationSession();
-  const accountName = session?.name || 'Organization';
-  const roleLabel = session?.role === 'Organization' ? 'Administrator' : (session?.role || 'Administrator');
-  const accountInitials = getInitials(accountName);
-
-  const normalized = useMemo(
-    () =>
-      campaigns.map((item, index) => {
-        const goal = Number(item.goal_amount ?? 0);
-        const raised = Number(item.current_amount ?? 0);
-        const daysLeft = getDaysLeft(item.end_date);
-        const ended = daysLeft !== null ? daysLeft < 0 : false;
-        const rawStatus = String(item.status || '').toLowerCase();
-        const status = rawStatus.includes('draft') ? 'Draft' : ended ? 'Ended' : 'Active';
-        const progress = goal > 0 ? Math.max(0, Math.min(100, (raised / goal) * 100)) : 0;
-        return {
-          id: item.id,
-          title: item.title || 'Untitled campaign',
-          category: item.category || 'General',
-          goal,
-          raised,
-          progress,
-          daysLeft,
-          status,
-          donors: Number(item.donors_count ?? 0),
-          image: item.image_url || fallbackImages[index % fallbackImages.length],
-        };
-      }),
-    [campaigns]
-  );
-  const isUsingDemoData = normalized.length === 0 && !loading && !error;
-
-  const dataSource = normalized.length > 0 ? normalized : demoCampaigns;
-
-  const searched = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return dataSource.filter((item) => !q || item.title.toLowerCase().includes(q) || item.category.toLowerCase().includes(q));
-  }, [dataSource, searchTerm]);
-
-  const filtered = useMemo(() => {
-    if (activeTab === 'active') return searched.filter((item) => item.status === 'Active');
-    if (activeTab === 'past') return searched.filter((item) => item.status === 'Ended');
-    return searched.filter((item) => item.status === 'Draft');
-  }, [searched, activeTab]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-
-  useEffect(() => {
-    setPage(1);
-  }, [activeTab, searchTerm]);
-
-  const summary = useMemo(() => {
-    const activeCount = dataSource.filter((item) => item.status === 'Active').length;
-    const totalRaised = dataSource.reduce((sum, item) => sum + item.raised, 0);
-    const avgCompletion = dataSource.length
-      ? Math.round(dataSource.reduce((sum, item) => sum + item.progress, 0) / dataSource.length)
-      : 0;
-    return { activeCount, totalRaised, avgCompletion };
-  }, [dataSource]);
-
-  const openCreateModal = () => {
-    navigate(ROUTES.ORGANIZATION_CAMPAIGN_CREATE);
-  };
+  const filteredCampaigns = useMemo(() => {
+    if (activeTab === "All Campaigns") return campaignData;
+    if (activeTab === "Past")
+      return campaignData.filter((item) => item.status === "Completed");
+    if (activeTab === "Drafts")
+      return campaignData.filter((item) => item.status === "Draft");
+    return campaignData.filter((item) => item.status === activeTab);
+  }, [activeTab]);
 
   return (
     <div className="org-page">
       <OrganizationSidebar />
       <main className="org-main org-cpg-main">
-        <header className="org-cpg-header">
-          <h1>Campaign Management</h1>
-          <div className="org-cpg-head-right">
-            <label className="org-cpg-search">
-              <Search size={14} />
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E8F0] bg-white/90 px-6 py-4 backdrop-blur">
+          <h2 className="text-lg font-semibold text-[#0F172A]">
+            Campaign Management
+          </h2>
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
+            <label className="relative flex w-full max-w-xs items-center">
+              <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
               <input
                 type="search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search campaigns, donors, or categories..."
+                placeholder="Global search..."
+                className="h-9 w-full rounded-full border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#0F172A] shadow-[0_8px_18px_rgba(15,23,42,0.06)] outline-none focus:border-[#1f6fe6]"
               />
             </label>
-            <button type="button" className="org-cpg-create-btn" onClick={openCreateModal}>
-              <PlusCircle size={14} />
-              Create New Campaign
+            <button
+              type="button"
+              className="relative h-9 w-9 rounded-full border border-[#E2E8F0] bg-white text-[#475569] shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
+            >
+              <span className="sr-only">Notifications</span>
+              <Bell className="mx-auto h-4 w-4" />
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#1f6fe6]" />
             </button>
-            <button type="button" className="org-cpg-icon-btn" aria-label="Notifications">
-              <Bell size={16} />
-              <span className="org-cpg-icon-dot" aria-hidden="true" />
-            </button>
-            <div className="org-cpg-profile" title={accountName}>
-              <div className="org-cpg-profile-text">
-                <strong>{accountName}</strong>
-                <span>{roleLabel}</span>
+            <div className="flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 shadow-[0_8px_20px_rgba(15,23,42,0.08)]">
+              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[#1629a1] bg-[radial-gradient(circle_at_top,_#FFF7ED,_#FED7AA)] text-xs font-bold text-[#EA580C] shadow-[0_6px_14px_rgba(234,88,12,0.2)]">
+                DC
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+              </span>
+              <div className="pr-1.5">
+                <p className="text-sm font-semibold leading-tight text-[#0F172A]">
+                  Dr. Chomnuoy
+                </p>
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#94A3B8]">
+                  Organization
+                </p>
               </div>
-              <span className="org-cpg-avatar">{accountInitials}</span>
             </div>
           </div>
         </header>
 
-        <section className="org-cpg-kpis">
-          <article className="org-cpg-kpi-card">
-            <div className="org-cpg-kpi-head">
-              <p>Total Active Campaigns</p>
-              <span className="icon blue">
-                <Rocket size={14} />
-              </span>
+        <section className=" w-full max-w-8xl px-3 pb-12 pt-8">
+          <div className="">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-4xl font-semibold uppercase tracking-[0.16em] text-[#000000]">
+                  Campaigns
+                </p>
+                <h1 className="text-1xl mt-2 font-bold tracking-tight text-[#64748B] md:text-[1rem]">
+                  Manage and monitor your healthcare fundraising initiatives
+                  across the region.
+                </h1>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.ORGANIZATION_CAMPAIGN_CREATE)}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f6fe6] px-6 py-3 text-sm font-semibold text-white hover:bg-[#1f6fe6]"
+              >
+                <Plus className="h-4 w-4" />
+                Create New Campaign
+              </button>
             </div>
-            <strong>{summary.activeCount}</strong>
-            <small>v.s. last month</small>
-          </article>
-          <article className="org-cpg-kpi-card">
-            <div className="org-cpg-kpi-head">
-              <p>Total Funds Raised</p>
-              <span className="icon green">
-                <CircleDollarSign size={14} />
-              </span>
-            </div>
-            <strong>${summary.totalRaised.toLocaleString()}</strong>
-            <small>Across all campaigns</small>
-          </article>
-          <article className="org-cpg-kpi-card">
-            <div className="org-cpg-kpi-head">
-              <p>Avg. Completion Rate</p>
-              <span className="icon amber">
-                <CirclePercent size={14} />
-              </span>
-            </div>
-            <strong>{summary.avgCompletion}%</strong>
-            <small>Target reaching efficiency</small>
-          </article>
-        </section>
-
-        <section className="org-cpg-panel">
-          <div className="org-cpg-tabs">
-            <button type="button" className={activeTab === 'active' ? 'is-active' : ''} onClick={() => setActiveTab('active')}>
-              Active Campaigns
-            </button>
-            <button type="button" className={activeTab === 'past' ? 'is-active' : ''} onClick={() => setActiveTab('past')}>
-              Past Campaigns
-            </button>
-            <button type="button" className={activeTab === 'drafts' ? 'is-active' : ''} onClick={() => setActiveTab('drafts')}>
-              Drafts
-            </button>
           </div>
 
-          {isUsingDemoData ? (
-            <p className="org-cpg-msg">No organization campaigns yet. Showing demo layout data.</p>
-          ) : null}
-          {loading ? <p className="org-cpg-msg">Loading campaigns...</p> : null}
-          {!loading && error ? <p className="org-cpg-msg is-error">{error}</p> : null}
-          {!loading && !error && visible.length === 0 ? <p className="org-cpg-msg">No campaigns found.</p> : null}
-
-          {!loading && !error && visible.length > 0 ? (
-            <div className="org-cpg-list">
-              {visible.map((item) => {
-                const badge = getBadgeLabel(item);
-                return (
-                  <article key={item.id} className="org-cpg-item">
-                    <img src={item.image} alt={item.title} />
-                    <div className="org-cpg-item-body">
-                      <div className="org-cpg-item-meta">
-                        <span className={`org-cpg-badge ${badge.toLowerCase()}`}>{badge}</span>
-                        <span>Category: {item.category}</span>
-                      </div>
-                      <h3>{item.title}</h3>
-                      <div className="org-cpg-item-fund">
-                        <span>
-                          Raised: <strong>${item.raised.toLocaleString()}</strong>
-                        </span>
-                        <span>
-                          Goal: <strong>${item.goal.toLocaleString()}</strong>
-                        </span>
-                      </div>
-                      <div className="org-cpg-progress">
-                        <span style={{ width: `${item.progress}%` }} />
-                      </div>
-                      <div className="org-cpg-item-foot">
-                        <span>
-                          <Clock3 size={12} />
-                          {item.daysLeft === null ? '-' : `${Math.max(0, item.daysLeft)} days left`}
-                        </span>
-                        <span>
-                          <Users size={12} />
-                          {item.donors.toLocaleString()} Donors
-                        </span>
-                      </div>
-                    </div>
-                    <div className="org-cpg-actions">
-                      <button type="button" onClick={() => navigate(ROUTES.CAMPAIGN_DETAILS(String(item.id)))}>
-                        View Details
-                        <ArrowRight size={14} />
-                      </button>
-                      <button type="button" className="more" aria-label="More">
-                        <MoreHorizontal size={16} />
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+          <div className="mt-6 rounded-[28px] border border-[#E2E8F0] bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+            <div className="flex flex-wrap items-center gap-2 border-b border-[#E2E8F0] pb-4">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    activeTab === tab
+                      ? "bg-[#FFF7ED] text-[#1f6fe6] shadow-[0_0px_px_rgba(249,115,22,0.2)]"
+                      : "text-[#64748B] hover:bg-[#F1F5F9]"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
-          ) : null}
 
-          <footer className="org-cpg-footer">
-            <p>
-              Showing {visible.length} of {filtered.length} {activeTab === 'past' ? 'past' : activeTab} campaigns
-            </p>
-            <div className="org-cpg-pagination">
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
-                {'<'}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="relative flex min-w-[240px] flex-1 items-center">
+                <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
+                <input
+                  type="text"
+                  placeholder="Search campaigns by title or ID..."
+                  className="h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
+                />
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-semibold text-[#475569] shadow-[0_8px_18px_rgba(15,23,42,0.06)] hover:bg-[#F8FAFC]"
+              >
+                Category
+                <ChevronDown className="h-4 w-4" />
               </button>
-              {Array.from({ length: totalPages }).slice(0, 5).map((_, idx) => {
-                const pageNumber = idx + 1;
-                return (
-                  <button
-                    type="button"
-                    key={pageNumber}
-                    className={safePage === pageNumber ? 'is-active' : ''}
-                    onClick={() => setPage(pageNumber)}
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-semibold text-[#475569] shadow-[0_8px_18px_rgba(15,23,42,0.06)] hover:bg-[#F8FAFC]"
+              >
+                Latest First
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {filteredCampaigns.map((item) => {
+              const progress = Math.min(
+                100,
+                Math.round((item.raised / item.goal) * 100),
+              );
+              return (
+                <article
+                  key={item.id}
+                  className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
+                >
+                  <div
+                    className={`relative h-40 w-full bg-gradient-to-br ${item.art}`}
                   >
-                    {pageNumber}
-                  </button>
-                );
-              })}
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>
-                {'>'}
+                    <span
+                      className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${item.statusTone}`}
+                    >
+                      {item.status}
+                    </span>
+                  </div>
+                  <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+                    <span className="w-fit rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-semibold text-[#475569]">
+                      {item.category}
+                    </span>
+                    <h3 className="mt-3 text-lg font-bold text-[#0F172A]">
+                      {item.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-[#64748B]">
+                      {item.description}
+                    </p>
+
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
+                        <span>RAISED</span>
+                        <span>GOAL</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm font-semibold text-[#0F172A]">
+                        <span className="text-[#1f6fe6]">
+                          {formatMoney(item.raised)}
+                        </span>
+                        <span>{formatMoney(item.goal)}</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-[#E2E8F0]">
+                        <div
+                          className="h-2 rounded-full bg-[#1f6fe6]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`mt-5 inline-flex items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition ${item.actionTone}`}
+                    >
+                      {item.action}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="mt-8 flex items-center justify-center gap-2 text-sm font-semibold text-[#94A3B8]">
+            <button
+              type="button"
+              className="h-8 w-8 rounded-full border border-[#E2E8F0] bg-white hover:bg-[#F1F5F9]"
+            >
+              &lsaquo;
+            </button>
+            {[1, 2, 3].map((page) => (
+              <button
+                key={page}
+                type="button"
+                className={`h-8 w-8 rounded-full border text-sm font-semibold ${
+                  page === 1
+                    ? "border-[#1f6fe6] bg-[#1f6fe6] text-white"
+                    : "border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F1F5F9]"
+                }`}
+              >
+                {page}
               </button>
-            </div>
-          </footer>
+            ))}
+            <span className="text-[#94A3B8]">...</span>
+            <button
+              type="button"
+              className="h-8 w-8 rounded-full border border-[#E2E8F0] bg-white hover:bg-[#F1F5F9]"
+            >
+              8
+            </button>
+            <button
+              type="button"
+              className="h-8 w-8 rounded-full border border-[#E2E8F0] bg-white hover:bg-[#F1F5F9]"
+            >
+              &rsaquo;
+            </button>
+          </div>
         </section>
       </main>
     </div>

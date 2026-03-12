@@ -47,10 +47,33 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
+function getStorageFileUrl(path) {
+  if (!path) return '';
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
+  }
+
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
+}
+
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [campaignData, setCampaignData] = useState(null);
+  const [campaignLoading, setCampaignLoading] = useState(false);
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
   const presetAmounts = [10, 25, 50, 100, 250];
@@ -65,13 +88,84 @@ function CampaignDetailPage({ campaignId }) {
     lastUpdated: null,
   });
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
-  const campaign = getCampaignById(resolvedCampaignId);
+  const campaign = campaignData ?? getCampaignById(resolvedCampaignId);
   const session = getSession();
   const fallbackCampaignPath = session?.isLoggedIn && session?.role === 'Donor' ? '/campaigns/donor' : '/campaigns';
   const backTarget =
     typeof location.state?.from === 'string' && location.state.from.startsWith('/')
       ? location.state.from
       : fallbackCampaignPath;
+
+  useEffect(() => {
+    let mounted = true;
+    const local = getCampaignById(resolvedCampaignId);
+    if (local) {
+      setCampaignData(local);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    if (!/^\d+$/.test(String(resolvedCampaignId))) {
+      setCampaignData(null);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    setCampaignLoading(true);
+    fetch(`${apiBase}/campaigns/${resolvedCampaignId}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load campaign (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!mounted) return;
+        const mapped = {
+          id: data?.id,
+          title: data?.title || 'Untitled campaign',
+          category: data?.category || 'General',
+          organization:
+            data?.organization_name ||
+            data?.organization ||
+            (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
+          summary: data?.description || data?.summary || 'No description available yet.',
+          goalAmount: Number(data?.goal_amount ?? data?.goal ?? 0),
+          raisedAmount: Number(data?.current_amount ?? data?.raised_amount ?? data?.raised ?? 0),
+          image:
+            getStorageFileUrl(data?.image_path) ||
+            data?.image_url ||
+            data?.image ||
+            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+        };
+        setCampaignData(mapped);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCampaignData(null);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setCampaignLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [resolvedCampaignId]);
+
+  if (!campaign && campaignLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Loading campaign...</h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!campaign) {
     return (
@@ -89,20 +183,40 @@ function CampaignDetailPage({ campaignId }) {
     );
   }
 
-  const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
+  const safeTitle = campaign?.title || 'Campaign';
+  const safeCategory = campaign?.category || 'General';
+  const safeSummary = campaign?.summary || 'No description available yet.';
+  const safeImage =
+    campaign?.image ||
+    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
+  const goalAmount = Number(campaign?.goalAmount ?? 0);
+  const raisedAmount = Number(campaign?.raisedAmount ?? 0);
+  const percentRaised = goalAmount > 0 ? Math.round((raisedAmount / goalAmount) * 100) : 0;
   const progressWidth = Math.min(percentRaised, 100);
-  const backers = Math.max(24, Math.round(campaign.raisedAmount / 35));
-  const daysToGo = Math.max(5, 45 - Math.floor(campaign.raisedAmount / 5000));
+  const backers = Math.max(24, Math.round(raisedAmount / 35) || 0);
+  const daysToGo = Math.max(5, 45 - Math.floor(raisedAmount / 5000) || 0);
+  const organizationName = String(campaign?.organization || 'Organization');
   const creatorName =
-    campaign.organization.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || campaign.organization;
+    organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   useEffect(() => {
+    if (!campaign) return;
     const savedIds = getSavedCampaignIds();
     setIsSaved(savedIds.includes(campaign.id));
-  }, [campaign.id]);
+  }, [campaign]);
 
   function requestRealLocation() {
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      setLocationState({
+        loading: false,
+        error: 'Location access requires HTTPS or localhost.',
+        coords: null,
+        lastUpdated: null,
+      });
+      return;
+    }
+
     if (!navigator.geolocation) {
       setLocationState({
         loading: false,
@@ -119,37 +233,46 @@ function CampaignDetailPage({ campaignId }) {
       error: '',
     }));
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationState({
-          loading: false,
-          error: '',
-          coords: {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-          },
-          lastUpdated: new Date(),
-        });
-      },
-      (error) => {
-        const errorMessage =
-          error.code === 1
-            ? 'Location access denied. Enable location permission and try again.'
-            : 'Unable to get your current location.';
-        setLocationState({
-          loading: false,
-          error: errorMessage,
-          coords: null,
-          lastUpdated: null,
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
-      },
-    );
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocationState({
+            loading: false,
+            error: '',
+            coords: {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+            },
+            lastUpdated: new Date(),
+          });
+        },
+        (error) => {
+          const errorMessage =
+            error.code === 1
+              ? 'Location access denied. Enable location permission and try again.'
+              : 'Unable to get your current location.';
+          setLocationState({
+            loading: false,
+            error: errorMessage,
+            coords: null,
+            lastUpdated: null,
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        },
+      );
+    } catch {
+      setLocationState({
+        loading: false,
+        error: 'Unable to access location services.',
+        coords: null,
+        lastUpdated: null,
+      });
+    }
   }
 
   useEffect(() => {
@@ -229,10 +352,10 @@ function CampaignDetailPage({ campaignId }) {
       <section className="campaign-detail-layout campaign-detail-v2-layout" aria-label="Campaign detail">
         <div className="campaign-main-column">
           <article className="campaign-hero-panel campaign-hero-v2">
-            <img src={campaign.image} alt={campaign.title} className="campaign-detail-image" referrerPolicy="no-referrer" />
+            <img src={safeImage} alt={safeTitle} className="campaign-detail-image" referrerPolicy="no-referrer" />
             <div className="campaign-hero-overlay">
-              <span className="campaign-category">{campaign.category}</span>
-              <h1>{campaign.title}</h1>
+              <span className="campaign-category">{safeCategory}</span>
+              <h1>{safeTitle}</h1>
               <p className="campaign-hero-location">
                 <MapPin size={14} /> Kampong Speu, Cambodia
               </p>
@@ -249,7 +372,7 @@ function CampaignDetailPage({ campaignId }) {
           <article className="campaign-about">
             <h2>Project Impact</h2>
             <p>
-              {campaign.summary} Access to clean water is a fundamental human right, and this project installs reliable
+              {safeSummary} Access to clean water is a fundamental human right, and this project installs reliable
               systems with long-term local maintenance.
             </p>
             <div className="campaign-pillars campaign-pillars-v2">
@@ -314,8 +437,8 @@ function CampaignDetailPage({ campaignId }) {
 
         <aside className="campaign-side-column">
           <article className="detail-stat-card detail-stat-v2">
-            <p className="stat-amount">{formatCurrency(campaign.raisedAmount)}</p>
-            <p className="stat-goal">raised of {formatCurrency(campaign.goalAmount)}</p>
+            <p className="stat-amount">{formatCurrency(raisedAmount)}</p>
+            <p className="stat-goal">raised of {formatCurrency(goalAmount)}</p>
             <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
               <span style={{ width: `${progressWidth}%` }} />
             </div>
