@@ -140,18 +140,14 @@ export default function OrganizationCampaignsPage() {
               <Bell className="mx-auto h-4 w-4" />
               <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#1f6fe6]" />
             </button>
-            <div className="flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-2.5 py-1 shadow-[0_8px_20px_rgba(15,23,42,0.08)]">
-              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[#1629a1] bg-[radial-gradient(circle_at_top,_#FFF7ED,_#FED7AA)] text-xs font-bold text-[#EA580C] shadow-[0_6px_14px_rgba(234,88,12,0.2)]">
+            <div className="org-cpg-user-card" aria-label="Organization profile">
+              <span className="org-cpg-user-avatar" aria-hidden="true">
                 DC
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+                <span className="org-cpg-user-status" />
               </span>
-              <div className="pr-1.5">
-                <p className="text-sm font-semibold leading-tight text-[#0F172A]">
-                  Dr. Chomnuoy
-                </p>
-                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#94A3B8]">
-                  Organization
-                </p>
+              <div className="org-cpg-user-meta">
+                <p className="org-cpg-user-name">Dr. Chomnuoy</p>
+                <p className="org-cpg-user-role">Organization</p>
               </div>
             </div>
           </div>

@@ -81,13 +81,19 @@ export default function OrganizationProfilePage() {
       <main className="org-main">
         <section className="org-profile-header">
           <div className="org-profile-header-left">
-            {logoUrl ? (
-              <img src={logoUrl} alt={`${profile.name} logo`} className="org-profile-logo-img" />
-            ) : (
-              <span className="org-profile-logo" aria-hidden="true">{initials}</span>
-            )}
-            <div>
-              <h1>{profile.name}</h1>
+            <div className="org-profile-pill" aria-label="Organization profile">
+              <span className="org-profile-pill-avatar" aria-hidden="true">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="" className="org-profile-pill-logo" />
+                ) : (
+                  initials
+                )}
+                <span className="org-profile-pill-status" />
+              </span>
+              <div className="org-profile-pill-meta">
+                <p className="org-profile-pill-name">{profile.name}</p>
+                <p className="org-profile-pill-role">Organization</p>
+              </div>
             </div>
           </div>
           <div className="org-profile-header-actions">
