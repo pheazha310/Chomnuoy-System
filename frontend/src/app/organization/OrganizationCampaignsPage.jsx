@@ -1,68 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
 import "./organization.css";
-
-const campaignData = [
-  {
-    id: "c1",
-    status: "Active",
-    statusTone: "bg-emerald-500 text-white",
-    category: "Medical Equipment",
-    title: "Emergency Oxygen Supply for Rural Clinics",
-    description:
-      "Providing 50 new oxygen concentrators to underserved provinces.",
-    raised: 45200,
-    goal: 60000,
-    action: "View Details",
-    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
-    art: "from-[#FCD9B6] via-[#FDEAD6] to-[#FFF7ED]",
-  },
-  {
-    id: "c2",
-    status: "Completed",
-    statusTone: "bg-[#64748B] text-white",
-    category: "Surgery Fund",
-    title: "Pediatric Heart Surgery Program 2023",
-    description:
-      "Funding life-saving cardiac procedures for children in low-income families.",
-    raised: 125000,
-    goal: 120000,
-    action: "View Results",
-    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#F1F5F9]",
-    art: "from-[#E2E8F0] via-[#EEF2F7] to-[#F8FAFC]",
-  },
-  {
-    id: "c3",
-    status: "Draft",
-    statusTone: "bg-[#F97316] text-white",
-    category: "Public Health",
-    title: "Community Wellness & Nutrition Drive",
-    description:
-      "Launching a new initiative to educate and provide nutrition support.",
-    raised: 0,
-    goal: 15000,
-    action: "Resume Editing",
-    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
-    art: "from-[#FFE6C7] via-[#FFF1DF] to-[#FFFBF5]",
-  },
-  {
-    id: "c4",
-    status: "Active",
-    statusTone: "bg-emerald-500 text-white",
-    category: "Cancer Care",
-    title: "Mobile Screening Unit Fund",
-    description:
-      "Purchasing a fully equipped mobile unit for early cancer screening.",
-    raised: 18750,
-    goal: 85000,
-    action: "View Details",
-    actionTone: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
-    art: "from-[#FBC7B7] via-[#FBD9CF] to-[#FFECE7]",
-  },
-];
 
 const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
 
@@ -73,9 +14,101 @@ function formatMoney(value) {
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All Campaigns");
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("Category");
+  const [selectedSort, setSelectedSort] = useState("Latest First");
+
+  const getOrganizationSession = () => {
+    try {
+      const raw = window.localStorage.getItem("chomnuoy_session");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const normalizeStatus = (status) => {
+    const value = String(status || "").toLowerCase();
+    if (value === "active") return "Active";
+    if (value === "completed") return "Completed";
+    if (value === "draft") return "Draft";
+    return "Active";
+  };
+
+  const statusToneMap = {
+    Active: "bg-emerald-500 text-white",
+    Completed: "bg-[#64748B] text-white",
+    Draft: "bg-[#F97316] text-white",
+  };
+
+  const actionLabelMap = {
+    Active: "View Details",
+    Completed: "View Results",
+    Draft: "Resume Editing",
+  };
+
+  const actionToneMap = {
+    Active: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
+    Completed: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#F1F5F9]",
+    Draft: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
+  };
+
+  const artPalette = [
+    "from-[#FCD9B6] via-[#FDEAD6] to-[#FFF7ED]",
+    "from-[#E2E8F0] via-[#EEF2F7] to-[#F8FAFC]",
+    "from-[#FFE6C7] via-[#FFF1DF] to-[#FFFBF5]",
+    "from-[#FBC7B7] via-[#FBD9CF] to-[#FFECE7]",
+  ];
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const session = getOrganizationSession();
+    const organizationId = Number(session?.userId ?? 0);
+    setLoading(true);
+    setError("");
+    fetch(`${apiBase}/campaigns`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load campaigns (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        const items = Array.isArray(data) ? data : [];
+        const filtered = organizationId
+          ? items.filter((item) => Number(item.organization_id) === organizationId)
+          : items;
+        const mapped = filtered.map((item, index) => {
+          const status = normalizeStatus(item.status);
+          return {
+            id: item.id,
+            status,
+            statusTone: statusToneMap[status],
+            category: item.category || "General",
+            title: item.title || "Untitled Campaign",
+            description: item.description || "No description provided.",
+            raised: Number(item.current_amount || 0),
+            goal: Number(item.goal_amount || 0),
+            action: actionLabelMap[status],
+            actionTone: actionToneMap[status],
+            art: artPalette[index % artPalette.length],
+          };
+        });
+        setCampaigns(mapped);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load campaigns.");
+        setCampaigns([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const overview = useMemo(() => {
-    const totals = campaignData.reduce(
+    const totals = campaigns.reduce(
       (acc, item) => {
         acc.raised += item.raised;
         acc.goal += item.goal;
@@ -94,7 +127,7 @@ export default function OrganizationCampaignsPage() {
       ...totals,
       completionRate,
     };
-  }, []);
+  }, [campaigns]);
 
   const tabCounts = useMemo(
     () => ({
@@ -107,13 +140,13 @@ export default function OrganizationCampaignsPage() {
   );
 
   const filteredCampaigns = useMemo(() => {
-    if (activeTab === "All Campaigns") return campaignData;
+    if (activeTab === "All Campaigns") return campaigns;
     if (activeTab === "Past")
-      return campaignData.filter((item) => item.status === "Completed");
+      return campaigns.filter((item) => item.status === "Completed");
     if (activeTab === "Drafts")
-      return campaignData.filter((item) => item.status === "Draft");
-    return campaignData.filter((item) => item.status === activeTab);
-  }, [activeTab]);
+      return campaigns.filter((item) => item.status === "Draft");
+    return campaigns.filter((item) => item.status === activeTab);
+  }, [activeTab, campaigns]);
 
   return (
     <div className="org-page">
@@ -264,22 +297,75 @@ export default function OrganizationCampaignsPage() {
                   className="h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                 />
               </div>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-semibold text-[#475569] shadow-[0_8px_18px_rgba(15,23,42,0.06)] hover:bg-[#F8FAFC]"
-              >
-                Category
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-semibold text-[#475569] shadow-[0_8px_18px_rgba(15,23,42,0.06)] hover:bg-[#F8FAFC]"
-              >
-                Latest First
-                <ChevronDown className="h-4 w-4" />
-              </button>
+              <div className="org-cpg-filter">
+                <button
+                  type="button"
+                  className="org-cpg-filter-btn"
+                  onClick={() => {
+                    setCategoryOpen((prev) => !prev);
+                    setSortOpen(false);
+                  }}
+                  aria-expanded={categoryOpen}
+                >
+                  {selectedCategory}
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                {categoryOpen ? (
+                  <div className="org-cpg-filter-menu">
+                    {["Category", "Education", "Health", "Community", "Environment", "Other"].map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(item);
+                          setCategoryOpen(false);
+                        }}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="org-cpg-filter">
+                <button
+                  type="button"
+                  className="org-cpg-filter-btn is-active"
+                  onClick={() => {
+                    setSortOpen((prev) => !prev);
+                    setCategoryOpen(false);
+                  }}
+                  aria-expanded={sortOpen}
+                >
+                  {selectedSort}
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                {sortOpen ? (
+                  <div className="org-cpg-filter-menu">
+                    {["Latest First", "Oldest First", "Highest Goal", "Lowest Goal"].map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSort(item);
+                          setSortOpen(false);
+                        }}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
+
+          {loading ? (
+            <p className="mt-6 text-sm text-[#64748B]">Loading campaigns...</p>
+          ) : null}
+          {error ? (
+            <p className="mt-3 text-sm text-red-600">{error}</p>
+          ) : null}
 
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filteredCampaigns.map((item) => {
@@ -306,10 +392,10 @@ export default function OrganizationCampaignsPage() {
                     <span className="w-fit rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-semibold text-[#475569]">
                       {item.category}
                     </span>
-                    <h3 className="mt-3 text-lg font-bold text-[#0F172A]">
+                    <h3 className="org-cpg-card-title mt-3 text-lg font-bold text-[#0F172A]">
                       {item.title}
                     </h3>
-                    <p className="mt-2 text-sm text-[#64748B]">
+                    <p className="org-cpg-card-desc mt-2 text-sm text-[#64748B]">
                       {item.description}
                     </p>
 
