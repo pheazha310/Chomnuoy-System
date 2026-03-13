@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserCredentialController;
 use App\Http\Controllers\Api\UserHistoryController;
 use App\Http\Controllers\Api\UserRoleController;
+use App\Http\Controllers\Api\SocialAuthController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,12 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
+
+// Social authentication routes
+Route::get('/auth/google/redirect', [SocialAuthController::class, 'googleRedirect']);
+Route::get('/auth/facebook/redirect', [SocialAuthController::class, 'facebookRedirect']);
+Route::post('/auth/google/callback', [SocialAuthController::class, 'googleCallback']);
+Route::post('/auth/facebook/callback', [SocialAuthController::class, 'facebookCallback']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',
