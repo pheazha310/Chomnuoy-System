@@ -80,7 +80,7 @@ const NAV_ITEMS = [
   },
 ];
 
-const AdminSidebar = ({ onLogout, userName }) => (
+const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => (
   <aside className="admin-sidebar" aria-label="Admin navigation">
     <div className="admin-brand">
       <span className="admin-brand-mark" aria-hidden="true">
@@ -162,7 +162,7 @@ const AdminSidebar = ({ onLogout, userName }) => (
         </div>
         <div>
           <p className="admin-user-name">{userName}</p>
-          <p className="admin-user-role">Admin</p>
+          <p className="admin-user-role">{userRole}</p>
         </div>
       </div>
       <button className="admin-logout-btn" type="button" onClick={onLogout}>

@@ -114,6 +114,7 @@ const AdminDashboard = () => {
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
+  const adminRole = session?.role || session?.accountType || 'Admin';
   const maxValue = Math.max(...CHART_VALUES);
   const minValue = Math.min(...CHART_VALUES);
   const chartWidth = 560;
@@ -135,7 +136,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="admin-shell">
-      <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} />
+      <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
 
       <main className="admin-main">
         <header className="admin-header">

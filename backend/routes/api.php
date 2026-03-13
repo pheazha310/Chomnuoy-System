@@ -39,6 +39,7 @@ Route::get('/health', function (): JsonResponse {
 });
 
 Route::apiResource('users', UserController::class);
+Route::post('/users/{id}/last-seen', [UserController::class, 'updateLastSeen']);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('user_roles', UserRoleController::class);
 Route::apiResource('user_credentials', UserCredentialController::class);

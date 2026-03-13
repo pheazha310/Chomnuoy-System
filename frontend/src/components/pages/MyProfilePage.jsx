@@ -68,6 +68,17 @@ function normalizeAvatarUrl(url) {
   return url;
 }
 
+function resolveProfileAvatar(profile) {
+  return (
+    profile?.avatar ||
+    profile?.avatar_url ||
+    getStorageFileUrl(profile?.avatar_path || profile?.profile_image || profile?.image_url) ||
+    profile?.profile_image ||
+    profile?.image_url ||
+    ''
+  );
+}
+
 function getInitials(name) {
   if (!name) return 'DU';
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -146,12 +157,13 @@ export default function MyProfilePage() {
         const data = isOrganization
           ? await getOrganizationById(accountId)
           : await getUserById(accountId);
+        const resolvedAvatar = resolveProfileAvatar(data);
 
         setFormData({
           name: data?.name || session?.name || '',
           email: data?.email || session?.email || '',
           phone: data?.phone || '',
-          avatar: normalizeAvatarUrl(getStorageFileUrl(data?.avatar_path) || session?.avatar || ''),
+          avatar: normalizeAvatarUrl(resolvedAvatar || session?.avatar || ''),
         });
       } catch {
         setFormData({
@@ -282,7 +294,7 @@ export default function MyProfilePage() {
         ? await updateOrganizationProfile(accountId, payload)
         : await updateUserProfile(accountId, payload);
 
-      const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
+      const savedAvatarUrl = withCacheBust(resolveProfileAvatar(updated));
       const finalAvatar = savedAvatarUrl || normalizeAvatarUrl(formData.avatar) || normalizeAvatarUrl(session?.avatar || '') || '';
       const nextSession = {
         ...(getSession() || {}),
@@ -386,6 +398,7 @@ export default function MyProfilePage() {
                   <img
                     src={formData.avatar}
                     alt="Profile preview"
+                    onError={() => setFormData((prev) => ({ ...prev, avatar: '' }))}
                     className="h-36 w-36 rounded-full border-4 border-white object-cover shadow-[0_14px_28px_rgba(15,23,42,0.22)] sm:h-40 sm:w-40"
                   />
                 ) : (
@@ -530,6 +543,7 @@ export default function MyProfilePage() {
                   <img
                     src={formData.avatar}
                     alt="Profile avatar"
+                    onError={() => setFormData((prev) => ({ ...prev, avatar: '' }))}
                     className="h-20 w-20 rounded-full border border-[#CBD5E1] object-cover"
                   />
                 ) : (

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserCredential;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
@@ -47,7 +49,9 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:30'],
+            'status' => ['nullable', 'string', 'max:50'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
         // Check if avatar file is uploaded
@@ -57,6 +61,20 @@ class UserController extends Controller
             if (Schema::hasColumn('users', 'avatar_path')) {
                 $data['avatar_path'] = $storedPath;
             }
+        }
+
+        if (!empty($data['password'])) {
+            if (Schema::hasColumn('users', 'password')) {
+                $data['password'] = Hash::make($data['password']);
+            } else {
+                UserCredential::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['password' => Hash::make($data['password'])],
+                );
+                unset($data['password']);
+            }
+        } else {
+            unset($data['password']);
         }
 
         // Update user data in database
@@ -72,5 +90,17 @@ class UserController extends Controller
         $record->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function updateLastSeen(int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+        $user->last_seen_at = now();
+        $user->save();
+
+        return response()->json([
+            'message' => 'Last seen updated.',
+            'last_seen_at' => $user->last_seen_at,
+        ]);
     }
 }

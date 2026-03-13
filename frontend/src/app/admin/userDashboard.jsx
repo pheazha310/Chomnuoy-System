@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './adminsidebar';
 import './user.css';
-
-const PAGE_SIZE = 8;
 
 function formatDate(value) {
   if (!value) return '-';
@@ -23,6 +22,19 @@ function normalizeStatus(raw) {
   return raw ? String(raw) : 'Active';
 }
 
+function resolvePresenceStatus(statusValue, lastSeenAt) {
+  if (String(statusValue || '').toLowerCase().includes('inactive')) {
+    return 'Offline';
+  }
+  if (!lastSeenAt) {
+    return 'Offline';
+  }
+  const lastSeen = new Date(lastSeenAt);
+  if (Number.isNaN(lastSeen.getTime())) return 'Offline';
+  const minutesAgo = (Date.now() - lastSeen.getTime()) / 60000;
+  return minutesAgo <= 15 ? 'Active' : 'Offline';
+}
+
 const StatCard = ({ stat }) => (
   <div className={`admin-user-stat admin-user-stat-${stat.tone}`}>
     <div className="admin-user-stat-icon" aria-hidden="true">
@@ -35,18 +47,33 @@ const StatCard = ({ stat }) => (
 );
 
 export default function UserDashboard() {
+  const navigate = useNavigate();
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [actionModal, setActionModal] = useState(null);
+  const [editDraft, setEditDraft] = useState({ name: '', email: '', role: '', status: '' });
+  const [actionError, setActionError] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
+  const adminRole = session?.role || session?.accountType || 'Admin';
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+  const getStorageFileUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
+    const appBase = apiBase.replace(/\/api\/?$/, '');
+    return `${appBase}/storage/${path}`;
+  };
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -58,8 +85,77 @@ export default function UserDashboard() {
     setOpenMenuId((prev) => (prev === userId ? null : userId));
   };
 
+  const openActionModal = (type, user) => {
+    setOpenMenuId(null);
+    setActionError('');
+    if (type === 'edit') {
+      setEditDraft({
+        name: user.name || '',
+        email: user.email || '',
+        role: user.rawRole || user.role || '',
+        status: user.status || '',
+        password: '',
+        confirmPassword: '',
+        forceReset: false,
+      });
+    }
+    setActionModal({ type, user });
+  };
+
+  const closeActionModal = () => {
+    setActionModal(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!actionModal?.user?.id) return;
+    setActionError('');
+
+    if (editDraft.password && editDraft.password !== editDraft.confirmPassword) {
+      setActionError('Passwords do not match.');
+      return;
+    }
+
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const payload = new FormData();
+    payload.append('_method', 'PUT');
+    payload.append('name', editDraft.name || actionModal.user.name || '');
+    payload.append('email', editDraft.email || actionModal.user.email || '');
+    if (editDraft.status) {
+      payload.append('status', editDraft.status);
+    }
+    if (editDraft.password) {
+      payload.append('password', editDraft.password);
+      payload.append('password_confirmation', editDraft.confirmPassword || '');
+    }
+
+    try {
+      setActionSaving(true);
+      const response = await fetch(`${apiBase}/users/${actionModal.user.id}`, {
+        method: 'POST',
+        headers,
+        body: payload,
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null);
+        const fallbackMessage = errorPayload?.message || 'Unable to update user.';
+        throw new Error(fallbackMessage);
+      }
+
+      const updated = await response.json();
+      setUsers((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+      closeActionModal();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update user.');
+    } finally {
+      setActionSaving(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
+    let refreshId;
     const token = window.localStorage.getItem('authToken');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -98,8 +194,12 @@ export default function UserDashboard() {
     }
 
     load();
+    refreshId = window.setInterval(load, 60000);
     return () => {
       mounted = false;
+      if (refreshId) {
+        window.clearInterval(refreshId);
+      }
     };
   }, [apiBase]);
 
@@ -117,17 +217,27 @@ export default function UserDashboard() {
     () =>
       users.map((user) => {
         const roleName = roleLookup.get(Number(user.role_id)) || user.role || '';
+        const avatarUrl =
+          user.avatar_url ||
+          user.profile_image ||
+          user.avatar ||
+          user.image_url ||
+          user.photo ||
+          user.picture ||
+          getStorageFileUrl(user.avatar_path);
         return {
           id: user.id,
           name: user.name || 'Unknown',
           email: user.email || '-',
+          phone: user.phone || '',
+          avatarUrl,
           rawRole: String(roleName || ''),
           role: normalizeRoleLabel(roleName),
           joined: formatDate(user.created_at),
-          status: normalizeStatus(user.status),
+          status: resolvePresenceStatus(user.status, user.last_seen_at),
         };
       }),
-    [users, roleLookup]
+    [users, roleLookup, apiBase]
   );
 
   const filteredUsers = useMemo(() => {
@@ -148,13 +258,7 @@ export default function UserDashboard() {
     ));
   }, [normalizedUsers, searchTerm, session?.email]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const visibleUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm]);
+  const visibleUsers = filteredUsers;
 
   const userStats = useMemo(() => {
     const total = normalizedUsers.length;
@@ -169,15 +273,15 @@ export default function UserDashboard() {
 
   return (
     <div className="admin-shell admin-user-shell">
-      <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} />
+      <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
 
       <main className="admin-main admin-user-main" onClick={() => setOpenMenuId(null)}>
         <header className="admin-user-header">
           <div>
-            <h1>Admin User Management</h1>
+            <h1 style={{fontSize:'35px'}}>Admin User Management</h1>
             <p>Manage donors and organization representatives.</p>
           </div>
-          <div className="admin-user-header-actions">
+          {/* <div className="admin-user-header-actions">
             <button className="admin-user-primary-btn" type="button">
               <span className="admin-user-btn-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
@@ -186,7 +290,7 @@ export default function UserDashboard() {
               </span>
               Add New User
             </button>
-          </div>
+          </div> */}
         </header>
 
         <section className="admin-user-stats">
@@ -254,21 +358,37 @@ export default function UserDashboard() {
               visibleUsers.map((user, index) => {
                 const avatarTone = ['blue', 'orange', 'gray', 'pink'][index % 4];
                 return (
-              <div key={user.email} className="admin-user-table-row">
+              <div
+                key={user.email}
+                className="admin-user-table-row admin-user-row-clickable"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/admin/users/${user.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    navigate(`/admin/users/${user.id}`);
+                  }
+                }}
+              >
                 <div className="admin-user-cell">
                   <span className={`admin-user-avatar admin-user-avatar-${avatarTone}`} aria-hidden="true">
-                    <span className="admin-user-initials">
-                      {user.name
-                        .split(' ')
-                        .map((part) => part[0])
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()}
-                    </span>
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="" />
+                    ) : (
+                      <span className="admin-user-initials">
+                        {user.name
+                          .split(' ')
+                          .map((part) => part[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase()}
+                      </span>
+                    )}
                   </span>
                   <div>
                     <p>{user.name}</p>
                     <span>{user.email}</span>
+                    {user.phone ? <small className="admin-user-phone">{user.phone}</small> : null}
                   </div>
                 </div>
                 <span className="admin-user-role admin-user-role-user">
@@ -291,9 +411,13 @@ export default function UserDashboard() {
                   </button>
                   {openMenuId === user.id ? (
                     <div className="admin-user-menu" role="menu">
-                      <button type="button" role="menuitem">View Profile</button>
-                      <button type="button" role="menuitem">Edit User</button>
-                      <button type="button" role="menuitem" className="danger">Deactivate</button>
+                      <button type="button" role="menuitem" onClick={() => navigate(`/admin/users/${user.id}`)}>
+                        View Profile
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => openActionModal('edit', user)}>Edit User</button>
+                      <button type="button" role="menuitem" className="danger" onClick={() => openActionModal('deactivate', user)}>
+                        Deactivate
+                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -303,32 +427,6 @@ export default function UserDashboard() {
             ) : null}
           </div>
 
-          <div className="admin-user-footer">
-            <span>
-              Showing {visibleUsers.length} of {filteredUsers.length} results
-            </span>
-            <div className="admin-user-pagination">
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
-                {'<'}
-              </button>
-              {Array.from({ length: totalPages }).slice(0, 5).map((_, idx) => {
-                const pageNumber = idx + 1;
-                return (
-                  <button
-                    type="button"
-                    key={pageNumber}
-                    className={safePage === pageNumber ? 'is-active' : ''}
-                    onClick={() => setPage(pageNumber)}
-                  >
-                    {pageNumber}
-                  </button>
-                );
-              })}
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>
-                {'>'}
-              </button>
-            </div>
-          </div>
         </section>
       </main>
 
@@ -351,6 +449,162 @@ export default function UserDashboard() {
                 Logout
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {actionModal ? (
+        <div className="admin-modal-overlay admin-user-action-overlay" role="presentation" onClick={closeActionModal}>
+          <div
+            className="admin-modal admin-user-action-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-user-action-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {actionModal.type === 'view' ? (
+              <>
+                <h3 id="admin-user-action-title">User Profile</h3>
+                <div className="admin-user-action-card">
+                  <div className="admin-user-action-header">
+                    <span className="admin-user-action-avatar" aria-hidden="true">
+                      {actionModal.user.avatarUrl ? (
+                        <img src={actionModal.user.avatarUrl} alt="" />
+                      ) : (
+                        actionModal.user.name
+                          .split(' ')
+                          .map((part) => part[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase()
+                      )}
+                    </span>
+                    <div>
+                      <p>{actionModal.user.name}</p>
+                      <span>{actionModal.user.email}</span>
+                    </div>
+                  </div>
+                  <div className="admin-user-action-grid">
+                    <div>
+                      <span>Role</span>
+                      <p>{actionModal.user.rawRole || actionModal.user.role || 'User'}</p>
+                    </div>
+                    <div>
+                      <span>Status</span>
+                      <p>{actionModal.user.status}</p>
+                    </div>
+                    <div>
+                      <span>Joined</span>
+                      <p>{actionModal.user.joined}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="admin-modal-actions">
+                  <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {actionModal.type === 'edit' ? (
+              <>
+                <h3 id="admin-user-action-title">Edit User</h3>
+                <div className="admin-user-form">
+                  <label>
+                    Name
+                    <input
+                      type="text"
+                      value={editDraft.name}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Email
+                    <input
+                      type="email"
+                      value={editDraft.email}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, email: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Role
+                    <input
+                      type="text"
+                      value={editDraft.role}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, role: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Status
+                    <select
+                      value={editDraft.status}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, status: event.target.value }))}
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </label>
+                  <div className="admin-user-form-separator">
+                    <span>Password</span>
+                    <p>Set a temporary password or force reset on next login.</p>
+                  </div>
+                  <label>
+                    New Password
+                    <input
+                      type="password"
+                      placeholder="Enter new password"
+                      value={editDraft.password || ''}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, password: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Confirm Password
+                    <input
+                      type="password"
+                      placeholder="Re-type new password"
+                      value={editDraft.confirmPassword || ''}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+                    />
+                  </label>
+                  <label className="admin-user-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editDraft.forceReset)}
+                      onChange={(event) => setEditDraft((prev) => ({ ...prev, forceReset: event.target.checked }))}
+                    />
+                    Require password reset on next login
+                  </label>
+                </div>
+                {actionError ? <p className="admin-user-form-error">{actionError}</p> : null}
+                <div className="admin-modal-actions">
+                  <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
+                    Cancel
+                  </button>
+                  <button type="button" className="admin-user-save" onClick={handleEditSave} disabled={actionSaving}>
+                    {actionSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {actionModal.type === 'deactivate' ? (
+              <>
+                <h3 id="admin-user-action-title">Deactivate User</h3>
+                <p className="admin-user-action-warning">
+                  This will disable access for <strong>{actionModal.user.name}</strong> until they are reactivated.
+                </p>
+                <div className="admin-modal-actions">
+                  <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
+                    Cancel
+                  </button>
+                  <button type="button" className="admin-user-danger" onClick={closeActionModal}>
+                    Deactivate
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}
