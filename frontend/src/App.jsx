@@ -28,6 +28,7 @@ import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
+import AdminPage from '@/app/admin/page.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -151,6 +152,20 @@ function RequireOrganizationAuth({ children }) {
   return children;
 }
 
+function RequireAdminAuth({ children }) {
+  const location = useLocation();
+  const session = getSession();
+  const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
+  const isAdmin = Boolean(session?.isLoggedIn && roleValue === 'admin');
+
+  if (!isAdmin) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  return children;
+}
+
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -159,8 +174,12 @@ function LoginRoute() {
 
   const handleLoginSuccess = (data) => {
     const rawAccountType = data?.account_type ?? data?.accountType ?? data?.user?.role ?? '';
-    const normalizedAccountType = String(rawAccountType).toLowerCase() === 'organization' ? 'Organization' : 'Donor';
+    const normalizedRaw = String(rawAccountType).toLowerCase();
+    const normalizedAccountType = normalizedRaw === 'organization'
+      ? 'Organization'
+      : (normalizedRaw === 'admin' ? 'Admin' : 'Donor');
     const isOrganization = normalizedAccountType === 'Organization';
+    const isAdmin = normalizedAccountType === 'Admin';
     const profile = isOrganization ? (data?.organization ?? data?.user) : (data?.user ?? data?.organization);
 
     if (!profile) {
@@ -177,7 +196,7 @@ function LoginRoute() {
         role: normalizedAccountType,
         name: user.name || 'Donor User',
         email: user.email || loginEmail || '',
-        impactLevel: isOrganization ? 'Organization' : 'Gold',
+        impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
         avatar: resolvedAvatar,
         userId: normalizeAccountId(user.id),
         accountType: normalizedAccountType,
@@ -194,6 +213,10 @@ function LoginRoute() {
         navigate(ROUTES.ORGANIZATION_DASHBOARD);
         return;
       }
+      if (isAdmin) {
+        navigate('/admin');
+        return;
+      }
       navigate(redirectTo);
       return;
     }
@@ -207,10 +230,10 @@ function LoginRoute() {
       : (avatarOverrides[avatarOverrideKey] || resolveAvatar(profile) || '');
     const sessionData = {
       isLoggedIn: true,
-      role: isOrganization ? 'Organization' : 'Donor',
+      role: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Donor'),
       name: profile?.name || 'User',
       email: profile?.email || loginEmail || '',
-      impactLevel: isOrganization ? 'Organization' : 'Gold',
+      impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
       avatar: resolvedAvatar,
       userId: normalizeAccountId(profile?.id),
       accountType: normalizedAccountType,
@@ -225,6 +248,10 @@ function LoginRoute() {
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
     if (isOrganization) {
       navigate(ROUTES.ORGANIZATION_DASHBOARD);
+      return;
+    }
+    if (isAdmin) {
+      navigate('/admin');
       return;
     }
     navigate(redirectTo);
@@ -290,7 +317,8 @@ export default function App() {
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
-    location.pathname.startsWith('/organization/');
+    location.pathname.startsWith('/organization/') ||
+    location.pathname.startsWith('/admin');
 
   return (
     <>
@@ -334,11 +362,19 @@ export default function App() {
           )}
         />
         <Route
+<<<<<<< HEAD
           path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
           element={(
             <RequireOrganizationAuth>
               <OrganizationCampaignCreatePage />
             </RequireOrganizationAuth>
+=======
+          path="/admin"
+          element={(
+            <RequireAdminAuth>
+              <AdminPage />
+            </RequireAdminAuth>
+>>>>>>> fd16d0d1960ec3b99fbef846e74478faea888d51
           )}
         />
         <Route
