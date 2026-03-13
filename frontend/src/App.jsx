@@ -31,6 +31,7 @@ import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx
 import AdminPage from '@/app/admin/page.jsx';
 import UserDashboard from '@/app/admin/userDashboard.jsx';
 import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
+import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -381,6 +382,14 @@ export default function App() {
           element={(
             <RequireAdminAuth>
               <AdminUserProfilePage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/organizations"
+          element={(
+            <RequireAdminAuth>
+              <OrganizationDashboard />
             </RequireAdminAuth>
           )}
         />

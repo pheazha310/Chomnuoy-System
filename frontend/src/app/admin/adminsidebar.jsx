@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Organizations',
+    path: '/admin/organizations',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 21h18M4 21V7l8-4 8 4v14M9 21v-6h6v6" />

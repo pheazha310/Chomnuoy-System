@@ -281,7 +281,7 @@
   background: #eef2ff;
   color: #4338ca;
   text-align: center;
-  line-height: 1;
+  line-height: 40px;
   overflow: hidden;
   position: relative;
 }
@@ -289,9 +289,9 @@
 .admin-user-initials {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  line-height: 1;
+  display: block;
+  text-align: center;
+  line-height: 40px;
 }
 
 .admin-user-avatar-blue {
