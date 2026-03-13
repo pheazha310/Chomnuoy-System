@@ -1,68 +1,45 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 
-const summaryCards = [
-  {
-    title: 'Total Funds Raised',
-    value: '$45,280.00',
-    change: '+12.5%',
-    icon: 'TF',
-  },
-  {
-    title: 'Material Items Received',
-    value: '1,240 items',
-    change: '+5.2%',
-    icon: 'MI',
-  },
-  {
-    title: 'Active Campaigns',
-    value: '8 active',
-    change: 'Stable',
-    icon: 'AC',
-  },
+const fakeDonations = [
+  { donor: 'Sarah Jenkins', type: 'Money', amount: 250, status: 'Completed', date: 'Oct 24, 2023' },
+  { donor: 'David Miller', type: 'Material', items: 15, itemLabel: 'Backpacks', status: 'Pending', date: 'Oct 23, 2023' },
+  { donor: 'Emma Wilson', type: 'Money', amount: 1000, status: 'Completed', date: 'Oct 22, 2023' },
+  { donor: 'Noah Carter', type: 'Money', amount: 5200, status: 'Completed', date: 'Oct 20, 2023' },
+  { donor: 'Mila Brooks', type: 'Material', items: 40, itemLabel: 'Textbooks', status: 'Completed', date: 'Oct 18, 2023' },
+  { donor: 'Oliver Stone', type: 'Money', amount: 320, status: 'Completed', date: 'Oct 18, 2023' },
+  { donor: 'Ava Kim', type: 'Material', items: 25, itemLabel: 'Notebooks', status: 'Completed', date: 'Oct 16, 2023' },
 ];
 
-const campaignPerformance = [
-  {
-    name: 'Annual School Supplies',
-    raised: '$12,400 raised',
-    goal: 'Goal: $15,000',
-    percent: 82,
-    time: '12 Days Left',
-  },
-  {
-    name: 'Clean Water Initiative',
-    raised: '$3,200 raised',
-    goal: 'Goal: $7,000',
-    percent: 45,
-    time: '45 Days Left',
-  },
+const fakeCampaigns = [
+  { name: 'Annual School Supplies', raised: 12400, goal: 15000, percent: 82, time: '12 Days Left', status: 'Active' },
+  { name: 'Clean Water Initiative', raised: 3200, goal: 7000, percent: 45, time: '45 Days Left', status: 'Active' },
+  { name: 'Community Food Drive', raised: 1800, goal: 5000, percent: 36, time: '21 Days Left', status: 'Paused' },
+  { name: 'Health Outreach Kits', raised: 6100, goal: 9000, percent: 68, time: '7 Days Left', status: 'Active' },
 ];
 
-const donationRows = [
-  {
-    donor: 'Sarah Jenkins',
-    type: 'Money',
-    amount: '$250.00',
-    status: 'Completed',
-    date: 'Oct 24, 2023',
-  },
-  {
-    donor: 'David Miller',
-    type: 'Material',
-    amount: '15x Backpacks',
-    status: 'Pending',
-    date: 'Oct 23, 2023',
-  },
-  {
-    donor: 'Emma Wilson',
-    type: 'Money',
-    amount: '$1,000.00',
-    status: 'Completed',
-    date: 'Oct 22, 2023',
-  },
-];
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+
+const campaignPerformance = fakeCampaigns.map((campaign) => ({
+  name: campaign.name,
+  raised: `${formatCurrency(campaign.raised)} raised`,
+  goal: `Goal: ${formatCurrency(campaign.goal)}`,
+  percent: campaign.percent,
+  time: campaign.time,
+}));
+
+const donationRows = fakeDonations.slice(0, 2).map((donation) => ({
+  donor: donation.donor,
+  type: donation.type,
+  amount:
+    donation.type === 'Money'
+      ? formatCurrency(donation.amount)
+      : `${donation.items}x ${donation.itemLabel}`,
+  status: donation.status,
+  date: donation.date,
+}));
 
 const pickupAlerts = [
   {
@@ -240,6 +217,36 @@ function Topbar() {
 
 export default function OrganizationDashboardPage() {
   const [selectedPickupAlert, setSelectedPickupAlert] = useState(null);
+  const summaryCards = useMemo(() => {
+    const totalFunds = fakeDonations
+      .filter((donation) => donation.type === 'Money' && donation.status === 'Completed')
+      .reduce((sum, donation) => sum + donation.amount, 0);
+    const totalItems = fakeDonations
+      .filter((donation) => donation.type === 'Material' && donation.status === 'Completed')
+      .reduce((sum, donation) => sum + donation.items, 0);
+    const activeCampaigns = fakeCampaigns.filter((campaign) => campaign.status === 'Active').length;
+
+    return [
+      {
+        title: 'Total Funds Raised',
+        value: formatCurrency(totalFunds),
+        change: 'Updated',
+        icon: 'TF',
+      },
+      {
+        title: 'Material Items Received',
+        value: `${totalItems.toLocaleString()} items`,
+        change: 'Updated',
+        icon: 'MI',
+      },
+      {
+        title: 'Active Campaigns',
+        value: `${activeCampaigns} active`,
+        change: 'Updated',
+        icon: 'AC',
+      },
+    ];
+  }, []);
 
   return (
     <div className="org-page">
