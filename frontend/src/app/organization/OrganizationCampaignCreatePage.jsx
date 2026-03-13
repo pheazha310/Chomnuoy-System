@@ -313,9 +313,9 @@ export default function OrganizationCampaignCreatePage() {
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#94A3B8]">Timeline</p>
-                  <p className="mt-1">
-                    {form.startDate || '--'} -> {form.endDate || '--'}
-                  </p>
+                    <p className="mt-1">
+                      {form.startDate || '--'}{' -> '}{form.endDate || '--'}
+                    </p>
                 </div>
               </div>
               <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-sm text-[#0F172A]">
