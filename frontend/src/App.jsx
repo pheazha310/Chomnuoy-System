@@ -362,19 +362,19 @@ export default function App() {
           )}
         />
         <Route
-<<<<<<< HEAD
           path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
           element={(
             <RequireOrganizationAuth>
               <OrganizationCampaignCreatePage />
             </RequireOrganizationAuth>
-=======
+          )}
+        />
+        <Route
           path="/admin"
           element={(
             <RequireAdminAuth>
               <AdminPage />
             </RequireAdminAuth>
->>>>>>> fd16d0d1960ec3b99fbef846e74478faea888d51
           )}
         />
         <Route
