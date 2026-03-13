@@ -74,6 +74,38 @@ export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All Campaigns");
 
+  const overview = useMemo(() => {
+    const totals = campaignData.reduce(
+      (acc, item) => {
+        acc.raised += item.raised;
+        acc.goal += item.goal;
+        acc[item.status] += 1;
+        acc.total += 1;
+        return acc;
+      },
+      { raised: 0, goal: 0, total: 0, Active: 0, Completed: 0, Draft: 0 },
+    );
+
+    const completionRate = totals.goal
+      ? Math.round((totals.raised / totals.goal) * 100)
+      : 0;
+
+    return {
+      ...totals,
+      completionRate,
+    };
+  }, []);
+
+  const tabCounts = useMemo(
+    () => ({
+      "All Campaigns": overview.total,
+      Active: overview.Active,
+      Past: overview.Completed,
+      Drafts: overview.Draft,
+    }),
+    [overview],
+  );
+
   const filteredCampaigns = useMemo(() => {
     if (activeTab === "All Campaigns") return campaignData;
     if (activeTab === "Past")
@@ -126,25 +158,75 @@ export default function OrganizationCampaignsPage() {
         </header>
 
         <section className=" w-full max-w-8xl px-3 pb-12 pt-8">
-          <div className="">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-4xl font-semibold uppercase tracking-[0.16em] text-[#000000]">
-                  Campaigns
-                </p>
-                <h1 className="text-1xl mt-2 font-bold tracking-tight text-[#64748B] md:text-[1rem]">
-                  Manage and monitor your healthcare fundraising initiatives
-                  across the region.
-                </h1>
+          <div className="relative overflow-hidden rounded-[28px] border border-[#E2E8F0] bg-white/95 p-6 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(31,111,230,0.12),_transparent_55%)]" />
+            <div className="relative flex flex-col gap-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#94A3B8]">
+                    Campaign Management
+                  </p>
+                  <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#0F172A] md:text-4xl">
+                    Campaigns
+                  </h1>
+                  <p className="mt-2 max-w-xl text-sm font-medium text-[#64748B]">
+                    Monitor performance, keep teams aligned, and surface the
+                    campaigns that need attention.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-5 py-3 text-sm font-semibold text-[#475569] shadow-[0_10px_24px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
+                  >
+                    Export Report
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(ROUTES.ORGANIZATION_CAMPAIGN_CREATE)}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f6fe6] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(31,111,230,0.3)] transition hover:translate-y-[-1px] hover:bg-[#1a63d0]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create New Campaign
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate(ROUTES.ORGANIZATION_CAMPAIGN_CREATE)}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1f6fe6] px-6 py-3 text-sm font-semibold text-white hover:bg-[#1f6fe6]"
-              >
-                <Plus className="h-4 w-4" />
-                Create New Campaign
-              </button>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                    Total Campaigns
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                    {overview.total}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                    Active: {overview.Active} • Drafts: {overview.Draft}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                    Total Raised
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                    {formatMoney(overview.raised)}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                    Goal: {formatMoney(overview.goal)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                    Completion Rate
+                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                    {overview.completionRate}%
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                    Past campaigns: {overview.Completed}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -161,7 +243,18 @@ export default function OrganizationCampaignsPage() {
                       : "text-[#64748B] hover:bg-[#F1F5F9]"
                   }`}
                 >
-                  {tab}
+                  <span className="flex items-center gap-2">
+                    {tab}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        activeTab === tab
+                          ? "bg-white text-[#1f6fe6]"
+                          : "bg-[#E2E8F0] text-[#64748B]"
+                      }`}
+                    >
+                      {tabCounts[tab]}
+                    </span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -171,7 +264,7 @@ export default function OrganizationCampaignsPage() {
                 <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
                 <input
                   type="text"
-                  placeholder="Search campaigns by title or ID..."
+                  placeholder="Search campaigns by title, owner, or ID..."
                   className="h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                 />
               </div>
@@ -198,6 +291,7 @@ export default function OrganizationCampaignsPage() {
                 100,
                 Math.round((item.raised / item.goal) * 100),
               );
+              const remaining = Math.max(0, item.goal - item.raised);
               return (
                 <article
                   key={item.id}
@@ -233,6 +327,10 @@ export default function OrganizationCampaignsPage() {
                           {formatMoney(item.raised)}
                         </span>
                         <span>{formatMoney(item.goal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-semibold text-[#94A3B8]">
+                        <span>{progress}% funded</span>
+                        <span>{formatMoney(remaining)} remaining</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-[#E2E8F0]">
                         <div

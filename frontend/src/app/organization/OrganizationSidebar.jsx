@@ -5,31 +5,6 @@ import ROUTES from '@/constants/routes.js';
 export default function OrganizationSidebar() {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
 
-  const getInitials = (name) => {
-    if (!name) return 'OR';
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 1) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
-  };
-
-  const getOrganizationSession = () => {
-    try {
-      const raw = window.localStorage.getItem('chomnuoy_session');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const session = getOrganizationSession();
-  const organizationName = String(session?.name || 'Organization').trim() || 'Organization';
-  const organizationLabel = String(session?.role || session?.accountType || 'Organization')
-    .trim()
-    .toUpperCase() || 'ORGANIZATION';
-  const organizationInitials = getInitials(organizationName);
-
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
@@ -41,13 +16,42 @@ export default function OrganizationSidebar() {
       <aside className="org-sidebar" aria-label="Organization navigation">
         <div className="org-brand">
           <span className="org-brand-mark" aria-hidden="true">
-            {organizationInitials}
+            <svg viewBox="0 0 24 24" className="org-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
           <span className="org-brand-text">
             <span className="org-brand-name">
-              {organizationName}
+              {"\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY"}
             </span>
-            <span className="org-brand-subtitle">{organizationLabel}</span>
+            <span className="org-brand-subtitle">DIGITAL DONATION PLATFORM</span>
           </span>
         </div>
 

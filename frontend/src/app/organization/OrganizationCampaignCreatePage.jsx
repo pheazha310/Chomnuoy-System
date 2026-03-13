@@ -362,6 +362,7 @@ export default function OrganizationCampaignCreatePage() {
             {steps.map((step, index) => {
               const status =
                 index < activeStep ? 'complete' : index === activeStep ? 'active' : 'upcoming';
+              const isComplete = index < activeStep;
               return (
                 <div key={step.id} className={`org-cpg-step ${status}`}>
                   <button
@@ -369,8 +370,22 @@ export default function OrganizationCampaignCreatePage() {
                     className="org-cpg-step-circle"
                     onClick={() => setActiveStep(index)}
                     aria-current={index === activeStep ? 'step' : undefined}
+                    aria-label={`Step ${index + 1}: ${step.label}`}
                   >
-                    {index + 1}
+                    {isComplete ? (
+                      <svg
+                        className="org-cpg-step-check"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M6.5 11.2 3.4 8.1l1.1-1.1 2 2 5-5 1.1 1.1-6.1 6.1Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    ) : (
+                      <span className="org-cpg-step-number">{index + 1}</span>
+                    )}
                   </button>
                   <span className="org-cpg-step-label">{step.label}</span>
                   {index < steps.length - 1 ? <span className="org-cpg-step-line" /> : null}
