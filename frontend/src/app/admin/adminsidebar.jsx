@@ -1,8 +1,10 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 
 const NAV_ITEMS = [
   {
     label: 'Dashboard',
+    path: '/admin',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 13h8V3H3zM13 21h8v-6h-8zM13 11h8V3h-8zM3 21h8v-6H3z" />
@@ -11,6 +13,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Users',
+    path: '/admin/users',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0" />
@@ -119,18 +122,32 @@ const AdminSidebar = ({ onLogout, userName }) => (
     </div>
 
     <nav className="admin-nav">
-      {NAV_ITEMS.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          className={`admin-nav-item${item.label === 'Dashboard' ? ' is-active' : ''}`}
-        >
-          <span className="admin-nav-icon" aria-hidden="true">
-            {item.icon}
-          </span>
-          <span>{item.label}</span>
-        </button>
-      ))}
+      {NAV_ITEMS.map((item) => {
+        if (item.path) {
+          return (
+            <NavLink
+              key={item.label}
+              to={item.path}
+              className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
+              end={item.path === '/admin'}
+            >
+              <span className="admin-nav-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        }
+
+        return (
+          <button key={item.label} type="button" className="admin-nav-item">
+            <span className="admin-nav-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
     </nav>
 
     <div className="admin-sidebar-footer">
