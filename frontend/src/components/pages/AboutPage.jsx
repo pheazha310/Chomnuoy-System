@@ -1,8 +1,7 @@
-import '../css/about.css';
-import React from 'react';
-import { Link } from 'react-router-dom';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
+import '../css/about.css';
 
 const STATS = [
   { label: 'Total Donated', value: '$2.4M', change: '+12% this month' },
@@ -66,31 +65,31 @@ const CORE_VALUES = [
 
 const TEAM = [
   {
-    name: 'Sreyvik Von',
+    name: 'Sophea Leng',
     role: 'Founder & CEO',
     bio: 'Passionate about using technology to close social impact gaps across Cambodia.',
     image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80',
   },
   {
-    name: 'Nita Chroun',
+    name: 'Chanthou Mean',
     role: 'Operations Director',
     bio: 'Ensuring every project is executed with precision, integrity, and measurable results.',
     image: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=400&q=80',
   },
   {
-    name: 'Sophea Phal',
+    name: 'Dara Phan',
     role: 'Product Manager',
     bio: 'Designing user-friendly donation flows that create trust and increase community impact.',
     image: 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=400&q=80',
   },
   {
-    name: 'Ly Sarl',
+    name: 'Sokunthea Kim',
     role: 'Partnership Lead',
     bio: 'Building strategic partnerships with NGOs, schools, and local leaders across regions.',
     image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
   },
   {
-    name: 'Seyha Ny',
+    name: 'Rithy Sam',
     role: 'Community Relations',
     bio: 'Building trusted partnerships with communities and local organizations nationwide.',
     image: 'https://images.unsplash.com/photo-1544717302-de2939b7ef71?auto=format&fit=crop&w=400&q=80',
@@ -120,10 +119,11 @@ const Hero = () => (
           donors with grassroots initiatives making a real difference.
         </p>
         <div className="about-header-actions">
-          <Link to="/login" className="about-header-btn about-header-btn-primary group">
+          <button className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </Link>
+          </button>
+          <button className="about-header-btn about-header-btn-secondary">Start a Campaign</button>
         </div>
         <p className="about-header-meta">Joined by 10K+ active donors</p>
       </motion.div>
@@ -238,13 +238,7 @@ const FeaturedOrgs = () => (
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
-        <motion.div
-          key={org.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: idx * 0.1 }}
-          className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover"
-        >
+        <div key={org.id} className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover">
           <div className="aspect-video w-full overflow-hidden">
             <img src={org.image} alt={org.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
           </div>
@@ -265,7 +259,7 @@ const FeaturedOrgs = () => (
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   </section>

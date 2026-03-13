@@ -1,6 +1,4 @@
 .site-footer {
-  position: relative;
-  z-index: 5;
   padding: 1.8rem 1.35rem 1rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.95));
   border: 1px solid rgba(170, 198, 220, 0.42);
