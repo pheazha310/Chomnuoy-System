@@ -21,6 +21,9 @@ export default function OrganizationCampaignsPage() {
   const [sortOpen, setSortOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("Category");
   const [selectedSort, setSelectedSort] = useState("Latest First");
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [activeNotificationTab, setActiveNotificationTab] = useState("all");
 
   const getOrganizationSession = () => {
     try {
@@ -148,6 +151,74 @@ export default function OrganizationCampaignsPage() {
     return campaigns.filter((item) => item.status === activeTab);
   }, [activeTab, campaigns]);
 
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => item.unread).length,
+    [notifications],
+  );
+
+  const visibleNotifications = useMemo(() => {
+    if (activeNotificationTab === "unread") {
+      return notifications.filter((item) => item.unread);
+    }
+    return notifications;
+  }, [activeNotificationTab, notifications]);
+
+  const markAllNotificationsRead = () => {
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
+    notifications.forEach((item) => {
+      fetch(`${apiBase}/notifications/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_read: true }),
+      }).catch(() => null);
+    });
+  };
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const session = getOrganizationSession();
+    const userId = Number(session?.userId ?? 0);
+
+    let alive = true;
+    const loadNotifications = () => {
+      fetch(`${apiBase}/notifications`)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Failed to load notifications (${response.status})`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          if (!alive) return;
+          const items = Array.isArray(data) ? data : [];
+          const filtered = userId
+            ? items.filter((item) => Number(item.user_id) === userId)
+            : items;
+          const mapped = filtered.map((item) => ({
+            id: item.id,
+            title: item.type === "campaign" ? "Campaign Update" : "Notification",
+            detail: item.message || "New update available.",
+            time: new Date(item.created_at || Date.now()).toLocaleString(),
+            type: item.type || "info",
+            unread: !item.is_read,
+          }));
+          setNotifications(mapped);
+        })
+        .catch(() => {
+          if (!alive) return;
+          setNotifications([]);
+        });
+    };
+
+    loadNotifications();
+    const timer = window.setInterval(loadNotifications, 15000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
@@ -167,11 +238,12 @@ export default function OrganizationCampaignsPage() {
             </label>
             <button
               type="button"
-              className="relative h-9 w-9 rounded-full border border-[#E2E8F0] bg-white text-[#475569] shadow-[0_8px_18px_rgba(15,23,42,0.06)]"
+              className="org-notify-btn"
+              aria-label="Notifications"
+              onClick={() => setIsNotificationOpen(true)}
             >
-              <span className="sr-only">Notifications</span>
               <Bell className="mx-auto h-4 w-4" />
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#1f6fe6]" />
+              {unreadCount > 0 ? <span className="org-notify-dot" /> : null}
             </button>
             <div className="org-cpg-user-card" aria-label="Organization profile">
               <span className="org-cpg-user-avatar" aria-hidden="true">
@@ -185,6 +257,83 @@ export default function OrganizationCampaignsPage() {
             </div>
           </div>
         </header>
+
+        {isNotificationOpen ? (
+          <div className="org-notify-overlay" role="presentation" onClick={() => setIsNotificationOpen(false)}>
+            <div
+              className="org-notify-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="org-notify-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="org-notify-modal-head">
+                <h2 id="org-notify-title">Notifications</h2>
+                <div className="org-notify-head-actions">
+                  <button
+                    type="button"
+                    className="org-notify-mark-read"
+                    onClick={markAllNotificationsRead}
+                    disabled={unreadCount === 0}
+                  >
+                    Mark all as read
+                  </button>
+                  <button
+                    type="button"
+                    className="org-notify-close-btn"
+                    onClick={() => setIsNotificationOpen(false)}
+                    aria-label="Close notifications"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                      <path d="m18 6-12 12M6 6l12 12" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="org-notify-tabs" role="tablist" aria-label="Notification filters">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeNotificationTab === "all"}
+                  className={activeNotificationTab === "all" ? "is-active" : ""}
+                  onClick={() => setActiveNotificationTab("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeNotificationTab === "unread"}
+                  className={activeNotificationTab === "unread" ? "is-active" : ""}
+                  onClick={() => setActiveNotificationTab("unread")}
+                >
+                  Unread {unreadCount > 0 ? `(${unreadCount})` : ""}
+                </button>
+              </div>
+
+              <div className="org-notify-modal-body">
+                {visibleNotifications.length === 0 ? (
+                  <p className="org-notify-empty">No unread notifications.</p>
+                ) : (
+                  visibleNotifications.map((item) => (
+                    <article key={item.id} className={`org-notify-item ${item.unread ? "is-unread" : ""}`}>
+                      <span className={`org-notify-avatar ${item.type}`} aria-hidden="true">
+                        {item.type?.slice(0, 2).toUpperCase() || "NT"}
+                      </span>
+                      <div className="org-notify-item-content">
+                        <h3>{item.title}</h3>
+                        <p>{item.detail}</p>
+                        <time>{item.time}</time>
+                      </div>
+                      {item.unread ? <span className="org-notify-unread-dot" aria-hidden="true" /> : null}
+                    </article>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <section className=" w-full max-w-8xl px-3 pb-12 pt-8">
           <div className="relative overflow-hidden rounded-[28px] border border-[#E2E8F0] bg-white/95 p-6 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
@@ -424,6 +573,7 @@ export default function OrganizationCampaignsPage() {
 
                     <button
                       type="button"
+                      onClick={() => navigate(ROUTES.ORGANIZATION_CAMPAIGN_DETAIL(item.id))}
                       className={`mt-5 inline-flex items-center justify-center rounded-full border px-4 py-2 text-sm font-semibold transition ${item.actionTone}`}
                     >
                       {item.action}

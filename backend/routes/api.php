@@ -59,5 +59,7 @@ Route::apiResource('notifications', NotificationController::class);
 Route::apiResource('audit_logs', AuditLogController::class);
 Route::apiResource('report', ReportController::class);
 Route::apiResource('campaigns', CampaignController::class);
+Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donations']);
+Route::get('campaigns/{campaign}/velocity', [CampaignController::class, 'velocity']);
 Route::apiResource('campaign_image', CampaignImageController::class);
 Route::apiResource('campaign_update', CampaignUpdateController::class);

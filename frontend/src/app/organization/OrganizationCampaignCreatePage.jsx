@@ -315,6 +315,22 @@ export default function OrganizationCampaignCreatePage() {
       } else {
         setSuccess(status === 'draft' ? 'Draft saved.' : 'Campaign published.');
       }
+      if (status === 'active') {
+        try {
+          await fetch(`${apiBase}/notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: organizationId,
+              message: `New campaign published: ${form.title.trim() || 'Untitled Campaign'}`,
+              type: 'campaign',
+              is_read: false,
+            }),
+          });
+        } catch {
+          // non-blocking notification failure
+        }
+      }
       window.setTimeout(() => {
         navigate(ROUTES.ORGANIZATION_CAMPAIGNS);
       }, 600);
