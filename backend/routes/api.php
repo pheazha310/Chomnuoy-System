@@ -55,6 +55,7 @@ Route::apiResource('material_pickups', MaterialPickupController::class);
 Route::apiResource('payment_methods', PaymentMethodController::class);
 Route::apiResource('payments', PaymentController::class);
 Route::apiResource('reviews', ReviewController::class);
+Route::get('notifications/stream', [NotificationController::class, 'stream']);
 Route::apiResource('notifications', NotificationController::class);
 Route::apiResource('audit_logs', AuditLogController::class);
 Route::apiResource('report', ReportController::class);

@@ -63,6 +63,16 @@ export async function findUserByEmail(email) {
     return matched || null;
 }
 
+export async function findOrganizationByEmail(email) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    const response = await apiClient.get('/organizations');
+    const organizations = Array.isArray(response.data) ? response.data : [];
+    const matched = organizations.find((org) => String(org?.email || '').trim().toLowerCase() === normalizedEmail);
+    return matched || null;
+}
+
 export async function changePassword(payload) {
     const response = await apiClient.post('/auth/change-password', payload);
     return response.data;

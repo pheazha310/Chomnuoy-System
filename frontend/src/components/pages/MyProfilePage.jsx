@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   getOrganizationById,
   getUserById,
+  findOrganizationByEmail,
+  findUserByEmail,
   updateOrganizationProfile,
   updateUserProfile,
 } from '@/services/user-service.js';
@@ -71,6 +73,7 @@ export default function MyProfilePage() {
   const isOrganization = session?.role === 'Organization' || session?.accountType === 'Organization';
   const accountId =
     session?.userId ?? session?.accountId ?? session?.id ?? session?.user_id ?? null;
+  const [resolvedAccountId, setResolvedAccountId] = useState(accountId);
   const illustrationOptions = [
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=320&q=80',
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80',
@@ -84,11 +87,30 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (!session?.isLoggedIn || !accountId) {
-        if (!session?.isLoggedIn) {
-          navigate('/login', { replace: true });
-          return;
+      if (!session?.isLoggedIn) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      let effectiveAccountId = accountId;
+      if (!effectiveAccountId && session?.email) {
+        try {
+          const matched = isOrganization
+            ? await findOrganizationByEmail(session.email)
+            : await findUserByEmail(session.email);
+          if (matched?.id) {
+            effectiveAccountId = matched.id;
+            setResolvedAccountId(matched.id);
+            const nextSession = { ...(getSession() || {}), userId: matched.id };
+            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+            window.dispatchEvent(new Event('chomnuoy-session-updated'));
+          }
+        } catch {
+          // ignore lookup failure and fall back to session data
         }
+      }
+
+      if (!effectiveAccountId) {
         setFormData({
           name: session?.name || '',
           email: session?.email || '',
@@ -102,8 +124,8 @@ export default function MyProfilePage() {
 
       try {
         const data = isOrganization
-          ? await getOrganizationById(accountId)
-          : await getUserById(accountId);
+          ? await getOrganizationById(effectiveAccountId)
+          : await getUserById(effectiveAccountId);
 
         setFormData({
           name: data?.name || session?.name || '',
@@ -111,6 +133,7 @@ export default function MyProfilePage() {
           phone: data?.phone || '',
           avatar: getStorageFileUrl(data?.avatar_path) || session?.avatar || '',
         });
+        setError('');
       } catch {
         setFormData({
           name: session?.name || '',
@@ -123,6 +146,7 @@ export default function MyProfilePage() {
       }
     };
 
+    setResolvedAccountId(accountId);
     loadProfile();
   }, [accountId, isOrganization, navigate, session]);
 
@@ -165,7 +189,7 @@ export default function MyProfilePage() {
     setError('');
     setSuccess('');
 
-    if (!accountId) {
+    if (!resolvedAccountId) {
       setError('Your session is missing an account id. Please sign in again.');
       return;
     }
@@ -184,8 +208,8 @@ export default function MyProfilePage() {
       }
 
       const updated = isOrganization
-        ? await updateOrganizationProfile(accountId, payload)
-        : await updateUserProfile(accountId, payload);
+        ? await updateOrganizationProfile(resolvedAccountId, payload)
+        : await updateUserProfile(resolvedAccountId, payload);
 
       const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';
@@ -249,94 +273,102 @@ export default function MyProfilePage() {
       ) : null}
 
       {isCameraModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-2xl rounded-[34px] bg-[#F2F4F7] p-5 shadow-[0_20px_50px_rgba(15,23,42,0.35)]">
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCameraModalOpen(false);
-                  setShowIllustrations(false);
-                }}
-                className="inline-flex h-14 w-14 items-center justify-center rounded-full border-4 border-[#0B6DA8] text-[#0F172A] hover:bg-white"
-                aria-label="Close picture modal"
-              >
-                <X className="h-8 w-8" />
-              </button>
-              <h3 className="text-4xl font-semibold text-[#1F2937]">Change profile picture</h3>
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[#4B5563] hover:bg-white"
-                aria-label="More options"
-              >
-                <MoreVertical className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="mt-10 rounded-[30px] bg-white px-8 pb-10 pt-12">
-              <div className="relative mx-auto h-56 w-56">
-                <img
-                  src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80'}
-                  alt="Profile preview"
-                  className="h-56 w-56 rounded-full object-cover"
-                />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-[0_30px_80px_rgba(15,23,42,0.35)]">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">Profile</p>
+                <h3 className="mt-1 text-2xl font-semibold text-[#0F172A]">Change profile picture</h3>
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-4 right-2 inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#E2E8F0] bg-white text-[#475569] hover:bg-[#F8FAFC]"
-                  aria-label="Upload avatar"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"
+                  aria-label="More options"
                 >
-                  <Camera className="h-6 w-6" />
+                  <MoreVertical className="h-5 w-5" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCameraModalOpen(false);
+                    setShowIllustrations(false);
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC]"
+                  aria-label="Close picture modal"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-8">
+              <div className="flex flex-col items-center">
+                <div className="relative h-36 w-36">
+                  <img
+                    src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80'}
+                    alt="Profile preview"
+                    className="h-36 w-36 rounded-full border border-[#E2E8F0] object-cover shadow-[0_8px_24px_rgba(15,23,42,0.15)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-2 -right-2 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white bg-[#0F172A] text-white shadow-[0_10px_22px_rgba(15,23,42,0.25)] hover:bg-[#1E293B]"
+                    aria-label="Upload avatar"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="mt-4 text-sm text-[#64748B]">Pick a photo or illustration. JPG/PNG, max 5MB.</p>
               </div>
 
               {showIllustrations ? (
-                <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 gap-3">
+                <div className="mt-6 grid grid-cols-3 gap-3">
                   {illustrationOptions.map((imageUrl) => (
                     <button
                       key={imageUrl}
                       type="button"
                       onClick={() => handleSelectIllustration(imageUrl)}
-                      className="rounded-xl border border-[#D0D5DD] bg-white p-1 transition hover:border-[#60A5FA]"
+                      className="rounded-2xl border border-[#E2E8F0] bg-white p-1 transition hover:border-[#60A5FA] hover:shadow-[0_8px_18px_rgba(37,99,235,0.2)]"
                     >
-                      <img src={imageUrl} alt="Illustration option" className="h-20 w-full rounded-lg object-cover" />
+                      <img src={imageUrl} alt="Illustration option" className="h-20 w-full rounded-xl object-cover" />
                     </button>
                   ))}
                 </div>
               ) : null}
 
-              <div className="mx-auto mt-10 grid max-w-xl grid-cols-3 gap-4 text-center">
+              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={() => setShowIllustrations((prev) => !prev)}
-                  className="flex flex-col items-center gap-3 rounded-2xl p-3 hover:bg-[#F8FAFC]"
+                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
                 >
-                  <span className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-[#E2E8F0] text-[#4B5563]">
-                    <ImageIcon className="h-8 w-8" />
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E2E8F0] text-[#475569]">
+                    <ImageIcon className="h-5 w-5" />
                   </span>
-                  <span className="text-lg font-semibold text-[#1F2937]">Browse Illustrations</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">Browse illustrations</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center gap-3 rounded-2xl p-3 hover:bg-[#F8FAFC]"
+                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
                 >
-                  <span className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-[#E2E8F0] text-[#4B5563]">
-                    <Upload className="h-8 w-8" />
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E2E8F0] text-[#475569]">
+                    <Upload className="h-5 w-5" />
                   </span>
-                  <span className="text-lg font-semibold text-[#1F2937]">Upload from Device</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">Upload from device</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => cameraInputRef.current?.click()}
-                  className="flex flex-col items-center gap-3 rounded-2xl p-3 hover:bg-[#F8FAFC]"
+                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
                 >
-                  <span className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-[#E2E8F0] text-[#4B5563]">
-                    <Camera className="h-8 w-8" />
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E2E8F0] text-[#475569]">
+                    <Camera className="h-5 w-5" />
                   </span>
-                  <span className="text-lg font-semibold text-[#1F2937]">Take a picture</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">Take a picture</span>
                 </button>
               </div>
             </div>

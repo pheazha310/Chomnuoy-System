@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 
@@ -167,6 +167,7 @@ export default function OrganizationDashboardPage() {
   const [materialItems, setMaterialItems] = useState([]);
   const [pickups, setPickups] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const lastNotificationIdRef = useRef(0);
   const session = getOrganizationSession();
   const organizationId = Number(session?.userId ?? 0);
 
@@ -202,8 +203,31 @@ export default function OrganizationDashboardPage() {
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
+    let source = null;
+    let pollTimer = null;
+
+    const mapNotification = (item) => ({
+      id: item.id,
+      actor: (item.type || 'NT').slice(0, 2).toUpperCase(),
+      title: item.type === 'campaign' ? 'Campaign Update' : 'Notification',
+      detail: item.message || 'New update available.',
+      time: new Date(item.created_at || Date.now()).toLocaleString(),
+      type: item.type || 'info',
+      unread: !item.is_read,
+    });
+
+    const upsertNotifications = (items) => {
+      setNotifications((prev) => {
+        const next = new Map(prev.map((item) => [item.id, item]));
+        items.forEach((item) => {
+          next.set(item.id, mapNotification(item));
+        });
+        return Array.from(next.values()).sort((a, b) => b.id - a.id);
+      });
+    };
+
     const loadNotifications = () => {
-      fetch(`${apiBase}/notifications`)
+      return fetch(`${apiBase}/notifications`)
         .then((response) => (response.ok ? response.json() : []))
         .then((data) => {
           if (!alive) return;
@@ -211,16 +235,10 @@ export default function OrganizationDashboardPage() {
           const filtered = organizationId
             ? items.filter((item) => Number(item.user_id) === organizationId)
             : items;
-          const mapped = filtered.map((item) => ({
-            id: item.id,
-            actor: (item.type || 'NT').slice(0, 2).toUpperCase(),
-            title: item.type === 'campaign' ? 'Campaign Update' : 'Notification',
-            detail: item.message || 'New update available.',
-            time: new Date(item.created_at || Date.now()).toLocaleString(),
-            type: item.type || 'info',
-            unread: !item.is_read,
-          }));
+          const mapped = filtered.map(mapNotification);
           setNotifications(mapped);
+          const latestId = mapped.reduce((maxId, item) => Math.max(maxId, Number(item.id) || 0), 0);
+          lastNotificationIdRef.current = Math.max(lastNotificationIdRef.current, latestId);
         })
         .catch(() => {
           if (!alive) return;
@@ -228,11 +246,45 @@ export default function OrganizationDashboardPage() {
         });
     };
 
-    loadNotifications();
-    const timer = window.setInterval(loadNotifications, 15000);
+    const startPolling = () => {
+      if (pollTimer) return;
+      pollTimer = window.setInterval(loadNotifications, 15000);
+    };
+
+    const startEventSource = () => {
+      if (typeof EventSource === 'undefined') {
+        startPolling();
+        return;
+      }
+      const url = `${apiBase}/notifications/stream?user_id=${organizationId}&last_id=${lastNotificationIdRef.current}`;
+      source = new EventSource(url);
+      source.addEventListener('notification', (event) => {
+        if (!alive) return;
+        try {
+          const item = JSON.parse(event.data);
+          if (organizationId && Number(item.user_id) !== organizationId) return;
+          upsertNotifications([item]);
+          lastNotificationIdRef.current = Math.max(lastNotificationIdRef.current, Number(item.id) || 0);
+        } catch {
+          // ignore malformed payload
+        }
+      });
+      source.onerror = () => {
+        if (!alive) return;
+        if (source) source.close();
+        source = null;
+        startPolling();
+      };
+    };
+
+    loadNotifications().then(() => {
+      if (!alive) return;
+      startEventSource();
+    });
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      if (source) source.close();
+      if (pollTimer) window.clearInterval(pollTimer);
     };
   }, [organizationId]);
 
