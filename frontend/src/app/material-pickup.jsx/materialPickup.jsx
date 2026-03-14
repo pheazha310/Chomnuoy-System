@@ -1,50 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarPlus2, CircleCheckBig, Package, Search, EllipsisVertical, Info, MapPinned, ChevronLeft, ChevronRight, Eye, CalendarDays, XCircle } from 'lucide-react';
 import './material-pickup.css';
 
-const summary = [
-  { title: 'Scheduled Pickups', value: 3, icon: <CalendarPlus2 />, tone: 'amber' },
-  { title: 'Completed Deliveries', value: 12, icon: <CircleCheckBig />, tone: 'green' },
-  { title: 'Total Items Donated', value: 48, icon: <Package />, tone: 'blue' },
-];
-
-const rows = [
-  {
-    date: 'Oct 24, 2023',
-    time: '10:00 AM - 12:00 PM',
-    org: "Children's Hope Foundation",
-    items: 'Clothing & Textbooks',
-    detail: '3 boxes total',
-    address: '#123 Street 45, Phnom Penh',
-    status: 'Pending',
-    statusTone: 'pending',
-  },
-  {
-    date: 'Oct 22, 2023',
-    time: '02:00 PM - 04:00 PM',
-    org: 'Eco-Green Cambodia',
-    items: 'Electronics for Recycling',
-    detail: '1 large monitor, 2 laptops',
-    address: '#123 Street 45, Phnom Penh',
-    status: 'In Transit',
-    statusTone: 'transit',
-  },
-  {
-    date: 'Oct 18, 2023',
-    time: 'Completed 11:30 AM',
-    org: 'Health First Foundation',
-    items: 'First Aid Kits',
-    detail: '10 sealed kits',
-    address: '#123 Street 45, Phnom Penh',
-    status: 'Delivered',
-    statusTone: 'delivered',
-  },
-];
+const PAGE_SIZE = 6;
 
 export default function MaterialPickupPage() {
   const navigate = useNavigate();
-  const [pickupRows, setPickupRows] = useState(rows);
+  const [pickupRows, setPickupRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [openMenuKey, setOpenMenuKey] = useState(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [newPickupForm, setNewPickupForm] = useState({
@@ -56,6 +23,26 @@ export default function MaterialPickupPage() {
     detail: '',
     address: '',
   });
+
+  const normalizeStatus = (value) => {
+    const status = String(value || '').toLowerCase();
+    if (['delivered', 'completed', 'complete'].includes(status)) {
+      return { label: 'Delivered', tone: 'delivered' };
+    }
+    if (['in transit', 'transit', 'in_transit', 'enroute', 'en route'].includes(status)) {
+      return { label: 'In Transit', tone: 'transit' };
+    }
+    return { label: 'Pending', tone: 'pending' };
+  };
+
+  const formatTimeRange = (fromValue, toValue, fallback) => {
+    if (fromValue || toValue) {
+      const fromLabel = fromValue || '';
+      const toLabel = toValue ? ` - ${toValue}` : '';
+      return `${fromLabel}${toLabel}`.trim();
+    }
+    return fallback || 'Pending confirmation';
+  };
 
   const formatDateLabel = (rawDate) => {
     if (!rawDate) return '';
@@ -71,6 +58,56 @@ export default function MaterialPickupPage() {
     return () => window.removeEventListener('click', handleCloseMenu);
   }, []);
 
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+    setLoading(true);
+    setError('');
+
+    fetch(`${apiBase}/material_pickups`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load pickups (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!alive) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped = list.map((item) => {
+          const status = normalizeStatus(item.status);
+          const dateValue = item.pickup_date || item.date || item.created_at || '';
+          return {
+            id: item.id ?? `${item.organization_name || item.org || 'org'}-${dateValue}`,
+            date: formatDateLabel(dateValue),
+            time: formatTimeRange(item.time_from || item.timeFrom, item.time_to || item.timeTo, item.time),
+            org: item.organization_name || item.organization || item.org || 'Unknown Organization',
+            items: item.items || item.item_name || item.item || 'Material items',
+            detail: item.detail || item.notes || item.description || 'No additional details',
+            address: item.address || item.pickup_address || item.location || 'Pickup address not provided',
+            status: status.label,
+            statusTone: status.tone,
+            createdAt: new Date(dateValue || Date.now()).getTime(),
+            quantity: Number(item.quantity || item.item_count || item.items_count || item.total_items || 1),
+          };
+        });
+        setPickupRows(mapped);
+        setCurrentPage(1);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : 'Failed to load pickups.');
+        setPickupRows([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const handleOpenSchedulePopup = () => {
     setIsScheduleOpen(true);
   };
@@ -82,6 +119,7 @@ export default function MaterialPickupPage() {
   const handleScheduleSubmit = (event) => {
     event.preventDefault();
 
+    const status = normalizeStatus('pending');
     const nextRow = {
       date: formatDateLabel(newPickupForm.date),
       time: `${newPickupForm.timeFrom} - ${newPickupForm.timeTo}`,
@@ -89,11 +127,15 @@ export default function MaterialPickupPage() {
       items: newPickupForm.items,
       detail: newPickupForm.detail || 'No additional details',
       address: newPickupForm.address,
-      status: 'Pending',
-      statusTone: 'pending',
+      status: status.label,
+      statusTone: status.tone,
+      id: `local-${Date.now()}`,
+      createdAt: new Date(newPickupForm.date || Date.now()).getTime(),
+      quantity: 1,
     };
 
     setPickupRows((prev) => [nextRow, ...prev]);
+    setCurrentPage(1);
     setNewPickupForm({
       date: '',
       timeFrom: '',
@@ -105,6 +147,45 @@ export default function MaterialPickupPage() {
     });
     setIsScheduleOpen(false);
   };
+
+  const filteredRows = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return pickupRows;
+
+    return pickupRows.filter((row) => {
+      const haystack = [
+        row.date,
+        row.time,
+        row.org,
+        row.items,
+        row.detail,
+        row.address,
+        row.status,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [pickupRows, searchTerm]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, pageCount);
+  const pagedRows = filteredRows.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
+  const summaryCards = useMemo(() => {
+    const scheduled = pickupRows.filter((row) => row.statusTone === 'pending').length;
+    const delivered = pickupRows.filter((row) => row.statusTone === 'delivered').length;
+    const totalItems = pickupRows.reduce((sum, row) => sum + (row.quantity || 1), 0);
+
+    return [
+      { title: 'Scheduled Pickups', value: scheduled, icon: <CalendarPlus2 />, tone: 'amber' },
+      { title: 'Completed Deliveries', value: delivered, icon: <CircleCheckBig />, tone: 'green' },
+      { title: 'Total Items Donated', value: totalItems, icon: <Package />, tone: 'blue' },
+    ];
+  }, [pickupRows]);
 
   return (
     <main className="mp-page">
@@ -121,7 +202,7 @@ export default function MaterialPickupPage() {
         </header>
 
         <section className="mp-summary-grid" aria-label="Pickup summary">
-          {summary.map((card) => (
+          {summaryCards.map((card) => (
             <article key={card.title} className="mp-summary-card">
               <span className={`mp-summary-icon ${card.tone}`}>{card.icon}</span>
               <div>
@@ -137,7 +218,15 @@ export default function MaterialPickupPage() {
             <h2>Active & Recent Pickups</h2>
             <label className="mp-search">
               <Search />
-              <input type="search" placeholder="Search pickups..." />
+              <input
+                type="search"
+                placeholder="Search pickups..."
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  setCurrentPage(1);
+                }}
+              />
             </label>
           </div>
 
@@ -150,95 +239,141 @@ export default function MaterialPickupPage() {
             <span />
           </div>
 
-          <div className="mp-table-body">
-            {pickupRows.map((row) => {
-              const rowKey = `${row.org}-${row.date}`;
-              const isMenuOpen = openMenuKey === rowKey;
-
-              return (
-              <article key={rowKey} className="mp-row">
-                <div>
-                  <strong>{row.date}</strong>
-                  <p>{row.time}</p>
-                </div>
-                <div>
-                  <strong>{row.org}</strong>
-                </div>
-                <div>
-                  <strong>{row.items}</strong>
-                  <p>{row.detail}</p>
-                </div>
-                <div>{row.address}</div>
-                <div>
-                  <span className={`mp-status ${row.statusTone}`}>{row.status}</span>
-                </div>
-                <div className="mp-more-wrap">
-                  <button
-                    type="button"
-                    className="mp-more-btn"
-                    aria-label="More options"
-                    aria-expanded={isMenuOpen}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenMenuKey((prev) => (prev === rowKey ? null : rowKey));
-                    }}
-                  >
-                    <EllipsisVertical />
-                  </button>
-
-                  {isMenuOpen && (
-                    <div className="mp-action-menu" role="menu" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuKey(null);
-                          navigate('/pickup/view-detail', { state: { pickup: row } });
-                        }}
-                      >
-                        <Eye />
-                        View Details
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuKey(null);
-                          navigate('/pickup/reschedule', { state: { pickup: row } });
-                        }}
-                      >
-                        <CalendarDays />
-                        Reschedule Pickup
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="danger"
-                        onClick={() => {
-                          setPickupRows((prev) => prev.filter((item) => `${item.org}-${item.date}` !== rowKey));
-                          setOpenMenuKey(null);
-                        }}
-                      >
-                        <XCircle />
-                        Cancel Request
-                      </button>
-                    </div>
-                  )}
-                </div>
+          {loading ? (
+            <div className="mp-table-body">
+              <article className="mp-row">
+                <div>Loading pickups...</div>
               </article>
-            )})}
-          </div>
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="mp-table-body">
+              <article className="mp-row">
+                <div>{error}</div>
+              </article>
+            </div>
+          ) : null}
+
+          {!loading && !error ? (
+            <div className="mp-table-body">
+              {pagedRows.length === 0 ? (
+                <article className="mp-row">
+                  <div>No pickups match your search.</div>
+                </article>
+              ) : (
+                pagedRows.map((row) => {
+                  const rowKey = row.id ?? `${row.org}-${row.date}`;
+                  const isMenuOpen = openMenuKey === rowKey;
+
+                  return (
+                    <article key={rowKey} className="mp-row">
+                      <div>
+                        <strong>{row.date}</strong>
+                        <p>{row.time}</p>
+                      </div>
+                      <div>
+                        <strong>{row.org}</strong>
+                      </div>
+                      <div>
+                        <strong>{row.items}</strong>
+                        <p>{row.detail}</p>
+                      </div>
+                      <div>{row.address}</div>
+                      <div>
+                        <span className={`mp-status ${row.statusTone}`}>{row.status}</span>
+                      </div>
+                      <div className="mp-more-wrap">
+                        <button
+                          type="button"
+                          className="mp-more-btn"
+                          aria-label="More options"
+                          aria-expanded={isMenuOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuKey((prev) => (prev === rowKey ? null : rowKey));
+                          }}
+                        >
+                          <EllipsisVertical />
+                        </button>
+
+                        {isMenuOpen && (
+                          <div className="mp-action-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuKey(null);
+                                navigate('/pickup/view-detail', { state: { pickup: row } });
+                              }}
+                            >
+                              <Eye />
+                              View Details
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuKey(null);
+                                navigate('/pickup/reschedule', { state: { pickup: row } });
+                              }}
+                            >
+                              <CalendarDays />
+                              Reschedule Pickup
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="danger"
+                              onClick={() => {
+                                setPickupRows((prev) =>
+                                  prev.filter(
+                                    (item) => (item.id ?? `${item.org}-${item.date}`) !== rowKey,
+                                  ),
+                                );
+                                setOpenMenuKey(null);
+                              }}
+                            >
+                              <XCircle />
+                              Cancel Request
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          ) : null}
 
           <footer className="mp-table-foot">
-            <p>Showing {pickupRows.length} material donations</p>
+            <p>Showing {filteredRows.length} material donations</p>
             <div className="mp-pagination">
-              <button type="button" aria-label="Previous page">
+              <button
+                type="button"
+                aria-label="Previous page"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={safePage === 1}
+              >
                 <ChevronLeft />
               </button>
-              <button type="button" className="active">1</button>
-              <button type="button">2</button>
-              <button type="button">3</button>
-              <button type="button" aria-label="Next page">
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  className={page === safePage ? 'active' : ''}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-label="Next page"
+                onClick={() => setCurrentPage((prev) => Math.min(pageCount, prev + 1))}
+                disabled={safePage === pageCount}
+              >
                 <ChevronRight />
               </button>
             </div>
@@ -355,6 +490,6 @@ export default function MaterialPickupPage() {
           </div>
         </div>
       )}
-q    </main>
+    </main>
   );
 }

@@ -24,6 +24,8 @@ export default function OrganizationCampaignsPage() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [activeNotificationTab, setActiveNotificationTab] = useState("all");
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const getOrganizationSession = () => {
     try {
@@ -96,6 +98,7 @@ export default function OrganizationCampaignsPage() {
             description: item.description || "No description provided.",
             raised: Number(item.current_amount || 0),
             goal: Number(item.goal_amount || 0),
+            createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
             action: actionLabelMap[status],
             actionTone: actionToneMap[status],
             art: artPalette[index % artPalette.length],
@@ -143,13 +146,59 @@ export default function OrganizationCampaignsPage() {
   );
 
   const filteredCampaigns = useMemo(() => {
-    if (activeTab === "All Campaigns") return campaigns;
-    if (activeTab === "Past")
-      return campaigns.filter((item) => item.status === "Completed");
-    if (activeTab === "Drafts")
-      return campaigns.filter((item) => item.status === "Draft");
-    return campaigns.filter((item) => item.status === activeTab);
-  }, [activeTab, campaigns]);
+    let results = campaigns;
+
+    if (activeTab === "Past") {
+      results = results.filter((item) => item.status === "Completed");
+    } else if (activeTab === "Drafts") {
+      results = results.filter((item) => item.status === "Draft");
+    } else if (activeTab !== "All Campaigns") {
+      results = results.filter((item) => item.status === activeTab);
+    }
+
+    if (selectedCategory !== "Category") {
+      const categoryKey = selectedCategory.toLowerCase();
+      results = results.filter(
+        (item) => item.category.toLowerCase() === categoryKey,
+      );
+    }
+
+    const query = `${globalSearch} ${searchTerm}`.trim().toLowerCase();
+    if (query) {
+      results = results.filter((item) => {
+        const haystack = [
+          item.title,
+          item.description,
+          item.category,
+          item.status,
+          String(item.id),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    const sorted = [...results];
+    if (selectedSort === "Latest First") {
+      sorted.sort((a, b) => b.createdAt - a.createdAt || b.id - a.id);
+    } else if (selectedSort === "Oldest First") {
+      sorted.sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+    } else if (selectedSort === "Highest Goal") {
+      sorted.sort((a, b) => b.goal - a.goal);
+    } else if (selectedSort === "Lowest Goal") {
+      sorted.sort((a, b) => a.goal - b.goal);
+    }
+
+    return sorted;
+  }, [
+    activeTab,
+    campaigns,
+    globalSearch,
+    searchTerm,
+    selectedCategory,
+    selectedSort,
+  ]);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => item.unread).length,
@@ -233,6 +282,8 @@ export default function OrganizationCampaignsPage() {
               <input
                 type="search"
                 placeholder="Global search..."
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
                 className="h-9 w-full rounded-full border border-[#E2E8F0] bg-white pl-9 pr-3 text-sm text-[#0F172A] shadow-[0_8px_18px_rgba(15,23,42,0.06)] outline-none focus:border-[#1f6fe6]"
               />
             </label>
@@ -443,6 +494,8 @@ export default function OrganizationCampaignsPage() {
                 <input
                   type="text"
                   placeholder="Search campaigns by title, owner, or ID..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                   className="h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                 />
               </div>
@@ -518,10 +571,10 @@ export default function OrganizationCampaignsPage() {
 
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filteredCampaigns.map((item) => {
-              const progress = Math.min(
-                100,
-                Math.round((item.raised / item.goal) * 100),
-              );
+              const progress =
+                item.goal > 0
+                  ? Math.min(100, Math.round((item.raised / item.goal) * 100))
+                  : 0;
               const remaining = Math.max(0, item.goal - item.raised);
               return (
                 <article
@@ -583,6 +636,11 @@ export default function OrganizationCampaignsPage() {
               );
             })}
           </div>
+          {!loading && !error && filteredCampaigns.length === 0 ? (
+            <div className="mt-8 rounded-2xl border border-dashed border-[#CBD5F5] bg-white/90 px-6 py-8 text-center text-sm font-semibold text-[#64748B]">
+              No campaigns match your current filters.
+            </div>
+          ) : null}
 
           <div className="mt-8 flex items-center justify-center gap-2 text-sm font-semibold text-[#94A3B8]">
             <button

@@ -1173,6 +1173,25 @@
   z-index: 3;
 }
 
+.org-donations-search {
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #f8fbff;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  min-width: 240px;
+}
+
+.org-donations-search input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #334155;
+  width: 100%;
+  font-size: 12px;
+}
+
 .org-donations-filter-wrap {
   position: relative;
 }

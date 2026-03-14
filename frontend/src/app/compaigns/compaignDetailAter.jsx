@@ -47,11 +47,33 @@ export default function App() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [donorName, setDonorName] = useState('Donor');
+  const [totalDonated, setTotalDonated] = useState(0);
+  const [impactScore, setImpactScore] = useState(0);
+
+  const getSession = () => {
+    try {
+      const raw = window.localStorage.getItem('chomnuoy_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const formatMoney = (value) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '$0.00';
+    return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
     setLoading(true);
     setError('');
+    const session = getSession();
+    const userId = Number(session?.userId ?? 0);
+    const name = typeof session?.name === 'string' ? session.name.trim() : '';
+    setDonorName(name || 'Donor');
     fetch(`${apiBase}/campaigns`)
       .then((response) => {
         if (!response.ok) {
@@ -88,6 +110,26 @@ export default function App() {
         setCampaigns([]);
       })
       .finally(() => setLoading(false));
+
+    fetch(`${apiBase}/donations`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        const items = Array.isArray(data) ? data : [];
+        const myDonations = userId
+          ? items.filter((item) => Number(item.user_id) === userId)
+          : [];
+        const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+        setTotalDonated(total);
+        const uniqueOrgs = new Set(
+          myDonations.map((item) => Number(item.organization_id)).filter(Boolean),
+        );
+        const score = Math.min(1000, 200 + uniqueOrgs.size * 30 + Math.floor(total / 25));
+        setImpactScore(score);
+      })
+      .catch(() => {
+        setTotalDonated(0);
+        setImpactScore(0);
+      });
   }, []);
   
   const filteredCampaigns = useMemo(() => campaigns.filter(campaign => {
@@ -110,19 +152,19 @@ export default function App() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
           <div>
             <h1 className="text-4xl font-black text-slate-900 tracking-tight">Active Fundraising Campaigns</h1>
-            <p className="text-slate-600 mt-1">Hello, Alex. You've helped 12 causes this year. Keep the momentum going!</p>
+            <p className="text-slate-600 mt-1">Hello, {donorName}. Thanks for supporting causes this year.</p>
           </div>
           <div className="flex flex-wrap gap-4">
             <StatsCard 
               label="Total Donated" 
-              value="$1,250.00" 
+              value={formatMoney(totalDonated)} 
               icon={<CircleDollarSign className="w-6 h-6" />}
               iconBg="bg-primary/10"
               iconColor="text-primary"
             />
             <StatsCard 
               label="Impact Score" 
-              value="850" 
+              value={impactScore.toLocaleString('en-US')} 
               icon={<HeartHandshake className="w-6 h-6" />}
               iconBg="bg-green-500/10"
               iconColor="text-green-600"

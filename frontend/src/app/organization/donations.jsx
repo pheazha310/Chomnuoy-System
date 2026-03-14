@@ -31,6 +31,9 @@ export default function OrganizationDonationsPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [donations, setDonations] = useState([]);
   const [materialItems, setMaterialItems] = useState([]);
   const [users, setUsers] = useState([]);
@@ -41,6 +44,8 @@ export default function OrganizationDonationsPage() {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
     const load = () => {
+      setLoading(true);
+      setError('');
       Promise.all([
         fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
         fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
@@ -60,11 +65,16 @@ export default function OrganizationDonationsPage() {
           setMaterialItems(materialList);
           setUsers(userList);
         })
-        .catch(() => {
+        .catch((err) => {
           if (!alive) return;
+          setError(err instanceof Error ? err.message : 'Failed to load donations.');
           setDonations([]);
           setMaterialItems([]);
           setUsers([]);
+        })
+        .finally(() => {
+          if (!alive) return;
+          setLoading(false);
         });
     };
 
@@ -112,13 +122,29 @@ export default function OrganizationDonationsPage() {
       nextRows = nextRows.filter((row) => row.status.toLowerCase() === statusFilter);
     }
 
+    const query = searchTerm.trim().toLowerCase();
+    if (query) {
+      nextRows = nextRows.filter((row) => {
+        const haystack = [
+          row.donor,
+          row.donationType,
+          row.amount,
+          row.status,
+          row.date,
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
     nextRows = [...nextRows].sort((a, b) => {
       if (sortOrder === 'oldest') return a.dateValue - b.dateValue;
       return b.dateValue - a.dateValue;
     });
 
     return nextRows;
-  }, [activeTab, sortOrder, statusFilter, donationRows]);
+  }, [activeTab, sortOrder, statusFilter, donationRows, searchTerm]);
 
   const visibleRows = showAllRows ? filteredRows : filteredRows.slice(0, 7);
 
@@ -353,6 +379,17 @@ export default function OrganizationDonationsPage() {
               </button>
             </div>
             <div className="org-donations-table-actions">
+              <label className="org-donations-search">
+                <input
+                  type="search"
+                  placeholder="Search by recipient or project..."
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setShowAllRows(false);
+                  }}
+                />
+              </label>
               <div className="org-donations-filter-wrap">
                 <button type="button" className="org-donations-action-btn" onClick={() => setIsFilterOpen((prev) => !prev)}>
                   <Filter />
@@ -408,37 +445,54 @@ export default function OrganizationDonationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row) => (
-                  <tr key={`${row.donor}-${row.date}`}>
-                    <td>
-                      <div className="org-donations-donor-cell">
-                        <span>{row.initials}</span>
-                        <strong>{row.donor}</strong>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`org-donations-type-chip ${row.donationType.toLowerCase()}`}>{row.donationType}</span>
-                    </td>
-                    <td>{row.amount}</td>
-                    <td>
-                      <span className={`org-donations-status ${row.status.toLowerCase()}`}>
-                        <span className="org-donations-dot" aria-hidden="true" />
-                        {row.status}
-                      </span>
-                    </td>
-                    <td>{row.date}</td>
-                    <td>
-                      <div className="org-donations-row-actions">
-                        <button type="button" aria-label="Save this donation record" onClick={() => handleSaveSingleRow(row)}>
-                          <FileText />
-                        </button>
-                        <button type="button" aria-label="More options">
-                          <MoreVertical />
-                        </button>
-                      </div>
-                    </td>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6}>Loading donations...</td>
                   </tr>
-                ))}
+                ) : null}
+                {error ? (
+                  <tr>
+                    <td colSpan={6}>{error}</td>
+                  </tr>
+                ) : null}
+                {!loading && !error && visibleRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>No donations match your filters.</td>
+                  </tr>
+                ) : null}
+                {!loading && !error
+                  ? visibleRows.map((row) => (
+                      <tr key={`${row.donor}-${row.date}`}>
+                        <td>
+                          <div className="org-donations-donor-cell">
+                            <span>{row.initials}</span>
+                            <strong>{row.donor}</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`org-donations-type-chip ${row.donationType.toLowerCase()}`}>{row.donationType}</span>
+                        </td>
+                        <td>{row.amount}</td>
+                        <td>
+                          <span className={`org-donations-status ${row.status.toLowerCase()}`}>
+                            <span className="org-donations-dot" aria-hidden="true" />
+                            {row.status}
+                          </span>
+                        </td>
+                        <td>{row.date}</td>
+                        <td>
+                          <div className="org-donations-row-actions">
+                            <button type="button" aria-label="Save this donation record" onClick={() => handleSaveSingleRow(row)}>
+                              <FileText />
+                            </button>
+                            <button type="button" aria-label="More options">
+                              <MoreVertical />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  : null}
               </tbody>
             </table>
           </div>
