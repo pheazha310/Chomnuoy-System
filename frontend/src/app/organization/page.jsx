@@ -1,63 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
-
-const fakeDonations = [
-  { donor: 'Sarah Jenkins', type: 'Money', amount: 250, status: 'Completed', date: 'Oct 24, 2023' },
-  { donor: 'David Miller', type: 'Material', items: 15, itemLabel: 'Backpacks', status: 'Pending', date: 'Oct 23, 2023' },
-  { donor: 'Emma Wilson', type: 'Money', amount: 1000, status: 'Completed', date: 'Oct 22, 2023' },
-  { donor: 'Noah Carter', type: 'Money', amount: 5200, status: 'Completed', date: 'Oct 20, 2023' },
-  { donor: 'Mila Brooks', type: 'Material', items: 40, itemLabel: 'Textbooks', status: 'Completed', date: 'Oct 18, 2023' },
-  { donor: 'Oliver Stone', type: 'Money', amount: 320, status: 'Completed', date: 'Oct 18, 2023' },
-  { donor: 'Ava Kim', type: 'Material', items: 25, itemLabel: 'Notebooks', status: 'Completed', date: 'Oct 16, 2023' },
-];
-
-const fakeCampaigns = [
-  { name: 'Annual School Supplies', raised: 12400, goal: 15000, percent: 82, time: '12 Days Left', status: 'Active' },
-  { name: 'Clean Water Initiative', raised: 3200, goal: 7000, percent: 45, time: '45 Days Left', status: 'Active' },
-  { name: 'Community Food Drive', raised: 1800, goal: 5000, percent: 36, time: '21 Days Left', status: 'Paused' },
-  { name: 'Health Outreach Kits', raised: 6100, goal: 9000, percent: 68, time: '7 Days Left', status: 'Active' },
-];
-
-const formatCurrency = (value) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-
-const campaignPerformance = fakeCampaigns.map((campaign) => ({
-  name: campaign.name,
-  raised: `${formatCurrency(campaign.raised)} raised`,
-  goal: `Goal: ${formatCurrency(campaign.goal)}`,
-  percent: campaign.percent,
-  time: campaign.time,
-}));
-
-const donationRows = fakeDonations.slice(0, 2).map((donation) => ({
-  donor: donation.donor,
-  type: donation.type,
-  amount:
-    donation.type === 'Money'
-      ? formatCurrency(donation.amount)
-      : `${donation.items}x ${donation.itemLabel}`,
-  status: donation.status,
-  date: donation.date,
-}));
-
-const pickupAlerts = [
-  {
-    title: 'Textbook Collection',
-    location: '124 North Ave, Downtown',
-    when: 'Today',
-    action: 'Coordinate Pickup',
-    primary: true,
-  },
-  {
-    title: 'Sports Equipment',
-    location: 'Community Center East',
-    when: 'Tomorrow',
-    action: 'Assign Volunteer',
-    primary: false,
-  },
-];
-
 function getOrganizationSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -76,20 +19,13 @@ function getInitials(name) {
   return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 }
 
-function Topbar() {
+function Topbar({ notifications, setNotifications }) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [activeNotificationTab, setActiveNotificationTab] = useState('all');
   const session = getOrganizationSession();
   const organizationName = session?.name || 'Organization';
   const roleLabel = session?.role === 'Organization' ? 'Administrator' : (session?.role || 'Administrator');
   const initials = getInitials(organizationName);
-  const [notifications, setNotifications] = useState([
-    { id: 1, actor: 'SJ', title: 'New Donation Received', detail: 'Sarah Jenkins donated $250 to Annual School Supplies.', time: '2m', type: 'success', unread: true },
-    { id: 2, actor: 'TC', title: 'Pickup Request Updated', detail: 'Textbook Collection is now marked as urgent pickup.', time: '30m', type: 'info', unread: true },
-    { id: 3, actor: 'CW', title: 'Campaign Goal Progress', detail: 'Clean Water Initiative reached 45% of its target.', time: '1h', type: 'progress', unread: true },
-    { id: 4, actor: 'DM', title: 'New Donor Message', detail: 'David Miller asked about delivery details for material items.', time: '5h', type: 'message', unread: false },
-    { id: 5, actor: 'VR', title: 'Verification Reminder', detail: 'Please upload updated organization documents by next week.', time: '1d', type: 'warning', unread: false },
-  ]);
   const unreadCount = notifications.filter((item) => item.unread).length;
   const visibleNotifications =
     activeNotificationTab === 'unread'
@@ -97,8 +33,16 @@ function Topbar() {
       : notifications;
 
   const markAllNotificationsRead = () => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
     setActiveNotificationTab('all');
+    notifications.forEach((item) => {
+      fetch(`${apiBase}/notifications/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_read: true }),
+      }).catch(() => null);
+    });
   };
 
   return (
@@ -217,43 +161,212 @@ function Topbar() {
 
 export default function OrganizationDashboardPage() {
   const [selectedPickupAlert, setSelectedPickupAlert] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [pickups, setPickups] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const lastNotificationIdRef = useRef(0);
+  const session = getOrganizationSession();
+  const organizationId = Number(session?.userId ?? 0);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    Promise.all([
+      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/material_pickups`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([campaignData, donationData, materialData, pickupData]) => {
+        const campaignsList = Array.isArray(campaignData) ? campaignData : [];
+        const donationList = Array.isArray(donationData) ? donationData : [];
+        const materialList = Array.isArray(materialData) ? materialData : [];
+        const pickupList = Array.isArray(pickupData) ? pickupData : [];
+
+        const filteredCampaigns = organizationId
+          ? campaignsList.filter((item) => Number(item.organization_id) === organizationId)
+          : campaignsList;
+        const filteredDonations = organizationId
+          ? donationList.filter((item) => Number(item.organization_id) === organizationId)
+          : donationList;
+
+        setCampaigns(filteredCampaigns);
+        setDonations(filteredDonations);
+        setMaterialItems(materialList);
+        setPickups(pickupList);
+      })
+      .catch(() => null);
+  }, [organizationId]);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+    let source = null;
+    let pollTimer = null;
+
+    const mapNotification = (item) => ({
+      id: item.id,
+      actor: (item.type || 'NT').slice(0, 2).toUpperCase(),
+      title: item.type === 'campaign' ? 'Campaign Update' : 'Notification',
+      detail: item.message || 'New update available.',
+      time: new Date(item.created_at || Date.now()).toLocaleString(),
+      type: item.type || 'info',
+      unread: !item.is_read,
+    });
+
+    const upsertNotifications = (items) => {
+      setNotifications((prev) => {
+        const next = new Map(prev.map((item) => [item.id, item]));
+        items.forEach((item) => {
+          next.set(item.id, mapNotification(item));
+        });
+        return Array.from(next.values()).sort((a, b) => b.id - a.id);
+      });
+    };
+
+    const loadNotifications = () => {
+      return fetch(`${apiBase}/notifications`)
+        .then((response) => (response.ok ? response.json() : []))
+        .then((data) => {
+          if (!alive) return;
+          const items = Array.isArray(data) ? data : [];
+          const filtered = organizationId
+            ? items.filter((item) => Number(item.user_id) === organizationId)
+            : items;
+          const mapped = filtered.map(mapNotification);
+          setNotifications(mapped);
+          const latestId = mapped.reduce((maxId, item) => Math.max(maxId, Number(item.id) || 0), 0);
+          lastNotificationIdRef.current = Math.max(lastNotificationIdRef.current, latestId);
+        })
+        .catch(() => {
+          if (!alive) return;
+          setNotifications([]);
+        });
+    };
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      pollTimer = window.setInterval(loadNotifications, 15000);
+    };
+
+    const startEventSource = () => {
+      if (typeof EventSource === 'undefined') {
+        startPolling();
+        return;
+      }
+      const url = `${apiBase}/notifications/stream?user_id=${organizationId}&last_id=${lastNotificationIdRef.current}`;
+      source = new EventSource(url);
+      source.addEventListener('notification', (event) => {
+        if (!alive) return;
+        try {
+          const item = JSON.parse(event.data);
+          if (organizationId && Number(item.user_id) !== organizationId) return;
+          upsertNotifications([item]);
+          lastNotificationIdRef.current = Math.max(lastNotificationIdRef.current, Number(item.id) || 0);
+        } catch {
+          // ignore malformed payload
+        }
+      });
+      source.onerror = () => {
+        if (!alive) return;
+        if (source) source.close();
+        source = null;
+        startPolling();
+      };
+    };
+
+    loadNotifications().then(() => {
+      if (!alive) return;
+      startEventSource();
+    });
+    return () => {
+      alive = false;
+      if (source) source.close();
+      if (pollTimer) window.clearInterval(pollTimer);
+    };
+  }, [organizationId]);
+
   const summaryCards = useMemo(() => {
-    const totalFunds = fakeDonations
-      .filter((donation) => donation.type === 'Money' && donation.status === 'Completed')
-      .reduce((sum, donation) => sum + donation.amount, 0);
-    const totalItems = fakeDonations
-      .filter((donation) => donation.type === 'Material' && donation.status === 'Completed')
-      .reduce((sum, donation) => sum + donation.items, 0);
-    const activeCampaigns = fakeCampaigns.filter((campaign) => campaign.status === 'Active').length;
+    const totalRaised = campaigns.reduce((sum, item) => sum + Number(item.current_amount || 0), 0);
+    const activeCount = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+    const materialDonationIds = new Set(
+      donations.filter((item) => item.donation_type === 'material').map((item) => item.id),
+    );
+    const materialCount = materialItems
+      .filter((item) => materialDonationIds.has(item.donation_id))
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
     return [
       {
         title: 'Total Funds Raised',
-        value: formatCurrency(totalFunds),
-        change: 'Updated',
+        value: `$${totalRaised.toLocaleString()}`,
+        change: '+12.5%',
         icon: 'TF',
       },
       {
         title: 'Material Items Received',
-        value: `${totalItems.toLocaleString()} items`,
-        change: 'Updated',
+        value: `${materialCount.toLocaleString()} items`,
+        change: '+5.2%',
         icon: 'MI',
       },
       {
         title: 'Active Campaigns',
-        value: `${activeCampaigns} active`,
-        change: 'Updated',
+        value: `${activeCount} active`,
+        change: 'Stable',
         icon: 'AC',
       },
     ];
-  }, []);
+  }, [campaigns, donations, materialItems]);
+
+  const campaignPerformance = useMemo(() => {
+    const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active');
+    return activeCampaigns.slice(0, 2).map((item) => {
+      const goal = Number(item.goal_amount || 0);
+      const raised = Number(item.current_amount || 0);
+      const percent = goal ? Math.round((raised / goal) * 100) : 0;
+      return {
+        name: item.title || 'Untitled Campaign',
+        raised: `$${raised.toLocaleString()} raised`,
+        goal: `Goal: $${goal.toLocaleString()}`,
+        percent,
+        time: item.end_date ? `${Math.max(0, Math.ceil((new Date(item.end_date) - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left` : 'Ongoing',
+      };
+    });
+  }, [campaigns]);
+
+  const donationRows = useMemo(() => {
+    return donations.slice(0, 5).map((row) => {
+      const materialItem = materialItems.find((item) => item.donation_id === row.id);
+      const amountText = row.donation_type === 'material'
+        ? `${materialItem?.quantity || 1}x Items`
+        : `$${Number(row.amount || 0).toLocaleString()}`;
+      return {
+        donor: row.user_id ? `Donor #${row.user_id}` : 'Anonymous',
+        type: row.donation_type === 'material' ? 'Material' : 'Money',
+        amount: amountText,
+        status: row.status || 'Pending',
+        date: row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
+      };
+    });
+  }, [donations, materialItems]);
+
+  const pickupAlerts = useMemo(() => {
+    return pickups.slice(0, 2).map((item, index) => ({
+      title: `Pickup Request #${item.id}`,
+      location: item.pickup_address || 'Location pending',
+      when: item.schedule_date ? new Date(item.schedule_date).toLocaleDateString() : 'Pending',
+      action: index === 0 ? 'Coordinate Pickup' : 'Assign Volunteer',
+      primary: index === 0,
+    }));
+  }, [pickups]);
 
   return (
     <div className="org-page">
       <OrganizationSidebar />
 
       <main className="org-main">
-        <Topbar />
+        <Topbar notifications={notifications} setNotifications={setNotifications} />
 
         <section className="org-summary-grid" aria-label="Summary metrics">
           {summaryCards.map((card) => (

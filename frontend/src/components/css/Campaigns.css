@@ -1432,3 +1432,16 @@
     transition: none;
   }
 }
+
+.campaign-loading,
+.campaign-error,
+.campaign-empty {
+  margin: 0;
+  padding: 0.6rem 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.campaign-error {
+  color: #dc2626;
+}

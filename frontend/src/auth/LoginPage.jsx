@@ -108,7 +108,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     window.location.assign(authUrl);
   };
 
-
   return (
     <motion.div
       initial={{ opacity: 0 }}

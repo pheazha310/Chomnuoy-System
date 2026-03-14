@@ -605,10 +605,10 @@ function Organization() {
 
   if (isDonorLoggedIn) {
     return (
-      <main className="donor-org-page">
+      <main className="donor-org-page donor-animate-page">
         <div className="donor-org-layout">
-          <aside className="donor-org-sidebar">
-            <section className="donor-org-panel donor-user-panel">
+          <aside className="donor-org-sidebar donor-animate-sidebar">
+            <section className="donor-org-panel donor-user-panel donor-animate-panel" style={{ animationDelay: '80ms' }}>
               <div className="donor-user-head">
                 <img
                   src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
@@ -629,7 +629,7 @@ function Organization() {
               </div>
             </section>
 
-            <section className="donor-org-panel donor-filter-panel" aria-label="Filter Results">
+            <section className="donor-org-panel donor-filter-panel donor-animate-panel" aria-label="Filter Results" style={{ animationDelay: '160ms' }}>
               <h3>Filter Results</h3>
 
               <label className="donor-filter-label" htmlFor="donor-category">
@@ -707,7 +707,7 @@ function Organization() {
           </aside>
 
           <section className="donor-org-main">
-            <header className="donor-org-header">
+            <header className="donor-org-header donor-animate-header">
               <div>
                 <h1>Browse Organizations</h1>
                 <p>Discover 1,248 verified non-profit organizations</p>
@@ -723,10 +723,14 @@ function Organization() {
             </header>
 
             <section className="donor-org-grid" aria-label="Organization List">
-              {donorPaginatedOrganizations.map((organization) => {
+              {donorPaginatedOrganizations.map((organization, index) => {
                 const isFavorite = favoriteIds.has(organization.id);
                 return (
-                  <article key={organization.id} className="donor-org-card">
+                  <article
+                    key={organization.id}
+                    className="donor-org-card donor-animate-card"
+                    style={{ animationDelay: `${Math.min(index, 8) * 80 + 120}ms` }}
+                  >
                     <div className="donor-org-image-wrap">
                       <img src={organization.image} alt={organization.name} />
                       <div className="donor-org-badges">
@@ -825,7 +829,7 @@ function Organization() {
   }
 
   return (
-    <main className="organizations-content">
+    <main className="organizations-content org-animate-page">
       <section className="organizations-header">
         <h1>Our Partner Organizations</h1>
         <p>
@@ -997,8 +1001,12 @@ function Organization() {
       </section>
 
       <section className="organization-grid" aria-label="Organization List">
-        {paginatedOrganizations.map((organization) => (
-          <article key={organization.id} className="organization-card">
+        {paginatedOrganizations.map((organization, index) => (
+          <article
+            key={organization.id}
+            className="organization-card org-animate-card"
+            style={{ animationDelay: `${Math.min(index, 8) * 70}ms` }}
+          >
             <img src={organization.image} alt={organization.name} />
             <div className="card-body">
               <p className="rating">

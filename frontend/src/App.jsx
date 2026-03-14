@@ -24,6 +24,8 @@ import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import OrganizationDonationsPage from '@/app/organization/donations.jsx';
 import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
+import OrganizationCampaignCreatePage from '@/app/organization/OrganizationCampaignCreatePage.jsx';
+import OrganizationCampaignDetailPage from '@/app/organization/OrganizationCampaignDetailPage.jsx';
 import OrganizationProfilePage from '@/app/organization/profile.jsx';
 import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
@@ -50,7 +52,14 @@ function getSafeRedirect(search) {
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed) return null;
+    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
+      const normalized = { ...parsed, isLoggedIn: true };
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
+      return normalized;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -58,13 +67,23 @@ function getSession() {
 
 function getStorageFileUrl(path) {
   if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
   }
 
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
-  return `${appBase}/storage/${path}`;
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
 }
 
 function getProfileAvatarOverrides() {
@@ -92,6 +111,22 @@ function buildAvatarOverrideKey(role, profile, fallbackEmail = '') {
   const email = String(profile?.email || fallbackEmail || '').trim().toLowerCase();
   const identity = profile?.id ? `id:${profile.id}` : (email ? `email:${email}` : 'anonymous');
   return `${normalizedRole}:${identity}`;
+}
+
+function normalizeAccountId(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (!/^\d+$/.test(String(value))) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 }
 
 function CampaignDetailRoute() {
@@ -172,7 +207,7 @@ function LoginRoute() {
         email: user.email || loginEmail || '',
         impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
         avatar: resolvedAvatar,
-        userId: user.id || null,
+        userId: normalizeAccountId(user.id),
         accountType: normalizedAccountType,
         logoutRedirectTo: redirectTo,
         avatarOverrideKey: avatarOverrideKey || undefined,
@@ -213,7 +248,7 @@ function LoginRoute() {
       email: profile?.email || loginEmail || '',
       impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
       avatar: resolvedAvatar,
-      userId: profile.id,
+      userId: normalizeAccountId(profile?.id),
       accountType: normalizedAccountType,
       logoutRedirectTo: redirectTo,
       avatarOverrideKey: avatarOverrideKey || undefined,
@@ -360,6 +395,22 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationCampaignsPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignDetailPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignCreatePage />
             </RequireOrganizationAuth>
           )}
         />

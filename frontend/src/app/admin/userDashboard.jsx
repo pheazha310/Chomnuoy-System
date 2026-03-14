@@ -242,21 +242,13 @@ export default function UserDashboard() {
 
   const filteredUsers = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const adminEmail = String(session?.email || '').trim().toLowerCase();
-    const withoutAdmins = normalizedUsers.filter((user) => {
-      const roleValue = user.rawRole.toLowerCase();
-      if (roleValue.includes('admin')) return false;
-      if (adminEmail && user.email.toLowerCase() === adminEmail) return false;
-      if (user.name.toLowerCase() === 'admin') return false;
-      return true;
-    });
-    if (!q) return withoutAdmins;
-    return withoutAdmins.filter((user) => (
+    if (!q) return normalizedUsers;
+    return normalizedUsers.filter((user) => (
       user.name.toLowerCase().includes(q) ||
       user.email.toLowerCase().includes(q) ||
       user.role.toLowerCase().includes(q)
     ));
-  }, [normalizedUsers, searchTerm, session?.email]);
+  }, [normalizedUsers, searchTerm]);
 
   const visibleUsers = filteredUsers;
 

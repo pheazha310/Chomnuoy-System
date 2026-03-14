@@ -4,42 +4,25 @@ import { useNavigate } from 'react-router-dom';
 import {
   getOrganizationById,
   getUserById,
+  findOrganizationByEmail,
+  findUserByEmail,
   updateOrganizationProfile,
   updateUserProfile,
 } from '@/services/user-service.js';
 
-const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
-const LEGACY_DEFAULT_AVATAR_IDENTIFIER = 'photo-1500648767791-00dcc994a43e';
-
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed) return null;
+    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.id || parsed.role || parsed.accountType)) {
+      const normalized = { ...parsed, isLoggedIn: true };
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
+      return normalized;
+    }
+    return parsed;
   } catch {
     return null;
-  }
-}
-
-function getAvatarOverrideKey(sessionValue) {
-  const normalizedRole = String(sessionValue?.role || sessionValue?.accountType || 'Donor').toLowerCase();
-  const email = String(sessionValue?.email || '').trim().toLowerCase();
-  const identity = sessionValue?.userId ? `id:${sessionValue.userId}` : (email ? `email:${email}` : 'anonymous');
-  return `${normalizedRole}:${identity}`;
-}
-
-function saveAvatarOverride(overrideKey, avatarUrl) {
-  if (!overrideKey || !avatarUrl) return;
-
-  try {
-    const raw = window.localStorage.getItem(PROFILE_AVATAR_OVERRIDES_KEY);
-    const current = raw ? JSON.parse(raw) : {};
-    const next = {
-      ...current,
-      [overrideKey]: avatarUrl,
-    };
-    window.localStorage.setItem(PROFILE_AVATAR_OVERRIDES_KEY, JSON.stringify(next));
-  } catch {
-    // Ignore localStorage parse/write failures.
   }
 }
 
@@ -60,40 +43,10 @@ function withCacheBust(url) {
   return `${url}${separator}v=${Date.now()}`;
 }
 
-function normalizeAvatarUrl(url) {
-  if (!url) return '';
-  if (url.includes(LEGACY_DEFAULT_AVATAR_IDENTIFIER)) {
-    return '';
-  }
-  return url;
-}
-
-function resolveProfileAvatar(profile) {
-  return (
-    profile?.avatar ||
-    profile?.avatar_url ||
-    getStorageFileUrl(profile?.avatar_path || profile?.profile_image || profile?.image_url) ||
-    profile?.profile_image ||
-    profile?.image_url ||
-    ''
-  );
-}
-
-function getInitials(name) {
-  if (!name) return 'DU';
-  const parts = String(name).trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
-}
-
 export default function MyProfilePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
-  const liveCameraVideoRef = useRef(null);
-  const liveCameraStreamRef = useRef(null);
   const nameInputRef = useRef(null);
   const emailInputRef = useRef(null);
   const phoneInputRef = useRef(null);
@@ -108,8 +61,6 @@ export default function MyProfilePage() {
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [hideSaveToast, setHideSaveToast] = useState(false);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
-  const [isLiveCameraOpen, setIsLiveCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState('');
   const [showIllustrations, setShowIllustrations] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [formData, setFormData] = useState({
@@ -120,9 +71,9 @@ export default function MyProfilePage() {
   });
 
   const isOrganization = session?.role === 'Organization' || session?.accountType === 'Organization';
-  const accountId = session?.userId;
-  const avatarInitials = getInitials(formData.name || session?.name || 'Donor User');
-  const hasAvatarImage = Boolean(normalizeAvatarUrl(formData.avatar));
+  const accountId =
+    session?.userId ?? session?.accountId ?? session?.id ?? session?.user_id ?? null;
+  const [resolvedAccountId, setResolvedAccountId] = useState(accountId);
   const illustrationOptions = [
     'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=320&q=80',
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80',
@@ -134,56 +85,72 @@ export default function MyProfilePage() {
     syncTimersRef.current = [];
   };
 
-  const stopLiveCamera = () => {
-    const stream = liveCameraStreamRef.current;
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      liveCameraStreamRef.current = null;
-    }
-
-    if (liveCameraVideoRef.current) {
-      liveCameraVideoRef.current.srcObject = null;
-    }
-  };
-
   useEffect(() => {
     const loadProfile = async () => {
-      if (!session?.isLoggedIn || !accountId) {
+      if (!session?.isLoggedIn) {
         navigate('/login', { replace: true });
+        return;
+      }
+
+      let effectiveAccountId = accountId;
+      if (!effectiveAccountId && session?.email) {
+        try {
+          const matched = isOrganization
+            ? await findOrganizationByEmail(session.email)
+            : await findUserByEmail(session.email);
+          if (matched?.id) {
+            effectiveAccountId = matched.id;
+            setResolvedAccountId(matched.id);
+            const nextSession = { ...(getSession() || {}), userId: matched.id };
+            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+            window.dispatchEvent(new Event('chomnuoy-session-updated'));
+          }
+        } catch {
+          // ignore lookup failure and fall back to session data
+        }
+      }
+
+      if (!effectiveAccountId) {
+        setFormData({
+          name: session?.name || '',
+          email: session?.email || '',
+          phone: '',
+          avatar: session?.avatar || '',
+        });
+        setError('Your session is missing an account id. Please sign in again.');
+        setLoading(false);
         return;
       }
 
       try {
         const data = isOrganization
-          ? await getOrganizationById(accountId)
-          : await getUserById(accountId);
-        const resolvedAvatar = resolveProfileAvatar(data);
+          ? await getOrganizationById(effectiveAccountId)
+          : await getUserById(effectiveAccountId);
 
         setFormData({
           name: data?.name || session?.name || '',
           email: data?.email || session?.email || '',
           phone: data?.phone || '',
-          avatar: normalizeAvatarUrl(resolvedAvatar || session?.avatar || ''),
+          avatar: getStorageFileUrl(data?.avatar_path) || session?.avatar || '',
         });
+        setError('');
       } catch {
         setFormData({
           name: session?.name || '',
           email: session?.email || '',
           phone: '',
-          avatar: normalizeAvatarUrl(session?.avatar || ''),
+          avatar: session?.avatar || '',
         });
       } finally {
         setLoading(false);
       }
     };
 
+    setResolvedAccountId(accountId);
     loadProfile();
   }, [accountId, isOrganization, navigate, session]);
 
-  useEffect(() => () => {
-    clearSyncTimers();
-    stopLiveCamera();
-  }, []);
+  useEffect(() => () => clearSyncTimers(), []);
 
   const handleAvatarChange = (event) => {
     const file = event.target.files?.[0];
@@ -211,62 +178,6 @@ export default function MyProfilePage() {
     setShowIllustrations(false);
   };
 
-  const handleOpenLiveCamera = async () => {
-    setCameraError('');
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      cameraInputRef.current?.click();
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: false,
-      });
-
-      liveCameraStreamRef.current = stream;
-      setIsLiveCameraOpen(true);
-
-      window.setTimeout(() => {
-        if (!liveCameraVideoRef.current) return;
-        liveCameraVideoRef.current.srcObject = stream;
-        liveCameraVideoRef.current.play().catch(() => {});
-      }, 0);
-    } catch {
-      setCameraError('Camera access denied. Please allow camera permission.');
-      cameraInputRef.current?.click();
-    }
-  };
-
-  const handleCaptureLivePhoto = () => {
-    const video = liveCameraVideoRef.current;
-    if (!video || !video.videoWidth || !video.videoHeight) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-
-      const file = new File([blob], `camera-profile-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      setAvatarFile(file);
-      setFormData((prev) => ({
-        ...prev,
-        avatar: URL.createObjectURL(file),
-      }));
-      setIsEditing(true);
-      setIsLiveCameraOpen(false);
-      setIsCameraModalOpen(false);
-      setShowIllustrations(false);
-      stopLiveCamera();
-    }, 'image/jpeg', 0.95);
-  };
-
   const focusInput = (ref) => {
     ref.current?.focus();
     setIsEditing(true);
@@ -277,6 +188,12 @@ export default function MyProfilePage() {
     clearSyncTimers();
     setError('');
     setSuccess('');
+
+    if (!resolvedAccountId) {
+      setError('Your session is missing an account id. Please sign in again.');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -291,23 +208,17 @@ export default function MyProfilePage() {
       }
 
       const updated = isOrganization
-        ? await updateOrganizationProfile(accountId, payload)
-        : await updateUserProfile(accountId, payload);
+        ? await updateOrganizationProfile(resolvedAccountId, payload)
+        : await updateUserProfile(resolvedAccountId, payload);
 
-      const savedAvatarUrl = withCacheBust(resolveProfileAvatar(updated));
-      const finalAvatar = savedAvatarUrl || normalizeAvatarUrl(formData.avatar) || normalizeAvatarUrl(session?.avatar || '') || '';
+      const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
+      const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';
       const nextSession = {
         ...(getSession() || {}),
         name: updated?.name || formData.name,
         email: updated?.email || formData.email,
         avatar: finalAvatar,
       };
-      const avatarOverrideKey = !isOrganization
-        ? (nextSession.avatarOverrideKey || getAvatarOverrideKey(nextSession))
-        : null;
-      if (avatarOverrideKey) {
-        nextSession.avatarOverrideKey = avatarOverrideKey;
-      }
 
       setFormData((prev) => ({
         ...prev,
@@ -327,9 +238,6 @@ export default function MyProfilePage() {
 
       const syncTimer = window.setTimeout(() => {
         window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
-        if (avatarOverrideKey) {
-          saveAvatarOverride(avatarOverrideKey, finalAvatar);
-        }
         window.dispatchEvent(new Event('chomnuoy-session-updated'));
         setShowSaveToast(false);
         setHideSaveToast(false);
@@ -365,154 +273,104 @@ export default function MyProfilePage() {
       ) : null}
 
       {isCameraModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/55 px-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[26px] border border-[#D7E2F2] bg-gradient-to-b from-[#F8FAFF] to-[#F2F6FC] p-3 sm:p-4 shadow-[0_22px_56px_rgba(15,23,42,0.35)]">
-            <div className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCameraModalOpen(false);
-                  setShowIllustrations(false);
-                }}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#BFD3EF] bg-white text-[#0F172A] transition hover:bg-[#EEF5FF]"
-                aria-label="Close picture modal"
-              >
-                <X className="h-6 w-6" />
-              </button>
-              <div className="px-3 text-center">
-                <h3 className="text-xl font-bold tracking-tight text-[#0F172A] sm:text-2xl">Change profile picture</h3>
-                <p className="text-xs font-medium text-[#64748B] sm:text-sm">Choose a source and update your account image.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-[0_30px_80px_rgba(15,23,42,0.35)]">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">Profile</p>
+                <h3 className="mt-1 text-2xl font-semibold text-[#0F172A]">Change profile picture</h3>
               </div>
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#BFD3EF] bg-white text-[#4B5563] transition hover:bg-[#EEF5FF]"
-                aria-label="More options"
-              >
-                <MoreVertical className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="mt-4 rounded-[22px] border border-[#DCE8F6] bg-white px-3 pb-4 pt-5 sm:px-5 sm:pb-6 sm:pt-7">
-              <div className="relative mx-auto h-36 w-36 sm:h-40 sm:w-40">
-                {hasAvatarImage ? (
-                  <img
-                    src={formData.avatar}
-                    alt="Profile preview"
-                    onError={() => setFormData((prev) => ({ ...prev, avatar: '' }))}
-                    className="h-36 w-36 rounded-full border-4 border-white object-cover shadow-[0_14px_28px_rgba(15,23,42,0.22)] sm:h-40 sm:w-40"
-                  />
-                ) : (
-                  <span className="inline-flex h-36 w-36 items-center justify-center rounded-full border-4 border-white bg-[#EAF2FF] text-3xl font-extrabold tracking-[0.04em] text-[#1D4ED8] shadow-[0_14px_28px_rgba(15,23,42,0.14)] sm:h-40 sm:w-40 sm:text-4xl">
-                    {avatarInitials}
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-1 right-0 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D5E2F2] bg-white text-[#475569] shadow-md transition hover:bg-[#F8FAFC] sm:h-11 sm:w-11"
-                  aria-label="Upload avatar"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#64748B] hover:bg-[#F1F5F9]"
+                  aria-label="More options"
                 >
-                  <Camera className="h-5 w-5" />
+                  <MoreVertical className="h-5 w-5" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCameraModalOpen(false);
+                    setShowIllustrations(false);
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8FAFC]"
+                  aria-label="Close picture modal"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-8">
+              <div className="flex flex-col items-center">
+                <div className="relative h-36 w-36">
+                  <img
+                    src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80'}
+                    alt="Profile preview"
+                    className="h-36 w-36 rounded-full border border-[#E2E8F0] object-cover shadow-[0_8px_24px_rgba(15,23,42,0.15)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-2 -right-2 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white bg-[#0F172A] text-white shadow-[0_10px_22px_rgba(15,23,42,0.25)] hover:bg-[#1E293B]"
+                    aria-label="Upload avatar"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </button>
+                </div>
+                <p className="mt-4 text-sm text-[#64748B]">Pick a photo or illustration. JPG/PNG, max 5MB.</p>
               </div>
 
               {showIllustrations ? (
-                <div className="mx-auto mt-7 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="mt-6 grid grid-cols-3 gap-3">
                   {illustrationOptions.map((imageUrl) => (
                     <button
                       key={imageUrl}
                       type="button"
                       onClick={() => handleSelectIllustration(imageUrl)}
-                      className="rounded-xl border border-[#D0D5DD] bg-white p-1 transition hover:border-[#60A5FA] hover:shadow-[0_10px_24px_rgba(37,99,235,0.16)]"
+                      className="rounded-2xl border border-[#E2E8F0] bg-white p-1 transition hover:border-[#60A5FA] hover:shadow-[0_8px_18px_rgba(37,99,235,0.2)]"
                     >
-                      <img src={imageUrl} alt="Illustration option" className="h-20 w-full rounded-lg object-cover" />
+                      <img src={imageUrl} alt="Illustration option" className="h-20 w-full rounded-xl object-cover" />
                     </button>
                   ))}
                 </div>
               ) : null}
 
-              <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-2 text-center sm:grid-cols-3 sm:gap-3">
+              <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={() => setShowIllustrations((prev) => !prev)}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FBFF] p-3 transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EEF5FF]"
+                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
                 >
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#DFE9F8] text-[#4B5563] transition group-hover:bg-[#D4E4FB]">
-                    <ImageIcon className="h-7 w-7" />
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E2E8F0] text-[#475569]">
+                    <ImageIcon className="h-5 w-5" />
                   </span>
-                  <span className="text-base font-semibold text-[#1F2937]">Browse Illustrations</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">Browse illustrations</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FBFF] p-3 transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EEF5FF]"
+                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
                 >
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#DFE9F8] text-[#4B5563] transition group-hover:bg-[#D4E4FB]">
-                    <Upload className="h-7 w-7" />
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E2E8F0] text-[#475569]">
+                    <Upload className="h-5 w-5" />
                   </span>
-                  <span className="text-base font-semibold text-[#1F2937]">Upload from Device</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">Upload from device</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleOpenLiveCamera}
-                  className="group flex flex-col items-center gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FBFF] p-3 transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EEF5FF]"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FAFC]"
                 >
-                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#DFE9F8] text-[#4B5563] transition group-hover:bg-[#D4E4FB]">
-                    <Camera className="h-7 w-7" />
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E2E8F0] text-[#475569]">
+                    <Camera className="h-5 w-5" />
                   </span>
-                  <span className="text-base font-semibold text-[#1F2937]">Take a picture</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">Take a picture</span>
                 </button>
               </div>
-              {cameraError ? (
-                <p className="mt-3 text-center text-xs font-semibold text-red-600">{cameraError}</p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isLiveCameraOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0F172A]/70 px-4">
-          <div className="w-full max-w-lg rounded-2xl border border-[#D5E2F3] bg-white p-4 shadow-[0_22px_56px_rgba(15,23,42,0.4)]">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#0F172A]">Take a picture</h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLiveCameraOpen(false);
-                  stopLiveCamera();
-                }}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC]"
-                aria-label="Close camera"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-[#D9E4F3] bg-[#0F172A]">
-              <video ref={liveCameraVideoRef} className="aspect-[4/3] w-full object-cover" autoPlay playsInline muted />
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLiveCameraOpen(false);
-                  stopLiveCamera();
-                }}
-                className="rounded-lg border border-[#CBD5E1] bg-white px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCaptureLivePhoto}
-                className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-              >
-                Capture
-              </button>
             </div>
           </div>
         </div>
@@ -539,18 +397,11 @@ export default function MyProfilePage() {
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-5">
             <div className="flex items-center gap-4">
               <div className="relative h-20 w-20">
-                {hasAvatarImage ? (
-                  <img
-                    src={formData.avatar}
-                    alt="Profile avatar"
-                    onError={() => setFormData((prev) => ({ ...prev, avatar: '' }))}
-                    className="h-20 w-20 rounded-full border border-[#CBD5E1] object-cover"
-                  />
-                ) : (
-                  <span className="inline-flex h-20 w-20 items-center justify-center rounded-full border border-[#CBD5E1] bg-[#EAF2FF] text-xl font-extrabold tracking-[0.04em] text-[#1D4ED8]">
-                    {avatarInitials}
-                  </span>
-                )}
+                <img
+                  src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
+                  alt="Profile avatar"
+                  className="h-20 w-20 rounded-full border border-[#CBD5E1] object-cover"
+                />
                 <button
                   type="button"
                   onClick={() => setIsCameraModalOpen(true)}

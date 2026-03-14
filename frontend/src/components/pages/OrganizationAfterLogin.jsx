@@ -6,11 +6,17 @@ import {
   DONATION_PRESET_AMOUNTS,
   DONOR_PAGE_SIZE,
   DONOR_SORT_OPTIONS,
-  donorOrganizations,
   getDonorSession,
   getPaginationItems,
 } from './organizationShared';
 import '../css/organization.css';
+
+const ORG_IMAGE_POOL = [
+  'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?auto=format&fit=crop&w=960&q=80',
+];
 
 function OrganizationAfterLogin() {
   const navigate = useNavigate();
@@ -32,6 +38,11 @@ function OrganizationAfterLogin() {
   const [isDonorRegionMenuOpen, setIsDonorRegionMenuOpen] = useState(false);
   const [donorPage, setDonorPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
+  const [organizationItems, setOrganizationItems] = useState([]);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
+  const [organizationError, setOrganizationError] = useState('');
+  const [donorImpactTotal, setDonorImpactTotal] = useState(0);
+  const [donorCausesSupported, setDonorCausesSupported] = useState(0);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qr');
@@ -48,12 +59,28 @@ function OrganizationAfterLogin() {
   const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
   const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
 
-  const donorCategories = useMemo(() => ['All Categories', ...new Set(donorOrganizations.map((item) => item.category))], []);
-  const donorRegions = useMemo(() => ['Everywhere', ...new Set(donorOrganizations.map((item) => item.region))], []);
+  const formatMoney = (value) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '$0.00';
+    return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const donorCategories = useMemo(
+    () => ['All Categories', ...new Set(organizationItems.map((item) => item.category))],
+    [organizationItems],
+  );
+  const donorRegions = useMemo(
+    () => ['Everywhere', ...new Set(organizationItems.map((item) => item.region))],
+    [organizationItems],
+  );
+  const verifiedCount = useMemo(
+    () => organizationItems.filter((item) => item.verified).length,
+    [organizationItems],
+  );
 
   const donorFilteredOrganizations = useMemo(() => {
     const query = donorSearchTerm.trim().toLowerCase();
-    return donorOrganizations
+    return organizationItems
       .filter((organization) => {
         if (!query) return true;
         const searchableText = `${organization.name} ${organization.summary} ${organization.category} ${organization.region}`.toLowerCase();
@@ -81,8 +108,8 @@ function OrganizationAfterLogin() {
   const isDonationPage = Boolean(organizationId);
   const selectedDonationOrg = useMemo(() => {
     if (!organizationId) return null;
-    return donorOrganizations.find((organization) => String(organization.id) === String(organizationId)) ?? null;
-  }, [organizationId]);
+    return organizationItems.find((organization) => String(organization.id) === String(organizationId)) ?? null;
+  }, [organizationId, organizationItems]);
   const fromQuery = new URLSearchParams(location.search).get('from');
   const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
   const selectedPaymentLabel = DONATION_PAYMENT_METHODS.find((method) => method.id === selectedPaymentMethod)?.label || 'QR Payment';
@@ -98,6 +125,86 @@ function OrganizationAfterLogin() {
   useEffect(() => {
     setDonorPage((previousPage) => Math.min(previousPage, donorTotalPages));
   }, [donorTotalPages]);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const userId = Number(donorSession?.userId ?? 0);
+    let active = true;
+    setLoadingOrganizations(true);
+    setOrganizationError('');
+
+    Promise.all([
+      fetch(`${apiBase}/organizations`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/categories`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([orgData, categoryData, campaignData, donationData]) => {
+        if (!active) return;
+        const organizations = Array.isArray(orgData) ? orgData : [];
+        const categories = Array.isArray(categoryData) ? categoryData : [];
+        const campaigns = Array.isArray(campaignData) ? campaignData : [];
+        const donations = Array.isArray(donationData) ? donationData : [];
+        const categoryMap = new Map(categories.map((item) => [Number(item.id), item.category_name]));
+
+        const mapped = organizations.map((org, index) => {
+          const orgCampaigns = campaigns.filter((item) => Number(item.organization_id) === Number(org.id));
+          const orgDonations = donations.filter((item) => Number(item.organization_id) === Number(org.id));
+          const raised = orgDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+          const campaignCount = orgCampaigns.length;
+          const impactScore = Math.min(100, 60 + campaignCount * 2 + Math.floor(raised / 1000));
+          const location = String(org.location || '').trim();
+          const region = location.split(',').shift()?.trim() || 'Everywhere';
+
+          const statusValue = String(org.verified_status || '').toLowerCase();
+          const isVerified = statusValue
+            ? ['verified', 'approved', 'active'].includes(statusValue)
+            : true;
+
+          return {
+            id: org.id,
+            name: org.name || 'Organization',
+            summary: org.description || 'Organization description is being updated.',
+            category: categoryMap.get(Number(org.category_id)) || 'General',
+            region: region || 'Everywhere',
+            verified: isVerified,
+            taxEligible: false,
+            image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
+            metricLeftLabel: 'Impact Score',
+            metricLeftValue: `${impactScore}/100`,
+            metricRightLabel: 'Live Projects',
+            metricRightValue: `${campaignCount} Active`,
+          };
+        });
+
+        setOrganizationItems(mapped);
+
+        if (userId) {
+          const myDonations = donations.filter((item) => Number(item.user_id) === userId);
+          const totalImpact = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+          const uniqueCauses = new Set(
+            myDonations.map((item) => Number(item.organization_id)).filter(Boolean),
+          );
+          setDonorImpactTotal(totalImpact);
+          setDonorCausesSupported(uniqueCauses.size);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setOrganizationError('Failed to load organizations.');
+        setOrganizationItems([]);
+        setDonorImpactTotal(0);
+        setDonorCausesSupported(0);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoadingOrganizations(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -385,11 +492,11 @@ function OrganizationAfterLogin() {
             </div>
             <div className="donor-user-stat">
               <span>Total Impact</span>
-              <strong>$4,820.00</strong>
+              <strong>{formatMoney(donorImpactTotal)}</strong>
             </div>
             <div className="donor-user-stat">
               <span>Causes Supported</span>
-              <strong>14</strong>
+              <strong>{donorCausesSupported}</strong>
             </div>
           </section>
 
@@ -518,7 +625,9 @@ function OrganizationAfterLogin() {
               <header className="donor-org-header">
                 <div>
                   <h1>Browse Organizations</h1>
-                  <p>Discover 1,248 verified non-profit organizations</p>
+                  <p>
+                    Discover {verifiedCount.toLocaleString('en-US')} verified non-profit organizations
+                  </p>
                 </div>
                 <div className="donor-sort-wrap" ref={donorSortMenuRef}>
                   <span>Sort by:</span>
@@ -612,7 +721,14 @@ function OrganizationAfterLogin() {
                     </article>
                   );
                 })}
+                {!loadingOrganizations && donorPaginatedOrganizations.length === 0 ? (
+                  <p className="text-sm text-slate-500">No organizations found.</p>
+                ) : null}
               </section>
+
+              {organizationError ? (
+                <p className="mt-4 text-sm text-red-600">{organizationError}</p>
+              ) : null}
 
               <nav className="donor-org-pagination" aria-label="Pagination">
                 <button type="button" onClick={() => setDonorPage((page) => Math.max(1, page - 1))} disabled={donorPage === 1}>

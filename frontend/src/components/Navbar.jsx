@@ -25,7 +25,14 @@ const donorNavItems = [
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed) return null;
+    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
+      const normalized = { ...parsed, isLoggedIn: true };
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
+      return normalized;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -76,6 +83,7 @@ function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([
     {
@@ -175,6 +183,10 @@ function Navbar() {
     setSearchQuery(urlQuery);
   }, [location.search]);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [donorSession?.avatar]);
+
   const logoutPopupMarkup = (
     <div className="logout-popup-overlay" role="presentation" onClick={() => setIsLogoutPopupOpen(false)}>
       <div
@@ -216,7 +228,7 @@ function Navbar() {
     const donorImpact = donorSession.impactLevel || 'Gold';
     const donorInitials = getInitials(donorName);
     const donorAvatar = donorSession.avatar;
-    const hasCustomAvatar = Boolean(donorAvatar) && !isDefaultAvatarUrl(donorAvatar);
+    const hasCustomAvatar = Boolean(donorAvatar) && !isDefaultAvatarUrl(donorAvatar) && !avatarLoadFailed;
     const { publicProfile } = getPrivacyPreferences();
 
     return (
@@ -321,7 +333,7 @@ function Navbar() {
               aria-expanded={isProfileMenuOpen}
             >
               {hasCustomAvatar ? (
-                <img src={donorAvatar} alt={donorName} className="donor-avatar-photo" />
+                <img src={donorAvatar} alt={donorName} className="donor-avatar-photo" onError={() => setAvatarLoadFailed(true)} />
               ) : (
                 <span className="donor-avatar-fallback" aria-hidden="true">{donorInitials}</span>
               )}
@@ -331,7 +343,7 @@ function Navbar() {
               <div className="donor-profile-dropdown" aria-label="Profile menu" style={{ display: 'block' }}>
                 <div className="donor-profile-header">
                   {hasCustomAvatar ? (
-                    <img src={donorAvatar} alt={donorName} className="donor-profile-avatar" />
+                    <img src={donorAvatar} alt={donorName} className="donor-profile-avatar" onError={() => setAvatarLoadFailed(true)} />
                   ) : (
                     <span className="donor-profile-avatar donor-profile-avatar-fallback" aria-hidden="true">
                       {donorInitials}
