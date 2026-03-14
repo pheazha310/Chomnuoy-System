@@ -41,6 +41,15 @@ const getDaysLeft = (endDate) => {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 };
 
+const normalizeCategory = (value) => {
+  const key = String(value || '').toLowerCase();
+  if (key.includes('education')) return 'Education';
+  if (key.includes('health') || key.includes('medical')) return 'Medical';
+  if (key.includes('environment') || key.includes('water')) return 'Environment';
+  if (key.includes('disaster')) return 'Disaster Relief';
+  return 'General';
+};
+
 export default function App() {
   const [selectedFilter, setSelectedFilter] = useState('All Campaigns');
   const [visibleCount, setVisibleCount] = useState(6);
@@ -91,16 +100,21 @@ export default function App() {
           const raised = Number(item.current_amount || 0);
           const timeLeft = getTimeLeft(item.end_date);
           const daysLeft = getDaysLeft(item.end_date);
+          const createdAt = item.created_at ? new Date(item.created_at).getTime() : 0;
+          const categoryLabel = normalizeCategory(item.category);
+          const isNew = createdAt ? Date.now() - createdAt <= 1000 * 60 * 60 * 24 * 14 : false;
           return {
             id: item.id,
             title: item.title || "Untitled Campaign",
             description: item.description || "No description provided.",
             image: item.image_path || placeholderImage,
-            category: item.category || "General",
+            category: categoryLabel,
+            normalizedCategory: categoryLabel,
             raised,
             goal,
             timeLeft,
             isUrgent: typeof daysLeft === "number" ? daysLeft > 0 && daysLeft <= 3 : false,
+            isNew,
           };
         });
         setCampaigns(mapped);
@@ -132,12 +146,16 @@ export default function App() {
       });
   }, []);
   
-  const filteredCampaigns = useMemo(() => campaigns.filter(campaign => {
-    if (selectedFilter === 'All Campaigns') return true;
-    if (selectedFilter === 'Urgent') return campaign.isUrgent;
-    if (selectedFilter === 'Newest') return campaign.isNew;
-    return campaign.category === selectedFilter;
-  }), [campaigns, selectedFilter]);
+  const filteredCampaigns = useMemo(
+    () =>
+      campaigns.filter((campaign) => {
+        if (selectedFilter === 'All Campaigns') return true;
+        if (selectedFilter === 'Urgent') return campaign.isUrgent;
+        if (selectedFilter === 'Newest') return campaign.isNew;
+        return campaign.normalizedCategory === selectedFilter;
+      }),
+    [campaigns, selectedFilter],
+  );
   const visibleCampaigns = filteredCampaigns.slice(0, visibleCount);
   const hasMoreCampaigns = visibleCount < filteredCampaigns.length;
 
