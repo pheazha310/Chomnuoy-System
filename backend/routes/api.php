@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\SocialAuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserCredentialController;
 use App\Http\Controllers\Api\UserHistoryController;
@@ -31,6 +32,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
+Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
+Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',

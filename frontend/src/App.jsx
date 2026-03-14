@@ -16,6 +16,7 @@ import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
@@ -325,6 +326,7 @@ export default function App() {
       {!hideShell && <Navbar />}
       <Routes>
         <Route path={ROUTES.HOME} element={<HomeRoute />} />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
