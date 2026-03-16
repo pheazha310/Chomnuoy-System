@@ -1,6 +1,28 @@
 // Import apiClient (Axios instance with baseURL and config)
 import apiClient from './api-client';
 
+function normalizeResourceId(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    if (!/^\d+$/.test(String(value))) {
+        return null;
+    }
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        return null;
+    }
+    return parsed;
+}
+
+function requireResourceId(value, resourceName) {
+    const normalizedId = normalizeResourceId(value);
+    if (!normalizedId) {
+        throw new Error(`Invalid ${resourceName} id.`);
+    }
+    return normalizedId;
+}
+
 /**
  * Register new user
  * Send POST request to backend to create a new account
@@ -31,6 +53,26 @@ export async function getCategories() {
     return response.data;
 }
 
+export async function findUserByEmail(email) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    const response = await apiClient.get('/users');
+    const users = Array.isArray(response.data) ? response.data : [];
+    const matched = users.find((user) => String(user?.email || '').trim().toLowerCase() === normalizedEmail);
+    return matched || null;
+}
+
+export async function findOrganizationByEmail(email) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    const response = await apiClient.get('/organizations');
+    const organizations = Array.isArray(response.data) ? response.data : [];
+    const matched = organizations.find((org) => String(org?.email || '').trim().toLowerCase() === normalizedEmail);
+    return matched || null;
+}
+
 export async function changePassword(payload) {
     const response = await apiClient.post('/auth/change-password', payload);
     return response.data;
@@ -39,7 +81,8 @@ export async function changePassword(payload) {
 export async function deactivateAccount({ accountType, userId }) {
     const normalizedType = (accountType || '').toLowerCase();
     const resource = normalizedType === 'organization' ? 'organizations' : 'users';
-    const response = await apiClient.delete(`/${resource}/${userId}`);
+    const normalizedId = requireResourceId(userId, normalizedType === 'organization' ? 'organization' : 'user');
+    const response = await apiClient.delete(`/${resource}/${normalizedId}`);
     return response.data;
 }
 
@@ -49,7 +92,8 @@ export async function deactivateAccount({ accountType, userId }) {
  * formData - form data including name, email, phone, avatar
  */
 export async function updateUserProfile(userId, formData) {
-    const response = await apiClient.post(`/users/${userId}?_method=PUT`, formData, {
+    const normalizedId = requireResourceId(userId, 'user');
+    const response = await apiClient.post(`/users/${normalizedId}?_method=PUT`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
@@ -61,18 +105,21 @@ export async function updateUserProfile(userId, formData) {
  * formData - form data including organization info and logo/avatar
  */
 export async function updateOrganizationProfile(orgId, formData) {
-    const response = await apiClient.post(`/organizations/${orgId}?_method=PUT`, formData, {
+    const normalizedId = requireResourceId(orgId, 'organization');
+    const response = await apiClient.post(`/organizations/${normalizedId}?_method=PUT`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
 }
 
 export async function getUserById(userId) {
-    const response = await apiClient.get(`/users/${userId}`);
+    const normalizedId = requireResourceId(userId, 'user');
+    const response = await apiClient.get(`/users/${normalizedId}`);
     return response.data;
 }
 
 export async function getOrganizationById(orgId) {
-    const response = await apiClient.get(`/organizations/${orgId}`);
+    const normalizedId = requireResourceId(orgId, 'organization');
+    const response = await apiClient.get(`/organizations/${normalizedId}`);
     return response.data;
 }

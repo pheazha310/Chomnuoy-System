@@ -16,7 +16,8 @@ export default function CampaignCard({
   isNew,
 }) {
   const navigate = useNavigate();
-  const progress = Math.min((raised / goal) * 100, 100);
+  const safeGoal = goal > 0 ? goal : 1;
+  const progress = Math.min((raised / safeGoal) * 100, 100);
   const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
 
   const handleCardClick = () => {
@@ -59,10 +60,26 @@ export default function CampaignCard({
       </div>
       <div className="p-6 flex flex-col flex-1">
         <div className="flex-1">
-          <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-primary transition-colors">
+          <h3
+            className="text-xl font-bold text-slate-900 mb-2 group-hover:text-primary transition-colors"
+            style={{
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 2,
+              overflow: 'hidden',
+            }}
+          >
             {title}
           </h3>
-          <p className="text-slate-600 text-sm line-clamp-2 mb-6">
+          <p
+            className="text-slate-600 text-sm mb-6"
+            style={{
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 3,
+              overflow: 'hidden',
+            }}
+          >
             {description}
           </p>
         </div>

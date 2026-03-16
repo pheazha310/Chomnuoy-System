@@ -7,6 +7,7 @@ use App\Models\Organization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 // Define a controller class for handling Organization API requests
@@ -52,7 +53,10 @@ class OrganizationController extends Controller
         ]);
 
         if ($request->hasFile('avatar')) {
-            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            $storedPath = $request->file('avatar')->store('avatars', 'public');
+            if (Schema::hasColumn('organizations', 'avatar_path')) {
+                $data['avatar_path'] = $storedPath;
+            }
         }
 
         $record->update($data);

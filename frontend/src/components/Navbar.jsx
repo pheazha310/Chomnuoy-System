@@ -14,7 +14,7 @@ const guestNavItems = [
 ];
 
 const donorNavItems = [
-  { label: 'Home', href: '/AfterLoginHome' },
+  { label: 'Home', href: '/' },
   { label: 'Organizations', href: '/organizations' },
   { label: 'Campaigns', href: '/campaigns/donor' },
   { label: 'My Donations', href: '/donations' },
@@ -25,7 +25,14 @@ const donorNavItems = [
 function getDonorSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed) return null;
+    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
+      const normalized = { ...parsed, isLoggedIn: true };
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
+      return normalized;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -50,6 +57,19 @@ function isGuestNavItemActive(itemHref, pathname) {
   return pathname === itemHref;
 }
 
+function getInitials(name) {
+  if (!name) return 'DU';
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+}
+
+function isDefaultAvatarUrl(url) {
+  return typeof url === 'string' && url.includes('photo-1500648767791-00dcc994a43e');
+}
+
 function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,12 +77,13 @@ function Navbar() {
   const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
   const loginHref = `/login?redirect=${loginRedirectTarget}`;
 
-  const donorSession = getDonorSession();
+  const [donorSession, setDonorSession] = useState(() => getDonorSession());
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([
     {
@@ -116,6 +137,16 @@ function Navbar() {
   };
 
   useEffect(() => {
+    const syncSession = () => setDonorSession(getDonorSession());
+    window.addEventListener('storage', syncSession);
+    window.addEventListener('chomnuoy-session-updated', syncSession);
+    return () => {
+      window.removeEventListener('storage', syncSession);
+      window.removeEventListener('chomnuoy-session-updated', syncSession);
+    };
+  }, []);
+
+  useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
     setIsLogoutPopupOpen(false);
@@ -151,6 +182,10 @@ function Navbar() {
     const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
     setSearchQuery(urlQuery);
   }, [location.search]);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [donorSession?.avatar]);
 
   const logoutPopupMarkup = (
     <div className="logout-popup-overlay" role="presentation" onClick={() => setIsLogoutPopupOpen(false)}>
@@ -191,6 +226,9 @@ function Navbar() {
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
     const donorImpact = donorSession.impactLevel || 'Gold';
+    const donorInitials = getInitials(donorName);
+    const donorAvatar = donorSession.avatar;
+    const hasCustomAvatar = Boolean(donorAvatar) && !isDefaultAvatarUrl(donorAvatar) && !avatarLoadFailed;
     const { publicProfile } = getPrivacyPreferences();
 
     return (
@@ -294,27 +332,23 @@ function Navbar() {
               aria-label="Profile menu"
               aria-expanded={isProfileMenuOpen}
             >
-              <img
-                src={
-                  donorSession.avatar ||
-                  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'
-                }
-                alt={donorName}
-                className="donor-avatar-photo"
-              />
+              {hasCustomAvatar ? (
+                <img src={donorAvatar} alt={donorName} className="donor-avatar-photo" onError={() => setAvatarLoadFailed(true)} />
+              ) : (
+                <span className="donor-avatar-fallback" aria-hidden="true">{donorInitials}</span>
+              )}
             </button>
 
             {isProfileMenuOpen && (
               <div className="donor-profile-dropdown" aria-label="Profile menu" style={{ display: 'block' }}>
                 <div className="donor-profile-header">
-                  <img
-                    src={
-                      donorSession.avatar ||
-                      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'
-                    }
-                    alt={donorName}
-                    className="donor-profile-avatar"
-                  />
+                  {hasCustomAvatar ? (
+                    <img src={donorAvatar} alt={donorName} className="donor-profile-avatar" onError={() => setAvatarLoadFailed(true)} />
+                  ) : (
+                    <span className="donor-profile-avatar donor-profile-avatar-fallback" aria-hidden="true">
+                      {donorInitials}
+                    </span>
+                  )}
                   <div className="donor-profile-info">
                     <p className="donor-profile-name">{donorName}</p>
                     <p className="donor-profile-email">{donorSession.email || 'donor@example.com'}</p>
