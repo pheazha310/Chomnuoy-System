@@ -14,7 +14,9 @@ import {
   ArrowRight,
   AlertCircle,
 } from 'lucide-react';
-
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from "jwt-decode";
 function GoogleIcon(props) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
@@ -199,7 +201,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
+          {/* <button
             type="button"
             onClick={() => handleSocialLogin('google')}
             disabled={socialLoading !== null}
@@ -207,7 +209,17 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
           >
             <GoogleIcon className="h-5 w-5" />
             Gmail
-          </button>
+          </button> */}
+          <GoogleOAuthProvider clientId="430922804948-5p3d8kmn9tdufhb51ia28fg6lnufi388.apps.googleusercontent.com">
+      <GoogleLogin
+        onSuccess={credentialResponse => {
+          console.log(jwtDecode(credentialResponse.credential));
+        }}
+        onError={() => {
+          console.log('jwtDecode(credentialResponse.credential)');
+        }}
+      />
+    </GoogleOAuthProvider>
           <button
             type="button"
             onClick={() => handleSocialLogin('facebook')}
