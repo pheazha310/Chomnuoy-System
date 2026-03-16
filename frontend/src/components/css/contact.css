@@ -270,6 +270,31 @@
   box-shadow: 0 8px 16px rgba(31, 111, 224, 0.2);
 }
 
+.contact-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.contact-form-status {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contact-form-status.success {
+  background: #e7f7ee;
+  color: #15803d;
+  border: 1px solid #bde7cb;
+}
+
+.contact-form-status.error {
+  background: #fdecec;
+  color: #b91c1c;
+  border: 1px solid #f7caca;
+}
+
 .contact-submit-btn:hover {
   background: #1a61c4;
 }

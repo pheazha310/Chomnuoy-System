@@ -85,32 +85,7 @@ function Navbar() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'success',
-      title: 'Donation Received',
-      message: 'Thank you for supporting Rural Health Alliance.',
-      time: '2m ago',
-      isRead: false,
-    },
-    {
-      id: 2,
-      type: 'info',
-      title: 'Campaign Update',
-      message: 'Ocean Reclaim Project shared a new progress update.',
-      time: '1h ago',
-      isRead: false,
-    },
-    {
-      id: 3,
-      type: 'message',
-      title: 'Pickup Reminder',
-      message: 'Your material pickup is scheduled for tomorrow.',
-      time: 'Yesterday',
-      isRead: true,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const notificationRef = useRef(null);
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
@@ -134,6 +109,18 @@ function Navbar() {
 
   const markAllNotificationsRead = () => {
     setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    notifications.forEach((item) => {
+      if (!item.isRead && item.source === 'api') {
+        fetch(`${apiBase}/notifications/${item.id}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_read: true }),
+        }).catch(() => {});
+      }
+    });
   };
 
   useEffect(() => {
@@ -182,6 +169,56 @@ function Navbar() {
     const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
     setSearchQuery(urlQuery);
   }, [location.search]);
+
+  const loadNotifications = () => {
+    if (!isDonorLoggedIn) return;
+    const session = getDonorSession();
+    const userId = Number(session?.userId ?? 0);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(`${apiBase}/notifications`, { headers })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        const filtered = userId ? list.filter((item) => Number(item.user_id) === userId) : list;
+        const mapped = filtered.map((item) => {
+          const type = String(item.type || '').toLowerCase();
+          const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+          const timeLabel = createdAt.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          const title = type === 'reply'
+            ? 'Admin Reply'
+            : type === 'message'
+              ? 'Message'
+              : 'Notification';
+          return {
+            id: item.id,
+            type: type === 'reply' ? 'message' : (type || 'info'),
+            title,
+            message: item.message || 'New update available.',
+            time: timeLabel,
+            isRead: Boolean(item.is_read),
+            source: 'api',
+          };
+        });
+        setNotifications(mapped);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+    loadNotifications();
+  }, [isNotificationsOpen]);
 
   useEffect(() => {
     setAvatarLoadFailed(false);
