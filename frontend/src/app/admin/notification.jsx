@@ -157,8 +157,6 @@ const NOTIFICATIONS = [
   },
 ];
 
-const DEFAULT_NOTIFICATIONS = NOTIFICATIONS.map((item) => ({ ...item, source: 'seed' }));
-
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
 
 const FILTER_ICONS = {
@@ -240,7 +238,7 @@ const NOTIFICATION_ICONS = {
 export default function AdminNotificationPage() {
   const [activeTab, setActiveTab] = useState('Primary');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [items, setItems] = useState(DEFAULT_NOTIFICATIONS);
+  const [items, setItems] = useState([]);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState(null);
   const [replyDraft, setReplyDraft] = useState('');
@@ -328,19 +326,20 @@ export default function AdminNotificationPage() {
             sortKey: minutesAgo,
             tone: type === 'message' ? 'mention' : (type === 'reply' ? 'info' : 'primary'),
             unread: !item.is_read,
-            actions: type === 'message' ? ['Reply', 'Dismiss'] : undefined,
+            actions: type === 'message' ? ['Reply'] : undefined,
             icon: type === 'message' ? 'mention' : 'analytics',
             type: type || 'update',
             sender: parsed.from || undefined,
             source: 'api',
+            replied: false,
           };
         });
 
-        setItems(mapped.length ? mapped : DEFAULT_NOTIFICATIONS);
+        setItems(mapped);
       })
       .catch(() => {
         if (!active) return;
-        setItems(DEFAULT_NOTIFICATIONS);
+        setItems([]);
       });
 
     return () => {
@@ -356,13 +355,7 @@ export default function AdminNotificationPage() {
     });
   };
 
-  const dismissNotification = (id) => {
-    setItems((prev) => {
-      const next = prev.filter((item) => item.id !== id);
-      syncUnreadCount(next);
-      return next;
-    });
-  };
+  const dismissNotification = () => {};
 
   const markAsRead = (id) => {
     let targetSource = null;
@@ -423,6 +416,12 @@ export default function AdminNotificationPage() {
       if (!response.ok) {
         throw new Error('Failed to send reply.');
       }
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === activeNotification.id ? { ...item, unread: false, replied: true } : item
+        )
+      );
+      markAsRead(activeNotification.id);
       setReplyDraft('');
       closeDetails();
     } catch {
@@ -508,19 +507,15 @@ export default function AdminNotificationPage() {
                     <p>{item.description}</p>
                     {item.actions ? (
                       <div className="admin-notify-actions">
-                        {item.actions.map((action) => (
+                        {item.actions
+                          .filter((action) => (action === 'Reply' ? item.unread : true))
+                          .map((action) => (
                           <button
                             key={action}
                             type="button"
                             className={action === 'Dismiss' ? 'ghost' : ''}
                             onClick={(event) => {
                               event.stopPropagation();
-                              if (action === 'Dismiss') {
-                                dismissNotification(item.id);
-                                if (activeNotification?.id === item.id) {
-                                  closeDetails();
-                                }
-                              }
                               if (action === 'Reply') {
                                 openDetails(item);
                               }
@@ -528,7 +523,7 @@ export default function AdminNotificationPage() {
                           >
                             {action}
                           </button>
-                        ))}
+                          ))}
                       </div>
                     ) : null}
                   </div>
@@ -640,7 +635,7 @@ export default function AdminNotificationPage() {
             </div>
             <p className="admin-notify-detail-body">{activeNotification.description}</p>
 
-            {activeNotification.type === 'message' ? (
+            {activeNotification.type === 'message' && activeNotification.unread ? (
               <div className="admin-notify-reply">
                 <div className="admin-notify-reply-header">
                   <span>Reply to {activeNotification.sender || 'sender'}</span>
