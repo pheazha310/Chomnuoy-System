@@ -116,6 +116,7 @@
   background: transparent;
   color: #304158;
   text-align: left;
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -123,6 +124,7 @@
   border-radius: 10px;
   font-size: 14px;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .org-nav-icon {
@@ -337,6 +339,27 @@
   height: 18px;
 }
 
+.org-notify-wrap {
+  position: relative;
+  z-index: 30;
+}
+
+.org-notify-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -12px;
+  width: min(460px, 88vw);
+  max-height: min(70vh, 620px);
+  background: #fff;
+  border: 1px solid #dbe4f2;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 2000;
+}
+
 .org-notify-dot {
   width: 8px;
   height: 8px;
@@ -410,6 +433,11 @@
   border: 0;
   background: #eef2f7;
   color: #5a6478;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
   cursor: pointer;
 }
 
@@ -903,5 +931,1623 @@
 
   .org-notify-modal-head h2 {
     font-size: 20px;
+  }
+}
+
+.org-donations-summary-grid {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.org-donations-summary-card {
+  border: 1px solid var(--org-border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 15px 16px;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.03);
+}
+
+.org-donations-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.org-donations-summary-head p {
+  margin: 0;
+  color: #7b879d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-donations-summary-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Organization Campaigns Management */
+.org-cm-topbar {
+  background: var(--org-panel);
+  border: 1px solid var(--org-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.org-cm-topbar h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.org-cm-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.org-cm-search {
+  height: 34px;
+  min-width: 220px;
+  border: 1px solid var(--org-border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  color: #7c8aa3;
+  background: #f8faff;
+}
+
+.org-cm-search input {
+  border: 0;
+  outline: none;
+  width: 100%;
+  background: transparent;
+  font-size: 12px;
+}
+
+.org-cm-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--org-border);
+  border-radius: 10px;
+  background: #fff;
+  color: #5e6f8b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.org-donations-summary-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.org-donations-summary-icon.green {
+  color: #1ba97f;
+  background: #e9fbf4;
+}
+
+.org-donations-summary-icon.blue {
+  color: #2b6fe7;
+  background: #eaf2ff;
+}
+
+.org-donations-summary-icon.amber {
+  color: #e07a21;
+  background: #fff3e8;
+}
+
+.org-donations-summary-card h2 {
+  margin: 7px 0 0;
+  font-size: 40px;
+}
+
+.org-donations-summary-card small {
+  display: block;
+  margin-top: 4px;
+  color: #1ba97f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-donations-table-card {
+  margin-top: 16px;
+  border: 1px solid var(--org-border);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.org-donations-table-toolbar {
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.org-donations-tabs {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.org-donations-tabs button {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #5e6e87;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.org-donations-tabs button.active {
+  background: #eaf2ff;
+  color: var(--org-blue);
+}
+
+.org-donations-table-actions {
+  display: inline-flex;
+  gap: 6px;
+  position: relative;
+  z-index: 3;
+}
+
+.org-donations-filter-wrap {
+  position: relative;
+}
+
+.org-donations-filter-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16);
+  padding: 10px;
+  z-index: 10;
+}
+
+.org-donations-filter-menu p {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.org-donations-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.org-donations-filter-row button {
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.org-donations-filter-row button.active {
+  border-color: #bcd4ff;
+  background: #edf4ff;
+  color: #1f6fe6;
+}
+
+.org-donations-filter-close {
+  width: 100%;
+  border: 1px solid #1f6fe6;
+  border-radius: 8px;
+  background: #1f6fe6;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.org-donations-filter-backdrop {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  z-index: 2;
+}
+
+.org-donations-view-all-btn {
+  border: 1px solid #1f6fe6;
+  background: #ffffff;
+  color: #1f6fe6;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.org-donations-view-all-btn:hover {
+  background: #eef5ff;
+}
+
+.org-donations-action-btn {
+  border: 1px solid #dbe3ee;
+  background: #fff;
+  color: #4b5b73;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.org-donations-action-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.org-donations-action-btn.primary {
+  border-color: #1f6fe6;
+  background: linear-gradient(145deg, #2a7ff1, #1f6fe6);
+  color: #fff;
+}
+
+.org-donations-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.org-donations-main {
+  overflow-x: hidden;
+}
+
+.org-donations-table-scroll {
+  max-height: 456px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.org-donations-table th,
+.org-donations-table td {
+  border-bottom: 1px solid #edf1f6;
+  text-align: left;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.org-donations-table th {
+  color: #8a97ad;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.org-donations-donor-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.org-donations-donor-cell span {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #eff5ff;
+  color: #1f6fe6;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.org-donations-type-chip {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.org-donations-type-chip.money {
+  background: #e8f8ef;
+  color: #0e9f6e;
+}
+
+.org-donations-type-chip.material {
+  background: #eaf1ff;
+  color: #1f6fe6;
+}
+
+.org-donations-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.org-donations-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.org-donations-status.completed {
+  color: #0e9f6e;
+}
+
+.org-donations-status.pending {
+  color: #d97706;
+}
+
+.org-donations-row-actions {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.org-donations-row-actions button {
+  border: 0;
+  background: transparent;
+  color: #6b7b93;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+}
+
+.org-donations-row-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.org-donations-table-footer {
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.org-donations-table-footer p {
+  margin: 0;
+  color: #7b879d;
+  font-size: 12px;
+}
+
+.org-donations-pagination {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.org-donations-pagination button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid #dbe3ee;
+  background: #fff;
+  color: #63748e;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.org-donations-pagination button.active {
+  background: #1f6fe6;
+  border-color: #1f6fe6;
+  color: #fff;
+}
+
+.org-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--org-border);
+  margin-bottom: 16px;
+}
+
+.org-profile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.org-profile-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #1f6fe6 0%, #2a8ef2 100%);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.org-profile-logo-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.org-profile-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+
+.org-profile-edit-btn {
+  border: 0;
+  background: #1f6fe6;
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+.org-profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.org-profile-card {
+  background: #fff;
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.org-profile-card h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.org-profile-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.org-profile-meta {
+  color: #6b7b93;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-profile-body {
+  margin: 10px 0 0;
+  color: #3b4a62;
+  line-height: 1.6;
+}
+
+.org-profile-stats {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.org-profile-stat {
+  background: #fff;
+  border: 1px solid var(--org-border);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: center;
+}
+
+.org-profile-stat strong {
+  display: block;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.org-profile-stat span {
+  color: #5b6b83;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.org-profile-map {
+  margin-top: 16px;
+}
+
+.org-profile-map-img {
+  height: 210px;
+  border-radius: 14px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #d7e8ff, #f5f7fb);
+  border: 1px solid #d8e4f4;
+}
+
+.org-profile-map-embed {
+  width: 100%;
+  height: 210px;
+  border: 1px solid #d8e4f4;
+  border-radius: 14px;
+  margin-top: 12px;
+}
+
+.org-profile-tags {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.org-profile-tag {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f1f5fb;
+  color: #42526b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-profile-contact-list {
+  display: grid;
+  gap: 12px;
+}
+
+.org-profile-contact-list small {
+  color: #7c8aa3;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.org-profile-contact-list p {
+  margin: 4px 0 0;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.org-profile-right {
+  display: grid;
+  gap: 14px;
+}
+
+.org-profile-socials {
+  display: grid;
+  gap: 8px;
+}
+
+.org-profile-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f5f8ff;
+  color: #1f6fe6;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.org-profile-share {
+  margin-top: 12px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: #e9eef7;
+  color: #1f2a44;
+  font-weight: 700;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.org-profile-edit {
+  display: grid;
+  gap: 16px;
+}
+
+.org-profile-edit-head {
+  background: #fff;
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.org-profile-edit-title {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.org-profile-edit-title h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.org-profile-edit-title p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.org-profile-edit-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #eaf2ff;
+  color: #1f6fe6;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.org-profile-edit-card {
+  background: #fff;
+  border: 1px solid var(--org-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.org-profile-logo-edit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.org-profile-logo-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #0f1e2c;
+  color: #ffd8a8;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.org-profile-logo-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.org-profile-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.org-profile-edit-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.org-profile-edit-grid input,
+.org-profile-edit-grid textarea {
+  border: 1px solid #d6dde8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+}
+
+.org-profile-edit-grid textarea {
+  resize: vertical;
+}
+
+.org-profile-edit-full {
+  grid-column: 1 / -1;
+}
+
+.org-profile-danger {
+  border: 1px solid #f4c7c7;
+  background: #fff6f6;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.org-profile-danger h2 {
+  margin: 0 0 6px;
+  color: #c43939;
+}
+
+.org-profile-danger p {
+  margin: 0 0 12px;
+  color: #8a4252;
+  font-size: 12px;
+}
+
+.org-profile-danger-btn {
+  border: 1px solid #e69a9a;
+  background: #fff;
+  color: #c43939;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.org-profile-primary {
+  border: 0;
+  background: #1f6fe6;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.org-profile-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.org-profile-link {
+  border: 0;
+  background: transparent;
+  color: #1f6fe6;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.org-profile-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.org-profile-upload input {
+  display: none;
+}
+
+.org-profile-success {
+  border: 1px solid #b7e4c7;
+  background: #ecfff3;
+  color: #1b7a46;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+@media (max-width: 1100px) {
+  .org-profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .org-profile-edit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 980px) {
+  .org-donations-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .org-donations-table-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .org-donations-table-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .org-donations-action-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .org-donations-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+.org-pickup-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.46);
+  display: grid;
+  place-items: center;
+  z-index: 1400;
+  padding: 18px;
+}
+
+.org-pickup-modal {
+  width: min(460px, 100%);
+  border-radius: 14px;
+  border: 1px solid #dbe3ee;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.24);
+}
+
+.org-pickup-modal h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.org-pickup-modal-copy {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.org-pickup-modal-details {
+  margin-top: 10px;
+  border: 1px solid #e6edf7;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.org-pickup-modal-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.org-pickup-modal-details span {
+  color: #7b8aa2;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.org-pickup-modal-details strong {
+  color: #0f172a;
+  font-size: 14px;
+  text-align: right;
+}
+
+.org-pickup-modal-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.org-pickup-modal-btn {
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.org-cm-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #24324a;
+  font-size: 12px;
+}
+
+.org-cm-user-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(180deg, #ffd2aa, #f6a36d);
+}
+
+.org-cm-kpis {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.org-cm-kpi-card {
+  background: #fff;
+  border: 1px solid var(--org-border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.org-cm-kpi-card p {
+  margin: 0;
+  color: #72809a;
+  font-weight: 600;
+}
+
+.org-cm-kpi-card strong {
+  margin-top: 10px;
+  display: block;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.org-cm-kpi-card small {
+  color: #8b98b1;
+}
+
+.org-cm-panel {
+  margin-top: 14px;
+  background: #fff;
+  border: 1px solid var(--org-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.org-cm-panel-head {
+  border-bottom: 1px solid var(--org-border);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.org-cm-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.org-cm-tabs button {
+  border: 0;
+  background: transparent;
+  color: #4e5f7a;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.org-pickup-modal-btn.secondary {
+  border: 1px solid #dbe3ee;
+  background: #fff;
+  color: #475569;
+}
+
+.org-pickup-modal-btn.primary {
+  border: 1px solid #1f6fe6;
+  background: linear-gradient(145deg, #2a7ff1, #1f6fe6);
+  color: #fff;
+}
+.org-cm-tabs button.is-active {
+  background: #edf4ff;
+  color: #1f6fe6;
+}
+
+.org-cm-panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.org-cm-action-btn {
+  height: 30px;
+  border: 1px solid var(--org-border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f607b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.org-cm-action-btn.is-primary {
+  background: #1f6fe6;
+  color: #fff;
+  border-color: #1f6fe6;
+}
+
+.org-cm-msg {
+  padding: 14px 12px;
+  color: #637189;
+}
+
+.org-cm-msg.is-error {
+  color: #c62828;
+}
+
+.org-cm-table-wrap {
+  overflow-x: auto;
+}
+
+.org-cm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.org-cm-table thead th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 800;
+  color: #7b88a1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--org-border);
+}
+
+.org-cm-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #edf2fa;
+  color: #1e2b42;
+  font-weight: 600;
+}
+
+.org-cm-status {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 9px;
+}
+
+.org-cm-status.is-active {
+  background: #e8faed;
+  color: #15904a;
+}
+
+.org-cm-status.is-ended {
+  background: #fff2f0;
+  color: #d34b3f;
+}
+
+.org-cm-footer {
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #6c7991;
+  font-size: 12px;
+}
+
+.org-cm-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.org-cm-pagination button {
+  min-width: 48px;
+  height: 28px;
+  border: 1px solid var(--org-border);
+  background: #fff;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-cm-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.org-cm-pagination span {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #1f6fe6;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .org-cm-topbar,
+  .org-cm-panel-head,
+  .org-cm-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .org-cm-head-actions,
+  .org-cm-panel-actions {
+    width: 100%;
+  }
+
+  .org-cm-search {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .org-cm-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Campaign Management style (organization campaigns page) */
+.org-cpg-main {
+  background: #f4f6fa;
+}
+
+.org-cpg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.org-cpg-header h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.org-cpg-head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.org-cpg-search {
+  width: 360px;
+  height: 36px;
+  border: 1px solid #dbe3f0;
+  background: #f8faff;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  color: #8a97ae;
+}
+
+.org-cpg-search input {
+  border: 0;
+  outline: none;
+  width: 100%;
+  font-size: 12px;
+  background: transparent;
+}
+
+.org-cpg-create-btn {
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+  background: #1f6fe6;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.org-cpg-icon-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #dbe3f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #506284;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.org-cpg-icon-btn:hover {
+  border-color: #bfd0ea;
+  background: #f8faff;
+}
+
+.org-cpg-icon-btn:focus-visible {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 1px;
+}
+
+.org-cpg-icon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid #fff;
+  position: absolute;
+  top: 7px;
+  right: 7px;
+}
+
+.org-cpg-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d8e1f0;
+  background: #dfe9f8;
+  color: #3b567f;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.org-cpg-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.org-cpg-profile-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.05;
+}
+
+.org-cpg-profile-text strong {
+  font-size: 13px;
+  color: #0f1b34;
+}
+
+.org-cpg-profile-text span {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #5f6f8b;
+  font-weight: 500;
+}
+
+.org-cpg-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.org-cpg-kpi-card {
+  background: #fff;
+  border: 1px solid #dde4f0;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.org-cpg-kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.org-cpg-kpi-head p {
+  margin: 0;
+  color: #6f7f97;
+  font-weight: 600;
+}
+
+.org-cpg-kpi-head .icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.org-cpg-kpi-head .icon.blue {
+  background: #eaf2ff;
+  color: #1f6fe6;
+}
+
+.org-cpg-kpi-head .icon.green {
+  background: #eaf9f0;
+  color: #159c5a;
+}
+
+.org-cpg-kpi-head .icon.amber {
+  background: #fff5e5;
+  color: #d69a2b;
+}
+
+.org-cpg-kpi-card strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 40px;
+  line-height: 1.1;
+}
+
+.org-cpg-kpi-card small {
+  color: #8d9ab0;
+}
+
+.org-cpg-panel {
+  border: 1px solid #dde4f0;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.org-cpg-tabs {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid #ebeff6;
+}
+
+.org-cpg-tabs button {
+  border: 0;
+  background: transparent;
+  color: #6a7891;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0 0 10px;
+  border-bottom: 2px solid transparent;
+}
+
+.org-cpg-tabs button.is-active {
+  color: #1f6fe6;
+  border-bottom-color: #1f6fe6;
+}
+
+.org-cpg-msg {
+  padding: 14px 16px;
+  color: #66758f;
+}
+
+.org-cpg-msg.is-error {
+  color: #c62828;
+}
+
+.org-cpg-list {
+  display: grid;
+}
+
+.org-cpg-item {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 132px 1fr auto;
+  gap: 14px;
+  border-bottom: 1px solid #edf1f7;
+}
+
+.org-cpg-item img {
+  width: 132px;
+  height: 86px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.org-cpg-item-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #7f8ca4;
+  font-size: 12px;
+}
+
+.org-cpg-badge {
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.org-cpg-badge.urgent {
+  background: #fff5df;
+  color: #b87a04;
+}
+
+.org-cpg-badge.active {
+  background: #e8faed;
+  color: #159c5a;
+}
+
+.org-cpg-badge.new {
+  background: #eaf2ff;
+  color: #1f6fe6;
+}
+
+.org-cpg-badge.ended {
+  background: #fff2f0;
+  color: #c13d33;
+}
+
+.org-cpg-badge.draft {
+  background: #f0f2f7;
+  color: #5f6d84;
+}
+
+.org-cpg-item-body h3 {
+  margin: 7px 0;
+  font-size: 30px;
+}
+
+.org-cpg-item-fund {
+  display: flex;
+  justify-content: space-between;
+  color: #7e8ca4;
+  font-size: 12px;
+}
+
+.org-cpg-item-fund strong {
+  color: #0f1b34;
+}
+
+.org-cpg-progress {
+  margin-top: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #e9eef7;
+  overflow: hidden;
+}
+
+.org-cpg-progress span {
+  height: 100%;
+  display: block;
+  background: #1f6fe6;
+  border-radius: 999px;
+}
+
+.org-cpg-item-foot {
+  margin-top: 8px;
+  display: flex;
+  gap: 16px;
+  color: #677892;
+  font-size: 12px;
+}
+
+.org-cpg-item-foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.org-cpg-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.org-cpg-actions button {
+  border: 1px solid #d7dfed;
+  background: #f8faff;
+  color: #1f2d46;
+  border-radius: 8px;
+  height: 34px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-cpg-actions .more {
+  background: transparent;
+  border-color: transparent;
+  color: #8da0be;
+  width: 34px;
+  justify-content: center;
+}
+
+.org-cpg-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #edf1f7;
+  padding: 12px 16px;
+  color: #72829b;
+  font-size: 12px;
+}
+
+.org-cpg-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.org-cpg-pagination button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d7dfed;
+  background: #fff;
+  border-radius: 6px;
+  color: #597094;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.org-cpg-pagination button.is-active {
+  background: #1f6fe6;
+  border-color: #1f6fe6;
+  color: #fff;
+}
+
+.org-cpg-pagination button:disabled {
+  opacity: 0.45;
+}
+
+@media (max-width: 1100px) {
+  .org-cpg-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .org-cpg-head-right {
+    flex-wrap: wrap;
+  }
+
+  .org-cpg-search {
+    width: 100%;
+  }
+
+  .org-cpg-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .org-cpg-item {
+    grid-template-columns: 1fr;
+  }
+
+  .org-cpg-item img {
+    width: 100%;
+    height: 170px;
+  }
+
+  .org-cpg-actions {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .org-cpg-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }

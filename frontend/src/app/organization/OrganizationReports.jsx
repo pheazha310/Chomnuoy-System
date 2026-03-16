@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Download,
   Filter,
@@ -26,37 +26,145 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Summary card in overview
-const summaryCards = [
-  { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true, icon: Wallet },
-  { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true, icon: Users },
-  { title: 'Material Units', value: '12,540', delta: '-2.1%', positive: false, icon: Box },
-  { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true, icon: Tag },
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getOrganizationId(session) {
+  const candidates = [
+    session?.organizationId,
+    session?.organization_id,
+    session?.orgId,
+    session?.userId,
+  ];
+  const match = candidates.find((value) => Number(value) > 0);
+  return match ? Number(match) : 0;
+}
+
+function formatDelta(value) {
+  const numeric = Number(value) || 0;
+  const sign = numeric >= 0 ? '+' : '';
+  return `${sign}${numeric.toFixed(1)}%`;
+}
+
+function formatCurrency(value) {
+  const numeric = Number(value) || 0;
+  return `$${numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatWhole(value) {
+  const numeric = Math.round(Number(value) || 0);
+  return numeric.toLocaleString();
+}
+
+function getPageRange(current, last, max = 3) {
+  if (last <= max) {
+    return Array.from({ length: last }, (_, idx) => idx + 1);
+  }
+  if (current <= 2) {
+    return [1, 2, 3];
+  }
+  if (current >= last - 1) {
+    return [last - 2, last - 1, last];
+  }
+  return [current - 1, current, current + 1];
+}
+
+function calcDeltaPercent(current, previous) {
+  const cur = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  if (prev === 0) {
+    return cur > 0 ? 100 : 0;
+  }
+  return ((cur - prev) / prev) * 100;
+}
+
+function buildSummaryFromCache(cache) {
+  if (!cache) return null;
+  const totalRevenue = Number(cache.total_revenue) || 0;
+  const activeDonors = Number(cache.active_donors) || 0;
+  const materialUnits = Number(cache.material_units) || 0;
+  const avgDonation = Number(cache.avg_donation) || 0;
+  const prevTotalRevenue = Number(cache.previous_total_revenue) || 0;
+  const prevActiveDonors = Number(cache.previous_active_donors) || 0;
+  const prevMaterialUnits = Number(cache.previous_material_units) || 0;
+  const prevAvgDonation = Number(cache.previous_avg_donation) || 0;
+
+  return {
+    period: {
+      start: cache.period_start,
+      end: cache.period_end,
+    },
+    previous_period: {
+      start: cache.period_start,
+      end: cache.period_end,
+    },
+    metrics: {
+      total_revenue: {
+        value: totalRevenue,
+        previous: prevTotalRevenue,
+        delta_percent: calcDeltaPercent(totalRevenue, prevTotalRevenue),
+        positive: totalRevenue >= prevTotalRevenue,
+      },
+      active_donors: {
+        value: activeDonors,
+        previous: prevActiveDonors,
+        delta_percent: calcDeltaPercent(activeDonors, prevActiveDonors),
+        positive: activeDonors >= prevActiveDonors,
+      },
+      material_units: {
+        value: materialUnits,
+        previous: prevMaterialUnits,
+        delta_percent: calcDeltaPercent(materialUnits, prevMaterialUnits),
+        positive: materialUnits >= prevMaterialUnits,
+      },
+      avg_donation: {
+        value: avgDonation,
+        previous: prevAvgDonation,
+        delta_percent: calcDeltaPercent(avgDonation, prevAvgDonation),
+        positive: avgDonation >= prevAvgDonation,
+      },
+    },
+  };
+}
+
+// Summary card in overview (fallback)
+const fallbackSummaryCards = [
+  // { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true, icon: Wallet },
+  // { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true, icon: Users },
+  // { title: 'Material Units', value: '12,540', delta: '-2.1%', positive: false, icon: Box },
+  // { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true, icon: Tag },
 ];
 
-// Donation Trends data in overview
+// Donation Trends data in overview and get data from database (Already connect)
 const defaultTrendData = [
-  { month: 'Jan', financial: 32, material: 24 },
-  { month: 'Feb', financial: 44, material: 35 },
-  { month: 'Mar', financial: 36, material: 47 },
-  { month: 'Apr', financial: 60, material: 32 },
-  { month: 'May', financial: 52, material: 63 },
-  { month: 'Jun', financial: 72, material: 39 },
-  { month: 'Jul', financial: 90, material: 10 },
-  { month: 'Aug', financial: 87, material: 60 },
-  { month: 'Sep', financial: 67, material: 46 },
-  { month: 'Oct', financial: 94, material: 39 },
-  { month: 'Nov', financial: 82, material: 39 },
-  { month: 'Dec', financial: 79, material: 85 },
+  // { month: 'Jan', financial: 32, material: 24 },
+  // { month: 'Feb', financial: 44, material: 35 },
+  // { month: 'Mar', financial: 36, material: 47 },
+  // { month: 'Apr', financial: 60, material: 32 },
+  // { month: 'May', financial: 52, material: 63 },
+  // { month: 'Jun', financial: 72, material: 39 },
+  // { month: 'Jul', financial: 90, material: 10 },
+  // { month: 'Aug', financial: 87, material: 60 },
+  // { month: 'Sep', financial: 67, material: 46 },
+  // { month: 'Oct', financial: 94, material: 39 },
+  // { month: 'Nov', financial: 82, material: 39 },
+  // { month: 'Dec', financial: 79, material: 85 },
 ];
 
-const transactions = [
-  { id: '#TXN-8821', donor: 'Robert Kim', initials: 'RK', type: 'Financial', province: 'Phnom Penh', date: 'Oct 24, 2023', amount: '$250.00' },
-  { id: '#TXN-8819', donor: 'Sophea Lim', initials: 'SL', type: 'Material', province: 'Siem Reap', date: 'Oct 23, 2023', amount: '40 Units' },
-  { id: '#TXN-8815', donor: 'Channy Watt', initials: 'CW', type: 'Financial', province: 'Battambang', date: 'Oct 22, 2023', amount: '$1,200.00' },
+const fallbackTransactions = [
+  // { id: '#TXN-8821', donor: 'Robert Kim', initials: 'RK', type: 'Financial', province: 'Phnom Penh', date: 'Oct 24, 2023', amount: '$250.00' },
+  // { id: '#TXN-8819', donor: 'Sophea Lim', initials: 'SL', type: 'Material', province: 'Siem Reap', date: 'Oct 23, 2023', amount: '40 Units' },
+  // { id: '#TXN-8815', donor: 'Channy Watt', initials: 'CW', type: 'Financial', province: 'Battambang', date: 'Oct 22, 2023', amount: '$1,200.00' },
 ];
 
-const provinces = [
+
+const fallbackProvinces = [
   { name: 'Phnom Penh', amount: '$45,200', width: 85 },
   { name: 'Siem Reap', amount: '$28,150', width: 60 },
   { name: 'Battambang', amount: '$15,400', width: 35 },
@@ -70,7 +178,7 @@ const financialSummaryCards = [
 ];
 
 // Revenue vs. Expenses
-const revenueExpenseData = [
+const defaultRevenueExpenseData = [
   { month: 'Jan', revenue: 10, expenses: 18 },
   { month: 'Feb', revenue: 31, expenses: 16 },
   { month: 'Mar', revenue: 38, expenses: 20 },
@@ -82,9 +190,9 @@ const revenueExpenseData = [
 ];
 
 const sourceBreakdown = [
-  { label: 'Corporate', value: 55, colorClass: 'corporate' },
-  { label: 'Individual', value: 32, colorClass: 'individual' },
-  { label: 'Government', value: 13, colorClass: 'government' },
+  { label: 'Corporate', value: 55200, color: '#1f7ae8', colorClass: 'corporate' },
+  { label: 'Individual', value: 32150, color: '#67c2ef', colorClass: 'individual' },
+  { label: 'Government', value: 12750, color: '#d5dde7', colorClass: 'government' },
 ];
 
 const financialTransactions = [
@@ -166,6 +274,8 @@ function StatCard({ card }) {
 }
 
 function TrendChart({ data }) {
+  const hasData = Array.isArray(data) && data.length > 0;
+
   return (
     <article className="report-panel">
       <div className="report-panel-head">
@@ -176,6 +286,7 @@ function TrendChart({ data }) {
         <span><i className="financial" /> Financial ($)</span>
         <span><i className="material" /> Material (Units)</span>
       </div>
+      {!hasData ? <p className="report-empty-note">No donation trend data yet.</p> : null}
       <div className="trend-chart">
         {data.map((item) => (
           <div key={item.month} className="trend-bar-group">
@@ -191,61 +302,185 @@ function TrendChart({ data }) {
   );
 }
 
-function TypeBreakdown() {
+function TypeBreakdown({
+  financialValue,
+  materialValue,
+  selectedType,
+  onSelect,
+}) {
+  const totalValue = financialValue + materialValue;
+  const financialPercent = totalValue ? Math.round((financialValue / totalValue) * 100) : 0;
+  const materialPercent = totalValue ? 100 - financialPercent : 0;
+  const activePercent = selectedType === 'material' ? materialPercent : financialPercent;
+  const activeLabel = selectedType === 'material' ? 'Material' : 'Financial';
+  const formatCurrency = (value) => `$${value.toLocaleString()}`;
+  const formatUnits = (value) => `${value.toLocaleString()} Units`;
+
   return (
     <article className="report-panel report-panel-narrow">
       <h3>Donation Type Breakdown</h3>
-      <div className="report-donut">
+      <div
+        className="report-donut"
+        style={{
+          background: `conic-gradient(#1f6fe6 0 ${financialPercent}%, #6ed7b7 ${financialPercent}% 100%)`,
+        }}
+      >
         <div className="report-donut-inner">
-          <strong>72%</strong>
-          <span>Financial</span>
+          <strong>{activePercent}%</strong>
+          <span>{activeLabel}</span>
         </div>
       </div>
       <ul className="report-breakdown-list">
-        <li><span className="dot financial" />Financial <strong>$92,484</strong></li>
-        <li><span className="dot material" />Material <strong>12,540 Units</strong></li>
+        <li>
+          <button
+            type="button"
+            className={`report-breakdown-btn is-financial${selectedType === 'financial' ? ' is-active' : ''}`}
+            onClick={() => onSelect('financial')}
+            aria-pressed={selectedType === 'financial'}
+          >
+            <span className="dot financial" />
+            <span className="label">Financial</span>
+            <strong>{formatCurrency(financialValue)}</strong>
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={`report-breakdown-btn is-material${selectedType === 'material' ? ' is-active' : ''}`}
+            onClick={() => onSelect('material')}
+            aria-pressed={selectedType === 'material'}
+          >
+            <span className="dot material" />
+            <span className="label">Material</span>
+            <strong>{formatUnits(materialValue)}</strong>
+          </button>
+        </li>
       </ul>
     </article>
   );
 }
 
-function FinancialLineChart() {
-  const maxValue = Math.max(...revenueExpenseData.map((item) => Math.max(item.revenue, item.expenses)));
+function FinancialLineChart({ data }) {
+  const chartData = Array.isArray(data) && data.length ? data : defaultRevenueExpenseData;
+  const showExpenses = chartData.some((item) => Number(item.expenses) > 0);
+  const maxValue = Math.max(1, ...chartData.map((item) => Math.max(item.revenue, showExpenses ? item.expenses : 0)));
+  const columns = Math.max(1, chartData.length);
 
   return (
     <article className="financial-chart-panel">
       <div className="financial-panel-head">
         <div>
-          <h3>Revenue vs. Expenses</h3>
+          <h3>Revenue</h3>
           <p>Monthly growth analysis</p>
         </div>
         <div className="financial-chart-legend">
           <span><i className="revenue" />Revenue</span>
-          <span><i className="expenses" />Expenses</span>
+          {showExpenses ? <span><i className="expenses" />Expenses</span> : null}
         </div>
       </div>
 
       <div className="financial-chart-body">
-        <div className="financial-bar-grid">
-          {revenueExpenseData.map((item) => (
-            <div key={item.month} className="financial-bar-group">
-              <span className="bar revenue" style={{ height: `${(item.revenue / maxValue) * 100}%` }} />
-              <span className="bar expenses" style={{ height: `${(item.expenses / maxValue) * 100}%` }} />
+        <div className="financial-bar-grid" style={{ '--columns': columns }}>
+          {chartData.map((item) => (
+            <div key={item.month} className={`financial-bar-group${showExpenses ? '' : ' is-single'}`}>
+              <span
+                className="bar revenue"
+                style={{ height: `${(item.revenue / maxValue) * 100}%` }}
+                title={`Revenue: ${item.revenue}`}
+              />
+              {showExpenses ? (
+                <span
+                  className="bar expenses"
+                  style={{ height: `${(item.expenses / maxValue) * 100}%` }}
+                  title={`Expenses: ${item.expenses}`}
+                />
+              ) : null}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="financial-chart-months">
-        {revenueExpenseData.map((item) => <span key={item.month}>{item.month.toUpperCase()}</span>)}
+      <div className="financial-chart-months" style={{ '--columns': columns }}>
+        {chartData.map((item) => <span key={item.month}>{item.month.toUpperCase()}</span>)}
       </div>
     </article>
   );
 }
 
+function SourceBreakdown({ items }) {
+  const totalValue = items.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const hasData = totalValue > 0;
+  const segments = items.map((item) => {
+    const percent = hasData ? (Number(item.value) / totalValue) * 100 : 0;
+    return {
+      ...item,
+      percent,
+    };
+  });
+
+  let currentStop = 0;
+  const gradientStops = segments.map((segment) => {
+    const start = currentStop;
+    const end = currentStop + segment.percent;
+    currentStop = end;
+    return `${segment.color} ${start}% ${end}%`;
+  });
+
+  const donutStyle = {
+    background: hasData
+      ? `conic-gradient(${gradientStops.join(', ')})`
+      : 'conic-gradient(#e5edf7 0 100%)',
+  };
+
+  return (
+    <article className="financial-source-panel">
+      <div className="financial-panel-head">
+        <div>
+          <h3>Source Breakdown</h3>
+          <p>Donations by category</p>
+        </div>
+      </div>
+      <div className="financial-source-donut" style={donutStyle}>
+        <div className="financial-source-inner">
+          <strong>{hasData ? '100%' : '0%'}</strong>
+          <span>TOTAL FUNDING</span>
+        </div>
+      </div>
+      {!hasData ? <p className="report-empty-note">No source data yet.</p> : null}
+      <ul className="financial-source-list">
+        {segments.map((item) => (
+          <li key={item.label}>
+            <span className={`dot ${item.colorClass}`} />
+            <p>{item.label}</p>
+            <strong>{Math.round(item.percent)}%</strong>
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+
 export default function OrganizationReports() {
   const [activeTab, setActiveTab] = useState('overview');
   const [trendData, setTrendData] = useState(defaultTrendData);
+  const [revenueExpenseData, setRevenueExpenseData] = useState(defaultRevenueExpenseData);
+  const [selectedBreakdownType, setSelectedBreakdownType] = useState('financial');
+  const breakdownUserSelectedRef = useRef(false);
+  const [summaryMetrics, setSummaryMetrics] = useState(null);
+  const [transactions, setTransactions] = useState(fallbackTransactions);
+  const [provinceRows, setProvinceRows] = useState(fallbackProvinces);
+  const [transactionMeta, setTransactionMeta] = useState({
+    total: 0,
+    per_page: 10,
+    current_page: 1,
+    last_page: 1,
+    from: 0,
+    to: 0,
+  });
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionSearch, setTransactionSearch] = useState('');
+  const [transactionType, setTransactionType] = useState('all');
 
   useEffect(() => {
     let isMounted = true;
@@ -267,6 +502,14 @@ export default function OrganizationReports() {
 
         if (isMounted && sorted.length) {
           setTrendData(sorted);
+
+          const revenueSeries = sorted.map((item) => ({
+            month: item.month,
+            revenue: Number(item.financial) || 0,
+            expenses: 0,
+          }));
+
+          setRevenueExpenseData(revenueSeries);
         }
       } catch (error) {
         // Keep fallback data if API is unavailable.
@@ -279,6 +522,244 @@ export default function OrganizationReports() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const loadSummary = async () => {
+      try {
+        const cacheResponse = await apiClient.get('/organization_metrics/cache', {
+          params: orgId ? { organization_id: orgId } : undefined,
+        });
+        const cacheSummary = buildSummaryFromCache(cacheResponse?.data);
+        if (isMounted && cacheSummary) {
+          setSummaryMetrics(cacheSummary);
+          return;
+        }
+      } catch (error) {
+        // Fall back to live metrics when cache is unavailable.
+      }
+
+      try {
+        const response = await apiClient.get('/organization_metrics/summary', {
+          params: orgId ? { organization_id: orgId } : undefined,
+        });
+
+        if (isMounted && response?.data) {
+          setSummaryMetrics(response.data);
+        }
+      } catch (error) {
+        // Keep fallback cards if API is unavailable.
+      }
+    };
+
+    loadSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const formatDate = (value) => {
+      if (!value) return 'N/A';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return 'N/A';
+      return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const formatAmount = (row) => {
+      if (row.type === 'Material') {
+        const units = Number(row.material_units ?? row.amount_value ?? 0);
+        return `${units.toLocaleString()} Units`;
+      }
+      const amount = Number(row.amount_value ?? 0);
+      return formatCurrency(amount);
+    };
+
+    const fetchTransactions = async (params) => {
+      const response = await apiClient.get('/organization_reports/transactions', { params });
+      if (Array.isArray(response.data)) {
+        return {
+          data: response.data,
+          meta: {
+            total: response.data.length,
+            per_page: params?.per_page ?? 10,
+            current_page: params?.page ?? 1,
+            last_page: 1,
+            from: response.data.length ? 1 : 0,
+            to: response.data.length,
+          },
+        };
+      }
+      return response.data || { data: [], meta: null };
+    };
+
+    const mapTransactions = (rows) => rows.map((row) => {
+      const donorName = row.donor || 'Unknown Donor';
+      const donorInitials = donorName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') || 'OR';
+      return {
+        id: `#${row.code ?? row.id ?? 'TXN'}`,
+        donor: donorName,
+        initials: donorInitials,
+        type: row.type || 'Financial',
+        province: row.province || 'Unknown',
+        date: formatDate(row.date),
+        amount: formatAmount(row),
+      };
+    });
+
+    const loadTransactions = async () => {
+      try {
+        const params = {
+          page: transactionPage,
+          per_page: 10,
+          ...(orgId ? { organization_id: orgId } : {}),
+          ...(transactionSearch.trim() ? { search: transactionSearch.trim() } : {}),
+          ...(transactionType !== 'all' ? { type: transactionType } : {}),
+        };
+        const scopedResponse = await fetchTransactions(params);
+        let responseToUse = scopedResponse;
+
+        if (orgId && scopedResponse.data.length === 0) {
+          const fallbackParams = {
+            page: transactionPage,
+            per_page: 10,
+            ...(transactionSearch.trim() ? { search: transactionSearch.trim() } : {}),
+            ...(transactionType !== 'all' ? { type: transactionType } : {}),
+          };
+          responseToUse = await fetchTransactions(fallbackParams);
+        }
+
+        const mapped = mapTransactions(responseToUse.data || []);
+        if (isMounted) {
+          setTransactions(mapped);
+          if (responseToUse.meta) {
+            setTransactionMeta(responseToUse.meta);
+          } else {
+            setTransactionMeta((prev) => ({
+              ...prev,
+              total: mapped.length,
+              from: mapped.length ? 1 : 0,
+              to: mapped.length,
+              current_page: transactionPage,
+              last_page: 1,
+            }));
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    const timer = setTimeout(loadTransactions, 250);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [transactionPage, transactionSearch, transactionType]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const loadProvinces = async () => {
+      try {
+        const response = await apiClient.get('/province_contributions', {
+          params: orgId ? { organization_id: orgId, limit: 5 } : { limit: 5 },
+        });
+        if (!Array.isArray(response.data) || response.data.length === 0) {
+          return;
+        }
+        const totals = response.data.map((item) => Number(item.total_amount) || 0);
+        const maxTotal = Math.max(1, ...totals);
+        const mapped = response.data.map((item) => {
+          const total = Number(item.total_amount) || 0;
+          return {
+            name: item.province_name || 'Unknown',
+            amount: formatCurrency(total),
+            width: Math.round((total / maxTotal) * 100),
+          };
+        });
+        if (isMounted) {
+          setProvinceRows(mapped);
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadProvinces();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setTransactionPage(1);
+  }, [transactionSearch, transactionType]);
+
+  const breakdownTotals = trendData.reduce(
+    (acc, item) => ({
+      financial: acc.financial + (Number(item.financial) || 0),
+      material: acc.material + (Number(item.material) || 0),
+    }),
+    { financial: 0, material: 0 }
+  );
+  const dominantBreakdownType = breakdownTotals.financial >= breakdownTotals.material ? 'financial' : 'material';
+
+  useEffect(() => {
+    if (!breakdownUserSelectedRef.current) {
+      setSelectedBreakdownType(dominantBreakdownType);
+    }
+  }, [dominantBreakdownType]);
+
+  const summaryCards = summaryMetrics?.metrics
+    ? [
+      {
+        title: 'Total Revenue',
+        value: formatCurrency(summaryMetrics.metrics.total_revenue?.value),
+        delta: formatDelta(summaryMetrics.metrics.total_revenue?.delta_percent),
+        positive: summaryMetrics.metrics.total_revenue?.positive ?? true,
+        icon: Wallet,
+      },
+      {
+        title: 'Active Donors',
+        value: formatWhole(summaryMetrics.metrics.active_donors?.value),
+        delta: formatDelta(summaryMetrics.metrics.active_donors?.delta_percent),
+        positive: summaryMetrics.metrics.active_donors?.positive ?? true,
+        icon: Users,
+      },
+      {
+        title: 'Material Units',
+        value: formatWhole(summaryMetrics.metrics.material_units?.value),
+        delta: formatDelta(summaryMetrics.metrics.material_units?.delta_percent),
+        positive: summaryMetrics.metrics.material_units?.positive ?? true,
+        icon: Box,
+      },
+      {
+        title: 'Avg. Donation',
+        value: formatCurrency(summaryMetrics.metrics.avg_donation?.value),
+        delta: formatDelta(summaryMetrics.metrics.avg_donation?.delta_percent),
+        positive: summaryMetrics.metrics.avg_donation?.positive ?? true,
+        icon: Tag,
+      },
+    ]
+    : fallbackSummaryCards;
 
   return (
     <div className="org-page report-page">
@@ -313,7 +794,15 @@ export default function OrganizationReports() {
 
             <section className="report-grid-top">
               <TrendChart data={trendData} />
-              <TypeBreakdown />
+              <TypeBreakdown
+                financialValue={breakdownTotals.financial}
+                materialValue={breakdownTotals.material}
+                selectedType={selectedBreakdownType}
+                onSelect={(type) => {
+                  breakdownUserSelectedRef.current = true;
+                  setSelectedBreakdownType(type);
+                }}
+              />
             </section>
 
             <section className="report-table-panel">
@@ -322,48 +811,83 @@ export default function OrganizationReports() {
                 <div className="report-table-tools">
                   <div className="report-search">
                     <Search size={14} />
-                    <input type="search" placeholder="Search by donor or ID..." />
+                    <input
+                      type="search"
+                      placeholder="Search by donor or ID..."
+                      value={transactionSearch}
+                      onChange={(event) => setTransactionSearch(event.target.value)}
+                    />
                   </div>
-                  <button type="button" className="report-filter-btn"><Filter size={14} /> Filter</button>
+                  <label className="report-filter-select">
+                    <Filter size={14} />
+                    <select value={transactionType} onChange={(event) => setTransactionType(event.target.value)}>
+                      <option value="all">All</option>
+                      <option value="financial">Financial</option>
+                      <option value="material">Material</option>
+                    </select>
+                  </label>
                 </div>
               </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Transaction ID</th>
-                    <th>Donor Name</th>
-                    <th>Type</th>
-                    <th>Province</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>
-                        <div className="report-donor-cell">
-                          <span>{row.initials}</span>
-                          {row.donor}
-                        </div>
-                      </td>
-                      <td><span className={`type-pill ${row.type.toLowerCase()}`}>{row.type}</span></td>
-                      <td>{row.province}</td>
-                      <td>{row.date}</td>
-                      <td className="amount">{row.amount}</td>
+              <div className="report-table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Transaction ID</th>
+                      <th>Donor Name</th>
+                      <th>Type</th>
+                      <th>Province</th>
+                      <th>Date</th>
+                      <th>Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {transactions.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.id}</td>
+                        <td>
+                          <div className="report-donor-cell">
+                            <span>{row.initials}</span>
+                            {row.donor}
+                          </div>
+                        </td>
+                        <td><span className={`type-pill ${row.type.toLowerCase()}`}>{row.type}</span></td>
+                        <td>{row.province}</td>
+                        <td>{row.date}</td>
+                        <td className="amount">{row.amount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <div className="report-table-footer">
-                <p>Showing 1 to 3 of 156 transactions</p>
+                <p>
+                  Showing {transactionMeta.from} to {transactionMeta.to} of {transactionMeta.total} transactions
+                </p>
                 <div className="report-pagination">
-                  <button type="button">Previous</button>
-                  <button type="button" className="active">1</button>
-                  <button type="button">2</button>
-                  <button type="button">3</button>
-                  <button type="button">Next</button>
+                  <button
+                    type="button"
+                    disabled={transactionMeta.current_page <= 1}
+                    onClick={() => setTransactionPage((prev) => Math.max(1, prev - 1))}
+                  >
+                    Previous
+                  </button>
+                  {getPageRange(transactionMeta.current_page, transactionMeta.last_page).map((pageNumber) => (
+                    <button
+                      type="button"
+                      key={pageNumber}
+                      className={pageNumber === transactionMeta.current_page ? 'active' : ''}
+                      onClick={() => setTransactionPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={transactionMeta.current_page >= transactionMeta.last_page}
+                    onClick={() => setTransactionPage((prev) => Math.min(transactionMeta.last_page, prev + 1))}
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
             </section>
@@ -372,7 +896,7 @@ export default function OrganizationReports() {
               <article className="report-panel">
                 <h3>Top Contributing Provinces</h3>
                 <div className="province-list">
-                  {provinces.map((province) => (
+                  {provinceRows.map((province) => (
                     <div key={province.name} className="province-item">
                       <div className="province-head">
                         <strong>{province.name}</strong>
@@ -418,31 +942,9 @@ export default function OrganizationReports() {
             </section>
 
             <section className="financial-analysis-grid">
-              <FinancialLineChart />
+              <FinancialLineChart data={revenueExpenseData} />
 
-              <article className="financial-source-panel">
-                <div className="financial-panel-head">
-                  <div>
-                    <h3>Source Breakdown</h3>
-                    <p>Donations by category</p>
-                  </div>
-                </div>
-                <div className="financial-source-donut">
-                  <div className="financial-source-inner">
-                    <strong>100%</strong>
-                    <span>TOTAL FUNDING</span>
-                  </div>
-                </div>
-                <ul className="financial-source-list">
-                  {sourceBreakdown.map((item) => (
-                    <li key={item.label}>
-                      <span className={`dot ${item.colorClass}`} />
-                      <p>{item.label}</p>
-                      <strong>{item.value}%</strong>
-                    </li>
-                  ))}
-                </ul>
-              </article>
+              <SourceBreakdown items={sourceBreakdown} />
             </section>
 
             <section className="financial-table-panel">

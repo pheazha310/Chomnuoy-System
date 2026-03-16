@@ -239,6 +239,8 @@ function Topbar() {
 }
 
 export default function OrganizationDashboardPage() {
+  const [selectedPickupAlert, setSelectedPickupAlert] = useState(null);
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
@@ -332,7 +334,11 @@ export default function OrganizationDashboardPage() {
                     <span>{item.when}</span>
                   </div>
                   <p>{item.location}</p>
-                  <button className={item.primary ? 'primary' : 'secondary'} type="button">
+                  <button
+                    className={item.primary ? 'primary' : 'secondary'}
+                    type="button"
+                    onClick={() => setSelectedPickupAlert(item)}
+                  >
                     {item.action}
                   </button>
                 </section>
@@ -347,6 +353,51 @@ export default function OrganizationDashboardPage() {
             </article>
           </aside>
         </section>
+
+        {selectedPickupAlert ? (
+          <div className="org-pickup-modal-overlay" role="presentation" onClick={() => setSelectedPickupAlert(null)}>
+            <div
+              className="org-pickup-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="org-pickup-modal-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="org-pickup-modal-title">Coordinate Pickup</h3>
+              <p className="org-pickup-modal-copy">Review this pickup alert and continue to pickup management.</p>
+
+              <div className="org-pickup-modal-details">
+                <div>
+                  <span>Title</span>
+                  <strong>{selectedPickupAlert.title}</strong>
+                </div>
+                <div>
+                  <span>Location</span>
+                  <strong>{selectedPickupAlert.location}</strong>
+                </div>
+                <div>
+                  <span>When</span>
+                  <strong>{selectedPickupAlert.when}</strong>
+                </div>
+              </div>
+
+              <div className="org-pickup-modal-actions">
+                <button type="button" className="org-pickup-modal-btn secondary" onClick={() => setSelectedPickupAlert(null)}>
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="org-pickup-modal-btn primary"
+                  onClick={() => {
+                    setSelectedPickupAlert(null);
+                  }}
+                >
+                  Confirm Pickup
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   );

@@ -21,14 +21,23 @@ import ViewDetail from '@/app/donate/viewDetail.jsx';
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import OrganizationReports from '@/app/organization/OrganizationReports.jsx';
+import OrganizationDonationsPage from '@/app/organization/donations.jsx';
+import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
+import OrganizationProfilePage from '@/app/organization/profile.jsx';
+import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
+import AdminPage from '@/app/admin/page.jsx';
+
+const DEFAULT_AVATAR_URL =
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
+const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
-    return ROUTES.CAMPAIGNS;
+    return ROUTES.HOME;
   }
 
   return redirectParam;
@@ -41,6 +50,42 @@ function getSession() {
   } catch {
     return null;
   }
+}
+
+function getStorageFileUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  return `${appBase}/storage/${path}`;
+}
+
+function getProfileAvatarOverrides() {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_AVATAR_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function resolveAvatar(profile) {
+  return (
+    profile?.avatar ||
+    profile?.avatar_url ||
+    getStorageFileUrl(profile?.avatar_path) ||
+    ''
+  );
+}
+
+function buildAvatarOverrideKey(role, profile, fallbackEmail = '') {
+  const normalizedRole = String(role || 'Donor').toLowerCase();
+  const email = String(profile?.email || fallbackEmail || '').trim().toLowerCase();
+  const identity = profile?.id ? `id:${profile.id}` : (email ? `email:${email}` : 'anonymous');
+  return `${normalizedRole}:${identity}`;
 }
 
 function CampaignDetailRoute() {
@@ -74,6 +119,20 @@ function RequireOrganizationAuth({ children }) {
   return children;
 }
 
+function RequireAdminAuth({ children }) {
+  const location = useLocation();
+  const session = getSession();
+  const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
+  const isAdmin = Boolean(session?.isLoggedIn && roleValue === 'admin');
+
+  if (!isAdmin) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+
+  return children;
+}
+
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -82,22 +141,34 @@ function LoginRoute() {
 
   const handleLoginSuccess = (data) => {
     const rawAccountType = data?.account_type ?? data?.accountType ?? data?.user?.role ?? '';
-    const normalizedAccountType = String(rawAccountType).toLowerCase() === 'organization' ? 'Organization' : 'Donor';
+    const normalizedRaw = String(rawAccountType).toLowerCase();
+    const normalizedAccountType = normalizedRaw === 'organization'
+      ? 'Organization'
+      : (normalizedRaw === 'admin' ? 'Admin' : 'Donor');
     const isOrganization = normalizedAccountType === 'Organization';
+    const isAdmin = normalizedAccountType === 'Admin';
     const profile = isOrganization ? (data?.organization ?? data?.user) : (data?.user ?? data?.organization);
 
     if (!profile) {
       const user = data?.user || data || {};
+      const avatarOverrideKey = isOrganization
+        ? null
+        : buildAvatarOverrideKey(normalizedAccountType, user, loginEmail || user.email);
+      const avatarOverrides = getProfileAvatarOverrides();
+      const resolvedAvatar = isOrganization
+        ? DEFAULT_AVATAR_URL
+        : (avatarOverrides[avatarOverrideKey] || resolveAvatar(user) || '');
       const sessionData = {
         isLoggedIn: true,
         role: normalizedAccountType,
         name: user.name || 'Donor User',
         email: user.email || loginEmail || '',
-        impactLevel: isOrganization ? 'Organization' : 'Gold',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+        impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
+        avatar: resolvedAvatar,
         userId: user.id || null,
         accountType: normalizedAccountType,
         logoutRedirectTo: redirectTo,
+        avatarOverrideKey: avatarOverrideKey || undefined,
       };
 
       if (data?.token) {
@@ -109,20 +180,32 @@ function LoginRoute() {
         navigate(ROUTES.ORGANIZATION_DASHBOARD);
         return;
       }
+      if (isAdmin) {
+        navigate('/admin');
+        return;
+      }
       navigate(redirectTo);
       return;
     }
 
+    const avatarOverrideKey = isOrganization
+      ? null
+      : buildAvatarOverrideKey(normalizedAccountType, profile, loginEmail || profile?.email);
+    const avatarOverrides = getProfileAvatarOverrides();
+    const resolvedAvatar = isOrganization
+      ? DEFAULT_AVATAR_URL
+      : (avatarOverrides[avatarOverrideKey] || resolveAvatar(profile) || '');
     const sessionData = {
       isLoggedIn: true,
-      role: isOrganization ? 'Organization' : 'Donor',
+      role: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Donor'),
       name: profile?.name || 'User',
       email: profile?.email || loginEmail || '',
-      impactLevel: isOrganization ? 'Organization' : 'Gold',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80',
+      impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
+      avatar: resolvedAvatar,
       userId: profile.id,
       accountType: normalizedAccountType,
       logoutRedirectTo: redirectTo,
+      avatarOverrideKey: avatarOverrideKey || undefined,
     };
 
     if (data?.token) {
@@ -132,6 +215,10 @@ function LoginRoute() {
     window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
     if (isOrganization) {
       navigate(ROUTES.ORGANIZATION_DASHBOARD);
+      return;
+    }
+    if (isAdmin) {
+      navigate('/admin');
       return;
     }
     navigate(redirectTo);
@@ -197,8 +284,8 @@ export default function App() {
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
-    location.pathname === ROUTES.ORGANIZATION_DASHBOARD ||
-    location.pathname === ROUTES.ORGANIZATION_REPORTS;
+    location.pathname.startsWith('/organization/') ||
+    location.pathname.startsWith('/admin');
 
   return (
     <>
@@ -230,6 +317,46 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationReports />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path="/organization/donations"
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationDonationsPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGNS}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignsPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path="/admin"
+          element={(
+            <RequireAdminAuth>
+              <AdminPage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/organization/profile"
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationProfilePage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path="/organization/profile/edit"
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationProfileEditPage />
             </RequireOrganizationAuth>
           )}
         />

@@ -5,8 +5,10 @@ namespace Database\Seeders;
 use App\Models\Category;
 use App\Models\Role;
 use Database\Seeders\DonationTrendSeeder;
+use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -21,8 +23,20 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
-        Role::firstOrCreate(['role_name' => 'Donor']);
+        $donorRole = Role::firstOrCreate(['role_name' => 'Donor']);
         Role::firstOrCreate(['role_name' => 'Organization']);
+        $adminRole = Role::firstOrCreate(['role_name' => 'Admin']);
+
+        User::firstOrCreate(
+            ['email' => 'chomnouy168@gmail.com'],
+            [
+                'name' => 'Admin',
+                'phone' => null,
+                'password' => Hash::make('chomnouy168'),
+                'status' => 'active',
+                'role_id' => $adminRole->id ?? $donorRole->id,
+            ]
+        );
 
         Category::firstOrCreate(['category_name' => 'Child Support']);
         Category::firstOrCreate(['category_name' => 'Disaster Relief']);

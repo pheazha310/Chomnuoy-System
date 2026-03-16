@@ -345,11 +345,40 @@
 }
 
 .report-breakdown-list li {
+  margin: 0;
+  padding: 0;
+}
+
+.report-breakdown-btn {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: transparent;
   display: flex;
   align-items: center;
   gap: 8px;
   color: #475569;
   font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.report-breakdown-btn:hover {
+  background: #f5f8ff;
+  border-color: #e3ebf7;
+}
+
+.report-breakdown-btn.is-active.is-financial {
+  background: #eef4ff;
+  border-color: #cfe0ff;
+  color: #1f6fe6;
+}
+
+.report-breakdown-btn.is-active.is-material {
+  background: #ecfbf6;
+  border-color: #c8f1e3;
+  color: #0f8d6a;
 }
 
 .report-breakdown-list .dot {
@@ -358,7 +387,11 @@
   border-radius: 50%;
 }
 
-.report-breakdown-list strong {
+.report-breakdown-btn .label {
+  font-weight: 700;
+}
+
+.report-breakdown-btn strong {
   margin-left: auto;
 }
 
@@ -406,6 +439,38 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.report-filter-select {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  height: 38px;
+  padding: 0 10px;
+  background: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.report-filter-select select {
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+  outline: none;
+}
+
+.report-table-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.report-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
 }
 
 .report-table-panel table {
@@ -677,7 +742,7 @@
   position: absolute;
   inset: 18px 0 38px;
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(var(--columns, 8), 1fr);
   align-items: end;
   gap: 12px;
   z-index: 1;
@@ -688,12 +753,22 @@
   align-items: flex-end;
   justify-content: center;
   gap: 8px;
+  height: 100%;
 }
 
 .financial-tab .financial-bar-group .bar {
   width: 16px;
+  display: block;
   border-radius: 10px;
   transition: transform 0.2s ease;
+}
+
+.financial-tab .financial-bar-group.is-single {
+  gap: 0;
+}
+
+.financial-tab .financial-bar-group.is-single .bar {
+  width: 22px;
 }
 
 .financial-tab .financial-bar-group .bar.revenue {
@@ -711,7 +786,7 @@
 .financial-tab .financial-chart-months {
   margin-top: 4px;
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(var(--columns, 8), 1fr);
   color: #8b98ab;
   font-size: 11px;
   letter-spacing: 0.08em;
