@@ -2,13 +2,23 @@
   background: #f3f5f9;
   color: #101828;
   font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  grid-template-columns: 220px 1fr;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 100vh;
+  align-items: start;
 }
 
 @media (max-width: 1100px) {
   .report-page {
     grid-template-columns: 1fr;
   }
+}
+
+.report-page .org-sidebar.compact {
+  position: sticky;
+  left: auto;
+  width: 260px;
+  align-self: start;
 }
 
 .report-main-shell {
@@ -393,6 +403,16 @@
 
 .report-breakdown-btn strong {
   margin-left: auto;
+}
+
+.report-breakdown-btn.is-source {
+  border: 1px solid transparent;
+}
+
+.report-breakdown-btn.is-source.is-active {
+  background: #eef4ff;
+  border-color: #cfe0ff;
+  color: #1f6fe6;
 }
 
 .report-table-panel {
@@ -805,6 +825,7 @@
   background: conic-gradient(#1f7ae8 0 55%, #67c2ef 55% 87%, #d5dde7 87% 100%);
   display: grid;
   place-items: center;
+  transition: background 0.6s ease;
 }
 
 .financial-tab .financial-source-inner {
@@ -1418,7 +1439,7 @@
 
 .regional-tab .regional-main-grid {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 

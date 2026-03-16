@@ -64,14 +64,6 @@ export default function MyProfilePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
-<<<<<<< HEAD
-  const liveCameraVideoRef = useRef(null);
-  const liveCameraStreamRef = useRef(null);
-=======
-  const nameInputRef = useRef(null);
-  const emailInputRef = useRef(null);
-  const phoneInputRef = useRef(null);
->>>>>>> d214aecd167d995ede24e85af99284fba90142e1
   const syncTimersRef = useRef([]);
   const session = useMemo(() => getSession(), []);
 
@@ -206,69 +198,6 @@ export default function MyProfilePage() {
     setShowIllustrations(false);
   };
 
-<<<<<<< HEAD
-  const handleOpenLiveCamera = async () => {
-    setCameraError('');
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      cameraInputRef.current?.click();
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: false,
-      });
-
-      liveCameraStreamRef.current = stream;
-      setIsLiveCameraOpen(true);
-
-      window.setTimeout(() => {
-        if (!liveCameraVideoRef.current) return;
-        liveCameraVideoRef.current.srcObject = stream;
-        liveCameraVideoRef.current.play().catch(() => {});
-      }, 0);
-    } catch {
-      setCameraError('Camera access denied. Please allow camera permission.');
-      cameraInputRef.current?.click();
-    }
-  };
-
-  const handleCaptureLivePhoto = () => {
-    const video = liveCameraVideoRef.current;
-    if (!video || !video.videoWidth || !video.videoHeight) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-
-      const file = new File([blob], `camera-profile-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      setAvatarFile(file);
-      setFormData((prev) => ({
-        ...prev,
-        avatar: URL.createObjectURL(file),
-      }));
-      setIsEditing(true);
-      setIsLiveCameraOpen(false);
-      setIsCameraModalOpen(false);
-      setShowIllustrations(false);
-      stopLiveCamera();
-    }, 'image/jpeg', 0.95);
-  };
-=======
-  const focusInput = (ref) => {
-    ref.current?.focus();
-    setIsEditing(true);
-  };
-
->>>>>>> d214aecd167d995ede24e85af99284fba90142e1
   const handleSave = async (event) => {
     event.preventDefault();
     clearSyncTimers();

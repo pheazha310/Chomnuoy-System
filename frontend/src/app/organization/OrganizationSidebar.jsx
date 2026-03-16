@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 
-export default function OrganizationSidebar() {
+export default function OrganizationSidebar({ compact = false }) {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
 
   const handleLogout = () => {
@@ -13,7 +13,7 @@ export default function OrganizationSidebar() {
 
   return (
     <>
-      <aside className="org-sidebar" aria-label="Organization navigation">
+      <aside className={`org-sidebar${compact ? ' compact' : ''}`} aria-label="Organization navigation">
         <div className="org-brand">
           <span className="org-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="org-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">

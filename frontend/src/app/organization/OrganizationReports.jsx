@@ -57,9 +57,36 @@ function formatCurrency(value) {
   return `$${numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatPercent(value) {
+  const numeric = Number(value) || 0;
+  return `${numeric.toFixed(1)}%`;
+}
+
 function formatWhole(value) {
   const numeric = Math.round(Number(value) || 0);
   return numeric.toLocaleString();
+}
+
+function toneFromPercent(value) {
+  const percent = Number(value) || 0;
+  if (percent >= 40) return 'high';
+  if (percent >= 25) return 'medium';
+  if (percent >= 15) return 'low';
+  return 'xlow';
+}
+
+function statusClassFromLabel(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized.includes('delay')) return 'delayed';
+  if (normalized.includes('action')) return 'action-needed';
+  return 'on-track';
+}
+
+function regionalStatusClassFromLabel(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized.includes('high')) return 'high';
+  if (normalized.includes('medium')) return 'medium';
+  return 'low';
 }
 
 function getPageRange(current, last, max = 3) {
@@ -135,10 +162,10 @@ function buildSummaryFromCache(cache) {
 
 // Summary card in overview (fallback)
 const fallbackSummaryCards = [
-  // { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true, icon: Wallet },
-  // { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true, icon: Users },
-  // { title: 'Material Units', value: '12,540', delta: '-2.1%', positive: false, icon: Box },
-  // { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true, icon: Tag },
+  { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true, icon: Wallet },
+  { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true, icon: Users },
+  { title: 'Material Units', value: '12,540', delta: '-2.1%', positive: false, icon: Box },
+  { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true, icon: Tag },
 ];
 
 // Donation Trends data in overview and get data from database (Already connect)
@@ -165,52 +192,52 @@ const fallbackTransactions = [
 
 
 const fallbackProvinces = [
-  { name: 'Phnom Penh', amount: '$45,200', width: 85 },
-  { name: 'Siem Reap', amount: '$28,150', width: 60 },
-  { name: 'Battambang', amount: '$15,400', width: 35 },
+  // { name: 'Phnom Penh', amount: '$45,200', width: 85 },
+  // { name: 'Siem Reap', amount: '$28,150', width: 60 },
+  // { name: 'Battambang', amount: '$15,400', width: 35 },
 ];
 
-const financialSummaryCards = [
-  { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true },
-  { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true },
-  { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true },
-  { title: 'Conversion Rate', value: '3.2%', delta: '-1.1%', positive: false },
+const fallbackFinancialSummaryCards = [
+  // { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true },
+  // { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true },
+  // { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true },
+  // { title: 'Conversion Rate', value: '3.2%', delta: '-1.1%', positive: false },
 ];
 
 // Revenue vs. Expenses
 const defaultRevenueExpenseData = [
-  { month: 'Jan', revenue: 10, expenses: 18 },
-  { month: 'Feb', revenue: 31, expenses: 16 },
-  { month: 'Mar', revenue: 38, expenses: 20 },
-  { month: 'Apr', revenue: 40, expenses: 15 },
-  { month: 'May', revenue: 36, expenses: 19 },
-  { month: 'Jun', revenue: 24, expenses: 22 },
-  { month: 'Jul', revenue: 30, expenses: 25 },
-  { month: 'Aug', revenue: 20, expenses: 33 },
+  // { month: 'Jan', revenue: 10, expenses: 18 },
+  // { month: 'Feb', revenue: 31, expenses: 16 },
+  // { month: 'Mar', revenue: 38, expenses: 20 },
+  // { month: 'Apr', revenue: 40, expenses: 15 },
+  // { month: 'May', revenue: 36, expenses: 19 },
+  // { month: 'Jun', revenue: 24, expenses: 22 },
+  // { month: 'Jul', revenue: 30, expenses: 25 },
+  // { month: 'Aug', revenue: 20, expenses: 33 },
 ];
 
-const sourceBreakdown = [
+const fallbackSourceBreakdown = [
   { label: 'Corporate', value: 55200, color: '#1f7ae8', colorClass: 'corporate' },
   { label: 'Individual', value: 32150, color: '#67c2ef', colorClass: 'individual' },
   { label: 'Government', value: 12750, color: '#d5dde7', colorClass: 'government' },
 ];
 
-const financialTransactions = [
-  { date: 'Oct 24, 2023', donor: 'Global Tech Inc.', type: 'Recurring', amount: '$12,500.00', status: 'Completed' },
-  { date: 'Oct 23, 2023', donor: 'Sarah Jenkins', type: 'One-time', amount: '$150.00', status: 'Completed' },
-  { date: 'Oct 22, 2023', donor: 'Robert Chen', type: 'Recurring', amount: '$45.00', status: 'Pending' },
-  { date: 'Oct 22, 2023', donor: 'Foundation Alpha', type: 'One-time', amount: '$5,000.00', status: 'Completed' },
-  { date: 'Oct 21, 2023', donor: 'Emily Rodriguez', type: 'One-time', amount: '$25.00', status: 'Completed' },
+const fallbackFinancialTransactions = [
+  // { date: 'Oct 24, 2023', donor: 'Global Tech Inc.', type: 'Recurring', amount: '$12,500.00', status: 'Completed' },
+  // { date: 'Oct 23, 2023', donor: 'Sarah Jenkins', type: 'One-time', amount: '$150.00', status: 'Completed' },
+  // { date: 'Oct 22, 2023', donor: 'Robert Chen', type: 'Recurring', amount: '$45.00', status: 'Pending' },
+  // { date: 'Oct 22, 2023', donor: 'Foundation Alpha', type: 'One-time', amount: '$5,000.00', status: 'Completed' },
+  // { date: 'Oct 21, 2023', donor: 'Emily Rodriguez', type: 'One-time', amount: '$25.00', status: 'Completed' },
 ];
 
-const materialSummaryCards = [
-  { title: 'Total Items Collected', value: '12,450', delta: '+12%', positive: true },
-  { title: 'Successful Deliveries', value: '10,120', delta: '+8%', positive: true },
-  { title: 'Pending Pickups', value: '850', delta: '-5%', positive: false },
-  { title: 'Delivery Success Rate', value: '81.2%', delta: '+2%', positive: true },
+const fallbackMaterialSummaryCards = [
+  // { title: 'Total Items Collected', value: '12,450', delta: '+12%', positive: true },
+  // { title: 'Successful Deliveries', value: '10,120', delta: '+8%', positive: true },
+  // { title: 'Pending Pickups', value: '850', delta: '-5%', positive: false },
+  // { title: 'Delivery Success Rate', value: '81.2%', delta: '+2%', positive: true },
 ];
 
-const materialBreakdown = [
+const fallbackMaterialBreakdown = [
   { name: 'Clothing', percent: 45, tone: 'high' },
   { name: 'Food', percent: 30, tone: 'medium' },
   { name: 'Books', percent: 15, tone: 'low' },
@@ -224,34 +251,34 @@ const deliveryFlow = [
   { title: 'Successfully Delivered', detail: '10,120 items complete', tone: 'delivered' },
 ];
 
-const materialProvinceRows = [
-  { province: 'Phnom Penh', totalItems: '4,520', organization: 'Cambodian Red Cross', status: 'On Track', statusClass: 'on-track' },
-  { province: 'Siem Reap', totalItems: '2,840', organization: 'Angkor Hospital for Children', status: 'On Track', statusClass: 'on-track' },
-  { province: 'Battambang', totalItems: '1,950', organization: 'Krousar Thmey', status: 'Delayed', statusClass: 'delayed' },
-  { province: 'Kampot', totalItems: '1,210', organization: "Children's Future", status: 'On Track', statusClass: 'on-track' },
-  { province: 'Preah Sihanouk', totalItems: '930', organization: "M'Lop Tapang", status: 'Action Needed', statusClass: 'action-needed' },
+const fallbackMaterialProvinceRows = [
+  // { province: 'Phnom Penh', totalItems: '4,520', organization: 'Cambodian Red Cross', status: 'On Track', statusClass: 'on-track' },
+  // { province: 'Siem Reap', totalItems: '2,840', organization: 'Angkor Hospital for Children', status: 'On Track', statusClass: 'on-track' },
+  // { province: 'Battambang', totalItems: '1,950', organization: 'Krousar Thmey', status: 'Delayed', statusClass: 'delayed' },
+  // { province: 'Kampot', totalItems: '1,210', organization: "Children's Future", status: 'On Track', statusClass: 'on-track' },
+  // { province: 'Preah Sihanouk', totalItems: '930', organization: "M'Lop Tapang", status: 'Action Needed', statusClass: 'action-needed' },
 ];
 
-const regionalMetrics = [
+const fallbackRegionalMetrics = [
   { title: 'Provinces Covered', value: '25/25', delta: '+100%', positive: true },
   { title: 'Active Community Projects', value: '1,482', delta: '+12.4%', positive: true },
   { title: 'Regional Growth %', value: '28.5%', delta: 'YoY', positive: true },
 ];
 
-const topImpactProvinces = [
+const fallbackTopImpactProvinces = [
   { rank: '01', name: 'Phnom Penh', projects: 524, amount: '$450,200', delta: '+18.5%' },
   { rank: '02', name: 'Siem Reap', projects: 185, amount: '$210,000', delta: '+12.2%' },
   { rank: '03', name: 'Battambang', projects: 124, amount: '$158,400', delta: '-2.8%' },
   { rank: '04', name: 'Kampong Cham', projects: 98, amount: '$92,000', delta: '+5.4%' },
 ];
 
-const cambodiaMapMarkers = [
+const fallbackCambodiaMapMarkers = [
   { name: 'Phnom Penh', position: [11.5564, 104.9282], impact: 'High' },
   { name: 'Siem Reap', position: [13.3633, 103.8564], impact: 'Medium' },
   { name: 'Battambang', position: [13.1027, 103.1982], impact: 'Low' },
 ];
 
-const regionalProjectRows = [
+const fallbackRegionalProjectRows = [
   { province: 'Phnom Penh', organization: 'Education First Network', campaigns: 156, impact: '$1.2M+', status: 'High Impact', statusClass: 'high' },
   { province: 'Siem Reap', organization: 'Heritage Care Foundation', campaigns: 84, impact: '$780k', status: 'Medium Impact', statusClass: 'medium' },
   { province: 'Preah Vihear', organization: 'Rural Health Alliance', campaigns: 22, impact: '$125k', status: 'Low Impact', statusClass: 'low' },
@@ -407,7 +434,7 @@ function FinancialLineChart({ data }) {
   );
 }
 
-function SourceBreakdown({ items }) {
+function SourceBreakdown({ items, orgId }) {
   const totalValue = items.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
   const hasData = totalValue > 0;
   const segments = items.map((item) => {
@@ -417,6 +444,35 @@ function SourceBreakdown({ items }) {
       percent,
     };
   });
+  const [animatedPercents, setAnimatedPercents] = useState(segments.map(() => 0));
+  const [selectedLabel, setSelectedLabel] = useState('All');
+
+  useEffect(() => {
+    let frame = 0;
+    const duration = 650;
+    const start = performance.now();
+    const targetPercents = segments.map((segment) => segment.percent);
+
+    const tick = (now) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setAnimatedPercents(targetPercents.map((percent) => percent * eased));
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      }
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [items]);
+
+  useEffect(() => {
+    if (selectedLabel === 'All') return;
+    const exists = segments.some((segment) => segment.label === selectedLabel);
+    if (!exists) {
+      setSelectedLabel('All');
+    }
+  }, [segments, selectedLabel]);
 
   let currentStop = 0;
   const gradientStops = segments.map((segment) => {
@@ -426,33 +482,60 @@ function SourceBreakdown({ items }) {
     return `${segment.color} ${start}% ${end}%`;
   });
 
+  const selectedSegment = segments.find((segment) => segment.label === selectedLabel);
+  const activePercent = selectedLabel === 'All' ? 100 : (selectedSegment?.percent || 0);
+  const activeColor = selectedSegment?.color || '#1f7ae8';
+
   const donutStyle = {
     background: hasData
-      ? `conic-gradient(${gradientStops.join(', ')})`
+      ? (selectedLabel === 'All'
+        ? `conic-gradient(${gradientStops.join(', ')})`
+        : `conic-gradient(${activeColor} 0 ${activePercent}%, #e5edf7 ${activePercent}% 100%)`)
       : 'conic-gradient(#e5edf7 0 100%)',
   };
 
   return (
-    <article className="financial-source-panel">
-      <div className="financial-panel-head">
-        <div>
-          <h3>Source Breakdown</h3>
-          <p>Donations by category</p>
-        </div>
+    <article className="report-panel">
+      <div className="report-panel-head">
+        <h3>Source Breakdown</h3>
+        <span className="report-panel-meta">Org ID: {orgId || 'All'}</span>
       </div>
-      <div className="financial-source-donut" style={donutStyle}>
-        <div className="financial-source-inner">
-          <strong>{hasData ? '100%' : '0%'}</strong>
-          <span>TOTAL FUNDING</span>
+      <p>Donations by category</p>
+      <div className="report-donut" style={donutStyle}>
+        <div className="report-donut-inner">
+          <strong>{hasData ? `${Math.round(activePercent)}%` : '0%'}</strong>
+          <span>Total Funding</span>
         </div>
       </div>
       {!hasData ? <p className="report-empty-note">No source data yet.</p> : null}
-      <ul className="financial-source-list">
-        {segments.map((item) => (
+      <ul className="report-breakdown-list">
+        <li>
+          <button
+            type="button"
+            className={`report-breakdown-btn is-source${selectedLabel === 'All' ? ' is-active' : ''}`}
+            onClick={() => setSelectedLabel('All')}
+            aria-pressed={selectedLabel === 'All'}
+          >
+            <span className="dot" style={{ backgroundColor: '#1f7ae8' }} />
+            <span className="label">All</span>
+            <strong>{hasData ? '100%' : '0%'}</strong>
+          </button>
+        </li>
+        {segments.map((item, index) => (
           <li key={item.label}>
-            <span className={`dot ${item.colorClass}`} />
-            <p>{item.label}</p>
-            <strong>{Math.round(item.percent)}%</strong>
+            <button
+              type="button"
+              className={`report-breakdown-btn is-source${selectedLabel === item.label ? ' is-active' : ''}`}
+              onClick={() => setSelectedLabel(item.label)}
+              aria-pressed={selectedLabel === item.label}
+            >
+              <span
+                className={`dot ${item.colorClass || ''}`}
+                style={{ backgroundColor: item.color || '#cbd5e1' }}
+              />
+              <span className="label">{item.label}</span>
+              <strong>{Math.round(animatedPercents[index] ?? item.percent)}%</strong>
+            </button>
           </li>
         ))}
       </ul>
@@ -462,6 +545,7 @@ function SourceBreakdown({ items }) {
 
 
 export default function OrganizationReports() {
+  const reportOrgId = getOrganizationId(getOrganizationSession());
   const [activeTab, setActiveTab] = useState('overview');
   const [trendData, setTrendData] = useState(defaultTrendData);
   const [revenueExpenseData, setRevenueExpenseData] = useState(defaultRevenueExpenseData);
@@ -469,7 +553,17 @@ export default function OrganizationReports() {
   const breakdownUserSelectedRef = useRef(false);
   const [summaryMetrics, setSummaryMetrics] = useState(null);
   const [transactions, setTransactions] = useState(fallbackTransactions);
+  const [financialSummaryMetrics, setFinancialSummaryMetrics] = useState(null);
+  const [materialSummaryMetrics, setMaterialSummaryMetrics] = useState(null);
+  const [sourceItems, setSourceItems] = useState(fallbackSourceBreakdown);
+  const [financialRows, setFinancialRows] = useState(fallbackFinancialTransactions);
+  const [materialBreakdownItems, setMaterialBreakdownItems] = useState(fallbackMaterialBreakdown);
+  const [materialProvinceRows, setMaterialProvinceRows] = useState(fallbackMaterialProvinceRows);
   const [provinceRows, setProvinceRows] = useState(fallbackProvinces);
+  const [regionalMetricsData, setRegionalMetricsData] = useState(fallbackRegionalMetrics);
+  const [topImpactProvincesData, setTopImpactProvincesData] = useState(fallbackTopImpactProvinces);
+  const [regionalProjectRowsData, setRegionalProjectRowsData] = useState(fallbackRegionalProjectRows);
+  const [regionalMapMarkers, setRegionalMapMarkers] = useState(fallbackCambodiaMapMarkers);
   const [transactionMeta, setTransactionMeta] = useState({
     total: 0,
     per_page: 10,
@@ -517,6 +611,447 @@ export default function OrganizationReports() {
     };
 
     loadTrends();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const formatDate = (value) => {
+      if (!value) return 'N/A';
+      const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value;
+      const parsed = new Date(normalized);
+      if (Number.isNaN(parsed.getTime())) return 'N/A';
+      return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const loadFinancialTransactions = async () => {
+      try {
+        const fetchRows = async (params) => {
+          const response = await apiClient.get('/organization_reports/financial_transactions', {
+            params,
+          });
+          return Array.isArray(response.data) ? response.data : [];
+        };
+
+        let rows = await fetchRows(orgId ? { organization_id: orgId, limit: 5 } : { limit: 5 });
+        if (!rows.length && orgId) {
+          rows = await fetchRows({ limit: 5 });
+        }
+
+        const mapped = rows.map((row) => ({
+          date: formatDate(row.date),
+          donor: row.donor || 'Unknown Donor',
+          type: row.type || 'One-time',
+          amount: formatCurrency(row.amount),
+          status: row.status || 'Pending',
+        }));
+        if (isMounted) {
+          setFinancialRows(mapped);
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadFinancialTransactions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const loadRegionalMetrics = async () => {
+      const mapRows = (rows) => rows.map((row) => ({
+        title: row.title || 'Metric',
+        value: row.value ?? '0',
+        delta: row.delta ?? '',
+        positive: row.positive ?? true,
+      }));
+
+      try {
+        const scopedResponse = await apiClient.get('/regional_metrics', {
+          params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          if (isMounted) {
+            setRegionalMetricsData(mapRows(scopedResponse.data));
+          }
+          return;
+        }
+
+        if (orgId) {
+          const fallbackResponse = await apiClient.get('/regional_metrics', {
+            params: { limit: 10 },
+          });
+          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+            if (isMounted) {
+              setRegionalMetricsData(mapRows(fallbackResponse.data));
+            }
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadRegionalMetrics();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const mapRows = (rows) => rows.map((row) => ({
+      rank: String(row.rank || '').padStart(2, '0') || '00',
+      name: row.province_name || row.name || 'Unknown',
+      projects: Number(row.projects) || 0,
+      amount: formatCurrency(row.amount ?? 0),
+      delta: row.delta || '',
+    }));
+
+    const loadTopProvinces = async () => {
+      try {
+        const scopedResponse = await apiClient.get('/regional_top_provinces', {
+          params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          if (isMounted) {
+            setTopImpactProvincesData(mapRows(scopedResponse.data));
+          }
+          return;
+        }
+
+        if (orgId) {
+          const fallbackResponse = await apiClient.get('/regional_top_provinces', {
+            params: { limit: 10 },
+          });
+          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+            if (isMounted) {
+              setTopImpactProvincesData(mapRows(fallbackResponse.data));
+            }
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadTopProvinces();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const mapRows = (rows) => rows.map((row) => ({
+      province: row.province || 'Unknown',
+      organization: row.organization_name || row.organization || 'Unknown',
+      campaigns: Number(row.campaigns) || 0,
+      impact: row.impact || '',
+      status: row.status || 'Medium Impact',
+      statusClass: regionalStatusClassFromLabel(row.status),
+    }));
+
+    const loadRegionalProjects = async () => {
+      try {
+        const scopedResponse = await apiClient.get('/regional_project_statuses', {
+          params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          if (isMounted) {
+            setRegionalProjectRowsData(mapRows(scopedResponse.data));
+          }
+          return;
+        }
+
+        if (orgId) {
+          const fallbackResponse = await apiClient.get('/regional_project_statuses', {
+            params: { limit: 10 },
+          });
+          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+            if (isMounted) {
+              setRegionalProjectRowsData(mapRows(fallbackResponse.data));
+            }
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadRegionalProjects();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const mapRows = (rows) => rows.map((row) => ({
+      name: row.name || 'Unknown',
+      position: [Number(row.latitude) || 0, Number(row.longitude) || 0],
+      impact: row.impact || 'Medium',
+    }));
+
+    const loadMapMarkers = async () => {
+      try {
+        const scopedResponse = await apiClient.get('/regional_map_markers', {
+          params: orgId ? { organization_id: orgId, limit: 200 } : { limit: 200 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          if (isMounted) {
+            setRegionalMapMarkers(mapRows(scopedResponse.data));
+          }
+          return;
+        }
+
+        if (orgId) {
+          const fallbackResponse = await apiClient.get('/regional_map_markers', {
+            params: { limit: 200 },
+          });
+          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+            if (isMounted) {
+              setRegionalMapMarkers(mapRows(fallbackResponse.data));
+            }
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadMapMarkers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const mapRows = (rows) => rows.map((row) => ({
+      province: row.province || 'Unknown',
+      totalItems: formatWhole(row.total_items ?? row.totalItems ?? 0),
+      organization: row.organization_name || row.organization || 'Unknown',
+      status: row.status || 'On Track',
+      statusClass: statusClassFromLabel(row.status),
+    }));
+
+    const loadMaterialProvinceRows = async () => {
+      try {
+        const scopedResponse = await apiClient.get('/material_province_distributions', {
+          params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          if (isMounted) {
+            setMaterialProvinceRows(mapRows(scopedResponse.data));
+          }
+          return;
+        }
+
+        if (orgId) {
+          const fallbackResponse = await apiClient.get('/material_province_distributions', {
+            params: { limit: 10 },
+          });
+          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+            if (isMounted) {
+              setMaterialProvinceRows(mapRows(fallbackResponse.data));
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadMaterialProvinceRows();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const mapBreakdown = (items) => items.map((item) => {
+      const percent = Number(item.percent) || 0;
+      return {
+        name: item.label || 'Unknown',
+        percent,
+        tone: item.tone || toneFromPercent(percent),
+      };
+    });
+
+    const loadMaterialBreakdown = async () => {
+      try {
+        const scopedResponse = await apiClient.get('/material_breakdowns', {
+          params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          if (isMounted) {
+            setMaterialBreakdownItems(mapBreakdown(scopedResponse.data));
+          }
+          return;
+        }
+
+        if (orgId) {
+          const fallbackResponse = await apiClient.get('/material_breakdowns', {
+            params: { limit: 10 },
+          });
+          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+            if (isMounted) {
+              setMaterialBreakdownItems(mapBreakdown(fallbackResponse.data));
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadMaterialBreakdown();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
+    const loadMaterialSummary = async () => {
+      try {
+        const response = await apiClient.get('/organization_reports/material_summary', {
+          params: orgId ? { organization_id: orgId } : undefined,
+        });
+        if (isMounted && response?.data) {
+          setMaterialSummaryMetrics(response.data);
+          return;
+        }
+      } catch (error) {
+        // Fall back to unscoped data when org-specific fails.
+      }
+
+      try {
+        const response = await apiClient.get('/organization_reports/material_summary');
+        if (isMounted && response?.data) {
+          setMaterialSummaryMetrics(response.data);
+        }
+      } catch (error) {
+        // Keep fallback cards if API is unavailable.
+      }
+    };
+
+    loadMaterialSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+    const palette = [
+      { color: '#1f7ae8', colorClass: 'corporate' },
+      { color: '#67c2ef', colorClass: 'individual' },
+      { color: '#d5dde7', colorClass: 'government' },
+      { color: '#8fddc0', colorClass: '' },
+      { color: '#7ba7ff', colorClass: '' },
+    ];
+
+    const loadSourceBreakdown = async () => {
+      try {
+        const scopedResponse = await apiClient.get('/source_breakdowns', {
+          params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
+        });
+        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+          const mapped = scopedResponse.data.map((item, index) => ({
+            label: item.label,
+            value: Number(item.value) || 0,
+            ...palette[index % palette.length],
+          }));
+          if (isMounted) {
+            setSourceItems(mapped);
+          }
+          return;
+        }
+
+        if (orgId) {
+          const unscopedResponse = await apiClient.get('/source_breakdowns', {
+            params: { limit: 10 },
+          });
+          if (Array.isArray(unscopedResponse.data) && unscopedResponse.data.length) {
+            const mapped = unscopedResponse.data.map((item, index) => ({
+              label: item.label,
+              value: Number(item.value) || 0,
+              ...palette[index % palette.length],
+            }));
+            if (isMounted) {
+              setSourceItems(mapped);
+            }
+            return;
+          }
+        }
+      } catch (error) {
+        // Fall through to computed breakdown if cache API is unavailable.
+      }
+
+      try {
+        const response = await apiClient.get('/organization_reports/source_breakdown', {
+          params: orgId ? { organization_id: orgId } : undefined,
+        });
+        const items = response?.data?.items;
+        if (isMounted && Array.isArray(items) && items.length) {
+          const mapped = items.map((item, index) => ({
+            label: item.label,
+            value: Number(item.value) || 0,
+            ...palette[index % palette.length],
+          }));
+          setSourceItems(mapped);
+        }
+      } catch (error) {
+        // Keep fallback data if API is unavailable.
+      }
+    };
+
+    loadSourceBreakdown();
 
     return () => {
       isMounted = false;
@@ -676,6 +1211,41 @@ export default function OrganizationReports() {
     const session = getOrganizationSession();
     const orgId = getOrganizationId(session);
 
+    const loadFinancialSummary = async () => {
+      try {
+        const response = await apiClient.get('/organization_reports/financial_summary', {
+          params: orgId ? { organization_id: orgId } : undefined,
+        });
+        if (isMounted && response?.data) {
+          setFinancialSummaryMetrics(response.data);
+          return;
+        }
+      } catch (error) {
+        // Fall back to unscoped data when org-specific fails.
+      }
+
+      try {
+        const response = await apiClient.get('/organization_reports/financial_summary');
+        if (isMounted && response?.data) {
+          setFinancialSummaryMetrics(response.data);
+        }
+      } catch (error) {
+        // Keep fallback cards if API is unavailable.
+      }
+    };
+
+    loadFinancialSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const session = getOrganizationSession();
+    const orgId = getOrganizationId(session);
+
     const loadProvinces = async () => {
       try {
         const response = await apiClient.get('/province_contributions', {
@@ -760,6 +1330,64 @@ export default function OrganizationReports() {
       },
     ]
     : fallbackSummaryCards;
+
+  const financialSummaryCards = financialSummaryMetrics?.metrics
+    ? [
+      {
+        title: 'Total Revenue',
+        value: formatCurrency(financialSummaryMetrics.metrics.total_revenue?.value),
+        delta: formatDelta(financialSummaryMetrics.metrics.total_revenue?.delta_percent),
+        positive: financialSummaryMetrics.metrics.total_revenue?.positive ?? true,
+      },
+      {
+        title: 'Active Donors',
+        value: formatWhole(financialSummaryMetrics.metrics.active_donors?.value),
+        delta: formatDelta(financialSummaryMetrics.metrics.active_donors?.delta_percent),
+        positive: financialSummaryMetrics.metrics.active_donors?.positive ?? true,
+      },
+      {
+        title: 'Avg. Donation',
+        value: formatCurrency(financialSummaryMetrics.metrics.avg_donation?.value),
+        delta: formatDelta(financialSummaryMetrics.metrics.avg_donation?.delta_percent),
+        positive: financialSummaryMetrics.metrics.avg_donation?.positive ?? true,
+      },
+      {
+        title: 'Conversion Rate',
+        value: formatPercent(financialSummaryMetrics.metrics.conversion_rate?.value),
+        delta: formatDelta(financialSummaryMetrics.metrics.conversion_rate?.delta_percent),
+        positive: financialSummaryMetrics.metrics.conversion_rate?.positive ?? true,
+      },
+    ]
+    : fallbackFinancialSummaryCards;
+
+  const materialSummaryCards = materialSummaryMetrics?.metrics
+    ? [
+      {
+        title: 'Total Items Collected',
+        value: formatWhole(materialSummaryMetrics.metrics.total_items_collected?.value),
+        delta: formatDelta(materialSummaryMetrics.metrics.total_items_collected?.delta_percent),
+        positive: materialSummaryMetrics.metrics.total_items_collected?.positive ?? true,
+      },
+      {
+        title: 'Successful Deliveries',
+        value: formatWhole(materialSummaryMetrics.metrics.successful_deliveries?.value),
+        delta: formatDelta(materialSummaryMetrics.metrics.successful_deliveries?.delta_percent),
+        positive: materialSummaryMetrics.metrics.successful_deliveries?.positive ?? true,
+      },
+      {
+        title: 'Pending Pickups',
+        value: formatWhole(materialSummaryMetrics.metrics.pending_pickups?.value),
+        delta: formatDelta(materialSummaryMetrics.metrics.pending_pickups?.delta_percent),
+        positive: materialSummaryMetrics.metrics.pending_pickups?.positive ?? true,
+      },
+      {
+        title: 'Delivery Success Rate',
+        value: formatPercent(materialSummaryMetrics.metrics.delivery_success_rate?.value),
+        delta: formatDelta(materialSummaryMetrics.metrics.delivery_success_rate?.delta_percent),
+        positive: materialSummaryMetrics.metrics.delivery_success_rate?.positive ?? true,
+      },
+    ]
+    : fallbackMaterialSummaryCards;
 
   return (
     <div className="org-page report-page">
@@ -944,7 +1572,7 @@ export default function OrganizationReports() {
             <section className="financial-analysis-grid">
               <FinancialLineChart data={revenueExpenseData} />
 
-              <SourceBreakdown items={sourceBreakdown} />
+              <SourceBreakdown items={sourceItems} orgId={reportOrgId} />
             </section>
 
             <section className="financial-table-panel">
@@ -963,21 +1591,27 @@ export default function OrganizationReports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {financialTransactions.map((row) => (
-                    <tr key={`${row.date}-${row.donor}`}>
-                      <td>{row.date}</td>
-                      <td className="donor">{row.donor}</td>
-                      <td>{row.type}</td>
-                      <td className="amount">{row.amount}</td>
-                      <td>
-                        <span className={`status ${row.status.toLowerCase()}`}>{row.status}</span>
-                      </td>
+                  {financialRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="report-empty-note">No financial transactions yet.</td>
                     </tr>
-                  ))}
+                  ) : (
+                    financialRows.map((row) => (
+                      <tr key={`${row.date}-${row.donor}`}>
+                        <td>{row.date}</td>
+                        <td className="donor">{row.donor}</td>
+                        <td>{row.type}</td>
+                        <td className="amount">{row.amount}</td>
+                        <td>
+                          <span className={`status ${row.status.toLowerCase()}`}>{row.status}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
               <div className="financial-table-footer">
-                <p>Showing 5 of 1,248 transactions</p>
+                <p>Showing {financialRows.length} transaction{financialRows.length === 1 ? '' : 's'}</p>
                 <div className="financial-table-pagination">
                   <button type="button">Previous</button>
                   <button type="button">Next</button>
@@ -1001,7 +1635,7 @@ export default function OrganizationReports() {
               <article className="material-breakdown-panel">
                 <h3>Material Breakdown</h3>
                 <div className="material-breakdown-list">
-                  {materialBreakdown.map((item) => (
+                  {materialBreakdownItems.map((item) => (
                     <div key={item.name} className="material-breakdown-item">
                       <div className="material-breakdown-head">
                         <p>{item.name}</p>
@@ -1063,7 +1697,7 @@ export default function OrganizationReports() {
 
           <section className={`report-tab-content regional-tab${activeTab === 'regional' ? '' : ' is-hidden'}`}>
             <section className="regional-metrics-grid">
-              {regionalMetrics.map((item) => (
+              {regionalMetricsData.map((item) => (
                 <article key={item.title} className="regional-metric-card">
                   <p>{item.title}</p>
                   <div>
@@ -1082,44 +1716,10 @@ export default function OrganizationReports() {
             </section>
 
             <section className="regional-main-grid">
-              <article className="regional-map-panel">
-                <div className="regional-panel-head">
-                  <h3>Impact Density Map</h3>
-                  <div className="regional-map-legend">
-                    <span><i className="low" />Low</span>
-                    <span><i className="medium" />Med</span>
-                    <span><i className="high" />High</span>
-                  </div>
-                </div>
-                <div className="regional-map-placeholder">
-                  <MapContainer
-                    center={[12.5657, 104.991]}
-                    zoom={7}
-                    minZoom={6}
-                    maxZoom={12}
-                    scrollWheelZoom
-                  >
-                    <TileLayer
-                      attribution="&copy; OpenStreetMap contributors"
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    {cambodiaMapMarkers.map((marker) => (
-                      <Marker key={marker.name} position={marker.position}>
-                        <Popup>
-                          <strong>{marker.name}</strong>
-                          <br />
-                          Impact: {marker.impact}
-                        </Popup>
-                      </Marker>
-                    ))}
-                  </MapContainer>
-                </div>
-              </article>
-
               <article className="regional-top-panel">
                 <h3>Top Impact Provinces</h3>
                 <ul className="regional-top-list">
-                  {topImpactProvinces.map((row) => (
+                  {topImpactProvincesData.map((row) => (
                     <li key={row.rank}>
                       <span className="rank">{row.rank}</span>
                       <div className="meta">
@@ -1156,7 +1756,7 @@ export default function OrganizationReports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {regionalProjectRows.map((row) => (
+                  {regionalProjectRowsData.map((row) => (
                     <tr key={row.province}>
                       <td className="province">{row.province}</td>
                       <td>{row.organization}</td>
