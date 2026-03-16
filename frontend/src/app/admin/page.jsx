@@ -68,6 +68,33 @@ const RECENT_ORGS = [
   },
 ];
 
+const CHART_VALUES = [12, 18, 10, 22, 16, 26, 20];
+const CHART_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const TASK_ICONS = {
+  danger: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 4 3 20h18L12 4Z" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinejoin="round" />
+      <path d="M12 9v5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+    </svg>
+  ),
+  info: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="6" width="16" height="12" rx="3" stroke="currentColor" strokeWidth="1.7" fill="none" />
+      <path d="M8 12h8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M12 9v6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  ),
+  warning: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 4 3 20h18L12 4Z" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinejoin="round" />
+      <path d="M12 9v5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+    </svg>
+  ),
+};
+
 const StatCard = ({ stat }) => (
   <div className={`admin-stat-card admin-tone-${stat.tone}`}>
     <div className="admin-stat-top">
@@ -87,6 +114,19 @@ const AdminDashboard = () => {
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
+  const adminRole = session?.role || session?.accountType || 'Admin';
+  const maxValue = Math.max(...CHART_VALUES);
+  const minValue = Math.min(...CHART_VALUES);
+  const chartWidth = 560;
+  const chartHeight = 180;
+  const valueRange = Math.max(1, maxValue - minValue);
+  const xStep = chartWidth / (CHART_VALUES.length - 1);
+  const chartPoints = CHART_VALUES.map((value, index) => {
+    const x = index * xStep;
+    const y = chartHeight - ((value - minValue) / valueRange) * chartHeight;
+    return `${x},${y}`;
+  }).join(' ');
+  const chartAreaPoints = `${chartPoints} ${chartWidth},${chartHeight} 0,${chartHeight}`;
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -96,7 +136,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="admin-shell">
-      <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} />
+      <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
 
       <main className="admin-main">
         <header className="admin-header">
@@ -125,9 +165,27 @@ const AdminDashboard = () => {
               <button className="admin-ghost-btn" type="button">Last 30 Days</button>
             </div>
             <div className="admin-chart">
-              <div className="admin-chart-placeholder" aria-hidden="true">
-                <div className="admin-chart-icon" />
-                <p>Interactive visualization goes here</p>
+              <div className="admin-chart-canvas" role="img" aria-label="Donations trend for the last 7 days">
+                <svg className="admin-chart-svg" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="adminAreaFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2e5cff" stopOpacity="0.28" />
+                      <stop offset="100%" stopColor="#2e5cff" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <polygon className="admin-chart-area" points={chartAreaPoints} />
+                  <polyline className="admin-chart-line" points={chartPoints} />
+                  {CHART_VALUES.map((value, index) => {
+                    const x = index * xStep;
+                    const y = chartHeight - ((value - minValue) / valueRange) * chartHeight;
+                    return <circle key={`${value}-${index}`} className="admin-chart-dot" cx={x} cy={y} r="4" />;
+                  })}
+                </svg>
+                <div className="admin-chart-labels" aria-hidden="true">
+                  {CHART_LABELS.map((label) => (
+                    <span key={label}>{label}</span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -140,8 +198,10 @@ const AdminDashboard = () => {
           <div className="admin-task-list">
             {TASKS.map((task) => (
               <div key={task.title} className={`admin-task admin-tone-${task.tone}`}>
-                <div className="admin-task-icon" aria-hidden="true" />
-                <div>
+                <div className="admin-task-icon" aria-hidden="true">
+                  {TASK_ICONS[task.tone] ?? TASK_ICONS.info}
+                </div>
+                <div className="admin-task-body">
                   <h3>{task.title}</h3>
                   <p>{task.description}</p>
                   <span>{task.due}</span>

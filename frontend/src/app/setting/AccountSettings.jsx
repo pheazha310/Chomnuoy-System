@@ -26,6 +26,26 @@ import {
 import './AccountSettings.css';
 
 const CONNECTED_APPS_PREFS_KEY = 'chomnuoy_connected_apps_preferences';
+const TWO_FACTOR_PREFS_KEY = 'chomnuoy_two_factor_preferences';
+
+const getSessionIdentifier = () => {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    const session = raw ? JSON.parse(raw) : null;
+    const userId = Number(session?.userId);
+    if (Number.isFinite(userId) && userId > 0) return `user_${userId}`;
+    const email = String(session?.email || '').trim().toLowerCase();
+    if (email) return `email_${email}`;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const getScopedKey = (baseKey) => {
+  const identifier = getSessionIdentifier();
+  return identifier ? `${baseKey}_${identifier}` : baseKey;
+};
 
 const Toggle = ({ checked, onChange }) => (
   <button
@@ -88,7 +108,7 @@ export default function AccountSettings() {
     setShowDonations(privacyPreferences.showDonations);
 
     try {
-      const savedConnectedApps = window.localStorage.getItem(CONNECTED_APPS_PREFS_KEY);
+      const savedConnectedApps = window.localStorage.getItem(getScopedKey(CONNECTED_APPS_PREFS_KEY));
       if (!savedConnectedApps) return;
       const parsed = JSON.parse(savedConnectedApps);
       setConnectedApps((previous) => {
@@ -114,6 +134,14 @@ export default function AccountSettings() {
     } catch {
       // Ignore invalid connected-apps preferences.
     }
+
+    try {
+      const savedTwoFactor = window.localStorage.getItem(getScopedKey(TWO_FACTOR_PREFS_KEY));
+      if (savedTwoFactor === 'true') setTwoFactor(true);
+      if (savedTwoFactor === 'false') setTwoFactor(false);
+    } catch {
+      // Ignore invalid two-factor preferences.
+    }
   }, []);
 
   useEffect(() => {
@@ -125,8 +153,12 @@ export default function AccountSettings() {
   }, [publicProfile, showDonations]);
 
   useEffect(() => {
-    window.localStorage.setItem(CONNECTED_APPS_PREFS_KEY, JSON.stringify(connectedApps));
+    window.localStorage.setItem(getScopedKey(CONNECTED_APPS_PREFS_KEY), JSON.stringify(connectedApps));
   }, [connectedApps]);
+
+  useEffect(() => {
+    window.localStorage.setItem(getScopedKey(TWO_FACTOR_PREFS_KEY), String(twoFactor));
+  }, [twoFactor]);
 
   const handlePasswordInput = (field) => (event) => {
     setPasswordError('');
@@ -340,7 +372,8 @@ export default function AccountSettings() {
       session = null;
     }
 
-    const userId = session?.userId;
+    const parsedUserId = Number(session?.userId);
+    const userId = Number.isSafeInteger(parsedUserId) && parsedUserId > 0 ? parsedUserId : null;
     const accountType = session?.accountType || session?.role || 'Donor';
 
     if (!userId) {

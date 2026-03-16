@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Banknote,
@@ -21,81 +21,79 @@ import {
 import { getPrivacyPreferences } from '@/utils/user-preferences';
 import './myDonation.css';
 
-const summaryCards = [
+const SUMMARY_META = [
   {
     title: 'TOTAL LIFETIME GIVING',
-    value: '$24,850.00',
-    subtitle: '12% increase from last year',
     icon: <Banknote className="my-donation-icon-svg" />,
     iconBox: 'my-donation-summary-icon-blue',
     subtitleColor: 'my-donation-summary-subtitle-success',
   },
   {
     title: 'ORGANIZATIONS SUPPORTED',
-    value: '18',
-    subtitle: 'Direct support to local & global entities',
     icon: <Building2 className="my-donation-icon-svg" />,
     iconBox: 'my-donation-summary-icon-green',
     subtitleColor: 'my-donation-summary-subtitle-muted',
   },
   {
     title: 'IMPACT (LIVES TOUCHED)',
-    value: '1,420',
-    subtitle: 'Across environmental & social sectors',
     icon: <HandHeart className="my-donation-icon-svg" />,
     iconBox: 'my-donation-summary-icon-amber',
     subtitleColor: 'my-donation-summary-subtitle-muted',
   },
 ];
 
-const donations = [
-  {
-    date: 'Oct 24, 2023',
-    amount: '$500.00',
-    recipient: 'Global Relief Org',
-    subCause: 'Clean Water Initiative',
-    status: 'COMPLETED',
-    icon: <Waves className="my-donation-cause-icon-svg" />,
-    iconBg: 'my-donation-cause-icon-blue',
-    statusClass: 'my-donation-status-completed',
-  },
-  {
-    date: 'Sep 15, 2023',
-    amount: '$2,000.00',
-    recipient: 'Dr. Sarah Jenkins',
-    subCause: "Girls' Education Fund",
-    status: 'COMPLETED',
-    icon: <GraduationCap className="my-donation-cause-icon-svg" />,
-    iconBg: 'my-donation-cause-icon-amber',
-    statusClass: 'my-donation-status-completed',
-  },
-  {
-    date: 'Aug 28, 2023',
-    amount: '$100.00',
-    recipient: 'HealthWatch International',
-    subCause: 'Community Health Center Support',
-    status: 'RECURRING',
-    icon: <Stethoscope className="my-donation-cause-icon-svg" />,
-    iconBg: 'my-donation-cause-icon-green',
-    statusClass: 'my-donation-status-recurring',
-  },
-  {
-    date: 'Aug 10, 2023',
-    amount: '$5,000.00',
-    recipient: 'Emergency Task Force',
-    subCause: 'Disaster Relief Fund',
-    status: 'PENDING',
-    icon: <HandHeart className="my-donation-cause-icon-svg" />,
-    iconBg: 'my-donation-cause-icon-rose',
-    statusClass: 'my-donation-status-pending',
-  },
-];
+const getUserSession = () => {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const toDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const normalizeStatus = (status) => {
+  const value = String(status || '').toUpperCase();
+  if (value === 'COMPLETED' || value === 'SUCCESS') {
+    return { label: 'COMPLETED', className: 'my-donation-status-completed' };
+  }
+  if (value === 'RECURRING') {
+    return { label: 'RECURRING', className: 'my-donation-status-recurring' };
+  }
+  return { label: 'PENDING', className: 'my-donation-status-pending' };
+};
+
+const getIconByCategory = (category = '') => {
+  const key = String(category).toLowerCase();
+  if (key.includes('water') || key.includes('environment')) {
+    return { icon: <Waves className="my-donation-cause-icon-svg" />, bg: 'my-donation-cause-icon-blue' };
+  }
+  if (key.includes('education') || key.includes('school')) {
+    return { icon: <GraduationCap className="my-donation-cause-icon-svg" />, bg: 'my-donation-cause-icon-amber' };
+  }
+  if (key.includes('health') || key.includes('medical')) {
+    return { icon: <Stethoscope className="my-donation-cause-icon-svg" />, bg: 'my-donation-cause-icon-green' };
+  }
+  return { icon: <HandHeart className="my-donation-cause-icon-svg" />, bg: 'my-donation-cause-icon-rose' };
+};
 
 export default function MyDonation() {
   const [selectedDonation, setSelectedDonation] = useState(null);
   const [shareDonation, setShareDonation] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showAllDonations, setShowAllDonations] = useState(false);
+  const [donations, setDonations] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { showDonations } = getPrivacyPreferences();
   const formatAmount = (amount) => (showDonations ? amount : 'Private');
   const [isTimePopupOpen, setIsTimePopupOpen] = useState(false);
@@ -109,16 +107,174 @@ export default function MyDonation() {
   const statusFilterOptions = ['All Status', 'COMPLETED', 'RECURRING', 'PENDING'];
   const sortOptions = ['Newest', 'Oldest'];
 
-  const latestDonationTime = donations.reduce((latest, item) => {
-    const itemTime = new Date(item.date).getTime();
-    return itemTime > latest ? itemTime : latest;
+  const session = getUserSession();
+  const userId = Number(session?.userId ?? 0);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+    setLoading(true);
+    setError('');
+
+    Promise.allSettled([
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/organizations`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then((results) => {
+        if (!alive) return;
+        const [donationRes, materialRes, campaignRes, organizationRes] = results;
+        const donationData = donationRes.status === 'fulfilled' ? donationRes.value : [];
+        const materialData = materialRes.status === 'fulfilled' ? materialRes.value : [];
+        const campaignData = campaignRes.status === 'fulfilled' ? campaignRes.value : [];
+        const organizationData = organizationRes.status === 'fulfilled' ? organizationRes.value : [];
+
+        const donationList = Array.isArray(donationData) ? donationData : [];
+        const materialList = Array.isArray(materialData) ? materialData : [];
+        const campaignList = Array.isArray(campaignData) ? campaignData : [];
+        const organizationList = Array.isArray(organizationData) ? organizationData : [];
+
+        const filteredDonations = userId
+          ? donationList.filter((item) => Number(item.user_id) === userId)
+          : donationList;
+
+        if (donationRes.status === 'rejected') {
+          setError('Failed to load donations.');
+        }
+
+        setDonations(filteredDonations);
+        setMaterialItems(materialList);
+        setCampaigns(campaignList);
+        setOrganizations(organizationList);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : 'Failed to load donations.');
+        setDonations([]);
+        setMaterialItems([]);
+        setCampaigns([]);
+        setOrganizations([]);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+
+  const donationItems = useMemo(() => {
+    const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
+    const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
+    const materialMap = new Map(materialItems.map((item) => [Number(item.donation_id), item]));
+
+    return donations.map((item) => {
+      const campaign = campaignMap.get(Number(item.campaign_id));
+      const organization = organizationMap.get(Number(item.organization_id));
+      const materialItem = materialMap.get(Number(item.id));
+      const status = normalizeStatus(item.status);
+      const category = campaign?.category || item.category || campaign?.type || 'General';
+      const iconMeta = getIconByCategory(category);
+      const amountText =
+        item.donation_type === 'material'
+          ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
+          : `$${Number(item.amount || 0).toLocaleString()}`;
+      const dateValue = item.created_at ? new Date(item.created_at) : null;
+
+      return {
+        id: item.id,
+        date: dateValue ? dateValue.toLocaleDateString() : '-',
+        dateValue: dateValue ? dateValue.getTime() : 0,
+        amount: amountText,
+        recipient:
+          campaign?.title ||
+          organization?.name ||
+          item.recipient ||
+          'Organization',
+        subCause:
+          item.sub_cause ||
+          campaign?.title ||
+          campaign?.category ||
+          item.notes ||
+          'General Support',
+        status: status.label,
+        statusClass: status.className,
+        icon: iconMeta.icon,
+        iconBg: iconMeta.bg,
+      };
+    });
+  }, [donations, materialItems, campaigns, organizations]);
+
+  const latestDonationTime = donationItems.reduce((latest, item) => {
+    return item.dateValue > latest ? item.dateValue : latest;
   }, 0);
   const referenceDate = new Date(latestDonationTime || Date.now());
 
-  const isInTimeRange = (itemDate) => {
+  const summaryCards = useMemo(() => {
+    const now = new Date();
+    const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const moneyDonations = donations.filter((row) => row.donation_type !== 'material');
+    const totalFunds = moneyDonations.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const thisMonthFunds = moneyDonations
+      .filter((row) => {
+        const date = toDate(row.created_at);
+        return date && date >= startThisMonth;
+      })
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const lastMonthFunds = moneyDonations
+      .filter((row) => {
+        const date = toDate(row.created_at);
+        return date && date >= startLastMonth && date <= endLastMonth;
+      })
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+    const percentChange = (current, previous) => {
+      if (!previous) return '0.0% increase from last month';
+      const change = ((current - previous) / previous) * 100;
+      const label = change >= 0 ? 'increase' : 'decrease';
+      return `${Math.abs(change).toFixed(1)}% ${label} from last month`;
+    };
+
+    const organizationIds = new Set(
+      donations.map((row) => Number(row.organization_id)).filter(Boolean),
+    );
+    const uniqueOrganizations = organizationIds.size;
+
+    const totalItems = materialItems.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0,
+    );
+    const impactCount = totalItems + donations.length;
+
+    return [
+      {
+        ...SUMMARY_META[0],
+        value: showDonations ? `$${totalFunds.toLocaleString()}` : 'Private',
+        subtitle: percentChange(thisMonthFunds, lastMonthFunds),
+      },
+      {
+        ...SUMMARY_META[1],
+        value: uniqueOrganizations.toLocaleString(),
+        subtitle: 'Direct support to local & global entities',
+      },
+      {
+        ...SUMMARY_META[2],
+        value: impactCount.toLocaleString(),
+        subtitle: 'Across environmental & social sectors',
+      },
+    ];
+  }, [donations, materialItems, showDonations]);
+
+  const isInTimeRange = useCallback((itemDateValue) => {
     if (timeFilterLabel === 'All Time') return true;
 
-    const date = new Date(itemDate);
+    const date = new Date(itemDateValue);
     if (Number.isNaN(date.getTime())) return false;
 
     const itemYear = date.getFullYear();
@@ -146,17 +302,26 @@ export default function MyDonation() {
     }
 
     return true;
-  };
+  }, [referenceDate, timeFilterLabel]);
 
-  const filteredDonations = donations
-    .filter((item) => isInTimeRange(item.date))
-    .filter((item) => statusFilter === 'All Status' || item.status === statusFilter)
-    .sort((a, b) => {
-      const aDate = new Date(a.date).getTime();
-      const bDate = new Date(b.date).getTime();
-      if (sortOrder === 'Oldest') return aDate - bDate;
-      return bDate - aDate;
-    });
+  const filteredDonations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return donationItems
+      .filter((item) => isInTimeRange(item.dateValue || item.date))
+      .filter((item) => statusFilter === 'All Status' || item.status === statusFilter)
+      .filter((item) => {
+        if (!query) return true;
+        const haystack = [item.recipient, item.subCause, item.amount, item.status]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      })
+      .sort((a, b) => {
+        if (sortOrder === 'Oldest') return a.dateValue - b.dateValue;
+        return b.dateValue - a.dateValue;
+      });
+  }, [donationItems, isInTimeRange, searchTerm, sortOrder, statusFilter]);
 
   const visibleDonations = showAllDonations ? filteredDonations : filteredDonations.slice(0, 3);
 
@@ -277,9 +442,9 @@ export default function MyDonation() {
 
   const getAllRecordsHtml = () => {
     const issuedOn = escapeHtml(new Date().toLocaleString());
-    const totalRecords = donations.length;
+    const totalRecords = donationItems.length;
 
-    const rowsHtml = donations
+    const rowsHtml = donationItems
       .map(
         (item, index) => `
       <tr>
@@ -493,6 +658,11 @@ export default function MyDonation() {
               type="text"
               placeholder="Search by recipient or project..."
               className="my-donation-search-input"
+              value={searchTerm}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setShowAllDonations(false);
+              }}
             />
           </label>
           <div className="my-donation-time-filter-wrap" ref={timeFilterRef}>
@@ -578,52 +748,69 @@ export default function MyDonation() {
         </section>
 
         <section className="my-donation-list">
-          {visibleDonations.map((item) => (
-            <article key={`${item.recipient}-${item.amount}`} className="my-donation-row">
-              <div>
-                <p className="my-donation-label">DATE</p>
-                <p className="my-donation-date">{item.date}</p>
-              </div>
-              <div>
-                <p className="my-donation-label">AMOUNT</p>
-                <p className="my-donation-amount">{formatAmount(item.amount)}</p>
-              </div>
-              <div>
-                <p className="my-donation-label">CAUSE & RECIPIENT</p>
-                <div className="my-donation-recipient-wrap">
-                  <span className={`my-donation-cause-icon ${item.iconBg}`}>{item.icon}</span>
+          {loading ? (
+            <div className="my-donation-row">
+              <p className="my-donation-date">Loading donations...</p>
+            </div>
+          ) : null}
+          {error ? (
+            <div className="my-donation-row">
+              <p className="my-donation-date">{error}</p>
+            </div>
+          ) : null}
+          {!loading && !error && visibleDonations.length === 0 ? (
+            <div className="my-donation-row">
+              <p className="my-donation-date">No donations match your filters.</p>
+            </div>
+          ) : null}
+          {!loading && !error
+            ? visibleDonations.map((item) => (
+                <article key={`${item.recipient}-${item.amount}`} className="my-donation-row">
                   <div>
-                    <p className="my-donation-recipient">RECIPIENT: {item.recipient}</p>
-                    <p className="my-donation-sub-cause">Sub-cause: {item.subCause}</p>
+                    <p className="my-donation-label">DATE</p>
+                    <p className="my-donation-date">{item.date}</p>
                   </div>
-                </div>
-              </div>
-              <div className="my-donation-status-wrap">
-                <span className={`my-donation-status ${item.statusClass}`}>{item.status}</span>
-              </div>
-              <button
-                type="button"
-                className="my-donation-icon-btn"
-                aria-label="Save donation"
-                onClick={() => handleOpenSavePopup(item)}
-              >
-                <Download className="my-donation-action-icon" />
-              </button>
-              <div className="my-donation-actions">
-                <button
-                  type="button"
-                  className="my-donation-icon-btn"
-                  aria-label="Share donation"
-                  onClick={() => handleOpenSharePopup(item)}
-                >
-                  <Share2 className="my-donation-action-icon" strokeWidth={2.7} />
-                </button>
-                <Link to="/donations/view-detail" className="my-donation-detail-btn">
-                  View Details
-                </Link>
-              </div>
-            </article>
-          ))}
+                  <div>
+                    <p className="my-donation-label">AMOUNT</p>
+                    <p className="my-donation-amount">{formatAmount(item.amount)}</p>
+                  </div>
+                  <div>
+                    <p className="my-donation-label">CAUSE & RECIPIENT</p>
+                    <div className="my-donation-recipient-wrap">
+                      <span className={`my-donation-cause-icon ${item.iconBg}`}>{item.icon}</span>
+                      <div>
+                        <p className="my-donation-recipient">RECIPIENT: {item.recipient}</p>
+                        <p className="my-donation-sub-cause">Sub-cause: {item.subCause}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="my-donation-status-wrap">
+                    <span className={`my-donation-status ${item.statusClass}`}>{item.status}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="my-donation-icon-btn"
+                    aria-label="Save donation"
+                    onClick={() => handleOpenSavePopup(item)}
+                  >
+                    <Download className="my-donation-action-icon" />
+                  </button>
+                  <div className="my-donation-actions">
+                    <button
+                      type="button"
+                      className="my-donation-icon-btn"
+                      aria-label="Share donation"
+                      onClick={() => handleOpenSharePopup(item)}
+                    >
+                      <Share2 className="my-donation-action-icon" strokeWidth={2.7} />
+                    </button>
+                    <Link to="/donations/view-detail" className="my-donation-detail-btn">
+                      View Details
+                    </Link>
+                  </div>
+                </article>
+              ))
+            : null}
         </section>
 
         <div className="my-donation-bottom-action">

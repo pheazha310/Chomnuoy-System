@@ -1,5 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
-import { campaigns } from '../../data/campaigns';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import '../css/Campaigns.css';
 
 function formatCurrency(amount) {
@@ -87,8 +86,31 @@ function CampaignsPage() {
   const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const sortMenuRef = useRef(null);
   const itemsPerPage = 4;
+
+  const getStorageFileUrl = (path) => {
+    if (!path) return '';
+    const rawPath = String(path).trim();
+    if (
+      rawPath.startsWith('http://') ||
+      rawPath.startsWith('https://') ||
+      rawPath.startsWith('blob:') ||
+      rawPath.startsWith('data:')
+    ) {
+      return rawPath;
+    }
+    const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const appBase = apiBase.replace(/\/api\/?$/, '');
+    if (normalizedPath.startsWith('storage/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    return `${appBase}/storage/${normalizedPath}`;
+  };
 
   useEffect(() => {
     function handlePointerDown(event) {
@@ -101,6 +123,55 @@ function CampaignsPage() {
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
 
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let active = true;
+    setLoading(true);
+    setError('');
+
+    fetch(`${apiBase}/campaigns`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load campaigns (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        const items = Array.isArray(data) ? data : [];
+        const mapped = items
+          .filter((item) => {
+            const status = String(item.status || '').toLowerCase();
+            return !status || status === 'active';
+          })
+          .map((item) => ({
+            id: item.id,
+            title: item.title || 'Untitled Campaign',
+            summary: item.summary || item.description || 'No description available.',
+            category: item.category || 'Environment',
+            raisedAmount: Number(item.current_amount || 0),
+            goalAmount: Math.max(1, Number(item.goal_amount || 0)),
+            image: getStorageFileUrl(item.image_path) || '',
+            createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
+          }));
+        setCampaigns(mapped);
+        setCurrentPage(1);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : 'Failed to load campaigns.');
+        setCampaigns([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const filteredCampaigns = useMemo(() => {
     const byCategory = campaigns.filter((campaign) => {
       if (selectedCategory === 'All Campaigns') {
@@ -111,8 +182,8 @@ function CampaignsPage() {
     });
 
     const urgencySorted = [...byCategory].sort((a, b) => {
-      const ratioA = a.raisedAmount / a.goalAmount;
-      const ratioB = b.raisedAmount / b.goalAmount;
+      const ratioA = a.goalAmount ? a.raisedAmount / a.goalAmount : 0;
+      const ratioB = b.goalAmount ? b.raisedAmount / b.goalAmount : 0;
 
       if (selectedUrgency === 'Urgent') {
         return ratioA - ratioB;
@@ -125,37 +196,27 @@ function CampaignsPage() {
       return b.raisedAmount - a.raisedAmount;
     });
 
-    if (!verifiedOnly) {
-      if (selectedSort === 'Most Funded') {
-        return [...urgencySorted].sort((a, b) => b.raisedAmount - a.raisedAmount);
-      }
-
-      if (selectedSort === 'Ending Soon') {
-        return [...urgencySorted].sort((a, b) => {
-          const remainingA = a.goalAmount - a.raisedAmount;
-          const remainingB = b.goalAmount - b.raisedAmount;
-          return remainingA - remainingB;
-        });
-      }
-
-      return urgencySorted;
-    }
-
-    const verifiedList = urgencySorted.filter((_, index) => index % 2 === 0);
+    const baseList = verifiedOnly
+      ? urgencySorted.filter((_, index) => index % 2 === 0)
+      : urgencySorted;
 
     if (selectedSort === 'Most Funded') {
-      return [...verifiedList].sort((a, b) => b.raisedAmount - a.raisedAmount);
+      return [...baseList].sort((a, b) => b.raisedAmount - a.raisedAmount);
     }
 
     if (selectedSort === 'Ending Soon') {
-      return [...verifiedList].sort((a, b) => {
+      return [...baseList].sort((a, b) => {
         const remainingA = a.goalAmount - a.raisedAmount;
         const remainingB = b.goalAmount - b.raisedAmount;
         return remainingA - remainingB;
       });
     }
 
-    return verifiedList;
+    if (selectedSort === 'Most Recent') {
+      return [...baseList].sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    return baseList;
   }, [selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
@@ -267,6 +328,9 @@ function CampaignsPage() {
           </div>
         </header>
 
+        {loading ? <p className="campaign-loading">Loading campaigns...</p> : null}
+        {error ? <p className="campaign-error">{error}</p> : null}
+
         <section key={gridAnimationKey} className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">
           {paginatedCampaigns.map((campaign, index) => {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
@@ -324,6 +388,9 @@ function CampaignsPage() {
               </article>
             );
           })}
+          {!loading && !error && paginatedCampaigns.length === 0 ? (
+            <p className="campaign-empty">No campaigns match your filters.</p>
+          ) : null}
         </section>
 
         <nav className="campaign-pagination" aria-label="Campaign pages">

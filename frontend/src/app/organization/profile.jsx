@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
@@ -21,17 +21,41 @@ function getStoredProfile() {
   }
 }
 
+function formatJoined(value) {
+  if (!value) return 'Recently';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recently';
+  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return '0';
+  return number.toLocaleString('en-US');
+}
+
+function formatMoney(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return '$0';
+  return `$${number.toLocaleString('en-US')}`;
+}
+
 export default function OrganizationProfilePage() {
   const session = useMemo(() => getOrganizationSession(), []);
   const storedProfile = useMemo(() => getStoredProfile(), []);
-  const organizationName = storedProfile?.name || session?.name || 'Organization';
+  const [orgData, setOrgData] = useState(null);
+  const [stats, setStats] = useState({ totalCampaigns: 0, totalDonations: 0, totalDonors: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const organizationName = storedProfile?.name || orgData?.name || session?.name || 'Organization';
   const initials = organizationName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('') || 'OR';
-  const logoUrl = storedProfile?.logo || '';
+  const logoUrl = storedProfile?.logo || orgData?.logo || orgData?.logo_url || '';
 
   const fallbackSocials = [
     { label: 'Facebook', value: 'facebook.com/chomnuoy' },
@@ -50,26 +74,82 @@ export default function OrganizationProfilePage() {
       : fallbackSocials;
 
   const mapQuery = encodeURIComponent(
-    storedProfile?.mapQuery || storedProfile?.location || 'Passerelles numériques Cambodia (PNC)'
+    storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
   );
+
+  useEffect(() => {
+    const sessionData = getOrganizationSession();
+    const organizationId = Number(sessionData?.userId ?? 0);
+    if (!organizationId) {
+      setError('Your session is missing an account id. Please sign in again.');
+      setLoading(false);
+      return;
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let active = true;
+    setLoading(true);
+    setError('');
+
+    Promise.all([
+      fetch(`${apiBase}/organizations/${organizationId}`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([organization, campaignsData, donationsData]) => {
+        if (!active) return;
+        setOrgData(organization);
+
+        const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
+        const donations = Array.isArray(donationsData) ? donationsData : [];
+        const filteredCampaigns = campaigns.filter(
+          (item) => Number(item.organization_id) === organizationId,
+        );
+        const filteredDonations = donations.filter(
+          (item) => Number(item.organization_id) === organizationId,
+        );
+        const donorIds = new Set(
+          filteredDonations.map((item) => Number(item.user_id)).filter(Boolean),
+        );
+        const totalDonations = filteredDonations.reduce(
+          (sum, item) => sum + Number(item.amount || 0),
+          0,
+        );
+
+        setStats({
+          totalCampaigns: filteredCampaigns.length,
+          totalDonations,
+          totalDonors: donorIds.size,
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load organization profile.');
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const profile = {
     name: organizationName,
-    joined: storedProfile?.joined || 'October 2021',
-    about:
-      storedProfile?.about ||
-      'We are dedicated to preserving global biodiversity through community-led conservation and advocacy. Our programs range from reforestation initiatives to ecosystem restoration and wildlife corridor mapping.',
+    joined: storedProfile?.joined || formatJoined(orgData?.created_at),
+    about: storedProfile?.about || orgData?.description || 'Organization profile is being updated.',
     contact: {
-      email: storedProfile?.email || session?.email || 'contact@chomnuoy.org',
-      phone: storedProfile?.phone || '+1 (555) 123-4567',
-      location:
-        storedProfile?.location ||
-        'Passerelles numériques Cambodia (PNC), BP 511, Phum Tropeang Chhuk (Borey Sorla) Sangtak, Street 371, Phnom Penh, Cambodia',
-      website: storedProfile?.website || 'www.chomnuoy.org',
+      email: storedProfile?.email || orgData?.email || session?.email || 'contact@chomnuoy.org',
+      phone: storedProfile?.phone || orgData?.phone || 'N/A',
+      location: storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
+      website: storedProfile?.website || orgData?.website || 'chomnuoy.org',
     },
     stats: [
-      { label: 'Total Campaigns', value: storedProfile?.totalCampaigns || '124' },
-      { label: 'Total Donations', value: storedProfile?.totalDonations || '$2.4M' },
-      { label: 'Number of Donors', value: storedProfile?.totalDonors || '8,902' },
+      { label: 'Total Campaigns', value: storedProfile?.totalCampaigns || formatCompactNumber(stats.totalCampaigns) },
+      { label: 'Total Donations', value: storedProfile?.totalDonations || formatMoney(stats.totalDonations) },
+      { label: 'Number of Donors', value: storedProfile?.totalDonors || formatCompactNumber(stats.totalDonors) },
     ],
     impactAreas: storedProfile?.impactAreas || ['Amazon Basin', 'Southeast Asian Rainforests', 'Arctic Circle'],
     socials: normalizedSocials,
@@ -81,13 +161,19 @@ export default function OrganizationProfilePage() {
       <main className="org-main">
         <section className="org-profile-header">
           <div className="org-profile-header-left">
-            {logoUrl ? (
-              <img src={logoUrl} alt={`${profile.name} logo`} className="org-profile-logo-img" />
-            ) : (
-              <span className="org-profile-logo" aria-hidden="true">{initials}</span>
-            )}
-            <div>
-              <h1>{profile.name}</h1>
+            <div className="org-profile-pill" aria-label="Organization profile">
+              <span className="org-profile-pill-avatar" aria-hidden="true">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="" className="org-profile-pill-logo" />
+                ) : (
+                  initials
+                )}
+                <span className="org-profile-pill-status" />
+              </span>
+              <div className="org-profile-pill-meta">
+                <p className="org-profile-pill-name">{profile.name}</p>
+                <p className="org-profile-pill-role">Organization</p>
+              </div>
             </div>
           </div>
           <div className="org-profile-header-actions">
@@ -97,6 +183,12 @@ export default function OrganizationProfilePage() {
           </div>
         </section>
 
+        {error ? (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        ) : null}
+
         <section className="org-profile-grid">
           <div className="org-profile-left">
             <article className="org-profile-card">
@@ -104,7 +196,7 @@ export default function OrganizationProfilePage() {
                 <h2>About {profile.name}</h2>
                 <span className="org-profile-meta">Joined {profile.joined}</span>
               </div>
-              <p className="org-profile-body">{profile.about}</p>
+              <p className="org-profile-body">{loading ? 'Loading profile details...' : profile.about}</p>
             </article>
 
             <div className="org-profile-stats">
@@ -122,7 +214,7 @@ export default function OrganizationProfilePage() {
                 <span className="org-profile-meta">{profile.contact.location}</span>
               </div>
               <iframe
-                title="PNC Map"
+                title="Organization Map"
                 className="org-profile-map-embed"
                 src={`https://www.google.com/maps?q=${mapQuery}&output=embed`}
                 loading="lazy"

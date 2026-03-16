@@ -5,7 +5,6 @@ import {
   RATING_OPTIONS,
   SORT_OPTIONS,
   getPaginationItems,
-  organizations,
 } from './organizationShared';
 import '../css/organization.css';
 
@@ -21,6 +20,9 @@ function OrganizationBeforeLogin() {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isRatingMenuOpen, setIsRatingMenuOpen] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [organizations, setOrganizations] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const categoryMenuRef = useRef(null);
   const ratingMenuRef = useRef(null);
@@ -29,22 +31,22 @@ function OrganizationBeforeLogin() {
   const categoryOptions = useMemo(() => {
     const categories = new Set();
     organizations.forEach((organization) => {
-      organization.tags.forEach((tag) => categories.add(tag));
+      (organization.tags || []).forEach((tag) => categories.add(tag));
     });
     return [...categories].sort((a, b) => a.localeCompare(b));
-  }, []);
+  }, [organizations]);
 
   const filteredOrganizations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     const filtered = organizations
       .filter((organization) => {
         if (!query) return true;
-        const searchableText = `${organization.name} ${organization.summary} ${organization.tags.join(' ')}`.toLowerCase();
+        const searchableText = `${organization.name} ${organization.summary} ${(organization.tags || []).join(' ')}`.toLowerCase();
         return searchableText.includes(query);
       })
       .filter((organization) => {
         if (selectedCategory === 'all') return true;
-        return organization.tags.includes(selectedCategory);
+        return (organization.tags || []).includes(selectedCategory);
       })
       .filter((organization) => {
         if (ratingFilter === 'all') return true;
@@ -82,6 +84,75 @@ function OrganizationBeforeLogin() {
   useEffect(() => {
     setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
   }, [totalPages]);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let active = true;
+    setLoading(true);
+    setError('');
+
+    const getStorageFileUrl = (path) => {
+      if (!path) return '';
+      const rawPath = String(path).trim();
+      if (
+        rawPath.startsWith('http://') ||
+        rawPath.startsWith('https://') ||
+        rawPath.startsWith('blob:') ||
+        rawPath.startsWith('data:')
+      ) {
+        return rawPath;
+      }
+      const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+      const appBase = apiBase.replace(/\/api\/?$/, '');
+      if (normalizedPath.startsWith('storage/')) {
+        return `${appBase}/${normalizedPath}`;
+      }
+      return `${appBase}/storage/${normalizedPath}`;
+    };
+
+    fetch(`${apiBase}/organizations`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load organizations (${response.status})`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        const items = Array.isArray(data) ? data : [];
+        const mapped = items.map((item) => {
+          const rating = Number(item.rating || 4.5);
+          const reviews = item.reviews || item.review_count || '—';
+          const tags = Array.isArray(item.tags)
+            ? item.tags
+            : [item.category || item.type || 'General'].filter(Boolean);
+
+          return {
+            id: item.id,
+            name: item.name || 'Organization',
+            summary: item.mission || item.summary || item.description || 'No description available.',
+            tags,
+            rating: Number.isFinite(rating) ? rating : 4.5,
+            reviews,
+            image: getStorageFileUrl(item.logo || item.logo_path || item.image_path || item.cover_image) || '',
+          };
+        });
+        setOrganizations(mapped);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : 'Failed to load organizations.');
+        setOrganizations([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const query = new URLSearchParams(location.search).get('search')?.trim() || '';
@@ -296,6 +367,8 @@ function OrganizationBeforeLogin() {
       </section>
 
       <section className="organization-grid" aria-label="Organization List">
+        {loading ? <p>Loading organizations...</p> : null}
+        {error ? <p className="text-red-500">{error}</p> : null}
         {paginatedOrganizations.map((organization) => (
           <article key={organization.id} className="organization-card">
             <img src={organization.image} alt={organization.name} />
@@ -325,7 +398,9 @@ function OrganizationBeforeLogin() {
         ))}
       </section>
 
-      {filteredOrganizations.length === 0 ? <p>No organizations found for "{searchTerm}".</p> : null}
+      {!loading && !error && filteredOrganizations.length === 0 ? (
+        <p>No organizations found for "{searchTerm}".</p>
+      ) : null}
 
       <nav className="pagination" aria-label="Pagination">
         <button type="button" aria-label="Previous page" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>

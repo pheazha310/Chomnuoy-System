@@ -200,6 +200,8 @@ class AuthControllerRegister extends Controller
             $roleName = Role::query()
                 ->where('id', $user->role_id)
                 ->value('role_name') ?? 'Donor';
+            $user->last_seen_at = now();
+            $user->save();
             Log::info('Auth login success', [
                 'email' => $email,
                 'account_type' => $roleName,

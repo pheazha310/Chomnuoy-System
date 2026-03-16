@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -15,6 +16,7 @@ import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
@@ -23,12 +25,17 @@ import OrganizationDashboardPage from '@/app/organization/page.jsx';
 import OrganizationReports from '@/app/organization/OrganizationReports.jsx';
 import OrganizationDonationsPage from '@/app/organization/donations.jsx';
 import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
+import OrganizationCampaignCreatePage from '@/app/organization/OrganizationCampaignCreatePage.jsx';
+import OrganizationCampaignDetailPage from '@/app/organization/OrganizationCampaignDetailPage.jsx';
 import OrganizationProfilePage from '@/app/organization/profile.jsx';
 import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
 import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
 import AdminPage from '@/app/admin/page.jsx';
+import UserDashboard from '@/app/admin/userDashboard.jsx';
+import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
+import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -46,7 +53,14 @@ function getSafeRedirect(search) {
 function getSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed) return null;
+    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
+      const normalized = { ...parsed, isLoggedIn: true };
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
+      return normalized;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -54,13 +68,23 @@ function getSession() {
 
 function getStorageFileUrl(path) {
   if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) {
-    return path;
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
   }
 
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
-  return `${appBase}/storage/${path}`;
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
 }
 
 function getProfileAvatarOverrides() {
@@ -76,7 +100,9 @@ function resolveAvatar(profile) {
   return (
     profile?.avatar ||
     profile?.avatar_url ||
-    getStorageFileUrl(profile?.avatar_path) ||
+    getStorageFileUrl(profile?.avatar_path || profile?.profile_image || profile?.image_url) ||
+    profile?.profile_image ||
+    profile?.image_url ||
     ''
   );
 }
@@ -86,6 +112,22 @@ function buildAvatarOverrideKey(role, profile, fallbackEmail = '') {
   const email = String(profile?.email || fallbackEmail || '').trim().toLowerCase();
   const identity = profile?.id ? `id:${profile.id}` : (email ? `email:${email}` : 'anonymous');
   return `${normalizedRole}:${identity}`;
+}
+
+function normalizeAccountId(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (!/^\d+$/.test(String(value))) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
 }
 
 function CampaignDetailRoute() {
@@ -136,6 +178,7 @@ function RequireAdminAuth({ children }) {
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
+  const redirectParam = new URLSearchParams(location.search).get('redirect');
   const redirectTo = getSafeRedirect(location.search);
   const loginEmail = new URLSearchParams(location.search).get('email');
 
@@ -165,7 +208,7 @@ function LoginRoute() {
         email: user.email || loginEmail || '',
         impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
         avatar: resolvedAvatar,
-        userId: user.id || null,
+        userId: normalizeAccountId(user.id),
         accountType: normalizedAccountType,
         logoutRedirectTo: redirectTo,
         avatarOverrideKey: avatarOverrideKey || undefined,
@@ -182,6 +225,10 @@ function LoginRoute() {
       }
       if (isAdmin) {
         navigate('/admin');
+        return;
+      }
+      if (!redirectParam) {
+        navigate('/profile');
         return;
       }
       navigate(redirectTo);
@@ -202,7 +249,7 @@ function LoginRoute() {
       email: profile?.email || loginEmail || '',
       impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
       avatar: resolvedAvatar,
-      userId: profile.id,
+      userId: normalizeAccountId(profile?.id),
       accountType: normalizedAccountType,
       logoutRedirectTo: redirectTo,
       avatarOverrideKey: avatarOverrideKey || undefined,
@@ -219,6 +266,10 @@ function LoginRoute() {
     }
     if (isAdmin) {
       navigate('/admin');
+      return;
+    }
+    if (!redirectParam) {
+      navigate('/profile');
       return;
     }
     navigate(redirectTo);
@@ -286,12 +337,32 @@ export default function App() {
     location.pathname === '/register' ||
     location.pathname.startsWith('/organization/') ||
     location.pathname.startsWith('/admin');
+  const session = getSession();
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+  useEffect(() => {
+    if (!session?.isLoggedIn || !session?.userId) return;
+    const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
+    if (roleValue === 'admin' || roleValue === 'organization') return;
+
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const ping = () => {
+      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => {});
+    };
+
+    ping();
+    const intervalId = window.setInterval(ping, 5 * 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, [apiBase, session?.isLoggedIn, session?.role, session?.accountType, session?.userId]);
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
         <Route path={ROUTES.HOME} element={<HomeRoute />} />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
@@ -337,10 +408,50 @@ export default function App() {
           )}
         />
         <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignDetailPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationCampaignCreatePage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
           path="/admin"
           element={(
             <RequireAdminAuth>
               <AdminPage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/users"
+          element={(
+            <RequireAdminAuth>
+              <UserDashboard />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/users/:id"
+          element={(
+            <RequireAdminAuth>
+              <AdminUserProfilePage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/organizations"
+          element={(
+            <RequireAdminAuth>
+              <OrganizationDashboard />
             </RequireAdminAuth>
           )}
         />

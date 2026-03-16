@@ -33,6 +33,15 @@ body {
   padding: 3rem 1.5rem 4rem;
 }
 
+.org-animate-page .organizations-header {
+  animation: orgFadeUp 700ms ease both;
+}
+
+.org-animate-page .organizations-controls {
+  animation: orgFadeUp 760ms ease both;
+  animation-delay: 120ms;
+}
+
 .organizations-content::before {
   content: '';
   position: fixed;
@@ -43,6 +52,21 @@ body {
     linear-gradient(170deg, #f8fbff 0%, #edf4fc 52%, #e6eef8 100%);
   z-index: -1;
   pointer-events: none;
+  animation: orgSkyDrift 18s ease-in-out infinite;
+}
+
+.organizations-content::after {
+  content: '';
+  position: fixed;
+  inset: -10% -10% auto auto;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0));
+  filter: blur(6px);
+  opacity: 0.6;
+  z-index: -1;
+  pointer-events: none;
+  animation: orgOrbFloat 14s ease-in-out infinite;
 }
 
 .organizations-header h1 {
@@ -90,6 +114,15 @@ body {
   text-shadow: none;
 }
 
+.org-animate-page .organizations-header h1 {
+  animation: orgHeadlineReveal 900ms ease both;
+}
+
+.org-animate-page .organizations-header p {
+  animation: orgHeadlineReveal 1000ms ease both;
+  animation-delay: 120ms;
+}
+
 @keyframes headingGlow {
   0%,
   100% {
@@ -112,6 +145,38 @@ body {
   }
 }
 
+@keyframes orgFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes orgCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.org-animate-page .search-wrap {
+  animation: orgFadeUp 820ms ease both;
+  animation-delay: 180ms;
+}
+
+.org-animate-page .filter-row {
+  animation: orgFadeUp 860ms ease both;
+  animation-delay: 240ms;
+}
+
 .organizations-controls {
   margin-top: 2.4rem;
 }
@@ -129,6 +194,10 @@ body {
   font-size: 1.08rem;
   padding: 0.95rem 4rem 0.95rem 1rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  animation: orgFocusPulse 1200ms ease-in-out;
 }
 
 .search-input:focus {
@@ -376,12 +445,46 @@ body {
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  position: relative;
+}
+
+.org-animate-card {
+  animation: orgCardIn 650ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 50% 80%;
+  will-change: transform, opacity;
+}
+
+.organization-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  border-color: rgba(29, 111, 232, 0.35);
+}
+
+.organization-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0) 20%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 255, 255, 0) 80%);
+  transform: translateX(-120%);
+  transition: transform 500ms ease;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.organization-card:hover::after {
+  transform: translateX(120%);
 }
 
 .organization-card img {
   width: 100%;
   height: 210px;
   object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.organization-card:hover img {
+  transform: scale(1.03);
 }
 
 .card-body {
@@ -428,6 +531,13 @@ body {
   font-weight: 600;
   padding: 0.28rem 0.52rem;
   border-radius: 8px;
+  transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.organization-card:hover .tag {
+  background: #e0ecff;
+  color: #1d4ed8;
+  transform: translateY(-1px);
 }
 
 .card-actions {
@@ -523,6 +633,68 @@ body {
   stroke-width: 2;
 }
 
+@keyframes orgHeadlineReveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes orgSkyDrift {
+  0%,
+  100% {
+    filter: saturate(1);
+    transform: translateY(0);
+  }
+  50% {
+    filter: saturate(1.05);
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes orgOrbFloat {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(-24px, 16px);
+    opacity: 0.75;
+  }
+}
+
+@keyframes orgFocusPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(29, 111, 232, 0.14);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(29, 111, 232, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .org-animate-page .organizations-header,
+  .org-animate-page .organizations-controls,
+  .org-animate-card {
+    animation: none !important;
+    transform: none !important;
+  }
+  .organizations-content::before,
+  .organizations-content::after,
+  .organization-card::after,
+  .search-input:focus,
+  .organization-card img {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 @media (max-width: 1024px) {
   .organization-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -552,6 +724,23 @@ body {
   min-height: calc(100vh - 72px);
   padding: 1rem 1.1rem 2.2rem;
   font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.donor-animate-page {
+  animation: donorFadeUp 720ms ease both;
+}
+
+.donor-animate-header {
+  animation: donorFadeUp 720ms ease both;
+  animation-delay: 120ms;
+}
+
+.donor-animate-sidebar {
+  animation: donorSlideIn 720ms ease both;
+}
+
+.donor-animate-panel {
+  animation: donorPanelIn 740ms ease both;
 }
 
 .donor-org-layout {
@@ -750,6 +939,27 @@ body {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.donor-animate-card {
+  animation: donorCardIn 640ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 50% 80%;
+  will-change: transform, opacity;
+}
+
+.donor-org-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.14);
+  border-color: rgba(29, 111, 232, 0.35);
+}
+
+.donor-org-image-wrap img {
+  transition: transform 220ms ease;
+}
+
+.donor-org-card:hover .donor-org-image-wrap img {
+  transform: scale(1.03);
 }
 
 .donor-org-image-wrap {
@@ -929,6 +1139,60 @@ body {
   color: #fff;
 }
 
+@keyframes donorFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes donorSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes donorPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes donorCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donor-animate-page,
+  .donor-animate-header,
+  .donor-animate-sidebar,
+  .donor-animate-panel,
+  .donor-animate-card {
+    animation: none !important;
+    transform: none !important;
+  }
+}
 .donation-modal-overlay {
   position: fixed;
   inset: 0;

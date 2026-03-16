@@ -1,31 +1,29 @@
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import { Download, FileText, Filter, MoreVertical, Package, Users, Wallet } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-const donationStats = [
-  { label: 'Total Funds Raised', value: '$45,280.00', change: '+12.5%', icon: Wallet, tone: 'green' },
-  { label: 'Total Material Items', value: '1,240 items', change: '+5.2%', icon: Package, tone: 'blue' },
-  { label: 'Total Unique Donors', value: '856', change: '+8.1%', icon: Users, tone: 'amber' },
-];
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
-const donationRows = [
-  { donor: 'Alice Merton', initials: 'AM', donationType: 'Money', amount: '$1,200.00', status: 'Completed', date: 'Oct 24, 2023' },
-  { donor: 'Robert Kincaid', initials: 'RK', donationType: 'Material', amount: '50x Medical Kits', status: 'Pending', date: 'Oct 23, 2023' },
-  { donor: 'Jessica Park', initials: 'JP', donationType: 'Money', amount: '$50.00', status: 'Completed', date: 'Oct 22, 2023' },
-  { donor: 'Liam Murphy', initials: 'LM', donationType: 'Material', amount: '120x School Supplies', status: 'Completed', date: 'Oct 21, 2023' },
-  { donor: 'Sarah Chen', initials: 'SC', donationType: 'Money', amount: '$2,500.00', status: 'Completed', date: 'Oct 20, 2023' },
-  { donor: 'Noah Bennett', initials: 'NB', donationType: 'Material', amount: '10x Wheelchairs', status: 'Pending', date: 'Oct 19, 2023' },
-  { donor: 'Mia Tran', initials: 'MT', donationType: 'Money', amount: '$800.00', status: 'Completed', date: 'Oct 18, 2023' },
-  { donor: 'Daniel Kim', initials: 'DK', donationType: 'Money', amount: '$150.00', status: 'Completed', date: 'Oct 17, 2023' },
-  { donor: 'Olivia Sun', initials: 'OS', donationType: 'Material', amount: '35x Food Packages', status: 'Completed', date: 'Oct 16, 2023' },
-  { donor: 'Ava Carter', initials: 'AC', donationType: 'Money', amount: '$975.00', status: 'Completed', date: 'Oct 15, 2023' },
-  { donor: 'Ethan Lee', initials: 'EL', donationType: 'Material', amount: '42x School Bags', status: 'Pending', date: 'Oct 14, 2023' },
-  { donor: 'Grace Wong', initials: 'GW', donationType: 'Money', amount: '$430.00', status: 'Completed', date: 'Oct 13, 2023' },
-  { donor: 'Henry Chou', initials: 'HC', donationType: 'Money', amount: '$1,640.00', status: 'Completed', date: 'Oct 12, 2023' },
-  { donor: 'Isabella Kay', initials: 'IK', donationType: 'Material', amount: '18x Hygiene Kits', status: 'Completed', date: 'Oct 11, 2023' },
-  { donor: 'Jason Phan', initials: 'JP', donationType: 'Money', amount: '$300.00', status: 'Pending', date: 'Oct 10, 2023' },
-];
+function getInitials(name) {
+  if (!name) return 'DN';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+}
+
+function toDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 export default function OrganizationDonationsPage() {
   const [activeTab, setActiveTab] = useState('all');
@@ -33,8 +31,82 @@ export default function OrganizationDonationsPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [donations, setDonations] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [users, setUsers] = useState([]);
+  const session = getOrganizationSession();
+  const organizationId = Number(session?.userId ?? 0);
 
-  const parseRowDate = (value) => new Date(value).getTime();
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+    const load = () => {
+      setLoading(true);
+      setError('');
+      Promise.all([
+        fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+        fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
+        fetch(`${apiBase}/users`).then((r) => (r.ok ? r.json() : [])),
+      ])
+        .then(([donationData, materialData, userData]) => {
+          if (!alive) return;
+          const donationList = Array.isArray(donationData) ? donationData : [];
+          const materialList = Array.isArray(materialData) ? materialData : [];
+          const userList = Array.isArray(userData) ? userData : [];
+
+          const filteredDonations = organizationId
+            ? donationList.filter((item) => Number(item.organization_id) === organizationId)
+            : donationList;
+
+          setDonations(filteredDonations);
+          setMaterialItems(materialList);
+          setUsers(userList);
+        })
+        .catch((err) => {
+          if (!alive) return;
+          setError(err instanceof Error ? err.message : 'Failed to load donations.');
+          setDonations([]);
+          setMaterialItems([]);
+          setUsers([]);
+        })
+        .finally(() => {
+          if (!alive) return;
+          setLoading(false);
+        });
+    };
+
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [organizationId]);
+
+  const donationRows = useMemo(() => {
+    const userMap = new Map(users.map((user) => [Number(user.id), user.name]));
+    return donations.map((row) => {
+      const donorName = userMap.get(Number(row.user_id)) || `Donor #${row.user_id || 'N/A'}`;
+      const materialItem = materialItems.find((item) => Number(item.donation_id) === Number(row.id));
+      const amountText = row.donation_type === 'material'
+        ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
+        : `$${Number(row.amount || 0).toLocaleString()}`;
+      const dateValue = toDate(row.created_at);
+      return {
+        id: row.id,
+        donor: donorName,
+        initials: getInitials(donorName),
+        donationType: row.donation_type === 'material' ? 'Material' : 'Money',
+        amount: amountText,
+        status: row.status || 'Pending',
+        date: dateValue ? dateValue.toLocaleDateString() : '-',
+        dateValue: dateValue ? dateValue.getTime() : 0,
+      };
+    });
+  }, [donations, materialItems, users]);
 
   const filteredRows = useMemo(() => {
     let nextRows = donationRows;
@@ -50,13 +122,29 @@ export default function OrganizationDonationsPage() {
       nextRows = nextRows.filter((row) => row.status.toLowerCase() === statusFilter);
     }
 
+    const query = searchTerm.trim().toLowerCase();
+    if (query) {
+      nextRows = nextRows.filter((row) => {
+        const haystack = [
+          row.donor,
+          row.donationType,
+          row.amount,
+          row.status,
+          row.date,
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
     nextRows = [...nextRows].sort((a, b) => {
-      if (sortOrder === 'oldest') return parseRowDate(a.date) - parseRowDate(b.date);
-      return parseRowDate(b.date) - parseRowDate(a.date);
+      if (sortOrder === 'oldest') return a.dateValue - b.dateValue;
+      return b.dateValue - a.dateValue;
     });
 
     return nextRows;
-  }, [activeTab, sortOrder, statusFilter]);
+  }, [activeTab, sortOrder, statusFilter, donationRows, searchTerm]);
 
   const visibleRows = showAllRows ? filteredRows : filteredRows.slice(0, 7);
 
@@ -160,6 +248,82 @@ export default function OrganizationDonationsPage() {
     setTimeout(() => printWindow.print(), 200);
   };
 
+  const donationStats = useMemo(() => {
+    const now = new Date();
+    const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const moneyDonations = donations.filter((row) => row.donation_type !== 'material');
+    const totalFunds = moneyDonations.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const thisMonthFunds = moneyDonations
+      .filter((row) => {
+        const date = toDate(row.created_at);
+        return date && date >= startThisMonth;
+      })
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const lastMonthFunds = moneyDonations
+      .filter((row) => {
+        const date = toDate(row.created_at);
+        return date && date >= startLastMonth && date <= endLastMonth;
+      })
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+    const materialDonationIds = new Set(
+      donations.filter((row) => row.donation_type === 'material').map((row) => row.id),
+    );
+    const totalItems = materialItems
+      .filter((item) => materialDonationIds.has(item.donation_id))
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const thisMonthItems = materialItems
+      .filter((item) => {
+        if (!materialDonationIds.has(item.donation_id)) return false;
+        const donation = donations.find((row) => Number(row.id) === Number(item.donation_id));
+        const date = toDate(donation?.created_at);
+        return date && date >= startThisMonth;
+      })
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const lastMonthItems = materialItems
+      .filter((item) => {
+        if (!materialDonationIds.has(item.donation_id)) return false;
+        const donation = donations.find((row) => Number(row.id) === Number(item.donation_id));
+        const date = toDate(donation?.created_at);
+        return date && date >= startLastMonth && date <= endLastMonth;
+      })
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    const uniqueDonors = new Set(donations.map((row) => row.user_id)).size;
+    const thisMonthDonors = new Set(
+      donations
+        .filter((row) => {
+          const date = toDate(row.created_at);
+          return date && date >= startThisMonth;
+        })
+        .map((row) => row.user_id),
+    ).size;
+    const lastMonthDonors = new Set(
+      donations
+        .filter((row) => {
+          const date = toDate(row.created_at);
+          return date && date >= startLastMonth && date <= endLastMonth;
+        })
+        .map((row) => row.user_id),
+    ).size;
+
+    const percentChange = (current, previous) => {
+      if (!previous) return '+0.0%';
+      const change = ((current - previous) / previous) * 100;
+      const sign = change >= 0 ? '+' : '';
+      return `${sign}${change.toFixed(1)}%`;
+    };
+
+    return [
+      { label: 'Total Funds Raised', value: `$${totalFunds.toLocaleString()}`, change: percentChange(thisMonthFunds, lastMonthFunds), icon: Wallet, tone: 'green' },
+      { label: 'Total Material Items', value: `${totalItems.toLocaleString()} items`, change: percentChange(thisMonthItems, lastMonthItems), icon: Package, tone: 'blue' },
+      { label: 'Total Unique Donors', value: uniqueDonors.toLocaleString(), change: percentChange(thisMonthDonors, lastMonthDonors), icon: Users, tone: 'amber' },
+    ];
+  }, [donations, materialItems]);
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
@@ -215,6 +379,17 @@ export default function OrganizationDonationsPage() {
               </button>
             </div>
             <div className="org-donations-table-actions">
+              <label className="org-donations-search">
+                <input
+                  type="search"
+                  placeholder="Search by recipient or project..."
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setShowAllRows(false);
+                  }}
+                />
+              </label>
               <div className="org-donations-filter-wrap">
                 <button type="button" className="org-donations-action-btn" onClick={() => setIsFilterOpen((prev) => !prev)}>
                   <Filter />
@@ -270,37 +445,54 @@ export default function OrganizationDonationsPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map((row) => (
-                  <tr key={`${row.donor}-${row.date}`}>
-                    <td>
-                      <div className="org-donations-donor-cell">
-                        <span>{row.initials}</span>
-                        <strong>{row.donor}</strong>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`org-donations-type-chip ${row.donationType.toLowerCase()}`}>{row.donationType}</span>
-                    </td>
-                    <td>{row.amount}</td>
-                    <td>
-                      <span className={`org-donations-status ${row.status.toLowerCase()}`}>
-                        <span className="org-donations-dot" aria-hidden="true" />
-                        {row.status}
-                      </span>
-                    </td>
-                    <td>{row.date}</td>
-                    <td>
-                      <div className="org-donations-row-actions">
-                        <button type="button" aria-label="Save this donation record" onClick={() => handleSaveSingleRow(row)}>
-                          <FileText />
-                        </button>
-                        <button type="button" aria-label="More options">
-                          <MoreVertical />
-                        </button>
-                      </div>
-                    </td>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6}>Loading donations...</td>
                   </tr>
-                ))}
+                ) : null}
+                {error ? (
+                  <tr>
+                    <td colSpan={6}>{error}</td>
+                  </tr>
+                ) : null}
+                {!loading && !error && visibleRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>No donations match your filters.</td>
+                  </tr>
+                ) : null}
+                {!loading && !error
+                  ? visibleRows.map((row) => (
+                      <tr key={`${row.donor}-${row.date}`}>
+                        <td>
+                          <div className="org-donations-donor-cell">
+                            <span>{row.initials}</span>
+                            <strong>{row.donor}</strong>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`org-donations-type-chip ${row.donationType.toLowerCase()}`}>{row.donationType}</span>
+                        </td>
+                        <td>{row.amount}</td>
+                        <td>
+                          <span className={`org-donations-status ${row.status.toLowerCase()}`}>
+                            <span className="org-donations-dot" aria-hidden="true" />
+                            {row.status}
+                          </span>
+                        </td>
+                        <td>{row.date}</td>
+                        <td>
+                          <div className="org-donations-row-actions">
+                            <button type="button" aria-label="Save this donation record" onClick={() => handleSaveSingleRow(row)}>
+                              <FileText />
+                            </button>
+                            <button type="button" aria-label="More options">
+                              <MoreVertical />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  : null}
               </tbody>
             </table>
           </div>
