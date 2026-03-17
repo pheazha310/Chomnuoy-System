@@ -1,40 +1,40 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import ROUTES from '@/constants/routes.js';
-import Home from '@/app/home/page.jsx';
-import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
-import CampaignsPage from '@/components/pages/CampaignsPage.jsx';
-import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
-import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
-import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.jsx';
-import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
-import AboutPage from '@/components/pages/AboutPage.jsx';
-import ContactPage from '@/components/pages/ContactPage.jsx';
-import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
-import LoginPage from '@/auth/LoginPage.jsx';
-import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
-import OAuthCallback from '@/auth/OAuthCallback.jsx';
-import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
-import MyDonation from '@/app/donate/myDonation.jsx';
-import ViewDetail from '@/app/donate/viewDetail.jsx';
-import AccountSettings from '@/app/setting/AccountSettings.jsx';
-import OrganizationDashboardPage from '@/app/organization/page.jsx';
-import OrganizationDonationsPage from '@/app/organization/donations.jsx';
-import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
-import OrganizationCampaignCreatePage from '@/app/organization/OrganizationCampaignCreatePage.jsx';
-import OrganizationCampaignDetailPage from '@/app/organization/OrganizationCampaignDetailPage.jsx';
-import OrganizationProfilePage from '@/app/organization/profile.jsx';
-import OrganizationProfileEditPage from '@/app/organization/profile-edit.jsx';
-import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
-import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
-import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
-import AdminPage from '@/app/admin/page.jsx';
-import UserDashboard from '@/app/admin/userDashboard.jsx';
-import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
-import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
+const Home = lazy(() => import('@/app/home/page.jsx'));
+const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
+const CampaignsPage = lazy(() => import('@/components/pages/CampaignsPage.jsx'));
+const CampaignDetailPage = lazy(() => import('@/components/pages/CampaignDetailPage.jsx'));
+const HowItWorksPage = lazy(() => import('@/components/pages/HowItWorksPage.jsx'));
+const OrganizationBeforeLogin = lazy(() => import('@/components/pages/OrganizationBeforeLogin.jsx'));
+const OrganizationAfterLogin = lazy(() => import('@/components/pages/OrganizationAfterLogin.jsx'));
+const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
+const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
+const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
+const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
+const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
+const OAuthCallback = lazy(() => import('@/auth/OAuthCallback.jsx'));
+const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
+const MyDonation = lazy(() => import('@/app/donate/myDonation.jsx'));
+const ViewDetail = lazy(() => import('@/app/donate/viewDetail.jsx'));
+const AccountSettings = lazy(() => import('@/app/setting/AccountSettings.jsx'));
+const OrganizationDashboardPage = lazy(() => import('@/app/organization/page.jsx'));
+const OrganizationDonationsPage = lazy(() => import('@/app/organization/donations.jsx'));
+const OrganizationCampaignsPage = lazy(() => import('@/app/organization/OrganizationCampaignsPage.jsx'));
+const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/OrganizationCampaignCreatePage.jsx'));
+const OrganizationCampaignDetailPage = lazy(() => import('@/app/organization/OrganizationCampaignDetailPage.jsx'));
+const OrganizationProfilePage = lazy(() => import('@/app/organization/profile.jsx'));
+const OrganizationProfileEditPage = lazy(() => import('@/app/organization/profile-edit.jsx'));
+const MaterialPickupPage = lazy(() => import('@/app/material-pickup.jsx/materialPickup.jsx'));
+const PickupViewDetailPage = lazy(() => import('@/app/material-pickup.jsx/pickupViewDetail.jsx'));
+const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickupReschedule.jsx'));
+const AdminPage = lazy(() => import('@/app/admin/page.jsx'));
+const UserDashboard = lazy(() => import('@/app/admin/userDashboard.jsx'));
+const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
+const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboard.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -359,146 +359,148 @@ export default function App() {
   return (
     <>
       {!hideShell && <Navbar />}
-      <Routes>
-        <Route path={ROUTES.HOME} element={<HomeRoute />} />
-        <Route path="/oauth/callback" element={<OAuthCallback />} />
-        <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
-        <Route path={ROUTES.ABOUT} element={<AboutPage />} />
-        <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
-        <Route path={ROUTES.ORGANIZATION_DONATE()} element={<OrganizationRoute />} />
-        <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
-        <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
-        <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
-        <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
-        <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
-        <Route path={ROUTES.CONTACT} element={<ContactPage />} />
-        <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
-        <Route path="/register" element={<RegisterRoute />} />
-        <Route
-          path={ROUTES.ORGANIZATION_DASHBOARD}
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationDashboardPage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path="/organization/donations"
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationDonationsPage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path={ROUTES.ORGANIZATION_CAMPAIGNS}
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationCampaignsPage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationCampaignDetailPage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationCampaignCreatePage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path="/admin"
-          element={(
-            <RequireAdminAuth>
-              <AdminPage />
-            </RequireAdminAuth>
-          )}
-        />
-        <Route
-          path="/admin/users"
-          element={(
-            <RequireAdminAuth>
-              <UserDashboard />
-            </RequireAdminAuth>
-          )}
-        />
-        <Route
-          path="/admin/users/:id"
-          element={(
-            <RequireAdminAuth>
-              <AdminUserProfilePage />
-            </RequireAdminAuth>
-          )}
-        />
-        <Route
-          path="/admin/organizations"
-          element={(
-            <RequireAdminAuth>
-              <OrganizationDashboard />
-            </RequireAdminAuth>
-          )}
-        />
-        <Route
-          path="/organization/profile"
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationProfilePage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path="/organization/profile/edit"
-          element={(
-            <RequireOrganizationAuth>
-              <OrganizationProfileEditPage />
-            </RequireOrganizationAuth>
-          )}
-        />
-        <Route
-          path="/donations"
-          element={(
-            <RequireAuth>
-              <MyDonation />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/donations/view-detail"
-          element={(
-            <RequireAuth>
-              <ViewDetail />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/settings/AccountSettings"
-          element={(
-            <RequireAuth>
-              <AccountSettings />
-            </RequireAuth>
-          )}
-        />
-        <Route path="/pickup" element={<MaterialPickupPage />} />
-        <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
-        <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
-        <Route
-          path="/profile"
-          element={(
-            <RequireAuth>
-              <MyProfilePage />
-            </RequireAuth>
-          )}
-        />
-        <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
-      </Routes>
+      <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
+        <Routes>
+          <Route path={ROUTES.HOME} element={<HomeRoute />} />
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
+          <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
+          <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+          <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
+          <Route path={ROUTES.ORGANIZATION_DONATE()} element={<OrganizationRoute />} />
+          <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
+          <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
+          <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
+          <Route path="/campaigns/:campaignSlug" element={<CampaignDetailRoute />} />
+          <Route path={ROUTES.HOW_IT_WORKS} element={<HowItWorksPage />} />
+          <Route path={ROUTES.CONTACT} element={<ContactPage />} />
+          <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
+          <Route path="/register" element={<RegisterRoute />} />
+          <Route
+            path={ROUTES.ORGANIZATION_DASHBOARD}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationDashboardPage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/donations"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationDonationsPage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_CAMPAIGNS}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationCampaignsPage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationCampaignDetailPage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationCampaignCreatePage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/admin"
+            element={(
+              <RequireAdminAuth>
+                <AdminPage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/users"
+            element={(
+              <RequireAdminAuth>
+                <UserDashboard />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/users/:id"
+            element={(
+              <RequireAdminAuth>
+                <AdminUserProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/organizations"
+            element={(
+              <RequireAdminAuth>
+                <OrganizationDashboard />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationProfilePage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile/edit"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationProfileEditPage />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/donations"
+            element={(
+              <RequireAuth>
+                <MyDonation />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/donations/view-detail"
+            element={(
+              <RequireAuth>
+                <ViewDetail />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/settings/AccountSettings"
+            element={(
+              <RequireAuth>
+                <AccountSettings />
+              </RequireAuth>
+            )}
+          />
+          <Route path="/pickup" element={<MaterialPickupPage />} />
+          <Route path="/pickup/view-detail" element={<PickupViewDetailPage />} />
+          <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
+          <Route
+            path="/profile"
+            element={(
+              <RequireAuth>
+                <MyProfilePage />
+              </RequireAuth>
+            )}
+          />
+          <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
+        </Routes>
+      </Suspense>
       {!hideShell && <Footer />}
     </>
   );

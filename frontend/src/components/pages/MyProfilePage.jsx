@@ -53,7 +53,7 @@ export default function MyProfilePage() {
   const syncTimersRef = useRef([]);
   const session = useMemo(() => getSession(), []);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
@@ -64,10 +64,10 @@ export default function MyProfilePage() {
   const [showIllustrations, setShowIllustrations] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    name: session?.name || '',
+    email: session?.email || '',
     phone: '',
-    avatar: '',
+    avatar: session?.avatar || '',
   });
 
   const isOrganization = session?.role === 'Organization' || session?.accountType === 'Organization';
@@ -95,9 +95,14 @@ export default function MyProfilePage() {
       let effectiveAccountId = accountId;
       if (!effectiveAccountId && session?.email) {
         try {
-          const matched = isOrganization
+          let matched = isOrganization
             ? await findOrganizationByEmail(session.email)
             : await findUserByEmail(session.email);
+          if (!matched?.id) {
+            matched = isOrganization
+              ? await findUserByEmail(session.email)
+              : await findOrganizationByEmail(session.email);
+          }
           if (matched?.id) {
             effectiveAccountId = matched.id;
             setResolvedAccountId(matched.id);
@@ -111,14 +116,7 @@ export default function MyProfilePage() {
       }
 
       if (!effectiveAccountId) {
-        setFormData({
-          name: session?.name || '',
-          email: session?.email || '',
-          phone: '',
-          avatar: session?.avatar || '',
-        });
         setError('Your session is missing an account id. Please sign in again.');
-        setLoading(false);
         return;
       }
 
@@ -147,6 +145,7 @@ export default function MyProfilePage() {
     };
 
     setResolvedAccountId(accountId);
+    setLoading(true);
     loadProfile();
   }, [accountId, isOrganization, navigate, session]);
 
@@ -189,14 +188,36 @@ export default function MyProfilePage() {
     setError('');
     setSuccess('');
 
-    if (!resolvedAccountId) {
-      setError('Your session is missing an account id. Please sign in again.');
-      return;
-    }
-
     setSaving(true);
 
     try {
+      let effectiveAccountId = resolvedAccountId;
+      if (!effectiveAccountId) {
+        const emailToUse = formData.email || session?.email || '';
+        if (emailToUse) {
+          let matched = isOrganization
+            ? await findOrganizationByEmail(emailToUse)
+            : await findUserByEmail(emailToUse);
+          if (!matched?.id) {
+            matched = isOrganization
+              ? await findUserByEmail(emailToUse)
+              : await findOrganizationByEmail(emailToUse);
+          }
+          if (matched?.id) {
+            effectiveAccountId = matched.id;
+            setResolvedAccountId(matched.id);
+            const nextSession = { ...(getSession() || {}), userId: matched.id };
+            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+            window.dispatchEvent(new Event('chomnuoy-session-updated'));
+          }
+        }
+      }
+
+      if (!effectiveAccountId) {
+        setError('Your session is missing an account id. Please sign in again.');
+        return;
+      }
+
       const payload = new FormData();
       payload.append('name', formData.name);
       payload.append('email', formData.email);
@@ -208,8 +229,8 @@ export default function MyProfilePage() {
       }
 
       const updated = isOrganization
-        ? await updateOrganizationProfile(resolvedAccountId, payload)
-        : await updateUserProfile(resolvedAccountId, payload);
+        ? await updateOrganizationProfile(effectiveAccountId, payload)
+        : await updateUserProfile(effectiveAccountId, payload);
 
       const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';
@@ -251,14 +272,6 @@ export default function MyProfilePage() {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <main className="mx-auto w-full max-w-5xl px-4 py-8">
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 text-[#64748B]">Loading profile...</div>
-      </main>
-    );
-  }
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
