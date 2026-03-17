@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@600;700&family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  --font-sans: 'Source Sans 3', 'Noto Sans Khmer', sans-serif;
   --bg-deep: #091e2f;
   --bg-mid: #123753;
   --bg-light: #e8f2f8;
@@ -23,7 +24,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: 'Source Sans 3', sans-serif;
+  font-family: var(--font-sans);
   color: var(--text-strong);
   background:
     radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.25), transparent 35%),
@@ -56,7 +57,7 @@ body {
 }
 
 .eyebrow {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.8rem;
@@ -90,7 +91,7 @@ body {
 
 .hero h1 {
   margin: 0.65rem auto;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 5vw, 3.45rem);
   line-height: 1.05;
   max-width: 760px;
@@ -147,7 +148,7 @@ body {
 
 .stat-value {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.7rem;
 }
 
@@ -172,7 +173,7 @@ body {
 
 .highlight-card h2 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.17rem;
 }
 
@@ -266,4 +267,5 @@ body {
     text-align: center;
   }
 }
+
 

@@ -48,7 +48,7 @@
   padding-bottom: 10px;
   margin: 0;
   font-style: bold;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(4rem, 6vw, 5rem);
   line-height: 0.95;
   color: #f6fbff;
@@ -144,7 +144,7 @@
   border-radius: 10px;
   background: transparent;
   color: #476686;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
   padding: 0.6rem 1.4rem;
@@ -195,7 +195,7 @@
 
 .how-step-card h3 {
   margin: 0.85rem 0 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #081b3d;
   font-size: 1.65rem;
 }
@@ -217,7 +217,7 @@
 .how-trust-section h2,
 .how-cta h2 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #10263d;
 }
 
@@ -279,7 +279,7 @@
 
 .how-material-item h3 {
   margin: 0.9rem 0 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #0b1f3f;
   font-size: 1.8rem;
 }
@@ -333,7 +333,7 @@
 
 .how-trust-card h3 {
   margin: 0.8rem 0 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #0a1f3f;
   font-size: 1.7rem;
 }

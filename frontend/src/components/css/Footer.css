@@ -16,7 +16,7 @@
 .footer-col h2,
 .footer-col h3 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #1e2c3e;
 }
 
@@ -56,7 +56,7 @@
 }
 
 .footer-logo-title {
-  font-family: 'Noto Sans Khmer', 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.22rem;
   line-height: 1.05;
   color: #1f78de;
@@ -65,7 +65,7 @@
 }
 
 .footer-logo-subtitle {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   line-height: 1;
   letter-spacing: 0.16em;

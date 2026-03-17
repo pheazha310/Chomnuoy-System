@@ -212,7 +212,7 @@
 
 .campaigns-toolbar h1 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #1f2d3d;
   font-size: 3rem;
 }
@@ -641,7 +641,7 @@
 
 .campaign-category {
   display: inline-block;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -654,7 +654,7 @@
 .campaign-hero-overlay h1 {
   margin: 0.45rem 0 0;
   color: #ffffff;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.4rem, 3vw, 2rem);
 }
 
@@ -724,7 +724,7 @@
 
 .campaign-updates h2 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .update-item + .update-item {
@@ -753,7 +753,7 @@
 
 .stat-amount {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 2rem;
 }
 
@@ -970,7 +970,7 @@
 .campaign-updates-v2 h2,
 .campaign-donors-v2 h2 {
   margin: 0 0 0.55rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #112c46;
   font-size: 1.6rem;
 }
@@ -1445,3 +1445,4 @@
 .campaign-error {
   color: #dc2626;
 }
+

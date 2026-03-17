@@ -11,7 +11,7 @@
   min-height: 100vh;
   background: var(--contact-color-bg);
   color: var(--contact-color-text);
-  font-family: var(--contact-font-sans);
+  font-family: var(--font-sans);
 }
 
 .contact-container {

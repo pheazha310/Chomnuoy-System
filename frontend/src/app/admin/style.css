@@ -22,7 +22,7 @@
     var(--admin-bg);
   display: grid;
   grid-template-columns: 300px 1fr;
-  font-family: "Poppins", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   color: var(--admin-text);
 }
 

@@ -363,7 +363,7 @@ export default function MyDonation() {
       padding: 30px;
       background: #f3f6fb;
       color: #0f172a;
-      font-family: "Courier New", Courier, monospace;
+      font-family: "Source Sans 3", "Noto Sans Khmer", sans-serif;
     }
     .receipt {
       width: min(430px, 100%);
@@ -470,7 +470,7 @@ export default function MyDonation() {
       padding: 24px;
       background: #f3f6fb;
       color: #0f172a;
-      font-family: "Segoe UI", Arial, sans-serif;
+      font-family: "Source Sans 3", "Noto Sans Khmer", sans-serif;
     }
     .sheet {
       max-width: 960px;
