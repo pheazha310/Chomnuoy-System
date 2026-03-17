@@ -340,6 +340,14 @@ export default function App() {
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
   useEffect(() => {
+    const isPublicTheme = !session?.isLoggedIn;
+    document.body.classList.toggle('public-theme', isPublicTheme);
+    return () => {
+      document.body.classList.remove('public-theme');
+    };
+  }, [location.pathname, session?.isLoggedIn]);
+
+  useEffect(() => {
     if (!session?.isLoggedIn || !session?.userId) return;
     const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
     if (roleValue === 'admin' || roleValue === 'organization') return;

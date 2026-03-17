@@ -1021,3 +1021,21 @@ body {
   }
 }
 
+body.public-theme {
+  --orange-500: var(--public-accent);
+  --primary: var(--public-accent);
+  --primary-dark: var(--public-accent-strong);
+  --primary-light: #e8c7ad;
+  --primary-soft: #f6ede1;
+  --slate-50: #fbf9f3;
+  --slate-100: #f4efe6;
+  --slate-200: #e6dccb;
+  --slate-300: #d2c4b0;
+  --slate-400: #8d7f70;
+  --slate-500: #6a5f54;
+  --slate-600: #4f5f55;
+  --slate-700: #3b463f;
+  --slate-800: #2a352f;
+  --slate-900: #1f2a24;
+}
+

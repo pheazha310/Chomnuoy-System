@@ -7,12 +7,12 @@ export default function AuthLayout({ mode, children }) {
   const isLogin = mode === 'login';
 
   return (
-    <div className="min-h-screen bg-[#EFF1F6]">
+    <div className="min-h-screen bg-[#F7F2E8]">
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="min-h-screen w-full bg-white lg:grid lg:grid-cols-2"
+        className="min-h-screen w-full bg-[#FFFDF8] lg:grid lg:grid-cols-2"
       >
         <aside className="relative hidden min-h-screen lg:block">
           <img
@@ -21,7 +21,7 @@ export default function AuthLayout({ mode, children }) {
             className="absolute inset-0 h-full w-full object-cover"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#2449CF]/85 via-[#2449CF]/25 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#7A4A2A]/80 via-[#7A4A2A]/20 to-transparent" />
 
           <div className="absolute bottom-0 p-12 text-white">
             <h2 className="max-w-sm text-[46px] font-bold leading-[1.02] tracking-[-0.02em]">
