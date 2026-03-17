@@ -1,15 +1,22 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Bell,
   ChevronDown,
+  ClipboardCheck,
+  PackageCheck,
   Filter,
   MapPin,
   MessageSquare,
   MoreVertical,
   Plus,
   Search,
+  Truck,
   UserPlus,
+  CheckCircle2,
 } from 'lucide-react';
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import './PickupsTableAdmin.css';
 
 const pickups = [
@@ -21,10 +28,10 @@ const pickups = [
 ];
 
 const stats = [
-  { label: 'Pending Pickups', value: '24', change: '+5%', tone: 'warning' },
-  { label: 'In Transit', value: '12', change: '-2%', tone: 'info' },
-  { label: 'Successfully Delivered', value: '856', change: '+12%', tone: 'success' },
-  { label: 'Total Items Collected', value: '3,420', change: '+8%', tone: 'success' },
+  { label: 'Pending Pickups', value: '24', change: '+5%', tone: 'warning', icon: ClipboardCheck },
+  { label: 'In Transit', value: '12', change: '-2%', tone: 'info', icon: Truck },
+  { label: 'Successfully Delivered', value: '856', change: '+12%', tone: 'success', icon: CheckCircle2 },
+  { label: 'Total Items Collected', value: '3,420', change: '+8%', tone: 'purple', icon: PackageCheck },
 ];
 
 const teamPerformance = [
@@ -47,35 +54,52 @@ const categoryClasses = {
   Household: 'pickup-tag-household',
 };
 
-const MAP_BOUNDS = {
-  north: 14.7,
-  south: 10.3,
-  west: 102.3,
-  east: 107.7,
-};
+const DEFAULT_CENTER = [11.5564, 104.9282];
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function projectLatLng(lat, lng) {
-  const x = (lng - MAP_BOUNDS.west) / (MAP_BOUNDS.east - MAP_BOUNDS.west);
-  const y = (MAP_BOUNDS.north - lat) / (MAP_BOUNDS.north - MAP_BOUNDS.south);
-  return {
-    left: `${clamp(x, 0, 1) * 100}%`,
-    top: `${clamp(y, 0, 1) * 100}%`,
-  };
-}
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 export default function PickupsTable() {
-  const mapMarkers = pickups
-    .filter((pickup) => Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng))
-    .map((pickup) => ({
-      id: pickup.id,
-      name: pickup.name,
-      status: pickup.status,
-      ...projectLatLng(pickup.lat, pickup.lng),
-    }));
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [location, setLocation] = useState(null);
+  const [locationError, setLocationError] = useState('');
+
+  const mapMarkers = useMemo(
+    () =>
+      pickups.filter((pickup) => Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng)),
+    []
+  );
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setLocation(coords);
+        setMapCenter([coords.latitude, coords.longitude]);
+        setLocationError('');
+      },
+      (err) => {
+        setLocationError(err.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
 
   return (
     <section className="pickup-admin">
@@ -109,11 +133,15 @@ export default function PickupsTable() {
         {stats.map((stat) => (
           <div key={stat.label} className={`pickup-stat-card pickup-tone-${stat.tone}`}>
             <div className="pickup-stat-top">
-              <div className="pickup-stat-icon" />
+              <p className="pickup-stat-label">{stat.label}</p>
+              <span className="pickup-stat-icon">
+                <stat.icon size={18} />
+              </span>
+            </div>
+            <div className="pickup-stat-bottom">
+              <p className="pickup-stat-value">{stat.value}</p>
               <span className="pickup-stat-change">{stat.change}</span>
             </div>
-            <p className="pickup-stat-label">{stat.label}</p>
-            <p className="pickup-stat-value">{stat.value}</p>
           </div>
         ))}
       </div>
@@ -208,16 +236,53 @@ export default function PickupsTable() {
             </button>
           </div>
           <div className="pickup-map">
-            {mapMarkers.map((marker, index) => (
-              <div
-                key={marker.id}
-                className={`pickup-map-pin ${index === 0 ? 'pickup-pin-main' : 'pickup-pin-dot'}`}
-                style={{ left: marker.left, top: marker.top }}
-                title={`${marker.name} • ${marker.status}`}
-              >
-                {index === 0 ? <MapPin size={16} /> : null}
-              </div>
-            ))}
+            <MapContainer center={mapCenter} zoom={11} scrollWheelZoom={false}>
+              <TileLayer
+                attribution="&copy; OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              {mapMarkers.map((marker) => (
+                <Marker key={marker.id} position={[marker.lat, marker.lng]}>
+                  <Popup>
+                    <strong>{marker.name}</strong>
+                    <br />
+                    {marker.org}
+                    <br />
+                    Status: {marker.status}
+                  </Popup>
+                </Marker>
+              ))}
+              {location ? (
+                <Marker position={[location.latitude, location.longitude]}>
+                  <Popup>
+                    <strong>Current Location</strong>
+                    <br />
+                    Lat: {location.latitude.toFixed(5)}, Lng: {location.longitude.toFixed(5)}
+                  </Popup>
+                </Marker>
+              ) : null}
+            </MapContainer>
+          </div>
+          <div className="pickup-map-footer">
+            <div>
+              <p className="pickup-map-title">Get Current Latitude and Longitude</p>
+              <button className="pickup-secondary-btn" type="button" onClick={getCurrentLocation}>
+                Get Location
+              </button>
+              {location ? (
+                <div className="pickup-map-coords">
+                  <span>Lat: {location.latitude.toFixed(5)}</span>
+                  <span>Lng: {location.longitude.toFixed(5)}</span>
+                </div>
+              ) : null}
+              {locationError ? <p className="pickup-map-error">{locationError}</p> : null}
+            </div>
+            <div className="pickup-map-legend">
+              <span className="pickup-legend-dot pickup-legend-dot-primary" />
+              <span>Pickups</span>
+              <span className="pickup-legend-dot pickup-legend-dot-current" />
+              <span>Current</span>
+            </div>
           </div>
         </div>
 

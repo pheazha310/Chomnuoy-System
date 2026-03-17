@@ -88,15 +88,23 @@
 .pickup-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .pickup-stat-card {
   background: #ffffff;
-  border: 1px solid var(--admin-border);
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: var(--admin-shadow);
+  padding: 16px 18px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.pickup-stat-card:hover {
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+  border-color: #d6e1f2;
 }
 
 .pickup-stat-top {
@@ -108,21 +116,32 @@
 .pickup-stat-icon {
   width: 34px;
   height: 34px;
-  border-radius: 12px;
-  background: rgba(29, 122, 252, 0.14);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #1d7afc;
+  background: #eff6ff;
 }
 
 .pickup-stat-label {
-  margin: 12px 0 4px;
-  color: var(--admin-muted);
-  font-weight: 600;
-  font-size: 12px;
+  margin: 0;
+  color: #6b7280;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .pickup-stat-value {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pickup-stat-bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .pickup-stat-change {
@@ -130,18 +149,43 @@
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(22, 163, 74, 0.14);
-  color: var(--admin-success);
+  background: #dcfce7;
+  color: #16a34a;
 }
 
 .pickup-tone-warning .pickup-stat-change {
-  background: rgba(249, 115, 22, 0.16);
-  color: var(--admin-warning);
+  background: #fff7ed;
+  color: #f97316;
 }
 
 .pickup-tone-info .pickup-stat-change {
-  background: rgba(37, 99, 235, 0.16);
-  color: var(--admin-info);
+  background: #eef2ff;
+  color: #6366f1;
+}
+
+.pickup-tone-success .pickup-stat-icon {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.pickup-tone-warning .pickup-stat-icon {
+  color: #f97316;
+  background: #fff7ed;
+}
+
+.pickup-tone-info .pickup-stat-icon {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.pickup-tone-purple .pickup-stat-icon {
+  color: #a855f7;
+  background: #f3e8ff;
+}
+
+.pickup-tone-purple .pickup-stat-change {
+  background: #f3e8ff;
+  color: #a855f7;
 }
 
 .pickup-table-card {
@@ -407,49 +451,72 @@
 }
 
 .pickup-map {
-  height: 180px;
+  height: 220px;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(29, 122, 252, 0.18), transparent 50%),
-    radial-gradient(circle at 70% 60%, rgba(34, 197, 94, 0.18), transparent 55%),
-    #f2f5fb;
-  position: relative;
   overflow: hidden;
-}
-
-.pickup-map::after {
-  content: '';
-  position: absolute;
-  inset: 20px;
-  border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.4);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0));
 }
 
-.pickup-map-pin {
-  width: 28px;
-  height: 28px;
+.pickup-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+.pickup-map .leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.pickup-map-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.pickup-map-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.pickup-map-coords {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--admin-muted);
+  margin-top: 6px;
+}
+
+.pickup-map-error {
+  margin: 6px 0 0;
+  color: #dc2626;
+  font-size: 12px;
+}
+
+.pickup-map-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+
+.pickup-legend-dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  display: inline-block;
+}
+
+.pickup-legend-dot-primary {
   background: #1d7afc;
-  color: #ffffff;
-  display: grid;
-  place-items: center;
-  position: absolute;
-  z-index: 1;
-  box-shadow: 0 8px 18px rgba(29, 122, 252, 0.3);
-  transform: translate(-50%, -50%);
 }
 
-.pickup-pin-dot {
-  width: 12px;
-  height: 12px;
+.pickup-legend-dot-current {
   background: #22c55e;
-  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.32);
-}
-
-.pickup-pin-dot:nth-child(odd) {
-  background: #f97316;
-  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.32);
 }
 
 .pickup-team-list {
