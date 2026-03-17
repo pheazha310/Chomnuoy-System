@@ -89,6 +89,36 @@ function regionalStatusClassFromLabel(status) {
   return 'low';
 }
 
+function escapeCsvValue(value) {
+  if (value === null || value === undefined) return '';
+  const text = String(value);
+  const escaped = text.replace(/"/g, '""');
+  return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function buildCsvContent(columns, rows) {
+  const header = columns.map((col) => escapeCsvValue(col.label)).join(',');
+  const body = rows.map((row) => (
+    columns.map((col) => {
+      const cellValue = typeof col.value === 'function' ? col.value(row) : row[col.value];
+      return escapeCsvValue(cellValue);
+    }).join(',')
+  ));
+  return [header, ...body].join('\n');
+}
+
+function downloadTextFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function getPageRange(current, last, max = 3) {
   if (last <= max) {
     return Array.from({ length: last }, (_, idx) => idx + 1);
@@ -162,10 +192,10 @@ function buildSummaryFromCache(cache) {
 
 // Summary card in overview (fallback)
 const fallbackSummaryCards = [
-  { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true, icon: Wallet },
-  { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true, icon: Users },
-  { title: 'Material Units', value: '12,540', delta: '-2.1%', positive: false, icon: Box },
-  { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true, icon: Tag },
+  // { title: 'Total Revenue', value: '$128,450', delta: '+14.2%', positive: true, icon: Wallet },
+  // { title: 'Active Donors', value: '4,281', delta: '+5.8%', positive: true, icon: Users },
+  // { title: 'Material Units', value: '12,540', delta: '-2.1%', positive: false, icon: Box },
+  // { title: 'Avg. Donation', value: '$42.50', delta: '+8.4%', positive: true, icon: Tag },
 ];
 
 // Donation Trends data in overview and get data from database (Already connect)
@@ -238,10 +268,10 @@ const fallbackMaterialSummaryCards = [
 ];
 
 const fallbackMaterialBreakdown = [
-  { name: 'Clothing', percent: 45, tone: 'high' },
-  { name: 'Food', percent: 30, tone: 'medium' },
-  { name: 'Books', percent: 15, tone: 'low' },
-  { name: 'Medical Supplies', percent: 10, tone: 'xlow' },
+  // { name: 'Clothing', percent: 45, tone: 'high' },
+  // { name: 'Food', percent: 30, tone: 'medium' },
+  // { name: 'Books', percent: 15, tone: 'low' },
+  // { name: 'Medical Supplies', percent: 10, tone: 'low' },
 ];
 
 const deliveryFlow = [
@@ -260,30 +290,30 @@ const fallbackMaterialProvinceRows = [
 ];
 
 const fallbackRegionalMetrics = [
-  { title: 'Provinces Covered', value: '25/25', delta: '+100%', positive: true },
-  { title: 'Active Community Projects', value: '1,482', delta: '+12.4%', positive: true },
-  { title: 'Regional Growth %', value: '28.5%', delta: 'YoY', positive: true },
+  // { title: 'Provinces Covered', value: '25/25', delta: '+100%', positive: true },
+  // { title: 'Active Community Projects', value: '1,482', delta: '+12.4%', positive: true },
+  // { title: 'Regional Growth %', value: '28.5%', delta: 'YoY', positive: true },
 ];
 
 const fallbackTopImpactProvinces = [
-  { rank: '01', name: 'Phnom Penh', projects: 524, amount: '$450,200', delta: '+18.5%' },
-  { rank: '02', name: 'Siem Reap', projects: 185, amount: '$210,000', delta: '+12.2%' },
-  { rank: '03', name: 'Battambang', projects: 124, amount: '$158,400', delta: '-2.8%' },
-  { rank: '04', name: 'Kampong Cham', projects: 98, amount: '$92,000', delta: '+5.4%' },
+  // { rank: '01', name: 'Phnom Penh', projects: 524, amount: '$450,200', delta: '+18.5%' },
+  // { rank: '02', name: 'Siem Reap', projects: 185, amount: '$210,000', delta: '+12.2%' },
+  // { rank: '03', name: 'Battambang', projects: 124, amount: '$158,400', delta: '-2.8%' },
+  // { rank: '04', name: 'Kampong Cham', projects: 98, amount: '$92,000', delta: '+5.4%' },
 ];
 
 const fallbackCambodiaMapMarkers = [
-  { name: 'Phnom Penh', position: [11.5564, 104.9282], impact: 'High' },
-  { name: 'Siem Reap', position: [13.3633, 103.8564], impact: 'Medium' },
-  { name: 'Battambang', position: [13.1027, 103.1982], impact: 'Low' },
+  // { name: 'Phnom Penh', position: [11.5564, 104.9282], impact: 'High' },
+  // { name: 'Siem Reap', position: [13.3633, 103.8564], impact: 'Medium' },
+  // { name: 'Battambang', position: [13.1027, 103.1982], impact: 'Low' },
 ];
 
 const fallbackRegionalProjectRows = [
-  { province: 'Phnom Penh', organization: 'Education First Network', campaigns: 156, impact: '$1.2M+', status: 'High Impact', statusClass: 'high' },
-  { province: 'Siem Reap', organization: 'Heritage Care Foundation', campaigns: 84, impact: '$780k', status: 'Medium Impact', statusClass: 'medium' },
-  { province: 'Preah Vihear', organization: 'Rural Health Alliance', campaigns: 22, impact: '$125k', status: 'Low Impact', statusClass: 'low' },
-  { province: 'Battambang', organization: 'Agri-Growth Khmer', campaigns: 65, impact: '$540k', status: 'Medium Impact', statusClass: 'medium' },
-  { province: 'Kandal', organization: 'Clean Water Project', campaigns: 112, impact: '$910k', status: 'High Impact', statusClass: 'high' },
+  // { province: 'Phnom Penh', organization: 'Education First Network', campaigns: 156, impact: '$1.2M+', status: 'High Impact', statusClass: 'high' },
+  // { province: 'Siem Reap', organization: 'Heritage Care Foundation', campaigns: 84, impact: '$780k', status: 'Medium Impact', statusClass: 'medium' },
+  // { province: 'Preah Vihear', organization: 'Rural Health Alliance', campaigns: 22, impact: '$125k', status: 'Low Impact', statusClass: 'low' },
+  // { province: 'Battambang', organization: 'Agri-Growth Khmer', campaigns: 65, impact: '$540k', status: 'Medium Impact', statusClass: 'medium' },
+  // { province: 'Kandal', organization: 'Clean Water Project', campaigns: 112, impact: '$910k', status: 'High Impact', statusClass: 'high' },
 ];
 
 function StatCard({ card }) {
@@ -575,6 +605,66 @@ export default function OrganizationReports() {
   const [transactionPage, setTransactionPage] = useState(1);
   const [transactionSearch, setTransactionSearch] = useState('');
   const [transactionType, setTransactionType] = useState('all');
+
+  const handleExportPdf = () => {
+    window.print();
+  };
+
+  const handleExportCsv = () => {
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const csvConfigs = {
+      overview: {
+        filename: `donation-reports-overview-${dateStamp}.csv`,
+        rows: transactions,
+        columns: [
+          { label: 'Transaction ID', value: 'id' },
+          { label: 'Donor Name', value: 'donor' },
+          { label: 'Type', value: 'type' },
+          { label: 'Province', value: 'province' },
+          { label: 'Date', value: 'date' },
+          { label: 'Amount', value: 'amount' },
+        ],
+      },
+      financial: {
+        filename: `donation-reports-financial-${dateStamp}.csv`,
+        rows: financialRows,
+        columns: [
+          { label: 'Date', value: 'date' },
+          { label: 'Donor', value: 'donor' },
+          { label: 'Type', value: 'type' },
+          { label: 'Amount', value: 'amount' },
+          { label: 'Status', value: 'status' },
+        ],
+      },
+      material: {
+        filename: `donation-reports-material-${dateStamp}.csv`,
+        rows: materialProvinceRows,
+        columns: [
+          { label: 'Province', value: 'province' },
+          { label: 'Total Items', value: 'totalItems' },
+          { label: 'Main Organization', value: 'organization' },
+          { label: 'Status', value: 'status' },
+        ],
+      },
+      regional: {
+        filename: `donation-reports-regional-${dateStamp}.csv`,
+        rows: regionalProjectRowsData,
+        columns: [
+          { label: 'Province', value: 'province' },
+          { label: 'Main Organization', value: 'organization' },
+          { label: 'Active Campaigns', value: 'campaigns' },
+          { label: 'Total Impact', value: 'impact' },
+          { label: 'Status', value: 'status' },
+        ],
+      },
+    };
+
+    const config = csvConfigs[activeTab] || csvConfigs.overview;
+    const rows = Array.isArray(config.rows) ? config.rows : [];
+    const csvContent = buildCsvContent(config.columns, rows);
+    const contentWithBom = `\ufeff${csvContent}`;
+    downloadTextFile(config.filename, contentWithBom, 'text/csv;charset=utf-8;');
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -1391,7 +1481,7 @@ export default function OrganizationReports() {
 
   return (
     <div className="org-page report-page">
-      <OrganizationSidebar compact />
+      <OrganizationSidebar />
 
       <div className="report-main-shell">
 
@@ -1402,8 +1492,8 @@ export default function OrganizationReports() {
               <p>Comprehensive view of donation trends, material impact, and regional performance.</p>
             </div>
             <div className="report-export-actions">
-              <button type="button"><Download size={14} /> Export PDF</button>
-              <button type="button" className="primary"><Download size={14} /> Export CSV</button>
+              <button type="button" onClick={handleExportPdf}><Download size={14} /> Export PDF</button>
+              <button type="button" className="primary" onClick={handleExportCsv}><Download size={14} /> Export CSV</button>
             </div>
           </section>
 
@@ -1578,7 +1668,7 @@ export default function OrganizationReports() {
             <section className="financial-table-panel">
               <div className="financial-table-head">
                 <h3>Financial Transactions</h3>
-                <button type="button">Export CSV</button>
+                <button type="button" onClick={handleExportCsv}>Export CSV</button>
               </div>
               <table>
                 <thead>

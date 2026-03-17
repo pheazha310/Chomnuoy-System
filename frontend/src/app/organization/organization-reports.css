@@ -2,29 +2,25 @@
   background: #f3f5f9;
   color: #101828;
   font-family: 'Trebuchet MS', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  display: block;
   min-height: 100vh;
-  align-items: start;
 }
 
 @media (max-width: 1100px) {
   .report-page {
-    grid-template-columns: 1fr;
+    display: block;
   }
-}
 
-.report-page .org-sidebar.compact {
-  position: sticky;
-  left: auto;
-  width: 260px;
-  align-self: start;
+  .report-main-shell {
+    margin-left: 0;
+  }
 }
 
 .report-main-shell {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  margin-left: 260px;
 }
 
 .report-header {
@@ -1855,5 +1851,38 @@
     gap: 8px;
     height: auto;
     padding: 12px 16px;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .report-page {
+    grid-template-columns: 1fr;
+    background: #fff;
+  }
+
+  .org-sidebar,
+  .report-export-actions,
+  .report-tabs,
+  .report-table-tools,
+  .report-pagination,
+  .financial-table-pagination,
+  .regional-pagination,
+  .map-btn {
+    display: none !important;
+  }
+
+  .report-main {
+    padding: 0;
+  }
+
+  .report-table-scroll {
+    max-height: none;
+    overflow: visible;
   }
 }
