@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Material Pickups',
+    path: '/admin/pickups',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 7h10l2 3h4v7h-2M4 17h8M6 19a2 2 0 1 1 4 0M16 19a2 2 0 1 1 4 0" />
