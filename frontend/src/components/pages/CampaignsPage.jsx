@@ -62,6 +62,13 @@ const donorProfileImages = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
 ];
+const hiddenCampaignStatuses = new Set(['draft', 'completed', 'complete', 'closed', 'archived', 'cancelled']);
+
+function isPublicCampaignStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (!value) return true;
+  return !hiddenCampaignStatuses.has(value);
+}
 
 function campaignCategoryToSidebarCategory(category) {
   if (category === 'Technology' || category === 'Social Good') {
@@ -140,18 +147,24 @@ function CampaignsPage() {
         if (!active) return;
         const items = Array.isArray(data) ? data : [];
         const mapped = items
-          .filter((item) => {
-            const status = String(item.status || '').toLowerCase();
-            return !status || status === 'active';
-          })
+          .filter((item) => isPublicCampaignStatus(item.status))
           .map((item) => ({
             id: item.id,
             title: item.title || 'Untitled Campaign',
             summary: item.summary || item.description || 'No description available.',
             category: item.category || 'Environment',
+            organization:
+              item.organization_name ||
+              item.organization ||
+              item.organizationTitle ||
+              (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
             raisedAmount: Number(item.current_amount || 0),
             goalAmount: Math.max(1, Number(item.goal_amount || 0)),
-            image: getStorageFileUrl(item.image_path) || '',
+            image:
+              getStorageFileUrl(item.image_path) ||
+              item.image_url ||
+              item.image ||
+              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
           }));
         setCampaigns(mapped);
@@ -357,6 +370,7 @@ function CampaignsPage() {
                       {campaign.title}
                     </a>
                   </h2>
+                  <p className="campaign-organization">Posted by {campaign.organization}</p>
                   <p className="campaign-summary">{campaign.summary}</p>
 
                   <div className="campaign-funding-row">
@@ -389,7 +403,10 @@ function CampaignsPage() {
             );
           })}
           {!loading && !error && paginatedCampaigns.length === 0 ? (
-            <p className="campaign-empty">No campaigns match your filters.</p>
+            <div className="campaign-empty">
+              <strong>No public campaigns match these filters.</strong>
+              <span>Try All Campaigns or check back after organizations publish more active campaigns.</span>
+            </div>
           ) : null}
         </section>
 

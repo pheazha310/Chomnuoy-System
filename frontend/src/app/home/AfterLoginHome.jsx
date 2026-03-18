@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import './afterLoginHome.css';
 
+const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
+const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
 const placeholderImage =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -82,13 +85,119 @@ function getImpactLevel(totalDonated) {
   return 'Level 1 Donor';
 }
 
+function readDashboardCache() {
+  try {
+    const raw = window.sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp) return null;
+    if (Date.now() - parsed.timestamp > DASHBOARD_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+      return null;
+    }
+    return parsed.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashboardCache(data) {
+  try {
+    window.sessionStorage.setItem(
+      DASHBOARD_CACHE_KEY,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data,
+      })
+    );
+  } catch {
+    // Ignore cache write failures.
+  }
+}
+
+function mapUrgentCampaigns(campaignsData) {
+  const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
+  const activeCampaigns = campaignItems.filter(
+    (item) => String(item.status || '').toLowerCase() === 'active'
+  );
+
+  return activeCampaigns
+    .map((item) => {
+      const goal = Number(item.goal_amount || 0);
+      const raised = Number(item.current_amount || 0);
+      const progress = goal ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+      const daysLeft = getDaysLeft(item.end_date);
+      const isEndingSoon = typeof daysLeft === 'number' ? daysLeft > 0 && daysLeft <= 5 : false;
+      return {
+        id: item.id,
+        image: getStorageFileUrl(item.image_path) || placeholderImage,
+        badge: isEndingSoon ? 'ENDING SOON' : 'URGENT',
+        badgeTone: isEndingSoon ? 'ending' : 'urgent',
+        title: item.title || 'Untitled Campaign',
+        description: item.description || 'No description provided.',
+        raised: formatMoney(raised) + ' raised',
+        progressLabel: `${progress}%`,
+        progress,
+      };
+    })
+    .slice(0, 2);
+}
+
+function mapDonationMetrics(donationsData, userId) {
+  const donations = Array.isArray(donationsData) ? donationsData : [];
+  const myDonations = userId
+    ? donations.filter((item) => Number(item.user_id) === userId)
+    : [];
+  const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthTotal = myDonations.reduce((sum, item) => {
+    const created = new Date(item.created_at || 0).getTime();
+    if (!Number.isNaN(created) && created >= monthStart) {
+      return sum + Number(item.amount || 0);
+    }
+    return sum;
+  }, 0);
+
+  return {
+    totalDonated: total,
+    monthlyTotal: monthTotal,
+  };
+}
+
+function mapActivity(notificationsData, userId) {
+  const notifications = Array.isArray(notificationsData) ? notificationsData : [];
+  const filtered = userId
+    ? notifications.filter((item) => Number(item.user_id) === userId)
+    : notifications;
+
+  return filtered.slice(0, 4).map((item) => {
+    const type = String(item.type || '').toLowerCase();
+    const icon = type === 'campaign'
+      ? Building2
+      : type === 'pickup'
+        ? Truck
+        : type === 'badge'
+          ? Star
+          : FileText;
+    return {
+      id: item.id,
+      icon,
+      text: type === 'campaign' ? 'Campaign update:' : 'Notification:',
+      note: item.message || 'New update available.',
+      time: new Date(item.created_at || Date.now()).toLocaleString(),
+    };
+  });
+}
+
 function AfterLoginHome() {
   const donorName = useMemo(() => getLoggedInUserName(), []);
-  const [campaigns, setCampaigns] = useState([]);
-  const [activity, setActivity] = useState([]);
-  const [totalDonated, setTotalDonated] = useState(0);
-  const [monthlyTotal, setMonthlyTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cachedDashboard = useMemo(() => readDashboardCache(), []);
+  const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
+  const [activity, setActivity] = useState(Array.isArray(cachedDashboard?.activity) ? cachedDashboard.activity : []);
+  const [totalDonated, setTotalDonated] = useState(Number(cachedDashboard?.totalDonated || 0));
+  const [monthlyTotal, setMonthlyTotal] = useState(Number(cachedDashboard?.monthlyTotal || 0));
+  const [loading, setLoading] = useState(!cachedDashboard);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -96,91 +205,72 @@ function AfterLoginHome() {
     const userId = Number(session?.userId ?? 0);
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let active = true;
-    setLoading(true);
     setError('');
+    if (!cachedDashboard) {
+      setLoading(true);
+    }
 
-    Promise.all([
-      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/notifications`).then((r) => (r.ok ? r.json() : [])),
-    ])
-      .then(([campaignsData, donationsData, notificationsData]) => {
+    const nextCache = {
+      campaigns: Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : [],
+      activity: Array.isArray(cachedDashboard?.activity) ? cachedDashboard.activity : [],
+      totalDonated: Number(cachedDashboard?.totalDonated || 0),
+      monthlyTotal: Number(cachedDashboard?.monthlyTotal || 0),
+    };
+    let pendingRequests = 3;
+
+    const finishRequest = () => {
+      pendingRequests -= 1;
+      if (pendingRequests <= 0 && active) {
+        setLoading(false);
+      }
+    };
+
+    fetch(`${apiBase}/campaigns`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((campaignsData) => {
         if (!active) return;
-        const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
-        const activeCampaigns = campaignItems.filter(
-          (item) => String(item.status || '').toLowerCase() === 'active'
-        );
-        const urgent = activeCampaigns
-          .map((item) => {
-            const goal = Number(item.goal_amount || 0);
-            const raised = Number(item.current_amount || 0);
-            const progress = goal ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
-            const daysLeft = getDaysLeft(item.end_date);
-            const isEndingSoon = typeof daysLeft === 'number' ? daysLeft > 0 && daysLeft <= 5 : false;
-            return {
-              id: item.id,
-              image: getStorageFileUrl(item.image_path) || placeholderImage,
-              badge: isEndingSoon ? 'ENDING SOON' : 'URGENT',
-              badgeTone: isEndingSoon ? 'ending' : 'urgent',
-              title: item.title || 'Untitled Campaign',
-              description: item.description || 'No description provided.',
-              raised: formatMoney(raised) + ' raised',
-              progressLabel: `${progress}%`,
-              progress,
-            };
-          })
-          .slice(0, 2);
+        const urgent = mapUrgentCampaigns(campaignsData);
         setCampaigns(urgent);
-
-        const donations = Array.isArray(donationsData) ? donationsData : [];
-        const myDonations = userId
-          ? donations.filter((item) => Number(item.user_id) === userId)
-          : [];
-        const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        setTotalDonated(total);
-
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const monthTotal = myDonations.reduce((sum, item) => {
-          const created = new Date(item.created_at || 0).getTime();
-          if (!Number.isNaN(created) && created >= monthStart) {
-            return sum + Number(item.amount || 0);
-          }
-          return sum;
-        }, 0);
-        setMonthlyTotal(monthTotal);
-
-        const notifications = Array.isArray(notificationsData) ? notificationsData : [];
-        const filtered = userId
-          ? notifications.filter((item) => Number(item.user_id) === userId)
-          : notifications;
-        const mapped = filtered.slice(0, 4).map((item) => {
-          const type = String(item.type || '').toLowerCase();
-          const icon = type === 'campaign'
-            ? Building2
-            : type === 'pickup'
-              ? Truck
-              : type === 'badge'
-                ? Star
-                : FileText;
-          return {
-            id: item.id,
-            icon,
-            text: type === 'campaign' ? 'Campaign update:' : 'Notification:',
-            note: item.message || 'New update available.',
-            time: new Date(item.created_at || Date.now()).toLocaleString(),
-          };
-        });
-        setActivity(mapped);
+        nextCache.campaigns = urgent;
+        writeDashboardCache(nextCache);
       })
       .catch(() => {
         if (!active) return;
-        setError('Failed to load dashboard data.');
+        setError('Failed to load some dashboard data.');
       })
-      .finally(() => {
+      .finally(finishRequest);
+
+    fetch(`${apiBase}/donations`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((donationsData) => {
         if (!active) return;
-        setLoading(false);
-      });
+        const metrics = mapDonationMetrics(donationsData, userId);
+        setTotalDonated(metrics.totalDonated);
+        setMonthlyTotal(metrics.monthlyTotal);
+        nextCache.totalDonated = metrics.totalDonated;
+        nextCache.monthlyTotal = metrics.monthlyTotal;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
+
+    fetch(`${apiBase}/notifications`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((notificationsData) => {
+        if (!active) return;
+        const mapped = mapActivity(notificationsData, userId);
+        setActivity(mapped);
+        nextCache.activity = mapped;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
 
     return () => {
       active = false;
