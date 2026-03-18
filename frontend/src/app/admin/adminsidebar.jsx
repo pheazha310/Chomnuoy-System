@@ -72,6 +72,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Settings',
+    path: '/admin/settings',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" />

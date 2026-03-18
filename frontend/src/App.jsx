@@ -36,6 +36,7 @@ import AdminPage from '@/app/admin/page.jsx';
 import UserDashboard from '@/app/admin/userDashboard.jsx';
 import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
 import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
+import AdminSettingsPage from '@/app/admin/AdminSettingsPage.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -349,7 +350,7 @@ export default function App() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     const ping = () => {
-      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => {});
+      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => { });
     };
 
     ping();
@@ -452,6 +453,14 @@ export default function App() {
           element={(
             <RequireAdminAuth>
               <OrganizationDashboard />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/settings"
+          element={(
+            <RequireAdminAuth>
+              <AdminSettingsPage />
             </RequireAdminAuth>
           )}
         />

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
@@ -97,3 +98,12 @@ Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donati
 Route::get('campaigns/{campaign}/velocity', [CampaignController::class, 'velocity']);
 Route::apiResource('campaign_image', CampaignImageController::class);
 Route::apiResource('campaign_update', CampaignUpdateController::class);
+
+// Admin Settings Routes
+Route::get('admin/settings', [AdminSettingsController::class, 'index']);
+Route::get('admin/settings/section/{section}', [AdminSettingsController::class, 'getBySection']);
+Route::get('admin/settings/{key}', [AdminSettingsController::class, 'show']);
+Route::post('admin/settings', [AdminSettingsController::class, 'store']);
+Route::put('admin/settings/{key}', [AdminSettingsController::class, 'update']);
+Route::delete('admin/settings/{key}', [AdminSettingsController::class, 'destroy']);
+
