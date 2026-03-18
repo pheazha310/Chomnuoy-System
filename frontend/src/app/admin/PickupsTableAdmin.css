@@ -212,6 +212,10 @@
   flex-wrap: wrap;
 }
 
+.pickup-filter {
+  position: relative;
+}
+
 .pickup-filter-btn {
   border: none;
   background: #f2f5fb;
@@ -224,6 +228,39 @@
   align-items: center;
   gap: 6px;
   cursor: pointer;
+}
+
+.pickup-filter-menu {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  min-width: 180px;
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 5;
+}
+
+.pickup-filter-menu button {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+  cursor: pointer;
+}
+
+.pickup-filter-menu button:hover {
+  background: #f1f5ff;
+  color: #1d4ed8;
 }
 
 .pickup-filter-ghost {
@@ -357,6 +394,54 @@
 
 .pickup-text-right {
   text-align: right;
+}
+
+.pickup-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.pickup-menu {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  min-width: 160px;
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.14);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  z-index: 5;
+}
+
+.pickup-menu button {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-text);
+  cursor: pointer;
+}
+
+.pickup-menu button:hover {
+  background: #f1f5ff;
+  color: #1d4ed8;
+}
+
+.pickup-menu button.danger {
+  color: #dc2626;
+}
+
+.pickup-menu button.danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .pickup-assign-btn {

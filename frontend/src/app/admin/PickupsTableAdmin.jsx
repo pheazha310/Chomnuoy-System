@@ -67,6 +67,13 @@ export default function PickupsTable() {
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
   const [location, setLocation] = useState(null);
   const [locationError, setLocationError] = useState('');
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [openFilter, setOpenFilter] = useState(null);
+  const [filters, setFilters] = useState({
+    status: 'All',
+    date: 'This Week',
+    province: 'All',
+  });
 
   const mapMarkers = useMemo(
     () =>
@@ -101,8 +108,27 @@ export default function PickupsTable() {
     );
   };
 
+  const toggleMenu = (id) => {
+    setOpenMenuId((prev) => (prev === id ? null : id));
+  };
+
+  const toggleFilter = (key) => {
+    setOpenFilter((prev) => (prev === key ? null : key));
+  };
+
+  const updateFilter = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setOpenFilter(null);
+  };
+
   return (
-    <section className="pickup-admin">
+    <section
+      className="pickup-admin"
+      onClick={() => {
+        setOpenMenuId(null);
+        setOpenFilter(null);
+      }}
+    >
       <header className="pickup-topbar">
         <div className="pickup-search">
           <Search size={16} />
@@ -146,15 +172,77 @@ export default function PickupsTable() {
         ))}
       </div>
 
-      <div className="pickup-table-card">
+        <div className="pickup-table-card">
         <div className="pickup-filters">
           <div className="pickup-filter-group">
-            {['Status: All', 'Date: This Week', 'Province: All'].map((filter) => (
-              <button className="pickup-filter-btn" key={filter} type="button">
-                {filter}
+            <div className="pickup-filter">
+              <button
+                className="pickup-filter-btn"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleFilter('status');
+                }}
+              >
+                Status: {filters.status}
                 <ChevronDown size={16} />
               </button>
-            ))}
+              {openFilter === 'status' ? (
+                <div className="pickup-filter-menu" onClick={(event) => event.stopPropagation()}>
+                  {['All', 'Pending', 'Assigned', 'In Transit', 'Completed'].map((value) => (
+                    <button key={value} type="button" onClick={() => updateFilter('status', value)}>
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="pickup-filter">
+              <button
+                className="pickup-filter-btn"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleFilter('date');
+                }}
+              >
+                Date: {filters.date}
+                <ChevronDown size={16} />
+              </button>
+              {openFilter === 'date' ? (
+                <div className="pickup-filter-menu" onClick={(event) => event.stopPropagation()}>
+                  {['Today', 'This Week', 'This Month', 'Last 30 Days'].map((value) => (
+                    <button key={value} type="button" onClick={() => updateFilter('date', value)}>
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="pickup-filter">
+              <button
+                className="pickup-filter-btn"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleFilter('province');
+                }}
+              >
+                Province: {filters.province}
+                <ChevronDown size={16} />
+              </button>
+              {openFilter === 'province' ? (
+                <div className="pickup-filter-menu" onClick={(event) => event.stopPropagation()}>
+                  {['All', 'Phnom Penh', 'Siem Reap', 'Battambang', 'Kampot'].map((value) => (
+                    <button key={value} type="button" onClick={() => updateFilter('province', value)}>
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <button className="pickup-filter-ghost" type="button">
             <Filter size={16} />
@@ -203,9 +291,26 @@ export default function PickupsTable() {
                         Assign Team
                       </button>
                     ) : (
-                      <button className="pickup-icon-ghost" type="button" aria-label="More">
-                        <MoreVertical size={16} />
-                      </button>
+                      <div className="pickup-actions">
+                        <button
+                          className="pickup-icon-ghost"
+                          type="button"
+                          aria-label="More actions"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleMenu(pickup.id);
+                          }}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                        {openMenuId === pickup.id ? (
+                          <div className="pickup-menu" role="menu" onClick={(event) => event.stopPropagation()}>
+                            <button type="button" role="menuitem">View Details</button>
+                            <button type="button" role="menuitem">Assign Team</button>
+                            <button type="button" role="menuitem" className="danger">Cancel Pickup</button>
+                          </div>
+                        ) : null}
+                      </div>
                     )}
                   </td>
                 </tr>
