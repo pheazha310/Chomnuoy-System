@@ -964,6 +964,13 @@
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--org-border);
+    height: auto;
+    position: static;
+    width: auto;
+  }
+
+  .org-main {
+    margin-left: 0;
   }
 
   .org-main {

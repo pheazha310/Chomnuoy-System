@@ -92,9 +92,10 @@ export default function App() {
       })
       .then((data) => {
         const items = Array.isArray(data) ? data : [];
-        const activeOnly = items.filter(
-          (item) => String(item.status || '').toLowerCase() === 'active'
-        );
+        const activeOnly = items.filter((item) => {
+          const status = String(item.status || '').toLowerCase();
+          return !status || status === 'active';
+        });
         const mapped = activeOnly.map((item) => {
           const goal = Number(item.goal_amount || 0);
           const raised = Number(item.current_amount || 0);

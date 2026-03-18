@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+
+const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
 
 const NAV_ITEMS = [
   {
     label: 'Dashboard',
+    path: '/admin',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 13h8V3H3zM13 21h8v-6h-8zM13 11h8V3h-8zM3 21h8v-6H3z" />
@@ -11,6 +15,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Users',
+    path: '/admin/users',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0" />
@@ -19,6 +24,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Organizations',
+    path: '/admin/organizations',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M3 21h18M4 21V7l8-4 8 4v14M9 21v-6h6v6" />
@@ -59,6 +65,8 @@ const NAV_ITEMS = [
   },
   {
     label: 'Notifications',
+    path: '/admin/notifications',
+    showBadge: true,
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
@@ -77,8 +85,33 @@ const NAV_ITEMS = [
   },
 ];
 
-const AdminSidebar = ({ onLogout, userName }) => (
-  <aside className="admin-sidebar" aria-label="Admin navigation">
+const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const readCount = () => {
+      const raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
+      const parsed = Number(raw);
+      setUnreadCount(Number.isFinite(parsed) ? parsed : 0);
+    };
+
+    readCount();
+    const onStorage = (event) => {
+      if (event.key === UNREAD_STORAGE_KEY) {
+        readCount();
+      }
+    };
+    const onCustom = () => readCount();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('admin-notify-updated', onCustom);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('admin-notify-updated', onCustom);
+    };
+  }, []);
+
+  return (
+    <aside className="admin-sidebar" aria-label="Admin navigation">
     <div className="admin-brand">
       <span className="admin-brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" className="admin-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -119,18 +152,37 @@ const AdminSidebar = ({ onLogout, userName }) => (
     </div>
 
     <nav className="admin-nav">
-      {NAV_ITEMS.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          className={`admin-nav-item${item.label === 'Dashboard' ? ' is-active' : ''}`}
-        >
-          <span className="admin-nav-icon" aria-hidden="true">
-            {item.icon}
-          </span>
-          <span>{item.label}</span>
-        </button>
-      ))}
+      {NAV_ITEMS.map((item) => {
+        if (item.path) {
+          return (
+            <NavLink
+              key={item.label}
+              to={item.path}
+              className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
+              end={item.path === '/admin'}
+            >
+              <span className="admin-nav-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+              {item.showBadge && unreadCount > 0 ? (
+                <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
+                  {unreadCount}
+                </span>
+              ) : null}
+            </NavLink>
+          );
+        }
+
+        return (
+          <button key={item.label} type="button" className="admin-nav-item">
+            <span className="admin-nav-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
     </nav>
 
     <div className="admin-sidebar-footer">
@@ -145,7 +197,7 @@ const AdminSidebar = ({ onLogout, userName }) => (
         </div>
         <div>
           <p className="admin-user-name">{userName}</p>
-          <p className="admin-user-role">Admin</p>
+          <p className="admin-user-role">{userRole}</p>
         </div>
       </div>
       <button className="admin-logout-btn" type="button" onClick={onLogout}>
@@ -153,6 +205,7 @@ const AdminSidebar = ({ onLogout, userName }) => (
       </button>
     </div>
   </aside>
-);
+  );
+};
 
 export default AdminSidebar;

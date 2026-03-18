@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
-
 function getOrganizationSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');

@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import ROUTES from '@/constants/routes.js';
 import Home from '@/app/home/page.jsx';
 import AfterLoginHome from '@/app/home/AfterLoginHome.jsx';
@@ -15,6 +16,7 @@ import MyProfilePage from '@/components/pages/MyProfilePage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
 import RegisterPage from '@/auth/RegisterPage.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import DonorCampaignsPage from '@/app/compaigns/compaignDetailAter.jsx';
 import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
@@ -30,6 +32,10 @@ import MaterialPickupPage from '@/app/material-pickup.jsx/materialPickup.jsx';
 import PickupViewDetailPage from '@/app/material-pickup.jsx/pickupViewDetail.jsx';
 import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx';
 import AdminPage from '@/app/admin/page.jsx';
+import UserDashboard from '@/app/admin/userDashboard.jsx';
+import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
+import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
+import AdminNotificationPage from '@/app/admin/notification.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -94,7 +100,9 @@ function resolveAvatar(profile) {
   return (
     profile?.avatar ||
     profile?.avatar_url ||
-    getStorageFileUrl(profile?.avatar_path) ||
+    getStorageFileUrl(profile?.avatar_path || profile?.profile_image || profile?.image_url) ||
+    profile?.profile_image ||
+    profile?.image_url ||
     ''
   );
 }
@@ -170,6 +178,7 @@ function RequireAdminAuth({ children }) {
 function LoginRoute() {
   const navigate = useNavigate();
   const location = useLocation();
+  const redirectParam = new URLSearchParams(location.search).get('redirect');
   const redirectTo = getSafeRedirect(location.search);
   const loginEmail = new URLSearchParams(location.search).get('email');
 
@@ -218,6 +227,10 @@ function LoginRoute() {
         navigate('/admin');
         return;
       }
+      if (!redirectParam) {
+        navigate('/profile');
+        return;
+      }
       navigate(redirectTo);
       return;
     }
@@ -253,6 +266,10 @@ function LoginRoute() {
     }
     if (isAdmin) {
       navigate('/admin');
+      return;
+    }
+    if (!redirectParam) {
+      navigate('/profile');
       return;
     }
     navigate(redirectTo);
@@ -320,12 +337,32 @@ export default function App() {
     location.pathname === '/register' ||
     location.pathname.startsWith('/organization/') ||
     location.pathname.startsWith('/admin');
+  const session = getSession();
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+  useEffect(() => {
+    if (!session?.isLoggedIn || !session?.userId) return;
+    const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
+    if (roleValue === 'admin' || roleValue === 'organization') return;
+
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const ping = () => {
+      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => {});
+    };
+
+    ping();
+    const intervalId = window.setInterval(ping, 5 * 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, [apiBase, session?.isLoggedIn, session?.role, session?.accountType, session?.userId]);
 
   return (
     <>
       {!hideShell && <Navbar />}
       <Routes>
         <Route path={ROUTES.HOME} element={<HomeRoute />} />
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
         <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
@@ -383,6 +420,38 @@ export default function App() {
           element={(
             <RequireAdminAuth>
               <AdminPage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/users"
+          element={(
+            <RequireAdminAuth>
+              <UserDashboard />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/users/:id"
+          element={(
+            <RequireAdminAuth>
+              <AdminUserProfilePage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/organizations"
+          element={(
+            <RequireAdminAuth>
+              <OrganizationDashboard />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/notifications"
+          element={(
+            <RequireAdminAuth>
+              <AdminNotificationPage />
             </RequireAdminAuth>
           )}
         />
