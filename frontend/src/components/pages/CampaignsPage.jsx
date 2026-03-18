@@ -230,7 +230,7 @@ function CampaignsPage() {
     }
 
     return baseList;
-  }, [selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
+  }, [campaigns, selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;

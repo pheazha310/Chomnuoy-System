@@ -114,6 +114,36 @@ function writeDashboardCache(data) {
   }
 }
 
+function getActivityIcon(iconType) {
+  switch (String(iconType || '').toLowerCase()) {
+    case 'campaign':
+      return Building2;
+    case 'pickup':
+      return Truck;
+    case 'badge':
+      return Star;
+    default:
+      return FileText;
+  }
+}
+
+function normalizeCachedActivity(activityData) {
+  if (!Array.isArray(activityData)) return [];
+
+  return activityData.map((item, index) => ({
+    id: item?.id ?? `cached-activity-${index}`,
+    iconType:
+      typeof item?.iconType === 'string'
+        ? item.iconType
+        : typeof item?.type === 'string'
+          ? item.type
+          : 'notification',
+    text: item?.text || 'Notification:',
+    note: item?.note || 'New update available.',
+    time: item?.time || '',
+  }));
+}
+
 function mapUrgentCampaigns(campaignsData) {
   const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
   const activeCampaigns = campaignItems.filter(
@@ -173,16 +203,9 @@ function mapActivity(notificationsData, userId) {
 
   return filtered.slice(0, 4).map((item) => {
     const type = String(item.type || '').toLowerCase();
-    const icon = type === 'campaign'
-      ? Building2
-      : type === 'pickup'
-        ? Truck
-        : type === 'badge'
-          ? Star
-          : FileText;
     return {
       id: item.id,
-      icon,
+      iconType: type,
       text: type === 'campaign' ? 'Campaign update:' : 'Notification:',
       note: item.message || 'New update available.',
       time: new Date(item.created_at || Date.now()).toLocaleString(),
@@ -194,7 +217,7 @@ function AfterLoginHome() {
   const donorName = useMemo(() => getLoggedInUserName(), []);
   const cachedDashboard = useMemo(() => readDashboardCache(), []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
-  const [activity, setActivity] = useState(Array.isArray(cachedDashboard?.activity) ? cachedDashboard.activity : []);
+  const [activity, setActivity] = useState(normalizeCachedActivity(cachedDashboard?.activity));
   const [totalDonated, setTotalDonated] = useState(Number(cachedDashboard?.totalDonated || 0));
   const [monthlyTotal, setMonthlyTotal] = useState(Number(cachedDashboard?.monthlyTotal || 0));
   const [loading, setLoading] = useState(!cachedDashboard);
@@ -212,7 +235,7 @@ function AfterLoginHome() {
 
     const nextCache = {
       campaigns: Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : [],
-      activity: Array.isArray(cachedDashboard?.activity) ? cachedDashboard.activity : [],
+      activity: normalizeCachedActivity(cachedDashboard?.activity),
       totalDonated: Number(cachedDashboard?.totalDonated || 0),
       monthlyTotal: Number(cachedDashboard?.monthlyTotal || 0),
     };
@@ -415,18 +438,21 @@ function AfterLoginHome() {
               </h2>
 
               <ul>
-                {activity.map((item) => (
-                  <li key={item.id}>
-                    <span className="activity-icon">
-                      <item.icon size={16} />
-                    </span>
-                    <div>
-                      <p>{item.text}</p>
-                      <strong>{item.note}</strong>
-                      <span>{item.time}</span>
-                    </div>
-                  </li>
-                ))}
+                {activity.map((item) => {
+                  const ActivityIcon = getActivityIcon(item.iconType);
+                  return (
+                    <li key={item.id}>
+                      <span className="activity-icon">
+                        <ActivityIcon size={16} />
+                      </span>
+                      <div>
+                        <p>{item.text}</p>
+                        <strong>{item.note}</strong>
+                        <span>{item.time}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
               {!loading && activity.length === 0 ? (
                 <p className="text-sm text-[#64748B]">No recent activity yet.</p>

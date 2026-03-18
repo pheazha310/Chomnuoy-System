@@ -308,6 +308,17 @@
   border-top: 1px solid #eef2f8;
 }
 
+.pickup-table-empty {
+  padding: 26px 18px !important;
+  text-align: center !important;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.pickup-table-error {
+  color: #dc2626;
+}
+
 .pickup-name {
   display: flex;
   align-items: center;
@@ -353,6 +364,11 @@
 .pickup-tag-household {
   background: rgba(249, 115, 22, 0.12);
   color: #ea580c;
+}
+
+.pickup-tag-generic {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
 }
 
 .pickup-status {
@@ -625,6 +641,12 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.pickup-panel-empty {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
 }
 
 .pickup-team-row {
