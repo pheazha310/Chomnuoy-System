@@ -63,6 +63,8 @@ export default function UserDashboard() {
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
   const adminRole = session?.role || session?.accountType || 'Admin';
+  const sessionEmail = String(session?.email || '').trim().toLowerCase();
+  const sessionUserId = Number(session?.userId || 0);
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
   const getStorageFileUrl = (path) => {
@@ -225,13 +227,20 @@ export default function UserDashboard() {
           user.photo ||
           user.picture ||
           getStorageFileUrl(user.avatar_path);
+        const roleLabel = String(roleName || '').toLowerCase();
+        const userEmail = String(user.email || '').trim().toLowerCase();
+        const userId = Number(user.id || 0);
+        const isCurrentAccount = (sessionEmail && userEmail === sessionEmail) || (sessionUserId && userId === sessionUserId);
+        const displayEmail = isCurrentAccount ? 'Hidden' : (user.email || '-');
         return {
           id: user.id,
           name: user.name || 'Unknown',
           email: user.email || '-',
+          displayEmail,
           phone: user.phone || '',
           avatarUrl,
           rawRole: String(roleName || ''),
+          isAdmin: roleLabel.includes('admin'),
           role: normalizeRoleLabel(roleName),
           joined: formatDate(user.created_at),
           status: resolvePresenceStatus(user.status, user.last_seen_at),
@@ -379,7 +388,7 @@ export default function UserDashboard() {
                   </span>
                   <div>
                     <p>{user.name}</p>
-                    <span>{user.email}</span>
+                    <span>{user.displayEmail}</span>
                     {user.phone ? <small className="admin-user-phone">{user.phone}</small> : null}
                   </div>
                 </div>
