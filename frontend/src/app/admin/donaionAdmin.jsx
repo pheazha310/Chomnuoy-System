@@ -77,6 +77,13 @@ function percentChange(current, previous) {
   return `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`;
 }
 
+function summarizeText(value, maxLength = 160) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return 'Top-performing campaigns will appear here once donation data is available.';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trimEnd()}...`;
+}
+
 function safeSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
@@ -268,18 +275,20 @@ export default function DonationAdminPage() {
         const goal = Number(campaign.goal_amount || 0);
         return {
           title: campaign.title || 'New Featured Campaign',
-          description: campaign.description || 'Feature campaigns will appear here once donation data is available.',
+          description: summarizeText(campaign.description),
           raised,
           progress: goal > 0 ? Math.min(100, (raised / goal) * 100) : 0,
+          goal,
         };
       })
       .sort((a, b) => b.raised - a.raised);
 
     return ranked[0] || {
       title: 'New Featured Campaign',
-      description: 'Feature campaigns will appear here once donation data is available.',
+      description: 'Top-performing campaigns will appear here once donation data is available.',
       raised: 0,
       progress: 0,
+      goal: 0,
     };
   }, [data.campaigns, donationRows]);
 
@@ -374,8 +383,13 @@ export default function DonationAdminPage() {
           </article>
 
           <article className="admin-donation-featured">
+            <span className="admin-donation-featured-kicker">Featured Campaign</span>
             <h2>{featuredCampaign.title}</h2>
             <p>{featuredCampaign.description}</p>
+            <div className="admin-donation-featured-stats">
+              <span>{formatCurrency(featuredCampaign.raised)} raised</span>
+              <span>{featuredCampaign.goal > 0 ? `${formatCurrency(featuredCampaign.goal)} goal` : 'No goal set yet'}</span>
+            </div>
             <div className="admin-donation-progress">
               <div className="admin-donation-progress-fill" style={{ width: `${featuredCampaign.progress}%` }} />
             </div>

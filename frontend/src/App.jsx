@@ -38,6 +38,7 @@ const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboa
 const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdmin.jsx'));
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
+const TransactionAdminPage = lazy(() => import('@/app/admin/transactionAdmin.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -463,6 +464,14 @@ export default function App() {
             element={(
               <RequireAdminAuth>
                 <DonationAdminPage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/transactions"
+            element={(
+              <RequireAdminAuth>
+                <TransactionAdminPage />
               </RequireAdminAuth>
             )}
           />

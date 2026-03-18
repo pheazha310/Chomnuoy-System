@@ -60,6 +60,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Transactions',
+    path: '/admin/transactions',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3" />
