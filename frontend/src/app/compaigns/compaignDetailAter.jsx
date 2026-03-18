@@ -192,11 +192,11 @@ export default function App() {
         </div>
 
         {/* Filters Section */}
-        <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 px-2 no-scrollbar">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8 bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex flex-wrap items-center gap-2 px-2 md:flex-nowrap md:overflow-x-auto md:pb-0 no-scrollbar">
             <button 
               onClick={() => setSelectedFilter('All Campaigns')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === 'All Campaigns' 
                   ? 'bg-primary text-white' 
                   : 'hover:bg-slate-100 text-slate-600'
@@ -206,7 +206,7 @@ export default function App() {
             </button>
             <button 
               onClick={() => setSelectedFilter('Urgent')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === 'Urgent' 
                   ? 'bg-red-500 text-white' 
                   : 'hover:bg-slate-100 text-slate-600'
@@ -216,7 +216,7 @@ export default function App() {
             </button>
             <button 
               onClick={() => setSelectedFilter('Newest')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === 'Newest' 
                   ? 'bg-blue-500 text-white' 
                   : 'hover:bg-slate-100 text-slate-600'
@@ -227,7 +227,7 @@ export default function App() {
             <div className="h-6 w-px bg-slate-200 mx-2 hidden md:block"></div>
             <button 
               onClick={() => setSelectedFilter('Education')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === 'Education' 
                   ? 'bg-purple-500 text-white' 
                   : 'hover:bg-slate-100 text-slate-600'
@@ -237,7 +237,7 @@ export default function App() {
             </button>
             <button 
               onClick={() => setSelectedFilter('Medical')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === 'Medical' 
                   ? 'bg-blue-500 text-white' 
                   : 'hover:bg-slate-100 text-slate-600'
@@ -247,7 +247,7 @@ export default function App() {
             </button>
             <button 
               onClick={() => setSelectedFilter('Environment')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === 'Environment' 
                   ? 'bg-green-500 text-white' 
                   : 'hover:bg-slate-100 text-slate-600'
@@ -256,8 +256,8 @@ export default function App() {
               <Leaf className="w-4 h-4 text-green-500" /> Environment
             </button>
           </div>
-          <div className="md:ml-auto px-2">
-            <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all">
+          <div className="px-2 md:ml-auto">
+            <button className="inline-flex w-full items-center justify-center gap-2 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-all md:w-auto">
               <Filter className="w-4 h-4" /> More Filters
             </button>
           </div>

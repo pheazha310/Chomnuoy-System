@@ -3,28 +3,14 @@
 * SPDX-License-Identifier: Apache-2.0
 */
 
-<<<<<<< HEAD
 import { loginUser } from "../services/user-service";
 import React, { useState } from "react";
 import { motion } from "motion/react";
+import { useLocation } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
-=======
-import { loginUser } from '../services/user-service';
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  AlertCircle,
-} from 'lucide-react';
->>>>>>> bca6a0ae32960b2070226cce7c41ed1c005044c7
 
 function GoogleIcon(props) {
   return (
@@ -261,7 +247,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
           >
             <GoogleIcon className="h-5 w-5" />
             Gmail
-<<<<<<< HEAD
           </button> */}
 
           {isGoogleSignInConfigured ? (
@@ -289,9 +274,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               Google not configured
             </button>
           )}
-=======
-          </button>
->>>>>>> bca6a0ae32960b2070226cce7c41ed1c005044c7
           <button
             type="button"
             onClick={() => handleSocialLogin('facebook')}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import './style.css';
 
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
 
@@ -50,6 +51,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Donations',
+    path: '/admin/donations',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z" />

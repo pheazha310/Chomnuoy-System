@@ -2,11 +2,43 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from './adminsidebar';
 import './organization.css';
 
+const ORGANIZATIONS_CACHE_KEY = 'admin_organization_dashboard_orgs_cache';
+const CATEGORIES_CACHE_KEY = 'admin_organization_dashboard_categories_cache';
+const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
 function formatDate(value) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
+}
+
+function readCache(key) {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp || !Array.isArray(parsed?.data)) {
+      return [];
+    }
+    if (Date.now() - parsed.timestamp > CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(key);
+      return [];
+    }
+    return parsed.data;
+  } catch {
+    return [];
+  }
+}
+
+function writeCache(key, data) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify({
+      timestamp: Date.now(),
+      data: Array.isArray(data) ? data : [],
+    }));
+  } catch {
+    // Ignore storage write failures.
+  }
 }
 
 function normalizeStatus(raw) {
@@ -28,10 +60,13 @@ function normalizeType(raw) {
 }
 
 export default function OrganizationDashboard() {
+  const cachedOrganizations = readCache(ORGANIZATIONS_CACHE_KEY);
+  const cachedCategories = readCache(CATEGORIES_CACHE_KEY);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
-  const [organizations, setOrganizations] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [organizations, setOrganizations] = useState(cachedOrganizations);
+  const [categories, setCategories] = useState(cachedCategories);
+  const [loading, setLoading] = useState(cachedOrganizations.length === 0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,29 +104,46 @@ export default function OrganizationDashboard() {
 
   useEffect(() => {
     let mounted = true;
+    let refreshId;
     const token = window.localStorage.getItem('authToken');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const hasCachedOrganizations = cachedOrganizations.length > 0;
 
-    async function load() {
-      setLoading(true);
+    async function load({ silent = false } = {}) {
+      if (!silent && !hasCachedOrganizations) {
+        setLoading(true);
+      }
+      if (silent || hasCachedOrganizations) {
+        setIsRefreshing(true);
+      }
       setError('');
       try {
-        const [orgResponse, categoryResponse] = await Promise.all([
-          fetch(`${apiBase}/organizations`, { headers }),
-          fetch(`${apiBase}/categories`, { headers }),
-        ]);
+        const orgResponse = await fetch(`${apiBase}/organizations`, { headers });
 
         if (!orgResponse.ok) {
           throw new Error(`Failed to load organizations (${orgResponse.status})`);
         }
 
         const orgData = await orgResponse.json();
-        const catData = categoryResponse.ok ? await categoryResponse.json() : [];
 
         if (mounted) {
-          setOrganizations(Array.isArray(orgData) ? orgData : []);
-          setCategories(Array.isArray(catData) ? catData : []);
+          const nextOrganizations = Array.isArray(orgData) ? orgData : [];
+          setOrganizations(nextOrganizations);
+          writeCache(ORGANIZATIONS_CACHE_KEY, nextOrganizations);
         }
+
+        fetch(`${apiBase}/categories`, { headers })
+          .then(async (categoryResponse) => {
+            if (!categoryResponse.ok) {
+              throw new Error(`Failed to load categories (${categoryResponse.status})`);
+            }
+            const catData = await categoryResponse.json();
+            if (!mounted) return;
+            const nextCategories = Array.isArray(catData) ? catData : [];
+            setCategories(nextCategories);
+            writeCache(CATEGORIES_CACHE_KEY, nextCategories);
+          })
+          .catch(() => {});
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err.message : 'Unable to load organizations');
@@ -99,13 +151,18 @@ export default function OrganizationDashboard() {
       } finally {
         if (mounted) {
           setLoading(false);
+          setIsRefreshing(false);
         }
       }
     }
 
     load();
+    refreshId = window.setInterval(() => load({ silent: true }), 60000);
     return () => {
       mounted = false;
+      if (refreshId) {
+        window.clearInterval(refreshId);
+      }
     };
   }, [apiBase]);
 
@@ -172,6 +229,7 @@ export default function OrganizationDashboard() {
           <div>
             <h1>Organization Management</h1>
             <p>Track and verify organizations onboarded into the platform.</p>
+            {isRefreshing && !loading ? <span className="admin-org-refreshing">Refreshing data...</span> : null}
           </div>
         </header>
 
@@ -243,7 +301,26 @@ export default function OrganizationDashboard() {
               <span>Status</span>
               <span>Action</span>
             </div>
-            {loading ? <div className="admin-org-empty">Loading organizations...</div> : null}
+            {loading ? (
+              <div className="admin-org-skeleton-list" aria-hidden="true">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="admin-org-skeleton-row">
+                    <div className="admin-org-skeleton-user">
+                      <span className="admin-org-skeleton-avatar" />
+                      <div className="admin-org-skeleton-text">
+                        <span className="admin-org-skeleton-line admin-org-skeleton-line-name" />
+                        <span className="admin-org-skeleton-line admin-org-skeleton-line-email" />
+                      </div>
+                    </div>
+                    <span className="admin-org-skeleton-pill" />
+                    <span className="admin-org-skeleton-line admin-org-skeleton-line-location" />
+                    <span className="admin-org-skeleton-line admin-org-skeleton-line-date" />
+                    <span className="admin-org-skeleton-pill" />
+                    <span className="admin-org-skeleton-dots" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {!loading && error ? <div className="admin-org-empty is-error">{error}</div> : null}
             {!loading && !error && filteredOrgs.length === 0 ? (
               <div className="admin-org-empty">No organizations found.</div>
