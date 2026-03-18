@@ -8,10 +8,35 @@ use App\Models\CampaignImage;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 class CampaignController extends Controller
 {
+    private function preparePayload(Request $request): array
+    {
+        $columns = Schema::getColumnListing('campaigns');
+        $payload = array_intersect_key($request->all(), array_flip($columns));
+        $jsonFields = [
+            'donation_tiers',
+            'material_priority',
+            'material_item',
+            'hybrid_items',
+        ];
+
+        foreach ($jsonFields as $field) {
+            if (array_key_exists($field, $payload) && is_array($payload[$field])) {
+                $payload[$field] = json_encode($payload[$field]);
+            }
+        }
+
+        if (array_key_exists('enable_recurring', $payload)) {
+            $payload['enable_recurring'] = filter_var($payload['enable_recurring'], FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return $payload;
+    }
+
     public function index(): JsonResponse
     {
         $records = Campaign::query()
@@ -23,13 +48,15 @@ class CampaignController extends Controller
             ])
             ->orderByDesc('campaigns.id')
             ->get();
+        // $records = Campaign::all();
 
         return response()->json($records);
     }
 
     public function store(Request $request): JsonResponse
     {
-        $record = Campaign::create($request->all());
+        $payload = $this->preparePayload($request);
+        $record = Campaign::create($payload);
 
         return response()->json($record, 201);
     }
@@ -51,7 +78,8 @@ class CampaignController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $record = Campaign::findOrFail($id);
-        $record->update($request->all());
+        $payload = $this->preparePayload($request);
+        $record->update($payload);
 
         return response()->json($record);
     }

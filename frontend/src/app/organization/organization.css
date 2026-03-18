@@ -36,6 +36,38 @@
   z-index: 20;
 }
 
+.org-sidebar.compact {
+  padding: 14px 12px;
+  gap: 10px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+}
+
+.org-sidebar.compact .org-brand {
+  min-height: 44px;
+}
+
+.org-sidebar.compact .org-brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.org-sidebar.compact .org-brand-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.org-sidebar.compact .org-brand-subtitle {
+  display: none;
+}
+
+.org-sidebar.compact .org-nav-item {
+  padding: 9px 10px;
+}
+
 .org-brand {
   display: flex;
   align-items: center;
@@ -964,6 +996,13 @@
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--org-border);
+    height: auto;
+    position: static;
+    width: auto;
+  }
+
+  .org-main {
+    margin-left: 0;
   }
 
   .org-main {

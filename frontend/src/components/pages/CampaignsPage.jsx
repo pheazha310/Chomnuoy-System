@@ -140,7 +140,10 @@ function CampaignsPage() {
         if (!active) return;
         const items = Array.isArray(data) ? data : [];
         const mapped = items
-          .filter((item) => String(item.status || '').toLowerCase() === 'active')
+          .filter((item) => {
+            const status = String(item.status || '').toLowerCase();
+            return !status || status === 'active';
+          })
           .map((item) => ({
             id: item.id,
             title: item.title || 'Untitled Campaign',

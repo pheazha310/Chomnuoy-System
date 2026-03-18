@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Role;
+use Database\Seeders\DonationTrendSeeder;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -44,5 +45,7 @@ class DatabaseSeeder extends Seeder
         Category::firstOrCreate(['category_name' => 'Healthcare']);
         Category::firstOrCreate(['category_name' => 'Hospital']);
         Category::firstOrCreate(['category_name' => 'school']);
+
+        $this->call(DonationTrendSeeder::class);
     }
-}                                                                                                   
+}
