@@ -59,6 +59,28 @@ const formatCurrency = (value) => (
   }).format(Number(value || 0))
 );
 
+const formatDateForFileName = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const escapeCsvCell = (value) => {
+  const normalized = String(value ?? '').replace(/"/g, '""');
+  return `"${normalized}"`;
+};
+
+const escapeHtml = (value) => (
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+);
+
 const formatMetricValue = (metric) => {
   if (metric.id === 'donations') {
     return formatCurrency(metric.value);
@@ -194,6 +216,185 @@ export default function ReportsAdmin() {
   const categoryBreakdown = reportData.category_breakdown || [];
   const placeholderNotes = reportData.placeholders || {};
 
+  const handleDownloadCsv = () => {
+    const rows = [];
+
+    rows.push(['Section', 'Label', 'Value', 'Extra']);
+
+    (reportData.kpis || []).forEach((metric) => {
+      rows.push(['KPI', metric.label, formatMetricValue(metric), metric.change || metric.note || '']);
+    });
+
+    (series.labels || []).forEach((label, index) => {
+      rows.push([
+        'Trend',
+        label,
+        series.donors?.[index] ?? 0,
+        `Organizations: ${series.organizations?.[index] ?? 0}, Campaigns: ${series.campaigns?.[index] ?? 0}`,
+      ]);
+    });
+
+    categoryBreakdown.forEach((item) => {
+      rows.push(['Category Breakdown', item.label, `${item.value}%`, '']);
+    });
+
+    topCampaigns.forEach((campaign) => {
+      rows.push([
+        'Top Campaign',
+        campaign.name,
+        formatCurrency(campaign.raised),
+        `${campaign.org} | ${campaign.status}`,
+      ]);
+    });
+
+    alerts.forEach((alert) => {
+      rows.push(['Alert Example', alert.title, alert.description, alert.time]);
+    });
+
+    const csvContent = rows
+      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admin-report-${rangeDays}d-${formatDateForFileName()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = () => {
+    const exportWindow = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=850');
+    if (!exportWindow) return;
+
+    const kpiMarkup = (reportData.kpis || [])
+      .map((metric) => `
+        <div class="kpi">
+          <p class="kpi-label">${escapeHtml(metric.label)}</p>
+          <p class="kpi-value">${escapeHtml(formatMetricValue(metric))}</p>
+          <p class="kpi-note">${escapeHtml(metric.change || metric.note || '')}</p>
+        </div>
+      `)
+      .join('');
+
+    const trendRows = (series.labels || [])
+      .map((label, index) => `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(series.donors?.[index] ?? 0)}</td>
+          <td>${escapeHtml(series.organizations?.[index] ?? 0)}</td>
+          <td>${escapeHtml(series.campaigns?.[index] ?? 0)}</td>
+        </tr>
+      `)
+      .join('');
+
+    const campaignRows = topCampaigns
+      .map((campaign) => `
+        <tr>
+          <td>${escapeHtml(campaign.name)}</td>
+          <td>${escapeHtml(campaign.org)}</td>
+          <td>${escapeHtml(formatCurrency(campaign.raised))}</td>
+          <td>${escapeHtml(campaign.status)}</td>
+        </tr>
+      `)
+      .join('');
+
+    const categoryRows = categoryBreakdown
+      .map((item) => `
+        <tr>
+          <td>${escapeHtml(item.label)}</td>
+          <td>${escapeHtml(`${item.value}%`)}</td>
+        </tr>
+      `)
+      .join('');
+
+    exportWindow.document.write(`
+      <!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <title>Admin Report Export</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
+            h1, h2 { margin: 0 0 12px; }
+            p { margin: 0 0 16px; color: #475569; }
+            .meta { margin-bottom: 24px; font-size: 14px; }
+            .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+            .kpi { border: 1px solid #dbe4f0; border-radius: 12px; padding: 14px; }
+            .kpi-label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+            .kpi-value { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+            .kpi-note { font-size: 13px; color: #475569; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+            th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 14px; }
+            th { color: #334155; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+            .section { margin-top: 24px; }
+            @media print { body { margin: 18px; } }
+          </style>
+        </head>
+        <body>
+          <h1>Admin Report</h1>
+          <p class="meta">Range: ${escapeHtml(rangeLabel)} | Generated: ${escapeHtml(new Date().toLocaleString())}</p>
+
+          <section class="section">
+            <h2>KPIs</h2>
+            <div class="kpis">${kpiMarkup}</div>
+          </section>
+
+          <section class="section">
+            <h2>Growth Trends</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Label</th>
+                  <th>Donations</th>
+                  <th>Organizations</th>
+                  <th>Campaigns</th>
+                </tr>
+              </thead>
+              <tbody>${trendRows}</tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2>Top Campaigns</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Organization</th>
+                  <th>Raised</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>${campaignRows}</tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2>Category Breakdown</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Share</th>
+                </tr>
+              </thead>
+              <tbody>${categoryRows}</tbody>
+            </table>
+          </section>
+        </body>
+      </html>
+    `);
+    exportWindow.document.close();
+    exportWindow.focus();
+    window.setTimeout(() => {
+      exportWindow.print();
+    }, 250);
+  };
+
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
@@ -212,8 +413,12 @@ export default function ReportsAdmin() {
             <p className="admin-report-subtitle">Track fundraising performance, platform growth, and campaign results from live database data.</p>
           </div>
           <div className="admin-report-actions">
-            <button className="admin-report-ghost" type="button">Download CSV</button>
-            <button className="admin-primary-btn" type="button">Export PDF</button>
+            <button className="admin-report-ghost" type="button" onClick={handleDownloadCsv} disabled={loading}>
+              Download CSV
+            </button>
+            <button className="admin-primary-btn" type="button" onClick={handleExportPdf} disabled={loading}>
+              Export PDF
+            </button>
           </div>
         </header>
 

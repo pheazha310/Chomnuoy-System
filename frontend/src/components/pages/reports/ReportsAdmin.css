@@ -51,6 +51,13 @@
   cursor: pointer;
 }
 
+.admin-report-ghost:disabled,
+.admin-primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .admin-report-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
