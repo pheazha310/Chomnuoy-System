@@ -36,6 +36,7 @@ import UserDashboard from '@/app/admin/userDashboard.jsx';
 import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
 import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
 import AdminNotificationPage from '@/app/admin/notification.jsx';
+import ReportsAdmin from '@/components/pages/reports/ReportsAdmin.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -452,6 +453,14 @@ export default function App() {
           element={(
             <RequireAdminAuth>
               <AdminNotificationPage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/reports"
+          element={(
+            <RequireAdminAuth>
+              <ReportsAdmin />
             </RequireAdminAuth>
           )}
         />
