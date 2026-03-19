@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿﻿/**
 * @license
 * SPDX-License-Identifier: Apache-2.0
 */
@@ -11,23 +11,6 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
-
-function normalizeOrigin(value) {
-  if (!value) return "";
-
-  try {
-    return new URL(value).origin;
-  } catch {
-    return "";
-  }
-}
-
-function getAllowedGoogleOrigins(configuredAppUrl) {
-  const configuredOrigin = normalizeOrigin(configuredAppUrl);
-  const defaults = ["http://localhost:5173", "http://127.0.0.1:5173"];
-
-  return Array.from(new Set([configuredOrigin, ...defaults].filter(Boolean)));
-}
 
 function GoogleIcon(props) {
   return (
@@ -65,10 +48,6 @@ function FacebookIcon(props) {
 
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   const location = useLocation();
-  const currentOrigin =
-    typeof window !== "undefined" ? window.location.origin : "your-app-origin";
-  const configuredAppOrigin = import.meta.env.VITE_PUBLIC_APP_URL?.trim() ?? "";
-  const allowedGoogleOrigins = getAllowedGoogleOrigins(configuredAppOrigin);
   const showLogoutMessage = new URLSearchParams(location.search).get('loggedOut') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
@@ -89,15 +68,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
-  const isGoogleSignInEnabled = import.meta.env.VITE_ENABLE_GOOGLE_SIGN_IN === "true";
   const isGoogleSignInConfigured = Boolean(googleClientId);
-  const isCurrentOriginAllowedForGoogle = allowedGoogleOrigins.includes(currentOrigin);
-  const canRenderGoogleSignIn =
-    isGoogleSignInEnabled && isGoogleSignInConfigured && isCurrentOriginAllowedForGoogle;
-  const googleOriginHelpText = `Google Sign-In is disabled for ${currentOrigin}. Add this origin to Authorized JavaScript origins in Google Cloud Console for client ID ${googleClientId}.${configuredAppOrigin && normalizeOrigin(configuredAppOrigin) !== currentOrigin ? ` VITE_PUBLIC_APP_URL is currently set to ${configuredAppOrigin}.` : ""}`;
-  const googleDisabledHelpText = !isGoogleSignInEnabled
-    ? "Google Sign-In is turned off for this frontend. Set VITE_ENABLE_GOOGLE_SIGN_IN=true in frontend/.env and restart the frontend server after the Google OAuth client is configured."
-    : googleOriginHelpText;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -278,31 +249,21 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             Gmail
           </button> */}
 
-          {canRenderGoogleSignIn ? (
+          {isGoogleSignInConfigured ? (
             <GoogleOAuthProvider clientId={googleClientId}>
               <GoogleLogin
-                theme="outline"
-                size="large"
-                text="signin_with"
-                shape="rectangular"
-                logo_alignment="left"
                 onSuccess={handleGoogleSuccess}
                 onError={() => {
+                  const currentOrigin =
+                    typeof window !== "undefined"
+                      ? window.location.origin
+                      : "your-app-origin";
                   setError(
-                    `Google login failed. Add ${currentOrigin} to Authorized JavaScript origins in Google Cloud Console for this client ID${configuredAppOrigin && configuredAppOrigin !== currentOrigin ? `, and verify it matches VITE_PUBLIC_APP_URL (${configuredAppOrigin}).` : "."}`
+                    `Google login failed. Ensure ${currentOrigin} is added to Authorized JavaScript origins for this OAuth client ID.`
                   );
                 }}
               />
             </GoogleOAuthProvider>
-          ) : isGoogleSignInConfigured ? (
-            <button
-              type="button"
-              disabled
-              className="flex min-h-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm font-semibold text-amber-800"
-              title={googleDisabledHelpText}
-            >
-              {googleDisabledHelpText}
-            </button>
           ) : (
             <button
               type="button"

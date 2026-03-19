@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import '../css/Campaigns.css';
 
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -87,6 +96,8 @@ function campaignCategoryToSidebarCategory(category) {
 }
 
 function CampaignsPage() {
+  const session = getSession();
+  const isLoggedIn = Boolean(session?.isLoggedIn);
   const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
   const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -349,6 +360,7 @@ function CampaignsPage() {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
+            const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
             const isUrgent = percentRaised < 40;
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
             const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
@@ -394,7 +406,7 @@ function CampaignsPage() {
                       <img className="donor-avatar donor-avatar-image" src={donorProfileImages[1]} alt="" aria-hidden="true" />
                       <span className="donor-avatar donor-avatar-more">+{mockDonorCount}</span>
                     </div>
-                    <a href={detailPath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
+                    <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
                       Donate Now
                     </a>
                   </div>
