@@ -42,6 +42,7 @@ const TransactionAdminPage = lazy(() => import('@/app/admin/transactionAdmin.jsx
 const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
 const ReportsAdmin = lazy(() => import('@/components/pages/reports/ReportsAdmin.jsx'));
 const AdminSettingsPage = lazy(() => import('@/app/admin/AdminSettingsPage.jsx'));
+const AdminProfilePage = lazy(() => import('@/app/admin/profile.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -86,11 +87,10 @@ function getStorageFileUrl(path) {
 
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
-    return `${appBase}/${normalizedPath}`;
+  if (normalizedPath.startsWith('files/')) {
+    return `${apiBase}/${normalizedPath}`;
   }
-  return `${appBase}/storage/${normalizedPath}`;
+  return `${apiBase}/files/${normalizedPath}`;
 }
 
 function getProfileAvatarOverrides() {
@@ -467,6 +467,14 @@ export default function App() {
             element={(
               <RequireAdminAuth>
                 <OrganizationDashboard />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/profile"
+            element={(
+              <RequireAdminAuth>
+                <AdminProfilePage />
               </RequireAdminAuth>
             )}
           />

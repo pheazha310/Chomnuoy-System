@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CampaignImageController;
@@ -41,10 +42,18 @@ use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
+Route::get('/files/{path}', function (string $path) {
+    abort_unless(Storage::disk('public')->exists($path), 404);
+    return Storage::disk('public')->response($path);
+})->where('path', '.*');
+Route::get('/admin/profile/{user}', [AdminProfileController::class, 'show']);
+Route::post('/admin/profile/{user}', [AdminProfileController::class, 'update']);
+Route::post('/admin/profile/{user}/password', [AdminProfileController::class, 'updatePassword']);
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
 Route::get('/health', function (): JsonResponse {

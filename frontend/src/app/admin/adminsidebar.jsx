@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import './style.css';
 
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
+const SESSION_STORAGE_KEY = 'chomnuoy_session';
 
 const NAV_ITEMS = [
   {
@@ -80,6 +81,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: 'Profile',
+    path: '/admin/profile',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+        <path d="M5 20a7 7 0 0 1 14 0" />
+      </svg>
+    ),
+  },
+  {
     label: 'Settings',
     path: '/admin/settings',
     icon: (
@@ -93,6 +104,18 @@ const NAV_ITEMS = [
 
 const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
   const [unreadCount, setUnreadCount] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState('');
+
+  const readSessionAvatar = () => {
+    try {
+      const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return '';
+      const session = JSON.parse(raw);
+      return session?.avatar || '';
+    } catch {
+      return '';
+    }
+  };
 
   useEffect(() => {
     const readCount = () => {
@@ -113,6 +136,21 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('admin-notify-updated', onCustom);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncAvatar = () => {
+      setAvatarUrl(readSessionAvatar());
+    };
+
+    syncAvatar();
+    window.addEventListener('storage', syncAvatar);
+    window.addEventListener('chomnuoy-session-updated', syncAvatar);
+
+    return () => {
+      window.removeEventListener('storage', syncAvatar);
+      window.removeEventListener('chomnuoy-session-updated', syncAvatar);
     };
   }, []);
 
@@ -194,9 +232,16 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
       <div className="admin-sidebar-footer">
         <div className="admin-user">
           <div className="admin-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0" />
-            </svg>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" />
+            ) : (
+              userName
+                .split(' ')
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()
+            )}
           </div>
           <div className="admin-user-meta">
             <p className="admin-user-name">{userName}</p>
