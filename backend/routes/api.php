@@ -54,12 +54,14 @@ Route::get('/health', function (): JsonResponse {
     ]);
 });
 
+Route::get('/users/by-email', [UserController::class, 'findByEmail']);
 Route::apiResource('users', UserController::class);
 Route::post('/users/{id}/last-seen', [UserController::class, 'updateLastSeen']);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('user_roles', UserRoleController::class);
 Route::apiResource('user_credentials', UserCredentialController::class);
 Route::apiResource('user_history', UserHistoryController::class);
+Route::get('/organizations/by-email', [OrganizationController::class, 'findByEmail']);
 Route::apiResource('organizations', OrganizationController::class);
 Route::apiResource('organization_verifications', OrganizationVerificationController::class);
 Route::apiResource('organization_history', OrganizationHistoryController::class);

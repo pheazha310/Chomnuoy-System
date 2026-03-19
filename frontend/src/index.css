@@ -1,10 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@600;700&family=Space+Grotesk:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  --font-sans: 'Source Sans 3', 'Noto Sans Khmer', sans-serif;
+  --public-bg-1: #f7f2e8;
+  --public-bg-2: #eef4ee;
+  --public-bg-3: #fbf8f1;
+  --public-surface: #fffdf8;
+  --public-surface-alt: #f4ede1;
+  --public-ink: #1f2a24;
+  --public-ink-soft: #4f5f55;
+  --public-accent: #c7763c;
+  --public-accent-strong: #a85b2e;
+  --public-line: #e6dccb;
   --bg-deep: #091e2f;
   --bg-mid: #123753;
   --bg-light: #e8f2f8;
@@ -23,12 +34,34 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: 'Source Sans 3', sans-serif;
+  font-family: var(--font-sans);
   color: var(--text-strong);
   background:
     radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.25), transparent 35%),
     radial-gradient(circle at 95% 90%, rgba(255, 122, 24, 0.2), transparent 30%),
     linear-gradient(140deg, var(--bg-deep), var(--bg-mid) 35%, var(--bg-light) 100%);
+}
+
+body.public-theme {
+  color: var(--public-ink);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(199, 118, 60, 0.14), transparent 45%),
+    radial-gradient(circle at 92% 88%, rgba(93, 141, 111, 0.14), transparent 40%),
+    linear-gradient(160deg, var(--public-bg-1), var(--public-bg-2) 45%, var(--public-bg-3) 100%);
+  --text-strong: var(--public-ink);
+  --text-soft: var(--public-ink-soft);
+  --accent: var(--public-accent);
+  --accent-strong: var(--public-accent-strong);
+  --line: var(--public-line);
+  --primary: var(--public-accent);
+  --primary-dark: var(--public-accent-strong);
+  --primary-light: #e8c7ad;
+  --primary-soft: #f6ede1;
+  --slate-900: var(--public-ink);
+  --slate-800: #2a352f;
+  --slate-700: #3b463f;
+  --slate-600: var(--public-ink-soft);
+  --slate-500: #6a786f;
 }
 
 #root {
@@ -56,7 +89,7 @@ body {
 }
 
 .eyebrow {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.8rem;
@@ -90,7 +123,7 @@ body {
 
 .hero h1 {
   margin: 0.65rem auto;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 5vw, 3.45rem);
   line-height: 1.05;
   max-width: 760px;
@@ -147,7 +180,7 @@ body {
 
 .stat-value {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.7rem;
 }
 
@@ -172,7 +205,7 @@ body {
 
 .highlight-card h2 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.17rem;
 }
 
@@ -266,4 +299,5 @@ body {
     text-align: center;
   }
 }
+
 
