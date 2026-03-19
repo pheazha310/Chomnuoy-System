@@ -128,10 +128,10 @@ const Hero = () => (
           Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate donors with grassroots initiatives making a real difference.
         </p>
         <div className="about-header-actions">
-          {/* <Link to="/login" className="about-header-btn about-header-btn-primary group">
+          <Link to="/login" className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </Link> */}
+          </Link>
           <Link to="/campaigns" className="about-header-btn about-header-btn-secondary">
             Start a Campaign
           </Link>
