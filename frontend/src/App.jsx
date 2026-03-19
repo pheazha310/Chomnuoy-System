@@ -4,6 +4,7 @@ import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
 const CampaignsPage = lazy(() => import('@/components/pages/CampaignsPage.jsx'));
@@ -168,6 +169,7 @@ function RequireOrganizationAuth({ children }) {
 }
 
 function RequireAdminAuth({ children }) {
+  useAdminAutoTranslate();
   const location = useLocation();
   const session = getSession();
   const roleValue = String(session?.role || session?.accountType || '').toLowerCase();

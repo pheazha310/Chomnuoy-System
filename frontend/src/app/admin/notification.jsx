@@ -569,9 +569,11 @@ export default function AdminNotificationPage() {
 
             <div className="admin-notify-list">
               {filteredItems.length === 0 ? (
-                <div className="admin-notify-empty">
-                  <h3>No notifications found</h3>
-                  <p>Try switching tabs or filters to see more updates.</p>
+                <div className="admin-notify-empty admin-notify-empty-card">
+                  <div>
+                    <h3>Nothing here yet</h3>
+                    <p>No notifications match this view. Try another tab or filter.</p>
+                  </div>
                 </div>
               ) : null}
               {filteredItems.map((item) => (
@@ -655,6 +657,11 @@ export default function AdminNotificationPage() {
                 </div>
                 <span className="admin-notify-pill">{unreadCount} new</span>
               </div>
+              {filteredItems.length === 0 ? (
+                <div className="admin-notify-empty-mini">
+                  No notifications in this view.
+                </div>
+              ) : null}
               <div className="admin-notify-filter-list">
                 {FILTERS.map((filter) => (
                   <button
