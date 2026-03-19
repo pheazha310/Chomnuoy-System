@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useLanguage } from '@/i18n/language.jsx';
 
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
 
@@ -89,6 +90,18 @@ const NAV_ITEMS = [
 
 const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
   const [unreadCount, setUnreadCount] = useState(0);
+  const { t } = useLanguage();
+  const navLabels = {
+    Dashboard: t('admin.nav.dashboard'),
+    Users: t('admin.nav.users'),
+    Organizations: t('admin.nav.organizations'),
+    'Material Pickups': t('admin.nav.materialPickups'),
+    Reports: t('admin.nav.reports'),
+    Donations: t('admin.nav.donations'),
+    Transactions: t('admin.nav.transactions'),
+    Notifications: t('admin.nav.notifications'),
+    Settings: t('admin.nav.settings'),
+  };
 
   useEffect(() => {
     const readCount = () => {
@@ -166,7 +179,7 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
               <span className="admin-nav-icon" aria-hidden="true">
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              <span>{navLabels[item.label] || item.label}</span>
               {item.showBadge && unreadCount > 0 ? (
                 <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
                   {unreadCount}
@@ -181,7 +194,7 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
             <span className="admin-nav-icon" aria-hidden="true">
               {item.icon}
             </span>
-            <span>{item.label}</span>
+            <span>{navLabels[item.label] || item.label}</span>
           </button>
         );
       })}
@@ -203,7 +216,7 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
         </div>
       </div>
       <button className="admin-logout-btn" type="button" onClick={onLogout}>
-        Logout
+        {t('admin.nav.logout')}
       </button>
     </div>
   </aside>

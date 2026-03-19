@@ -39,6 +39,7 @@ import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
 import AdminSettingsPage from '@/app/admin/AdminSettingsPage.jsx';
 import AdminNotificationPage from '@/app/admin/notification.jsx';
 import ReportsAdmin from '@/components/pages/reports/ReportsAdmin.jsx';
+import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -165,6 +166,7 @@ function RequireOrganizationAuth({ children }) {
 }
 
 function RequireAdminAuth({ children }) {
+  useAdminAutoTranslate();
   const location = useLocation();
   const session = getSession();
   const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
