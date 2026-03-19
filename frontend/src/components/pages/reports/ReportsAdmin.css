@@ -21,6 +21,19 @@
   font-size: 14px;
 }
 
+.admin-report-message {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-report-message-error {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
 .admin-report-actions {
   display: inline-flex;
   gap: 10px;
@@ -297,6 +310,13 @@
 .admin-report-map-legend {
   display: grid;
   gap: 10px;
+}
+
+.admin-report-placeholder-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .admin-report-map-row {
