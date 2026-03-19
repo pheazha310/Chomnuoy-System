@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import './home.css';
 import { Link } from 'react-router-dom';
+import Map from './map';    
 
 const stats = [
   { value: '$2.5M+', label: 'Total donated' },
@@ -267,6 +268,7 @@ function Home() {
           </Link>
         </div>
       </section>
+      <Map/>
     </main>
   );
 }

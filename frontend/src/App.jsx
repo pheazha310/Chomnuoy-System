@@ -22,6 +22,7 @@ import MyDonation from '@/app/donate/myDonation.jsx';
 import ViewDetail from '@/app/donate/viewDetail.jsx';
 import AccountSettings from '@/app/setting/AccountSettings.jsx';
 import OrganizationDashboardPage from '@/app/organization/page.jsx';
+import OrganizationReports from '@/app/organization/OrganizationReports.jsx';
 import OrganizationDonationsPage from '@/app/organization/donations.jsx';
 import OrganizationCampaignsPage from '@/app/organization/OrganizationCampaignsPage.jsx';
 import OrganizationCampaignCreatePage from '@/app/organization/OrganizationCampaignCreatePage.jsx';
@@ -37,6 +38,7 @@ import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
 import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
 import AdminNotificationPage from '@/app/admin/notification.jsx';
 import ReportsAdmin from '@/components/pages/reports/ReportsAdmin.jsx';
+import AdminSettingsPage from '@/app/admin/AdminSettingsPage.jsx';
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -350,7 +352,7 @@ export default function App() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     const ping = () => {
-      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => {});
+      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => { });
     };
 
     ping();
@@ -381,6 +383,14 @@ export default function App() {
           element={(
             <RequireOrganizationAuth>
               <OrganizationDashboardPage />
+            </RequireOrganizationAuth>
+          )}
+        />
+        <Route
+          path={ROUTES.ORGANIZATION_REPORTS}
+          element={(
+            <RequireOrganizationAuth>
+              <OrganizationReports />
             </RequireOrganizationAuth>
           )}
         />
@@ -461,6 +471,14 @@ export default function App() {
           element={(
             <RequireAdminAuth>
               <ReportsAdmin />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/settings"
+          element={(
+            <RequireAdminAuth>
+              <AdminSettingsPage />
             </RequireAdminAuth>
           )}
         />
