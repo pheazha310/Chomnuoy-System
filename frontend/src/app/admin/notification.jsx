@@ -240,6 +240,7 @@ export default function AdminNotificationPage() {
   const [activeTab, setActiveTab] = useState('Primary');
   const [activeFilter, setActiveFilter] = useState('all');
   const [items, setItems] = useState([]);
+  const [brokenAvatars, setBrokenAvatars] = useState({});
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState(null);
   const [replyDraft, setReplyDraft] = useState('');
@@ -252,11 +253,17 @@ export default function AdminNotificationPage() {
 
   const getStorageFileUrl = (path) => {
     if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return path;
+    const cleaned = String(path).trim();
+    if (!cleaned) return '';
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+      return cleaned;
     }
     const appBase = apiBase.replace(/\/api\/?$/, '');
-    return `${appBase}/storage/${path}`;
+    const normalized = cleaned.replace(/^\/+/, '');
+    if (normalized.startsWith('storage/')) {
+      return `${appBase}/${normalized}`;
+    }
+    return `${appBase}/storage/${normalized}`;
   };
 
   const getInitials = (value) => {
@@ -352,14 +359,16 @@ export default function AdminNotificationPage() {
         const usersById = new Map();
         usersList.forEach((user) => {
           if (user?.id) {
-            const avatarUrl =
+            const avatarRaw =
               user.avatar_url ||
               user.profile_image ||
               user.avatar ||
               user.image_url ||
               user.photo ||
               user.picture ||
-              getStorageFileUrl(user.avatar_path);
+              user.avatar_path ||
+              '';
+            const avatarUrl = getStorageFileUrl(avatarRaw);
             usersById.set(Number(user.id), {
               id: user.id,
               name: user.name || 'User',
@@ -580,8 +589,14 @@ export default function AdminNotificationPage() {
                 >
                   <div className="admin-notify-icon" aria-hidden="true">
                     {item.type === 'message' ? (
-                      item.senderAvatarUrl ? (
-                        <img src={item.senderAvatarUrl} alt="" />
+                      item.senderAvatarUrl && !brokenAvatars[item.id] ? (
+                        <img
+                          src={item.senderAvatarUrl}
+                          alt=""
+                          onError={() =>
+                            setBrokenAvatars((prev) => ({ ...prev, [item.id]: true }))
+                          }
+                        />
                       ) : (
                         <span className="admin-notify-avatar-fallback">{getInitials(item.sender)}</span>
                       )
@@ -721,8 +736,14 @@ export default function AdminNotificationPage() {
             <div className="admin-notify-detail-header">
               <div className={`admin-notify-detail-icon admin-notify-${activeNotification.tone}`}>
                 {activeNotification.type === 'message' ? (
-                  activeNotification.senderAvatarUrl ? (
-                    <img src={activeNotification.senderAvatarUrl} alt="" />
+                  activeNotification.senderAvatarUrl && !brokenAvatars[activeNotification.id] ? (
+                    <img
+                      src={activeNotification.senderAvatarUrl}
+                      alt=""
+                      onError={() =>
+                        setBrokenAvatars((prev) => ({ ...prev, [activeNotification.id]: true }))
+                      }
+                    />
                   ) : (
                     <span className="admin-notify-avatar-fallback">
                       {getInitials(activeNotification.sender)}
