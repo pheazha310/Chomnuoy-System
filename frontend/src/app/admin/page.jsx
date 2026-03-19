@@ -1,5 +1,5 @@
 import './style.css';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from './adminsidebar';
 
 const STATS = [
@@ -47,28 +47,6 @@ const TASKS = [
   },
 ];
 
-const RECENT_ORGS = [
-  {
-    name: 'Hope Foundation',
-    category: 'Education',
-    status: 'Verified',
-    date: 'Oct 24, 2023',
-  },
-  {
-    name: 'Green Care',
-    category: 'Environment',
-    status: 'Pending',
-    date: 'Oct 23, 2023',
-  },
-  {
-    name: 'Food Security NGO',
-    category: 'Healthcare',
-    status: 'Verified',
-    date: 'Oct 21, 2023',
-  },
-];
-
-const CHART_VALUES = [12, 18, 10, 22, 16, 26, 20];
 const CHART_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const TASK_ICONS = {
@@ -108,25 +86,171 @@ const StatCard = ({ stat }) => (
   </div>
 );
 
+const formatDate = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
+};
+
+const normalizeStatus = (value) => {
+  const status = String(value || '').toLowerCase();
+  if (status.includes('verify')) return 'Verified';
+  if (status.includes('pending')) return 'Pending';
+  if (status.includes('reject')) return 'Rejected';
+  return value ? String(value) : 'Pending';
+};
+
 
 const AdminDashboard = () => {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [joinCounts, setJoinCounts] = useState([0, 0, 0, 0, 0, 0, 0]);
+  const [joinLoading, setJoinLoading] = useState(true);
+  const [rangeDays, setRangeDays] = useState(7);
+  const [isRangeOpen, setIsRangeOpen] = useState(false);
+  const [tooltip, setTooltip] = useState(null);
+  const [recentOrgs, setRecentOrgs] = useState([]);
+  const [recentOrgsLoading, setRecentOrgsLoading] = useState(true);
+  const [recentOrgsError, setRecentOrgsError] = useState('');
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
   const adminRole = session?.role || session?.accountType || 'Admin';
-  const maxValue = Math.max(...CHART_VALUES);
-  const minValue = Math.min(...CHART_VALUES);
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const chartLabels = useMemo(() => {
+    if (rangeDays === 7) return CHART_LABELS;
+    const labels = [];
+    const today = new Date();
+    for (let i = rangeDays - 1; i >= 0; i -= 1) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      labels.push(day.toLocaleDateString(undefined, { month: 'short', day: '2-digit' }));
+    }
+    return labels;
+  }, [rangeDays]);
+  const maxValue = Math.max(...joinCounts, 1);
+  const minValue = Math.min(...joinCounts, 0);
   const chartWidth = 560;
   const chartHeight = 180;
+  const chartPadding = { top: 10, right: 10, bottom: 10, left: 10 };
   const valueRange = Math.max(1, maxValue - minValue);
-  const xStep = chartWidth / (CHART_VALUES.length - 1);
-  const chartPoints = CHART_VALUES.map((value, index) => {
-    const x = index * xStep;
-    const y = chartHeight - ((value - minValue) / valueRange) * chartHeight;
+  const innerWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const innerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+  const xStep = innerWidth / Math.max(1, (joinCounts.length - 1));
+  const chartPoints = joinCounts.map((value, index) => {
+    const x = chartPadding.left + index * xStep;
+    const y = chartPadding.top + innerHeight - ((value - minValue) / valueRange) * innerHeight;
     return `${x},${y}`;
   }).join(' ');
-  const chartAreaPoints = `${chartPoints} ${chartWidth},${chartHeight} 0,${chartHeight}`;
+  const chartAreaPoints = `${chartPoints} ${chartPadding.left + innerWidth},${chartPadding.top + innerHeight} ${chartPadding.left},${chartPadding.top + innerHeight}`;
+
+  const weekdayIndex = (date) => {
+    const day = date.getDay(); // 0=Sun
+    return (day + 6) % 7; // shift so Mon=0 ... Sun=6
+  };
+
+  useEffect(() => {
+    let active = true;
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const fetchUsers = fetch(`${apiBase}/users`, { headers }).then((res) => (res.ok ? res.json() : []));
+    const fetchOrgs = fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : []));
+
+    Promise.all([fetchUsers, fetchOrgs])
+      .then(([users, orgs]) => {
+        if (!active) return;
+        const counts = Array.from({ length: rangeDays }, () => 0);
+        const now = new Date();
+        const last7 = new Date(now);
+        last7.setDate(now.getDate() - (rangeDays - 1));
+
+        const addIfInRange = (dateValue) => {
+          if (!dateValue) return;
+          const createdAt = new Date(dateValue);
+          if (Number.isNaN(createdAt.getTime())) return;
+          if (createdAt < last7 || createdAt > now) return;
+          if (rangeDays === 7) {
+            const idx = weekdayIndex(createdAt);
+            counts[idx] += 1;
+            return;
+          }
+          const dayDiff = Math.floor((createdAt.setHours(0, 0, 0, 0) - last7.setHours(0, 0, 0, 0)) / 86400000);
+          if (dayDiff >= 0 && dayDiff < rangeDays) {
+            counts[dayDiff] += 1;
+          }
+        };
+
+        (Array.isArray(users) ? users : []).forEach((user) => addIfInRange(user?.created_at));
+        (Array.isArray(orgs) ? orgs : []).forEach((org) => addIfInRange(org?.created_at));
+
+        setJoinCounts(counts);
+      })
+      .catch(() => {
+        if (!active) return;
+        setJoinCounts(Array.from({ length: rangeDays }, () => 0));
+      })
+      .finally(() => {
+        if (active) setJoinLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [apiBase, rangeDays]);
+
+  useEffect(() => {
+    let active = true;
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    setRecentOrgsLoading(true);
+    setRecentOrgsError('');
+
+    Promise.all([
+      fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${apiBase}/categories`, { headers }).then((res) => (res.ok ? res.json() : [])),
+    ])
+      .then(([orgsData, categoriesData]) => {
+        if (!active) return;
+        const orgs = Array.isArray(orgsData) ? orgsData : [];
+        const categories = Array.isArray(categoriesData) ? categoriesData : [];
+        const categoryMap = new Map();
+        categories.forEach((cat) => {
+          if (cat?.id) {
+            categoryMap.set(Number(cat.id), cat.category_name || cat.name || '');
+          }
+        });
+
+        const normalized = orgs
+          .map((org) => ({
+            id: org.id,
+            name: org.name || 'Organization',
+            category: categoryMap.get(Number(org.category_id)) || 'Uncategorized',
+            status: normalizeStatus(org.verified_status || org.status),
+            date: formatDate(org.created_at),
+            createdAt: org.created_at ? new Date(org.created_at).getTime() : 0,
+          }))
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 6);
+
+        setRecentOrgs(normalized);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setRecentOrgs([]);
+        setRecentOrgsError(err instanceof Error ? err.message : 'Unable to load organizations.');
+      })
+      .finally(() => {
+        if (active) setRecentOrgsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [apiBase]);
+
+  const totalJoins = useMemo(() => joinCounts.reduce((sum, value) => sum + value, 0), [joinCounts]);
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -161,11 +285,45 @@ const AdminDashboard = () => {
         <section className="admin-content-grid">
           <div className="admin-panel">
             <div className="admin-panel-header">
-              <h2>Donation Overview</h2>
-              <button className="admin-ghost-btn" type="button">Last 30 Days</button>
+              <h2>User & Organization Joins</h2>
+              <div className="admin-range">
+                <button
+                  className="admin-ghost-btn"
+                  type="button"
+                  onClick={() => setIsRangeOpen((prev) => !prev)}
+                  aria-haspopup="listbox"
+                  aria-expanded={isRangeOpen}
+                >
+                  Last {rangeDays} Days
+                </button>
+                {isRangeOpen ? (
+                  <div className="admin-range-menu" role="listbox">
+                    <button
+                      type="button"
+                      className={rangeDays === 7 ? 'is-active' : ''}
+                      onClick={() => {
+                        setRangeDays(7);
+                        setIsRangeOpen(false);
+                      }}
+                    >
+                      Last 7 Days
+                    </button>
+                    <button
+                      type="button"
+                      className={rangeDays === 30 ? 'is-active' : ''}
+                      onClick={() => {
+                        setRangeDays(30);
+                        setIsRangeOpen(false);
+                      }}
+                    >
+                      Last 30 Days
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className="admin-chart">
-              <div className="admin-chart-canvas" role="img" aria-label="Donations trend for the last 7 days">
+              <div className="admin-chart-canvas" role="img" aria-label="New users and organizations joined per weekday">
                 <svg className="admin-chart-svg" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="adminAreaFill" x1="0" y1="0" x2="0" y2="1">
@@ -175,18 +333,53 @@ const AdminDashboard = () => {
                   </defs>
                   <polygon className="admin-chart-area" points={chartAreaPoints} />
                   <polyline className="admin-chart-line" points={chartPoints} />
-                  {CHART_VALUES.map((value, index) => {
-                    const x = index * xStep;
-                    const y = chartHeight - ((value - minValue) / valueRange) * chartHeight;
-                    return <circle key={`${value}-${index}`} className="admin-chart-dot" cx={x} cy={y} r="4" />;
+                  {joinCounts.map((value, index) => {
+                    const x = chartPadding.left + index * xStep;
+                    const y = chartPadding.top + innerHeight - ((value - minValue) / valueRange) * innerHeight;
+                    return (
+                      <circle
+                        key={`${value}-${index}`}
+                        className="admin-chart-dot"
+                        cx={x}
+                        cy={y}
+                        r="3"
+                        onMouseEnter={() => setTooltip({ index, x, y })}
+                        onMouseLeave={() => setTooltip(null)}
+                        onFocus={() => setTooltip({ index, x, y })}
+                        onBlur={() => setTooltip(null)}
+                        tabIndex={0}
+                      />
+                    );
                   })}
                 </svg>
+                {tooltip ? (
+                  <div
+                    className="admin-chart-tooltip"
+                    style={{
+                      left: `${(tooltip.x / chartWidth) * 100}%`,
+                      top: `${(tooltip.y / chartHeight) * 100}%`,
+                    }}
+                    role="status"
+                  >
+                    <strong>
+                      {joinCounts[tooltip.index]} {joinCounts[tooltip.index] === 1 ? 'join' : 'joins'}
+                    </strong>
+                    <span>{chartLabels[tooltip.index]}</span>
+                  </div>
+                ) : null}
                 <div className="admin-chart-labels" aria-hidden="true">
-                  {CHART_LABELS.map((label) => (
-                    <span key={label}>{label}</span>
+                  {chartLabels.map((label, index) => (
+                    <span key={`${label}-${index}`}>
+                      {rangeDays === 30 && index % 5 !== 0 ? '' : label}
+                    </span>
                   ))}
                 </div>
               </div>
+              {!joinLoading ? (
+                <p className="admin-chart-footnote">
+                  {totalJoins.toLocaleString()} new joins (users + organizations)
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -223,14 +416,31 @@ const AdminDashboard = () => {
               <span>Status</span>
               <span>Date</span>
             </div>
-            {RECENT_ORGS.map((org) => (
-              <div key={org.name} className="admin-table-row">
-                <span className="admin-org-name">{org.name}</span>
-                <span>{org.category}</span>
-                <span className={`admin-status admin-status-${org.status.toLowerCase()}`}>{org.status}</span>
-                <span>{org.date}</span>
+            {recentOrgsLoading ? (
+              <div className="admin-table-row">
+                <span>Loading organizations...</span>
               </div>
-            ))}
+            ) : null}
+            {!recentOrgsLoading && recentOrgsError ? (
+              <div className="admin-table-row">
+                <span>{recentOrgsError}</span>
+              </div>
+            ) : null}
+            {!recentOrgsLoading && !recentOrgsError && recentOrgs.length === 0 ? (
+              <div className="admin-table-row">
+                <span>No organizations found.</span>
+              </div>
+            ) : null}
+            {!recentOrgsLoading && !recentOrgsError && recentOrgs.length > 0
+              ? recentOrgs.map((org) => (
+                <div key={org.id} className="admin-table-row">
+                  <span className="admin-org-name">{org.name}</span>
+                  <span>{org.category}</span>
+                  <span className={`admin-status admin-status-${org.status.toLowerCase()}`}>{org.status}</span>
+                  <span>{org.date}</span>
+                </div>
+              ))
+              : null}
           </div>
         </div>
         </section>

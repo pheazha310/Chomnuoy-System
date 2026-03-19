@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+
+const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
 
 const NAV_ITEMS = [
   {
@@ -63,6 +65,8 @@ const NAV_ITEMS = [
   },
   {
     label: 'Notifications',
+    path: '/admin/notifications',
+    showBadge: true,
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6" />
@@ -82,8 +86,33 @@ const NAV_ITEMS = [
   },
 ];
 
-const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => (
-  <aside className="admin-sidebar" aria-label="Admin navigation">
+const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const readCount = () => {
+      const raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
+      const parsed = Number(raw);
+      setUnreadCount(Number.isFinite(parsed) ? parsed : 0);
+    };
+
+    readCount();
+    const onStorage = (event) => {
+      if (event.key === UNREAD_STORAGE_KEY) {
+        readCount();
+      }
+    };
+    const onCustom = () => readCount();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('admin-notify-updated', onCustom);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('admin-notify-updated', onCustom);
+    };
+  }, []);
+
+  return (
+    <aside className="admin-sidebar" aria-label="Admin navigation">
     <div className="admin-brand">
       <span className="admin-brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" className="admin-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -137,6 +166,11 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => (
                 {item.icon}
               </span>
               <span>{item.label}</span>
+              {item.showBadge && unreadCount > 0 ? (
+                <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
+                  {unreadCount}
+                </span>
+              ) : null}
             </NavLink>
           );
         }
@@ -172,6 +206,7 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => (
       </button>
     </div>
   </aside>
-);
+  );
+};
 
 export default AdminSidebar;

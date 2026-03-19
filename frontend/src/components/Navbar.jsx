@@ -85,32 +85,10 @@ function Navbar() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'success',
-      title: 'Donation Received',
-      message: 'Thank you for supporting Rural Health Alliance.',
-      time: '2m ago',
-      isRead: false,
-    },
-    {
-      id: 2,
-      type: 'info',
-      title: 'Campaign Update',
-      message: 'Ocean Reclaim Project shared a new progress update.',
-      time: '1h ago',
-      isRead: false,
-    },
-    {
-      id: 3,
-      type: 'message',
-      title: 'Pickup Reminder',
-      message: 'Your material pickup is scheduled for tomorrow.',
-      time: 'Yesterday',
-      isRead: true,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [activeNotification, setActiveNotification] = useState(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [isReplySending, setIsReplySending] = useState(false);
   const notificationRef = useRef(null);
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
@@ -134,6 +112,18 @@ function Navbar() {
 
   const markAllNotificationsRead = () => {
     setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    notifications.forEach((item) => {
+      if (!item.isRead && item.source === 'api') {
+        fetch(`${apiBase}/notifications/${item.id}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_read: true }),
+        }).catch(() => {});
+      }
+    });
   };
 
   useEffect(() => {
@@ -182,6 +172,156 @@ function Navbar() {
     const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
     setSearchQuery(urlQuery);
   }, [location.search]);
+
+  const parseMessageDetails = (rawMessage = '') => {
+    const lines = String(rawMessage).split('\n').map((line) => line.trim()).filter(Boolean);
+    const fromLine = lines.find((line) => line.toLowerCase().startsWith('from:')) || '';
+    const subjectLine = lines.find((line) => line.toLowerCase().startsWith('subject:')) || '';
+    const messageLine = lines.find((line) => line.toLowerCase().startsWith('message:')) || '';
+    const fromValue = fromLine.replace(/^from:\s*/i, '');
+    const subjectValue = subjectLine.replace(/^subject:\s*/i, '');
+    const messageValue = messageLine.replace(/^message:\s*/i, '');
+    return {
+      from: fromValue || null,
+      subject: subjectValue || null,
+      body: messageValue || rawMessage,
+    };
+  };
+
+  const loadNotifications = () => {
+    if (!isDonorLoggedIn) return;
+    const session = getDonorSession();
+    const userId = Number(session?.userId ?? 0);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(`${apiBase}/notifications`, { headers })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        const filtered = userId ? list.filter((item) => Number(item.user_id) === userId) : list;
+        const mapped = filtered
+          .filter((item) => {
+            const type = String(item.type || '').toLowerCase();
+            if (type === 'message') {
+              return false;
+            }
+            return true;
+          })
+          .map((item) => {
+          const type = String(item.type || '').toLowerCase();
+          const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+          const timeLabel = createdAt.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          const parsed = parseMessageDetails(item.message || '');
+          const title = type === 'reply'
+            ? 'Admin Reply'
+            : type === 'campaign'
+              ? 'Campaign Update'
+              : type === 'pickup'
+                ? 'Pickup Reminder'
+                : 'Notification';
+          return {
+            id: item.id,
+            type: type === 'reply' ? 'message' : (type || 'info'),
+            title,
+            message: parsed.body || item.message || 'New update available.',
+            time: timeLabel,
+            isRead: Boolean(item.is_read),
+            source: 'api',
+            rawMessage: item.message || '',
+            subject: parsed.subject,
+            from: parsed.from,
+            userId: Number(item.user_id) || 0,
+          };
+        });
+        setNotifications(mapped);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+    loadNotifications();
+  }, [isNotificationsOpen]);
+
+  const markNotificationRead = (id, source) => {
+    setNotifications((previous) => previous.map((item) => (
+      item.id === id ? { ...item, isRead: true } : item
+    )));
+    if (source === 'api') {
+      const token = window.localStorage.getItem('authToken');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      fetch(`${apiBase}/notifications/${id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_read: true }),
+      }).catch(() => {});
+    }
+  };
+
+  const openNotificationDetails = (item) => {
+    setActiveNotification(item);
+    if (!item.isRead) {
+      markNotificationRead(item.id, item.source);
+    }
+  };
+
+  const closeNotificationDetails = () => {
+    setActiveNotification(null);
+    setReplyDraft('');
+    setIsReplySending(false);
+  };
+
+  const handleReplySend = async () => {
+    if (!replyDraft.trim() || !activeNotification) return;
+    const session = getDonorSession();
+    const userId = Number(session?.userId ?? 0);
+    if (!userId) return;
+    setIsReplySending(true);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const subject = activeNotification.subject || activeNotification.title || 'Message';
+    const fromName = session?.name || 'Donor';
+    const fromEmail = session?.email || 'donor@example.com';
+    const payload = {
+      user_id: userId,
+      message: `From: ${fromName} <${fromEmail}>\nSubject: Reply: ${subject}\nMessage: ${replyDraft.trim()}`,
+      type: 'message',
+      is_read: false,
+    };
+
+    try {
+      const response = await fetch(`${apiBase}/notifications`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to send reply.');
+      }
+      setNotifications((previous) =>
+        previous.map((item) =>
+          item.id === activeNotification.id ? { ...item, isRead: true } : item
+        )
+      );
+      markNotificationRead(activeNotification.id, activeNotification.source);
+      setReplyDraft('');
+      closeNotificationDetails();
+    } catch {
+      setIsReplySending(false);
+    }
+  };
 
   useEffect(() => {
     setAvatarLoadFailed(false);
@@ -303,7 +443,18 @@ function Navbar() {
                 </div>
                 <ul className="donor-notification-list">
                   {notifications.map((item) => (
-                    <li key={item.id} className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}>
+                    <li
+                      key={item.id}
+                      className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openNotificationDetails(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          openNotificationDetails(item);
+                        }
+                      }}
+                    >
                       <div className={`donor-notification-icon ${item.type}`}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
                           <circle cx="12" cy="12" r="8" strokeWidth="2" />
@@ -416,6 +567,58 @@ function Navbar() {
         </div>
 
         {isLogoutPopupOpen && typeof document !== 'undefined' ? createPortal(logoutPopupMarkup, document.body) : null}
+        {activeNotification && typeof document !== 'undefined'
+          ? createPortal(
+            <div className="donor-notify-modal-overlay" role="presentation" onClick={closeNotificationDetails}>
+              <div
+                className="donor-notify-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="donor-notify-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="donor-notify-modal-header">
+                  <div className={`donor-notify-modal-icon ${activeNotification.type}`} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                      <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="donor-notify-modal-kicker">{activeNotification.title}</p>
+                    <h3 id="donor-notify-title">{activeNotification.subject || activeNotification.title}</h3>
+                    <span className="donor-notify-modal-time">{activeNotification.time}</span>
+                  </div>
+                </div>
+                {activeNotification.from ? (
+                  <p className="donor-notify-modal-from">From: {activeNotification.from}</p>
+                ) : null}
+                <p className="donor-notify-modal-body">{activeNotification.message}</p>
+
+                {activeNotification.title === 'Admin Reply' && !activeNotification.isRead ? (
+                  <div className="donor-notify-reply">
+                    <span>Reply to Admin</span>
+                    <textarea
+                      rows={4}
+                      placeholder="Write your reply..."
+                      value={replyDraft}
+                      onChange={(event) => setReplyDraft(event.target.value)}
+                    />
+                    <div className="donor-notify-reply-actions">
+                      <button type="button" className="donor-notify-reply-ghost" onClick={closeNotificationDetails}>
+                        Cancel
+                      </button>
+                      <button type="button" className="donor-notify-reply-send" onClick={handleReplySend} disabled={isReplySending}>
+                        {isReplySending ? 'Sending...' : 'Send Reply'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>,
+            document.body
+          )
+          : null}
       </nav>
     );
   }
