@@ -15,6 +15,9 @@ import { getCampaignById } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
+const DONOR_CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
+const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v1';
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 function getSavedCampaignIds() {
   try {
@@ -37,6 +40,57 @@ function getSession() {
   } catch {
     return null;
   }
+}
+
+function readSessionCache(key) {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function mapCachedCampaign(item) {
+  if (!item?.id) return null;
+  return {
+    id: item.id,
+    title: item.title || 'Untitled campaign',
+    category: item.category || item.normalizedCategory || 'General',
+    organization: item.organization || 'Verified Organization',
+    summary: item.summary || item.description || 'No description available yet.',
+    goalAmount: Number(item.goalAmount ?? item.goal ?? 0),
+    raisedAmount: Number(item.raisedAmount ?? item.raised ?? 0),
+    image:
+      item.image ||
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+  };
+}
+
+function getCachedCampaignById(id) {
+  try {
+    const rawLastOpened = window.localStorage.getItem(LAST_OPENED_CAMPAIGN_KEY);
+    const lastOpened = rawLastOpened ? JSON.parse(rawLastOpened) : null;
+    if (lastOpened && String(lastOpened.id) === String(id)) {
+      return mapCachedCampaign(lastOpened);
+    }
+  } catch {
+    // Ignore malformed local cache.
+  }
+
+  const donorCampaigns = readSessionCache(DONOR_CAMPAIGNS_CACHE_KEY);
+  if (Array.isArray(donorCampaigns)) {
+    const match = donorCampaigns.find((item) => String(item?.id) === String(id));
+    if (match) return mapCachedCampaign(match);
+  }
+
+  const donorHome = readSessionCache(DONOR_HOME_CACHE_KEY);
+  const donorHomeCampaigns = Array.isArray(donorHome?.campaigns) ? donorHome.campaigns : [];
+  const homeMatch = donorHomeCampaigns.find((item) => String(item?.id) === String(id));
+  if (homeMatch) return mapCachedCampaign(homeMatch);
+
+  return null;
 }
 
 function formatCurrency(amount) {
@@ -88,6 +142,7 @@ function CampaignDetailPage({ campaignId }) {
     lastUpdated: null,
   });
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
+  const routeCampaign = location.state?.campaign;
   const campaign = campaignData ?? getCampaignById(resolvedCampaignId);
   const session = getSession();
   const fallbackCampaignPath = session?.isLoggedIn && session?.role === 'Donor' ? '/campaigns/donor' : '/campaigns';
@@ -98,9 +153,27 @@ function CampaignDetailPage({ campaignId }) {
 
   useEffect(() => {
     let mounted = true;
+    if (routeCampaign && String(routeCampaign.id) === String(resolvedCampaignId)) {
+      setCampaignData(routeCampaign);
+      setCampaignLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
     const local = getCampaignById(resolvedCampaignId);
     if (local) {
       setCampaignData(local);
+      setCampaignLoading(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const cached = getCachedCampaignById(resolvedCampaignId);
+    if (cached) {
+      setCampaignData(cached);
+      setCampaignLoading(false);
       return () => {
         mounted = false;
       };
@@ -114,8 +187,10 @@ function CampaignDetailPage({ campaignId }) {
     }
 
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
     setCampaignLoading(true);
-    fetch(`${apiBase}/campaigns/${resolvedCampaignId}`)
+    fetch(`${apiBase}/campaigns/${resolvedCampaignId}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to load campaign (${response.status})`);
@@ -149,13 +224,16 @@ function CampaignDetailPage({ campaignId }) {
       })
       .finally(() => {
         if (!mounted) return;
+        window.clearTimeout(timeoutId);
         setCampaignLoading(false);
       });
 
     return () => {
       mounted = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, [resolvedCampaignId]);
+  }, [resolvedCampaignId, routeCampaign]);
 
   useEffect(() => {
     if (!campaign) {
@@ -167,24 +245,31 @@ function CampaignDetailPage({ campaignId }) {
     setIsSaved(savedIds.includes(campaign.id));
   }, [campaign]);
 
+  useEffect(() => {
+    requestRealLocation();
+  }, []);
+
   if (!campaign && campaignLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">Loading campaign...</h1>
+      <main className="campaign-detail-loading-screen" aria-busy="true">
+        <div className="campaign-detail-loading-copy">
+          <span className="campaign-detail-loading-spinner" aria-hidden="true" />
+          <h1>Loading campaign...</h1>
+          <p>Please wait while we prepare the campaign details.</p>
         </div>
-      </div>
+      </main>
     );
   }
 
   if (!campaign) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">Campaign Not Found</h1>
+      <div className="campaign-detail-loading-screen">
+        <div className="campaign-detail-loading-copy">
+          <h1>Campaign Not Found</h1>
+          <p>We couldn&apos;t find that campaign. Try returning to the campaign list.</p>
           <button
             onClick={() => navigate(backTarget)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="campaign-detail-back-button"
           >
             Back to Campaigns
           </button>
@@ -278,10 +363,6 @@ function CampaignDetailPage({ campaignId }) {
       });
     }
   }
-
-  useEffect(() => {
-    requestRealLocation();
-  }, []);
 
   async function handleShare() {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
@@ -415,7 +496,10 @@ function CampaignDetailPage({ campaignId }) {
           </article>
 
           <article className="campaign-updates campaign-donors-v2">
-            <h2>Recent Donors</h2>
+            <div className="campaign-section-header">
+              <h2>Recent Donors</h2>
+              <button type="button" className="campaign-section-link">View All</button>
+            </div>
             <div className="donor-list-v2">
               <div className="donor-item-v2">
                 <span className="donor-avatar donor-avatar-more">JD</span>

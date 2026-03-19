@@ -3,6 +3,8 @@ import { Clock, Sparkles, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+
 export default function CampaignCard({
   id,
   title,
@@ -19,14 +21,29 @@ export default function CampaignCard({
   const safeGoal = goal > 0 ? goal : 1;
   const progress = Math.min((raised / safeGoal) * 100, 100);
   const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
+  const campaignState = {
+    from: '/campaigns/donor',
+    campaign: {
+      id,
+      title,
+      summary: description,
+      image,
+      category,
+      raisedAmount: raised,
+      goalAmount: goal,
+      organization: 'Verified Organization',
+    },
+  };
 
   const handleCardClick = () => {
-    navigate(campaignPath);
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaignState.campaign));
+    navigate(campaignPath, { state: campaignState });
   };
 
   const handleDonateClick = (e) => {
     e.stopPropagation();
-    navigate(campaignPath);
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaignState.campaign));
+    navigate(campaignPath, { state: campaignState });
   };
 
   return (

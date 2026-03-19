@@ -6,6 +6,55 @@
   margin: 1.25rem auto;
 }
 
+.campaign-detail-loading-screen {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+
+.campaign-detail-loading-copy {
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  text-align: center;
+}
+
+.campaign-detail-loading-copy h1 {
+  margin: 0;
+  color: #10253e;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.campaign-detail-loading-copy p {
+  margin: 0;
+  max-width: 420px;
+  color: #6b7f95;
+  font-size: 0.98rem;
+}
+
+.campaign-detail-loading-spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 4px solid #d7e6fb;
+  border-top-color: #1f7de2;
+  animation: campaign-spin 800ms linear infinite;
+}
+
+.campaign-detail-back-button {
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2f72dd, #1f7de2);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.85rem 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(31, 125, 226, 0.2);
+}
+
 .campaigns-page::before {
   content: '';
   position: fixed;
@@ -614,10 +663,10 @@
 }
 
 .campaign-detail-layout {
-  margin-top: 0.85rem;
+  margin-top: 1rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 1.15rem;
 }
 
 .campaign-main-column,
@@ -628,10 +677,11 @@
 
 .campaign-hero-panel {
   position: relative;
-  min-height: 340px;
-  border-radius: 14px;
+  min-height: 300px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 15px 32px rgba(8, 30, 50, 0.18);
+  border: 1px solid #e2ebf5;
+  box-shadow: 0 12px 26px rgba(8, 30, 50, 0.12);
 }
 
 .campaign-detail-image {
@@ -675,7 +725,7 @@
   border-radius: 12px;
   border: 1px solid #dce7f2;
   padding: 0.95rem;
-  box-shadow: 0 10px 20px rgba(8, 30, 50, 0.08);
+  box-shadow: 0 8px 18px rgba(8, 30, 50, 0.06);
 }
 
 .campaign-tabs {
@@ -762,7 +812,8 @@
 .stat-amount {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 2rem;
+  font-size: 1.9rem;
+  color: #1f7de2;
 }
 
 .stat-goal,
@@ -940,11 +991,11 @@
 
 .campaign-tabs-v2 {
   margin: 0;
-  padding: 0.2rem 0.35rem 0;
-  border-bottom: 1px solid #d7e2ef;
+  padding: 0.15rem 0.35rem 0;
+  border-bottom: 1px solid #e2eaf4;
   background: #ffffff;
   border-radius: 12px 12px 0 0;
-  box-shadow: 0 8px 18px rgba(10, 37, 64, 0.06);
+  box-shadow: 0 8px 18px rgba(10, 37, 64, 0.04);
   gap: 0.3rem;
 }
 
@@ -952,9 +1003,9 @@
   border: 0;
   background: transparent;
   color: #6b7f95;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 0.78rem 0.95rem 0.72rem;
+  padding: 0.76rem 0.72rem 0.7rem;
   border-bottom: 3px solid transparent;
   border-radius: 8px 8px 0 0;
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
@@ -980,7 +1031,24 @@
   margin: 0 0 0.55rem;
   font-family: var(--font-sans);
   color: #112c46;
-  font-size: 1.6rem;
+  font-size: 1.35rem;
+}
+
+.campaign-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.campaign-section-link {
+  border: 0;
+  background: transparent;
+  color: #1f7de2;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .campaign-pillars-v2 article {
@@ -1015,6 +1083,18 @@
 
 .detail-stat-v2 .detail-mini-stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.detail-stat-v2 .detail-mini-stats p {
+  padding: 0.55rem 0.35rem;
+}
+
+.detail-stat-v2 .detail-mini-stats strong {
+  font-size: 0.98rem;
+}
+
+.detail-stat-v2 .detail-mini-stats span {
+  font-size: 0.62rem;
 }
 
 .quick-amount-grid {
@@ -1152,7 +1232,7 @@
 .detail-location-card .location-image {
   margin-top: 0.4rem;
   width: 100%;
-  height: 140px;
+  height: 150px;
   object-fit: cover;
   border-radius: 8px;
   display: block;
@@ -1207,6 +1287,15 @@
 .donor-item-v2 .liked {
   color: #1f7de2;
   fill: currentColor;
+}
+
+@keyframes campaign-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes campaign-fade-up {

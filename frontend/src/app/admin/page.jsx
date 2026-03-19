@@ -117,6 +117,7 @@ const AdminDashboard = () => {
   const adminName = session?.name || 'Admin';
   const adminRole = session?.role || session?.accountType || 'Admin';
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const rangeLabel = rangeDays === 1 ? 'Today' : `Last ${rangeDays} Days`;
   const chartLabels = useMemo(() => {
     if (rangeDays === 7) return CHART_LABELS;
     const labels = [];
@@ -255,7 +256,7 @@ const AdminDashboard = () => {
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   return (
@@ -294,10 +295,24 @@ const AdminDashboard = () => {
                   aria-haspopup="listbox"
                   aria-expanded={isRangeOpen}
                 >
-                  Last {rangeDays} Days
+                  <span>{rangeLabel}</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M5 7.5 10 12.5l5-5" />
+                  </svg>
                 </button>
                 {isRangeOpen ? (
                   <div className="admin-range-menu" role="listbox">
+                    <button
+                      type="button"
+                      className={rangeDays === 1 ? 'is-active' : ''}
+                      onClick={() => {
+                        setRangeDays(1);
+                        setIsRangeOpen(false);
+                      }}
+                    >
+                      <span>Today</span>
+                      <small>Current day activity</small>
+                    </button>
                     <button
                       type="button"
                       className={rangeDays === 7 ? 'is-active' : ''}
@@ -306,7 +321,8 @@ const AdminDashboard = () => {
                         setIsRangeOpen(false);
                       }}
                     >
-                      Last 7 Days
+                      <span>Last 7 Days</span>
+                      <small>Weekly trend</small>
                     </button>
                     <button
                       type="button"
@@ -316,7 +332,8 @@ const AdminDashboard = () => {
                         setIsRangeOpen(false);
                       }}
                     >
-                      Last 30 Days
+                      <span>Last 30 Days</span>
+                      <small>Monthly overview</small>
                     </button>
                   </div>
                 ) : null}
@@ -456,7 +473,7 @@ const AdminDashboard = () => {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="admin-logout-title">Are you sure you want to logout?</h3>
-            <p>You will be returned to the login page.</p>
+            <p>You will be returned to the public home page.</p>
             <div className="admin-modal-actions">
               <button type="button" className="admin-modal-cancel" onClick={() => setIsLogoutOpen(false)}>
                 Cancel
