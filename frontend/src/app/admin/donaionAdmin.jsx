@@ -4,6 +4,7 @@ import './donaionAdmin.css';
 
 const DONATIONS_CACHE_KEY = 'admin_donations_dashboard_cache';
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const DASHBOARD_DEFAULT_DATA = { donations: [], campaigns: [], users: [], organizations: [], campaignUpdates: [] };
 
 function readCache() {
   try {
@@ -14,7 +15,7 @@ function readCache() {
       window.sessionStorage.removeItem(DONATIONS_CACHE_KEY);
       return null;
     }
-    return parsed.data || null;
+    return parsed.data ? { ...DASHBOARD_DEFAULT_DATA, ...parsed.data } : null;
   } catch {
     return null;
   }
@@ -93,6 +94,52 @@ function safeSession() {
   }
 }
 
+function getStorageFileUrl(path) {
+  if (!path) return '';
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
+  }
+
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
+}
+
+function formatFeedDate(date) {
+  if (!date) return '';
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const diffDays = Math.round((startOfToday - startOfTarget) / 86400000);
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatRelativeTime(date) {
+  if (!date) return 'Just now';
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.max(0, Math.round(diffMs / 60000));
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 const StatCard = ({ icon, tone, delta, deltaTone, label, value, note }) => (
   <article className={`admin-donation-stat admin-donation-stat-${tone}`}>
     <div className="admin-donation-stat-top">
@@ -112,7 +159,7 @@ export default function DonationAdminPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [data, setData] = useState(cached || { donations: [], campaigns: [], users: [], organizations: [] });
+  const [data, setData] = useState(cached || DASHBOARD_DEFAULT_DATA);
 
   const session = safeSession();
   const adminName = session?.name || 'Admin';
@@ -145,6 +192,7 @@ export default function DonationAdminPage() {
           fetch(`${apiBase}/campaigns`, { headers }).then((res) => (res.ok ? res.json() : [])),
           fetch(`${apiBase}/users`, { headers }).then((res) => (res.ok ? res.json() : [])),
           fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
+          fetch(`${apiBase}/campaign_update`, { headers }).then((res) => (res.ok ? res.json() : [])),
         ]);
 
         if (!active) return;
@@ -157,6 +205,7 @@ export default function DonationAdminPage() {
           campaigns: results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [],
           users: results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [],
           organizations: results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [],
+          campaignUpdates: results[4].status === 'fulfilled' && Array.isArray(results[4].value) ? results[4].value : [],
         };
 
         setData(nextData);
@@ -197,26 +246,33 @@ export default function DonationAdminPage() {
         id: item.id || index + 1,
         donorName,
         initials: getInitials(donorName),
+        avatarUrl: getStorageFileUrl(donor?.avatar_url || donor?.avatar_path),
         campaignName,
+        campaignImage: getStorageFileUrl(campaign?.image_path),
         amount,
         amountLabel: String(item.donation_type || '').toLowerCase() === 'material' ? 'Material' : formatCurrency(amount),
         method: normalizeMethod(item.payment_method || item.method, item.donation_type),
         status: normalizeStatus(item.status),
         date,
         dateLabel: date ? date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' }) : '-',
+        relativeTime: formatRelativeTime(date),
         transactionId: item.transaction_id || item.reference_id || `TX-${String(item.id || index + 1).padStart(5, '0')}`,
       };
     });
   }, [data]);
 
+  const sortedDonationRows = useMemo(
+    () => [...donationRows].sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)),
+    [donationRows],
+  );
+
   const filteredRows = useMemo(() => {
-    const sorted = [...donationRows].sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return sorted.slice(0, 8);
-    return sorted.filter((row) => (
+    if (!query) return sortedDonationRows.slice(0, 8);
+    return sortedDonationRows.filter((row) => (
       `${row.donorName} ${row.campaignName} ${row.transactionId} ${row.method} ${row.status}`.toLowerCase().includes(query)
     )).slice(0, 8);
-  }, [donationRows, searchTerm]);
+  }, [searchTerm, sortedDonationRows]);
 
   const stats = useMemo(() => {
     const moneyRows = donationRows.filter((row) => row.amount > 0);
@@ -291,6 +347,57 @@ export default function DonationAdminPage() {
       goal: 0,
     };
   }, [data.campaigns, donationRows]);
+
+  const recentUpdates = useMemo(() => {
+    const campaignMap = new Map(data.campaigns.map((item) => [Number(item.id), item]));
+
+    const explicitUpdates = data.campaignUpdates.map((item, index) => {
+      const campaign = campaignMap.get(Number(item.campaign_id));
+      const date = toDate(item.update_date || item.created_at);
+      const campaignTitle = campaign?.title || `Campaign #${item.campaign_id || index + 1}`;
+      return {
+        id: `update-${item.id || index}`,
+        date,
+        dateLabel: formatFeedDate(date),
+        title: `${campaignTitle} progress update`,
+        description: summarizeText(item.update_description, 190),
+        imageUrl: getStorageFileUrl(item.image || campaign?.image_path),
+        tone: 'update',
+      };
+    });
+
+    const donationMoments = sortedDonationRows.slice(0, 8).map((row) => ({
+      id: `donation-${row.id}`,
+      date: row.date,
+      dateLabel: formatFeedDate(row.date),
+      title: `${row.donorName} supported ${row.campaignName}`,
+      description: row.amount > 0
+        ? `${row.amountLabel} received via ${row.method}. Status: ${row.status}.`
+        : `A material donation was recorded for ${row.campaignName}.`,
+      imageUrl: row.campaignImage || row.avatarUrl,
+      tone: 'donation',
+    }));
+
+    return [...explicitUpdates, ...donationMoments]
+      .filter((item) => item.date)
+      .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0))
+      .slice(0, 4);
+  }, [data.campaignUpdates, data.campaigns, sortedDonationRows]);
+
+  const recentDonors = useMemo(() => sortedDonationRows.slice(0, 5).map((row) => ({
+    id: `donor-${row.id}`,
+    donorName: row.donorName,
+    initials: row.initials,
+    avatarUrl: row.avatarUrl,
+    amountLabel: row.amountLabel,
+    relativeTime: row.relativeTime,
+    campaignName: row.campaignName,
+    highlighted: row.status === 'Verified',
+  })), [sortedDonationRows]);
+
+  const scrollToActivityTable = () => {
+    document.querySelector('.admin-donation-table-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const exportCsv = () => {
     const headers = ['Donor Name', 'Campaign / Org', 'Amount', 'Method', 'Status', 'Date', 'Transaction ID'];
@@ -398,6 +505,87 @@ export default function DonationAdminPage() {
               <strong>{Math.round(featuredCampaign.progress)}%</strong>
             </div>
             <button type="button">Boost Campaign</button>
+          </article>
+        </section>
+
+        <section className="admin-donation-live-grid">
+          <article className="admin-donation-live-card">
+            <div className="admin-donation-card-head admin-donation-live-head">
+              <h2>Recent Updates</h2>
+              <span className="admin-donation-live-pill">{recentUpdates.length} live</span>
+            </div>
+
+            <div className="admin-donation-live-feed">
+              {loading && recentUpdates.length === 0 ? (
+                <div className="admin-donation-live-empty">Loading recent campaign activity...</div>
+              ) : null}
+
+              {!loading && recentUpdates.length === 0 ? (
+                <div className="admin-donation-live-empty">Campaign updates and donation activity will appear here.</div>
+              ) : null}
+
+              {recentUpdates.map((item, index) => (
+                <article key={item.id} className={`admin-donation-update-item${index === 0 ? ' is-featured' : ''}`}>
+                  <div className="admin-donation-update-copy">
+                    <span className={`admin-donation-update-date admin-donation-update-date-${item.tone}`}>{item.dateLabel}</span>
+                    <h3>{item.title}</h3>
+                    <p>{item.description}</p>
+                  </div>
+                  {item.imageUrl ? (
+                    <div className="admin-donation-update-media">
+                      <img src={item.imageUrl} alt={item.title} />
+                    </div>
+                  ) : (
+                    <div className={`admin-donation-update-placeholder admin-donation-update-placeholder-${item.tone}`} aria-hidden="true">
+                      <span>{item.tone === 'update' ? 'UP' : 'DN'}</span>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          </article>
+
+          <article className="admin-donation-live-card admin-donation-donors-card">
+            <div className="admin-donation-card-head admin-donation-live-head">
+              <h2>Recent Donors</h2>
+              <button type="button" className="admin-donation-link-button" onClick={scrollToActivityTable}>View All</button>
+            </div>
+
+            <div className="admin-donation-donor-list">
+              {loading && recentDonors.length === 0 ? (
+                <div className="admin-donation-live-empty">Loading recent donors...</div>
+              ) : null}
+
+              {!loading && recentDonors.length === 0 ? (
+                <div className="admin-donation-live-empty">Recent donor activity will show up here.</div>
+              ) : null}
+
+              {recentDonors.map((donor) => (
+                <article key={donor.id} className="admin-donation-donor-card">
+                  <div className="admin-donation-donor-meta">
+                    {donor.avatarUrl ? (
+                      <img className="admin-donation-donor-photo" src={donor.avatarUrl} alt={donor.donorName} />
+                    ) : (
+                      <span className="admin-donation-donor-photo admin-donation-donor-photo-fallback" aria-hidden="true">{donor.initials}</span>
+                    )}
+                    <div>
+                      <h3>{donor.donorName}</h3>
+                      <p>Donated {donor.amountLabel} - {donor.relativeTime}</p>
+                      <small>{donor.campaignName}</small>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`admin-donation-donor-like${donor.highlighted ? ' is-active' : ''}`}
+                    aria-label={donor.highlighted ? 'Highlighted donor' : 'Recent donor'}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z" />
+                    </svg>
+                  </button>
+                </article>
+              ))}
+            </div>
           </article>
         </section>
 
