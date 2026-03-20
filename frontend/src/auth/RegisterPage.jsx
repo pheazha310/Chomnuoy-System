@@ -400,35 +400,35 @@ export default function RegisterPage({ onToggleMode }) {
                     setFormData({ ...formData, location: e.target.value })
                   }
                 />
-                <div className="rounded-3xl border border-[#D9E5F7] bg-gradient-to-br from-[#F8FBFF] to-white p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+                <div className="rounded-3xl border border-[#D9E5F7] bg-gradient-to-br from-[#F8FBFF] to-white p-3.5 shadow-[0_12px_32px_rgba(15,23,42,0.05)]">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+                    <div className="min-w-0">
                       <p className="text-sm font-bold text-[#101828]">
-                        Track by map coordinates
+                        Map Coordinates
                       </p>
-                      <p className="mt-1 text-xs font-medium text-[#667085]">
-                        Save latitude and longitude for a more exact location.
+                      <p className="mt-1 text-xs font-medium leading-5 text-[#667085]">
+                        Use lat/lng for more precise map placement.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={detectLocation}
-                      className="inline-flex h-10 items-center justify-center rounded-2xl border border-[#BFDBFE] bg-white px-4 text-sm font-semibold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.12)] transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:text-[#1D4ED8]"
+                      className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-2xl border border-[#BFDBFE] bg-white px-3.5 text-sm font-semibold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.12)] transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:text-[#1D4ED8]"
                     >
-                      {locationLoading ? "Detecting..." : "Use Current Location"}
+                      {locationLoading ? "Detecting..." : "Use Current"}
                     </button>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-[0.08em] text-[#667085]">
+                      <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#667085]">
                         Latitude
                       </label>
                       <input
                         type="number"
                         step="0.000001"
                         placeholder="11.5564"
-                        className="mt-2 block h-12 w-full rounded-2xl border border-[#D0DDF0] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                        className="mt-1.5 block h-11 w-full rounded-2xl border border-[#D0DDF0] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
                         value={formData.latitude}
                         onChange={(e) =>
                           setFormData({ ...formData, latitude: e.target.value })
@@ -436,14 +436,14 @@ export default function RegisterPage({ onToggleMode }) {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-[0.08em] text-[#667085]">
+                      <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#667085]">
                         Longitude
                       </label>
                       <input
                         type="number"
                         step="0.000001"
                         placeholder="104.9282"
-                        className="mt-2 block h-12 w-full rounded-2xl border border-[#D0DDF0] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
+                        className="mt-1.5 block h-11 w-full rounded-2xl border border-[#D0DDF0] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
                         value={formData.longitude}
                         onChange={(e) =>
                           setFormData({ ...formData, longitude: e.target.value })
@@ -452,13 +452,13 @@ export default function RegisterPage({ onToggleMode }) {
                     </div>
                   </div>
 
-                  <div className="mt-4 overflow-hidden rounded-3xl border border-[#DCE6F5] bg-white">
+                  <div className="mt-3 overflow-hidden rounded-3xl border border-[#DCE6F5] bg-white">
                     {hasCoordinates ? (
                       <>
                         <iframe
                           title="Registration location map preview"
                           src={`https://maps.google.com/maps?q=${formData.latitude},${formData.longitude}&z=15&output=embed`}
-                          className="h-56 w-full border-0"
+                          className="h-44 w-full border-0"
                           loading="lazy"
                           referrerPolicy="no-referrer-when-downgrade"
                         />
@@ -478,9 +478,8 @@ export default function RegisterPage({ onToggleMode }) {
                         </div>
                       </>
                     ) : (
-                      <div className="flex h-56 items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_42%),linear-gradient(180deg,_#F8FBFF_0%,_#FFFFFF_100%)] px-6 text-center text-sm font-medium text-[#98A2B3]">
-                        Add latitude and longitude or use your current location
-                        to preview the map.
+                      <div className="flex h-40 items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.12),_transparent_42%),linear-gradient(180deg,_#F8FBFF_0%,_#FFFFFF_100%)] px-6 text-center text-sm font-medium text-[#98A2B3]">
+                        Add coordinates to preview the map.
                       </div>
                     )}
                   </div>

@@ -397,16 +397,20 @@ export default function OrganizationDonationsPage() {
                 </button>
                 {isFilterOpen ? (
                   <div className="org-donations-filter-menu">
-                    <p>Status</p>
-                    <div className="org-donations-filter-row">
-                      <button type="button" className={statusFilter === 'all' ? 'active' : ''} onClick={() => setStatusFilter('all')}>All</button>
-                      <button type="button" className={statusFilter === 'completed' ? 'active' : ''} onClick={() => setStatusFilter('completed')}>Completed</button>
-                      <button type="button" className={statusFilter === 'pending' ? 'active' : ''} onClick={() => setStatusFilter('pending')}>Pending</button>
+                    <div className="org-donations-filter-section">
+                      <p className="org-donations-filter-label">Status</p>
+                      <div className="org-donations-filter-row">
+                        <button type="button" className={statusFilter === 'all' ? 'active' : ''} onClick={() => setStatusFilter('all')}>All</button>
+                        <button type="button" className={statusFilter === 'completed' ? 'active' : ''} onClick={() => setStatusFilter('completed')}>Completed</button>
+                        <button type="button" className={statusFilter === 'pending' ? 'active' : ''} onClick={() => setStatusFilter('pending')}>Pending</button>
+                      </div>
                     </div>
-                    <p>Sort</p>
-                    <div className="org-donations-filter-row">
-                      <button type="button" className={sortOrder === 'newest' ? 'active' : ''} onClick={() => setSortOrder('newest')}>Newest</button>
-                      <button type="button" className={sortOrder === 'oldest' ? 'active' : ''} onClick={() => setSortOrder('oldest')}>Oldest</button>
+                    <div className="org-donations-filter-section">
+                      <p className="org-donations-filter-label">Sort</p>
+                      <div className="org-donations-filter-row">
+                        <button type="button" className={sortOrder === 'newest' ? 'active' : ''} onClick={() => setSortOrder('newest')}>Newest</button>
+                        <button type="button" className={sortOrder === 'oldest' ? 'active' : ''} onClick={() => setSortOrder('oldest')}>Oldest</button>
+                      </div>
                     </div>
                     <button type="button" className="org-donations-filter-close" onClick={() => setIsFilterOpen(false)}>
                       Apply

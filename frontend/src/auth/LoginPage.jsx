@@ -4,7 +4,7 @@
 */
 
 import { loginUser } from "../services/user-service";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { motion } from "motion/react";
 import { useLocation } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
@@ -111,7 +111,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     window.location.assign(authUrl);
   };
 
-  const handleGoogleSuccess = (credentialResponse) => {
+  const handleGoogleSuccess = useCallback((credentialResponse) => {
     try {
       const credential = credentialResponse?.credential;
       if (!credential) {
@@ -138,7 +138,17 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       console.error("Failed to process Google credential:", decodeError);
       setError("Unable to process Google login response. Please try again.");
     }
-  };
+  }, [onLoginSuccess]);
+
+  const handleGoogleError = useCallback(() => {
+    const currentOrigin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "your-app-origin";
+    setError(
+      `Google login failed. Ensure ${currentOrigin} is added to Authorized JavaScript origins for this OAuth client ID.`
+    );
+  }, []);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -253,15 +263,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             <GoogleOAuthProvider clientId={googleClientId}>
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  const currentOrigin =
-                    typeof window !== "undefined"
-                      ? window.location.origin
-                      : "your-app-origin";
-                  setError(
-                    `Google login failed. Ensure ${currentOrigin} is added to Authorized JavaScript origins for this OAuth client ID.`
-                  );
-                }}
+                onError={handleGoogleError}
               />
             </GoogleOAuthProvider>
           ) : (
