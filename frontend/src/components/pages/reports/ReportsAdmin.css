@@ -44,10 +44,10 @@
   border: 1px solid var(--admin-border);
   background: #fff;
   color: var(--admin-text);
-  padding: 9px 14px;
-  border-radius: 10px;
+  padding: 10px 16px;
+  border-radius: 12px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 17px;
   cursor: pointer;
 }
 

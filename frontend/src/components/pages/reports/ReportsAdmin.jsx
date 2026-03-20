@@ -267,9 +267,6 @@ export default function ReportsAdmin() {
   };
 
   const handleExportPdf = () => {
-    const exportWindow = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=850');
-    if (!exportWindow) return;
-
     const kpiMarkup = (reportData.kpis || [])
       .map((metric) => `
         <div class="kpi">
@@ -311,7 +308,7 @@ export default function ReportsAdmin() {
       `)
       .join('');
 
-    exportWindow.document.write(`
+    const exportMarkup = `
       <!doctype html>
       <html lang="en">
         <head>
@@ -387,12 +384,50 @@ export default function ReportsAdmin() {
           </section>
         </body>
       </html>
-    `);
-    exportWindow.document.close();
-    exportWindow.focus();
-    window.setTimeout(() => {
-      exportWindow.print();
-    }, 250);
+    `;
+
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    printFrame.setAttribute('aria-hidden', 'true');
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        if (printFrame.parentNode) {
+          printFrame.parentNode.removeChild(printFrame);
+        }
+      }, 500);
+    };
+
+    printFrame.onload = () => {
+      const frameWindow = printFrame.contentWindow;
+      if (!frameWindow) {
+        cleanup();
+        return;
+      }
+
+      frameWindow.focus();
+      window.setTimeout(() => {
+        frameWindow.print();
+        cleanup();
+      }, 250);
+    };
+
+    document.body.appendChild(printFrame);
+
+    const frameDocument = printFrame.contentDocument;
+    if (!frameDocument) {
+      cleanup();
+      return;
+    }
+
+    frameDocument.open();
+    frameDocument.write(exportMarkup);
+    frameDocument.close();
   };
 
   const handleLogout = () => {
@@ -414,7 +449,7 @@ export default function ReportsAdmin() {
           </div>
           <div className="admin-report-actions">
             <button className="admin-report-ghost" type="button" onClick={handleDownloadCsv} disabled={loading}>
-              Download CSV
+              Export CSV
             </button>
             <button className="admin-primary-btn" type="button" onClick={handleExportPdf} disabled={loading}>
               Export PDF
