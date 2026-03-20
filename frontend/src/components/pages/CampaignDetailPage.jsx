@@ -9,6 +9,18 @@ import {
   Building2,
   Droplets,
   HandHeart,
+  ShieldCheck,
+  User,
+  Mail,
+  CreditCard,
+  Landmark,
+  Wallet,
+  Lock,
+  ScanQrCode,
+  CircleCheckBig,
+  Download,
+  Circle,
+  Clock3,
 } from 'lucide-react';
 
 import { getCampaignById } from '../../data/campaigns';
@@ -18,6 +30,8 @@ const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
 const DONOR_CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
 const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v1';
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const DONATION_CACHE_KEY = 'donor_my_donations_v1';
+const LAST_DONATION_DETAIL_KEY = 'chomnuoy_last_donation_detail';
 
 function getSavedCampaignIds() {
   try {
@@ -54,12 +68,26 @@ function readSessionCache(key) {
 
 function mapCachedCampaign(item) {
   if (!item?.id) return null;
+  let parsedTiers = null;
+  if (typeof item.donation_tiers === 'string') {
+    try {
+      parsedTiers = JSON.parse(item.donation_tiers);
+    } catch {
+      parsedTiers = null;
+    }
+  } else if (Array.isArray(item.donation_tiers)) {
+    parsedTiers = item.donation_tiers;
+  }
   return {
     id: item.id,
+    organizationId: Number(item.organizationId ?? item.organization_id ?? 0) || null,
     title: item.title || 'Untitled campaign',
     category: item.category || item.normalizedCategory || 'General',
     organization: item.organization || 'Verified Organization',
     summary: item.summary || item.description || 'No description available yet.',
+    location: item.location || 'Kampong Speu, Cambodia',
+    receiptMessage: item.receipt_message || '',
+    donationTiers: parsedTiers,
     goalAmount: Number(item.goalAmount ?? item.goal ?? 0),
     raisedAmount: Number(item.raisedAmount ?? item.raised ?? 0),
     image:
@@ -122,6 +150,16 @@ function getStorageFileUrl(path) {
   return `${appBase}/storage/${normalizedPath}`;
 }
 
+function clearDonationCaches() {
+  try {
+    window.sessionStorage.removeItem(DONATION_CACHE_KEY);
+    window.sessionStorage.removeItem(DONOR_HOME_CACHE_KEY);
+    window.sessionStorage.removeItem(DONOR_CAMPAIGNS_CACHE_KEY);
+  } catch {
+    // Ignore cache clear failures.
+  }
+}
+
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
@@ -130,11 +168,21 @@ function CampaignDetailPage({ campaignId }) {
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
-  const presetAmounts = [10, 25, 50, 100, 250];
   const [selectedAmount, setSelectedAmount] = useState(25);
   const [customAmountInput, setCustomAmountInput] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('QR Payment');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Credit Card');
   const [donationMessage, setDonationMessage] = useState('');
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showDonationSuccess, setShowDonationSuccess] = useState(false);
+  const [receiptDetails, setReceiptDetails] = useState(null);
+  const [recentDonors, setRecentDonors] = useState([]);
+  const [donationSubmitting, setDonationSubmitting] = useState(false);
+  const [monthlyDonation, setMonthlyDonation] = useState(false);
+  const [donorName, setDonorName] = useState('');
+  const [donorEmail, setDonorEmail] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvc, setCvc] = useState('');
   const [locationState, setLocationState] = useState({
     loading: false,
     error: '',
@@ -150,6 +198,11 @@ function CampaignDetailPage({ campaignId }) {
     typeof location.state?.from === 'string' && location.state.from.startsWith('/')
       ? location.state.from
       : fallbackCampaignPath;
+
+  useEffect(() => {
+    setDonorName(session?.name || 'John Doe');
+    setDonorEmail(session?.email || 'john.doe@example.com');
+  }, [session?.name, session?.email]);
 
   useEffect(() => {
     let mounted = true;
@@ -201,13 +254,27 @@ function CampaignDetailPage({ campaignId }) {
         if (!mounted) return;
         const mapped = {
           id: data?.id,
+          organizationId: Number(data?.organization_id ?? 0) || null,
           title: data?.title || 'Untitled campaign',
           category: data?.category || 'General',
           organization:
-            data?.organization_name ||
-            data?.organization ||
-            (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
+              data?.organization_name ||
+              data?.organization ||
+              (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
           summary: data?.description || data?.summary || 'No description available yet.',
+          location: data?.location || 'Kampong Speu, Cambodia',
+          receiptMessage: data?.receipt_message || '',
+          donationTiers: (() => {
+            if (Array.isArray(data?.donation_tiers)) return data.donation_tiers;
+            if (typeof data?.donation_tiers === 'string') {
+              try {
+                return JSON.parse(data.donation_tiers);
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          })(),
           goalAmount: Number(data?.goal_amount ?? data?.goal ?? 0),
           raisedAmount: Number(data?.current_amount ?? data?.raised_amount ?? data?.raised ?? 0),
           image:
@@ -249,6 +316,31 @@ function CampaignDetailPage({ campaignId }) {
     requestRealLocation();
   }, []);
 
+  useEffect(() => {
+    if (!resolvedCampaignId || !/^\d+$/.test(String(resolvedCampaignId))) {
+      setRecentDonors([]);
+      return;
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+
+    fetch(`${apiBase}/campaigns/${resolvedCampaignId}/donations`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        if (!alive) return;
+        setRecentDonors(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setRecentDonors([]);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [resolvedCampaignId, showDonationSuccess]);
+
   if (!campaign && campaignLoading) {
     return (
       <main className="campaign-detail-loading-screen" aria-busy="true">
@@ -281,6 +373,13 @@ function CampaignDetailPage({ campaignId }) {
   const safeTitle = campaign?.title || 'Campaign';
   const safeCategory = campaign?.category || 'General';
   const safeSummary = campaign?.summary || 'No description available yet.';
+  const safeLocation = campaign?.location || 'Kampong Speu, Cambodia';
+  const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
+    ? campaign.donationTiers
+        .map((item) => Number(item?.amount ?? item))
+        .filter((amount) => Number.isFinite(amount) && amount > 0)
+        .slice(0, 5)
+    : [10, 25, 50, 100, 250];
   const safeImage =
     campaign?.image ||
     'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
@@ -294,6 +393,8 @@ function CampaignDetailPage({ campaignId }) {
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const processingFee = 0;
+  const totalDonation = selectedAmount + processingFee;
 
   function requestRealLocation() {
     if (typeof window !== 'undefined' && window.isSecureContext === false) {
@@ -423,8 +524,410 @@ function CampaignDetailPage({ campaignId }) {
   }
 
   function handleDonateNow() {
-    setDonationMessage(
-      `Prepared donation of $${selectedAmount.toLocaleString()} via ${selectedPaymentMethod}. Checkout integration can be connected here.`,
+    setDonationMessage('');
+    setShowCheckout(true);
+  }
+
+  async function handleCompleteDonation() {
+    const userId = Number(session?.userId ?? 0);
+    if (!userId) {
+      setDonationMessage('Please log in as a donor before completing this donation.');
+      return;
+    }
+
+    if (!campaign?.id || !campaignData?.id) {
+      setDonationMessage('This campaign is not ready for live donations yet.');
+      return;
+    }
+
+    setDonationSubmitting(true);
+    setDonationMessage('');
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = window.localStorage.getItem('authToken');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    try {
+      const response = await fetch(`${apiBase}/donations`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          user_id: userId,
+          organization_id: Number(routeCampaign?.organization_id ?? campaignData?.organizationId ?? campaignData?.organization_id ?? 0) || undefined,
+          campaign_id: Number(campaign.id),
+          amount: totalDonation,
+          donation_type: 'money',
+          status: 'completed',
+          payment_method: selectedPaymentMethod,
+          is_monthly: monthlyDonation,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message =
+          payload?.message ||
+          payload?.errors?.organization_id?.[0] ||
+          payload?.errors?.amount?.[0] ||
+          `Failed to complete donation (${response.status})`;
+        throw new Error(message);
+      }
+
+      const donation = payload?.donation ?? null;
+      const payment = payload?.payment ?? null;
+      const updatedCampaign = payload?.campaign ?? null;
+
+      if (updatedCampaign) {
+        setCampaignData((previous) => ({
+          ...(previous || campaign),
+          id: updatedCampaign.id ?? previous?.id ?? campaign.id,
+          organizationId: Number(updatedCampaign.organization_id ?? previous?.organizationId ?? campaign.organizationId ?? 0) || null,
+          title: updatedCampaign.title || previous?.title || campaign.title,
+          category: updatedCampaign.category || previous?.category || campaign.category,
+          organization:
+            updatedCampaign.organization_name ||
+            previous?.organization ||
+            campaign.organization,
+          summary: updatedCampaign.description || previous?.summary || campaign.summary,
+          location: updatedCampaign.location || previous?.location || campaign.location,
+          receiptMessage: updatedCampaign.receipt_message || previous?.receiptMessage || campaign.receiptMessage,
+          donationTiers: previous?.donationTiers || campaign.donationTiers || null,
+          goalAmount: Number(updatedCampaign.goal_amount ?? previous?.goalAmount ?? campaign.goalAmount ?? 0),
+          raisedAmount: Number(updatedCampaign.current_amount ?? previous?.raisedAmount ?? campaign.raisedAmount ?? 0),
+          image:
+            getStorageFileUrl(updatedCampaign.image_path) ||
+            previous?.image ||
+            campaign.image,
+        }));
+      }
+
+      clearDonationCaches();
+      const nextReceiptDetails = {
+        amount: Number(donation?.amount ?? totalDonation).toFixed(2),
+        date: new Date(donation?.created_at || Date.now()).toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        donationId: donation?.id ?? null,
+        transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${donation?.id ?? ''}`,
+        paymentMethod: selectedPaymentMethod,
+        campaignTitle: safeTitle,
+        campaignImage: safeImage,
+        campaignLocation: safeLocation,
+        organizationName,
+        receiptMessage: campaign?.receiptMessage || '',
+        status: donation?.status || 'completed',
+      };
+      setReceiptDetails(nextReceiptDetails);
+      try {
+        window.sessionStorage.setItem(LAST_DONATION_DETAIL_KEY, JSON.stringify(nextReceiptDetails));
+      } catch {
+        // Ignore persistence failures.
+      }
+      setShowDonationSuccess(true);
+    } catch (error) {
+      setDonationMessage(error instanceof Error ? error.message : 'Failed to complete donation.');
+    } finally {
+      setDonationSubmitting(false);
+    }
+  }
+
+  function handleDownloadReceipt() {
+    if (!receiptDetails) return;
+
+    const receiptHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Donation Receipt</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+    .sheet { max-width: 520px; margin: 0 auto; border: 1px solid #dbe4ef; border-radius: 12px; padding: 24px; }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e5ecf5; }
+    .row:last-child { border-bottom: 0; }
+    .muted { color: #64748b; }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <h1>Donation Receipt</h1>
+    <div class="row"><span class="muted">Campaign</span><strong>${safeTitle}</strong></div>
+    <div class="row"><span class="muted">Amount</span><strong>$${receiptDetails.amount}</strong></div>
+    <div class="row"><span class="muted">Transaction ID</span><strong>${receiptDetails.transactionId}</strong></div>
+    <div class="row"><span class="muted">Payment Method</span><strong>${receiptDetails.paymentMethod || selectedPaymentMethod}</strong></div>
+    <div class="row"><span class="muted">Date</span><strong>${receiptDetails.date}</strong></div>
+  </main>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=680,height=760');
+    if (!printWindow) return;
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => printWindow.print(), 250);
+  }
+
+  if (showDonationSuccess) {
+    return (
+      <main className="campaign-detail-page donation-success-page">
+        <section className="donation-success-card" aria-label="Donation success">
+          <div className="donation-success-icon">
+            <CircleCheckBig size={28} />
+          </div>
+
+          <h1>Thank You for Your Donation!</h1>
+          <p className="donation-success-campaign">
+            Campaign: <span>{safeTitle}</span>
+          </p>
+
+          <div className="donation-success-receipt">
+            <div>
+              <span>Amount</span>
+              <strong>${receiptDetails?.amount ?? totalDonation.toFixed(2)}</strong>
+            </div>
+            <div>
+              <span>Transaction ID</span>
+              <strong>{receiptDetails?.transactionId ?? ''}</strong>
+            </div>
+            <div>
+              <span>Date</span>
+              <strong className="is-highlighted">{receiptDetails?.date ?? ''}</strong>
+            </div>
+          </div>
+
+          <div className="donation-success-actions">
+            <button
+              type="button"
+              className="donation-success-primary"
+              onClick={() => navigate('/donations/view-detail', { state: { donation: receiptDetails } })}
+            >
+              <Download size={15} /> Download Receipt
+            </button>
+            <button type="button" className="donation-success-secondary" onClick={handleShare}>
+              <Share2 size={15} /> Share to Social Media
+            </button>
+          </div>
+
+          <div className="donation-success-next">
+            <h2>What Happens Next?</h2>
+            <div className="donation-success-steps">
+              <div className="donation-success-step is-complete">
+                <span className="step-icon"><CircleCheckBig size={14} /></span>
+                <div>
+                  <strong>Donation Received</strong>
+                  <p>Your contribution has been successfully processed.</p>
+                </div>
+              </div>
+              <div className="donation-success-step is-active">
+                <span className="step-icon"><Clock3 size={14} /></span>
+                <div>
+                  <strong>Funds Transferred</strong>
+                  <p>Allocating funds to the village construction teams.</p>
+                </div>
+              </div>
+              <div className="donation-success-step">
+                <span className="step-icon"><Circle size={14} /></span>
+                <div>
+                  <strong>Impact Reported</strong>
+                  <p>You will receive a detailed impact report in 3 months.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="donation-success-support">
+            Have questions about your donation? <button type="button" onClick={() => setShowDonationSuccess(false)}>Contact Support</button>
+          </p>
+        </section>
+      </main>
+    );
+  }
+
+  if (showCheckout) {
+    const paymentOptions = [
+      { label: 'Credit Card', icon: CreditCard },
+      { label: 'QR Code', icon: ScanQrCode },
+      { label: 'PayPal', icon: Wallet },
+      { label: 'Bank Transfer', icon: Landmark },
+    ];
+
+    return (
+      <main className="campaign-detail-page donation-checkout-page">
+        <button type="button" className="detail-back-link donation-checkout-back" onClick={() => setShowCheckout(false)}>
+          <ArrowLeft size={16} /> Back to Campaign
+        </button>
+
+        <section className="donation-checkout-header">
+          <div>
+            <h1>Complete Your Donation</h1>
+            <p>Finish your support for this campaign with a clean, secure checkout.</p>
+          </div>
+          <div className="donation-checkout-secure">
+            <ShieldCheck size={16} />
+            <span>Secure Checkout</span>
+          </div>
+        </section>
+
+        <section className="donation-checkout-layout" aria-label="Donation checkout">
+          <div className="donation-checkout-main">
+            <article className="donation-checkout-card">
+              <h2><User size={18} /> Donor Information</h2>
+              <div className="donation-checkout-grid">
+                <label>
+                  <span>Full Name</span>
+                  <div className="checkout-input-wrap">
+                    <User size={16} />
+                    <input type="text" value={donorName} onChange={(event) => setDonorName(event.target.value)} />
+                  </div>
+                </label>
+                <label>
+                  <span>Email Address</span>
+                  <div className="checkout-input-wrap">
+                    <Mail size={16} />
+                    <input type="email" value={donorEmail} onChange={(event) => setDonorEmail(event.target.value)} />
+                  </div>
+                </label>
+              </div>
+            </article>
+
+            <article className="donation-checkout-card">
+              <h2><CreditCard size={18} /> Payment Method</h2>
+              <div className="checkout-payment-methods" role="radiogroup" aria-label="Payment method">
+                {paymentOptions.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = selectedPaymentMethod === option.label;
+                  return (
+                    <button
+                      key={option.label}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      className={isSelected ? 'is-selected' : ''}
+                      onClick={() => setSelectedPaymentMethod(option.label)}
+                    >
+                      <Icon size={20} />
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedPaymentMethod === 'QR Code' ? (
+                <div className="donation-qr-panel">
+                  <div className="donation-qr-frame">
+                    <div className="donation-qr-card">
+                      <div className="donation-qr-code" aria-hidden="true">
+                        {Array.from({ length: 49 }).map((_, index) => (
+                          <span key={`qr-cell-${index}`} className={index % 2 === 0 || index % 5 === 0 ? 'is-filled' : ''} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <strong>Scan to Pay</strong>
+                  <p>Scan this QR code with your mobile banking app to complete the ${totalDonation.toFixed(2)} donation securely.</p>
+                  <div className="donation-qr-badges" aria-label="Supported apps">
+                    <span>KHQR</span>
+                    <span>ABA</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="donation-checkout-form">
+                  <label>
+                    <span>Card Number</span>
+                    <div className="checkout-input-wrap">
+                      <CreditCard size={16} />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="0000 0000 0000 0000"
+                        value={cardNumber}
+                        onChange={(event) => setCardNumber(event.target.value)}
+                      />
+                    </div>
+                  </label>
+                  <div className="donation-checkout-grid">
+                    <label>
+                      <span>Expiry Date</span>
+                      <input
+                        type="text"
+                        placeholder="MM/YY"
+                        value={expiryDate}
+                        onChange={(event) => setExpiryDate(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>CVC</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="123"
+                        value={cvc}
+                        onChange={(event) => setCvc(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+            </article>
+          </div>
+
+          <aside className="donation-summary-card">
+            <h2>Donation Summary</h2>
+            <div className="donation-summary-campaign">
+              <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+              <div>
+                <p>CAMPAIGN</p>
+                <strong>{safeTitle}</strong>
+                <span><MapPin size={13} /> {safeLocation}</span>
+              </div>
+            </div>
+
+            <div className="donation-summary-lines">
+              <div>
+                <span>Donation Amount</span>
+                <strong>${selectedAmount.toFixed(2)}</strong>
+              </div>
+              <div>
+                <span>Processing Fee (Covered)</span>
+                <strong>${processingFee.toFixed(2)}</strong>
+              </div>
+            </div>
+
+            <label className="donation-monthly-toggle">
+              <input
+                type="checkbox"
+                checked={monthlyDonation}
+                onChange={(event) => setMonthlyDonation(event.target.checked)}
+              />
+              <div>
+                <strong>Make this a monthly donation</strong>
+                <span>I want to support this village every month.</span>
+              </div>
+            </label>
+
+            <div className="donation-summary-total">
+              <span>Total to Donate</span>
+              <strong>${totalDonation.toFixed(2)}</strong>
+            </div>
+
+            <button type="button" className="donation-complete-button" onClick={handleCompleteDonation} disabled={donationSubmitting}>
+              <Lock size={16} /> {donationSubmitting ? 'Processing...' : 'Complete Donation'}
+            </button>
+
+            <p className="donation-summary-terms">
+              By clicking &quot;Complete Donation&quot;, you agree to the Terms of Service and Privacy Policy.
+            </p>
+
+            {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
+          </aside>
+        </section>
+      </main>
     );
   }
 
@@ -442,7 +945,7 @@ function CampaignDetailPage({ campaignId }) {
               <span className="campaign-category">{safeCategory}</span>
               <h1>{safeTitle}</h1>
               <p className="campaign-hero-location">
-                <MapPin size={14} /> Kampong Speu, Cambodia
+                <MapPin size={14} /> {safeLocation}
               </p>
             </div>
           </article>
@@ -501,24 +1004,36 @@ function CampaignDetailPage({ campaignId }) {
               <button type="button" className="campaign-section-link">View All</button>
             </div>
             <div className="donor-list-v2">
-              <div className="donor-item-v2">
-                <span className="donor-avatar donor-avatar-more">JD</span>
-                <div>
-                  <strong>John Doe</strong>
-                  <p>Donated $50 - 2 hours ago</p>
+              {recentDonors.length > 0 ? recentDonors.map((donor) => {
+                const donorNameValue = donor?.donor_name || 'Anonymous Donor';
+                const initials = donorNameValue
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join('')
+                  .toUpperCase() || 'DN';
+
+                return (
+                  <div className="donor-item-v2" key={donor.id}>
+                    <span className="donor-avatar donor-avatar-more">{initials}</span>
+                    <div>
+                      <strong>{donorNameValue}</strong>
+                      <p>Donated ${Number(donor.amount || 0).toFixed(2)} - {new Date(donor.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <Heart size={14} className="liked" />
+                  </div>
+                );
+              }) : (
+                <div className="donor-item-v2">
+                  <span className="donor-avatar donor-avatar-more">--</span>
+                  <div>
+                    <strong>No donors yet</strong>
+                    <p>The first completed donation will appear here.</p>
+                  </div>
+                  <Heart size={14} />
                 </div>
-                <Heart size={14} />
-              </div>
-              <div className="donor-item-v2">
-                <span className="donor-avatar donor-avatar-image">
-                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=64&q=80" alt="" />
-                </span>
-                <div>
-                  <strong>Sarah Miller</strong>
-                  <p>Donated $250 - 5 hours ago</p>
-                </div>
-                <Heart size={14} className="liked" />
-              </div>
+              )}
             </div>
           </article>
         </div>

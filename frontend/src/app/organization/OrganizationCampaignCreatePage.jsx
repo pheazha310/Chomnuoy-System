@@ -5,6 +5,52 @@ import ROUTES from '@/constants/routes.js';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import './organization.css';
 
+const MATERIAL_CATEGORY_OPTIONS = [
+  {
+    id: 'clothing',
+    label: 'Clothing',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9.5 5.5 12 7l2.5-1.5 2 2.5L20 9.5l-2 3V19a1 1 0 0 1-1 1h-3v-6h-4v6H7a1 1 0 0 1-1-1v-6.5l-2-3L7.5 8l2-2.5Z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'books',
+    label: 'Books',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v15H8.5A2.5 2.5 0 0 0 6 20.5V5.5Z" />
+        <path d="M6 5.5V20.5" />
+        <path d="M10 7h4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'electronics',
+    label: 'Electronics',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="5" width="16" height="10" rx="2" />
+        <path d="M8 19h8" />
+        <path d="M10 15v4" />
+        <path d="M14 15v4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3.5 19 7v10l-7 3.5L5 17V7l7-3.5Z" />
+        <path d="M5 7 12 11l7-4" />
+        <path d="M12 11v9.5" />
+      </svg>
+    ),
+  },
+];
+
 export default function OrganizationCampaignCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -16,6 +62,8 @@ export default function OrganizationCampaignCreatePage() {
     title: '',
     category: '',
     location: '',
+    latitude: '',
+    longitude: '',
     summary: '',
     goal: '',
     startDate: '',
@@ -42,6 +90,8 @@ export default function OrganizationCampaignCreatePage() {
   const [materialPhotos, setMaterialPhotos] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [loadingCampaign, setLoadingCampaign] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -84,6 +134,7 @@ export default function OrganizationCampaignCreatePage() {
   }, [form]);
 
   const statusLabel = completion >= 90 ? 'Ready to Publish' : completion >= 50 ? 'In Progress' : 'Drafting';
+  const hasPickupCoordinates = form.latitude !== '' && form.longitude !== '' && Number.isFinite(Number(form.latitude)) && Number.isFinite(Number(form.longitude));
   const editId = useMemo(() => {
     const raw = searchParams.get('edit');
     if (!raw || !/^\d+$/.test(raw)) return null;
@@ -123,6 +174,32 @@ export default function OrganizationCampaignCreatePage() {
 
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleDetectPickupLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported on this device.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm((prev) => ({
+          ...prev,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6),
+        }));
+        setLocationLoading(false);
+      },
+      (geoError) => {
+        setLocationError(geoError?.message || 'Unable to detect your location.');
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+    );
   };
 
   const appendImageFiles = (files, replaceExisting = false) => {
@@ -326,6 +403,9 @@ export default function OrganizationCampaignCreatePage() {
           organization_id: organizationId,
           title: form.title.trim(),
           category: form.category.trim(),
+          location: form.location.trim(),
+          latitude: form.latitude ? Number(form.latitude) : null,
+          longitude: form.longitude ? Number(form.longitude) : null,
           goal_amount: Number(form.goal),
           start_date: form.startDate,
           end_date: form.endDate,
@@ -421,6 +501,8 @@ export default function OrganizationCampaignCreatePage() {
           title: data?.title || '',
           category: data?.category || '',
           location: data?.location || '',
+          latitude: data?.latitude ?? '',
+          longitude: data?.longitude ?? '',
           summary: data?.summary || '',
           goal: data?.goal_amount ?? '',
           startDate: data?.start_date || '',
@@ -756,12 +838,7 @@ export default function OrganizationCampaignCreatePage() {
                         Item Category
                       </h3>
                       <div className="org-cpg-material-grid">
-                        {[
-                          { id: 'clothing', label: 'Clothing' },
-                          { id: 'books', label: 'Books' },
-                          { id: 'electronics', label: 'Electronics' },
-                          { id: 'other', label: 'Other' },
-                        ].map((item) => (
+                        {MATERIAL_CATEGORY_OPTIONS.map((item) => (
                           <button
                             key={item.id}
                             type="button"
@@ -769,7 +846,9 @@ export default function OrganizationCampaignCreatePage() {
                             onClick={() => setMaterialItem((prev) => ({ ...prev, category: item.id }))}
                             aria-pressed={materialItem.category === item.id}
                           >
-                            <span className="org-cpg-material-icon" />
+                            <span className={`org-cpg-material-icon org-cpg-material-icon-${item.id}`} aria-hidden="true">
+                              {item.icon}
+                            </span>
                             <span>{item.label}</span>
                           </button>
                         ))}
@@ -1101,13 +1180,85 @@ export default function OrganizationCampaignCreatePage() {
                       </label>
                       <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Drop-off / Pickup Location
-                        <input
-                          type="text"
-                          placeholder="Warehouse address or pickup area"
-                          value={form.location}
-                          onChange={handleChange('location')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
+                        <div className="mt-2 grid gap-3">
+                          <input
+                            type="text"
+                            placeholder="Warehouse address or pickup area"
+                            value={form.location}
+                            onChange={handleChange('location')}
+                            className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                          <div className="grid gap-3 rounded-2xl border border-[#DBE7F5] bg-[#F8FBFF] p-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-[#0F172A]">Map Coordinates</p>
+                                <p className="mt-1 text-xs text-[#64748B]">
+                                  Detect the pickup point and store its latitude and longitude with this campaign.
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleDetectPickupLocation}
+                                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#BFDBFE] bg-white px-4 text-sm font-semibold text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.12)] transition hover:-translate-y-0.5 hover:border-[#93C5FD]"
+                              >
+                                {locationLoading ? 'Detecting...' : 'Use Current Location'}
+                              </button>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748B]">
+                                Latitude
+                                <input
+                                  type="number"
+                                  step="0.000001"
+                                  placeholder="11.5564"
+                                  value={form.latitude}
+                                  onChange={handleChange('latitude')}
+                                  className="mt-2 h-11 w-full rounded-xl border border-[#DCE6F5] bg-white px-3 text-sm normal-case tracking-normal text-[#0F172A] outline-none focus:border-[#2563EB]"
+                                />
+                              </label>
+                              <label className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748B]">
+                                Longitude
+                                <input
+                                  type="number"
+                                  step="0.000001"
+                                  placeholder="104.9282"
+                                  value={form.longitude}
+                                  onChange={handleChange('longitude')}
+                                  className="mt-2 h-11 w-full rounded-xl border border-[#DCE6F5] bg-white px-3 text-sm normal-case tracking-normal text-[#0F172A] outline-none focus:border-[#2563EB]"
+                                />
+                              </label>
+                            </div>
+                            {hasPickupCoordinates ? (
+                              <div className="overflow-hidden rounded-2xl border border-[#DCE6F5] bg-white">
+                                <iframe
+                                  title="Pickup location map preview"
+                                  src={`https://maps.google.com/maps?q=${form.latitude},${form.longitude}&z=15&output=embed`}
+                                  className="h-[220px] w-full border-0"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer-when-downgrade"
+                                />
+                                <div className="flex flex-col gap-2 border-t border-[#E2E8F0] px-4 py-3 text-xs text-[#64748B] sm:flex-row sm:items-center sm:justify-between">
+                                  <span>
+                                    Lat {Number(form.latitude).toFixed(5)}, Lng {Number(form.longitude).toFixed(5)}
+                                  </span>
+                                  <a
+                                    href={`https://www.google.com/maps?q=${form.latitude},${form.longitude}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-semibold text-[#2563EB]"
+                                  >
+                                    Open in Google Maps
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-2xl border border-dashed border-[#D6E3F5] bg-white px-4 py-6 text-center text-sm text-[#94A3B8]">
+                                Add coordinates manually or use current location to preview the pickup point on the map.
+                              </div>
+                            )}
+                            {locationError ? <p className="text-xs font-medium text-[#DC2626]">{locationError}</p> : null}
+                          </div>
+                        </div>
                       </label>
                       <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Handling Notes

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AdminSidebar from './adminsidebar';
 import './transactionAdmin.css';
 
@@ -94,6 +94,65 @@ const StatCard = ({ tone, title, value, note, icon, delta }) => (
   </article>
 );
 
+const FilterDropdown = ({ label, value, options, onChange, isOpen, onToggle, onClose }) => {
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => window.removeEventListener('mousedown', handlePointerDown);
+  }, [isOpen, onClose]);
+
+  return (
+    <div className={`admin-transaction-dropdown${isOpen ? ' is-open' : ''}`} ref={menuRef}>
+      <button
+        type="button"
+        className="admin-transaction-dropdown-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={label}
+        onClick={onToggle}
+      >
+        <span>{value}</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M5 7.5 10 12.5l5-5" />
+        </svg>
+      </button>
+      {isOpen ? (
+        <div className="admin-transaction-dropdown-menu" role="listbox" aria-label={label}>
+          {options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="option"
+              aria-selected={value === option}
+              className={`admin-transaction-dropdown-option${value === option ? ' is-selected' : ''}`}
+              onClick={() => {
+                onChange(option);
+                onClose();
+              }}
+            >
+              <span>{option}</span>
+              {value === option ? (
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 10 3 3 7-7" />
+                </svg>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 export default function TransactionAdminPage() {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -103,6 +162,7 @@ export default function TransactionAdminPage() {
   const [statusFilter, setStatusFilter] = useState('All Statuses');
   const [methodFilter, setMethodFilter] = useState('Payment Method');
   const [dateFilter, setDateFilter] = useState('Date Range');
+  const [openFilter, setOpenFilter] = useState('');
   const [rows, setRows] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -229,6 +289,7 @@ export default function TransactionAdminPage() {
     () => ['Payment Method', ...new Set(rows.map((row) => row.method))],
     [rows],
   );
+  const dateOptions = ['Date Range', 'Today', 'Last 7 Days', 'Last 30 Days'];
 
   const filteredRows = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -417,18 +478,33 @@ export default function TransactionAdminPage() {
         <section className="admin-transaction-filters">
           <div className="admin-transaction-filter-group">
             <span className="admin-transaction-filter-label">Filters:</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              {statusOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
-            <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)}>
-              {methodOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
-            <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)}>
-              <option>Date Range</option>
-              <option>Today</option>
-              <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
-            </select>
+            <FilterDropdown
+              label="Filter by status"
+              value={statusFilter}
+              options={statusOptions}
+              onChange={setStatusFilter}
+              isOpen={openFilter === 'status'}
+              onToggle={() => setOpenFilter((current) => (current === 'status' ? '' : 'status'))}
+              onClose={() => setOpenFilter('')}
+            />
+            <FilterDropdown
+              label="Filter by payment method"
+              value={methodFilter}
+              options={methodOptions}
+              onChange={setMethodFilter}
+              isOpen={openFilter === 'method'}
+              onToggle={() => setOpenFilter((current) => (current === 'method' ? '' : 'method'))}
+              onClose={() => setOpenFilter('')}
+            />
+            <FilterDropdown
+              label="Filter by date range"
+              value={dateFilter}
+              options={dateOptions}
+              onChange={setDateFilter}
+              isOpen={openFilter === 'date'}
+              onToggle={() => setOpenFilter((current) => (current === 'date' ? '' : 'date'))}
+              onClose={() => setOpenFilter('')}
+            />
           </div>
           <button
             type="button"

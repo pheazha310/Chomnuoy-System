@@ -452,9 +452,9 @@ export default function UserDashboard() {
                       </span>
                     )}
                   </span>
-                  <div>
-                    <p>{user.name}</p>
-                    <span>{user.displayEmail}</span>
+                  <div className="admin-user-profile-copy">
+                    <p className="admin-user-profile-name">{user.name}</p>
+                    <span className="admin-user-profile-email">{user.displayEmail}</span>
                     {user.phone ? <small className="admin-user-phone">{user.phone}</small> : null}
                   </div>
                 </div>
