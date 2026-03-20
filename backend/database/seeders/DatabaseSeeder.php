@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
         Role::firstOrCreate(['role_name' => 'Organization']);
         $adminRole = Role::firstOrCreate(['role_name' => 'Admin']);
 
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'chomnouy168@gmail.com'],
             [
                 'name' => 'Admin',

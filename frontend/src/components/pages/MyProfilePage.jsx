@@ -50,8 +50,10 @@ function getStorageFileUrl(path) {
   }
 
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  return `${appBase}/storage/${path}`;
+  const normalizedPath = String(path).replace(/\\/g, '/').replace(/^\/+/, '');
+  return normalizedPath.startsWith('files/')
+    ? `${apiBase}/${normalizedPath}`
+    : `${apiBase}/files/${normalizedPath}`;
 }
 
 function withCacheBust(url) {

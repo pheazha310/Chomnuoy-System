@@ -35,6 +35,7 @@ import PickupReschedulePage from '@/app/material-pickup.jsx/pickupReschedule.jsx
 import AdminPage from '@/app/admin/page.jsx';
 import UserDashboard from '@/app/admin/userDashboard.jsx';
 import AdminUserProfilePage from '@/app/admin/userProfile.jsx';
+import AdminProfilePage from '@/app/admin/profile.jsx';
 import OrganizationDashboard from '@/app/admin/organizationDashboard.jsx';
 import AdminSettingsPage from '@/app/admin/AdminSettingsPage.jsx';
 import AdminNotificationPage from '@/app/admin/notification.jsx';
@@ -84,11 +85,10 @@ function getStorageFileUrl(path) {
 
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
-    return `${appBase}/${normalizedPath}`;
+  if (normalizedPath.startsWith('files/')) {
+    return `${apiBase}/${normalizedPath}`;
   }
-  return `${appBase}/storage/${normalizedPath}`;
+  return `${apiBase}/files/${normalizedPath}`;
 }
 
 function getProfileAvatarOverrides() {
@@ -449,6 +449,14 @@ export default function App() {
           element={(
             <RequireAdminAuth>
               <AdminUserProfilePage />
+            </RequireAdminAuth>
+          )}
+        />
+        <Route
+          path="/admin/profile"
+          element={(
+            <RequireAdminAuth>
+              <AdminProfilePage />
             </RequireAdminAuth>
           )}
         />
