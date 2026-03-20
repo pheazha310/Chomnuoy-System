@@ -1,0 +1,449 @@
+.admin-transaction-shell {
+  background: #f4f7fb;
+}
+
+.admin-transaction-main {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-transaction-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-transaction-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  padding: 11px 14px;
+  border: 1px solid #e5ebf5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  color: #9aa8bb;
+}
+
+.admin-transaction-search svg,
+.admin-transaction-icon-btn svg,
+.admin-transaction-ghost-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-transaction-search input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.admin-transaction-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-transaction-icon-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #e4eaf4;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #64748b;
+  display: grid;
+  place-items: center;
+}
+
+.admin-transaction-heading h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #22314d;
+}
+
+.admin-transaction-heading p {
+  margin: 6px 0 0;
+  color: #7c8ba1;
+  font-size: 14px;
+}
+
+.admin-transaction-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.admin-transaction-ghost-btn,
+.admin-transaction-primary-btn,
+.admin-transaction-clear-btn,
+.admin-transaction-pagination button,
+.admin-transaction-filters select {
+  border: 1px solid #e5ebf5;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #44556f;
+  font-size: 13px;
+}
+
+.admin-transaction-ghost-btn,
+.admin-transaction-primary-btn {
+  padding: 11px 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-transaction-primary-btn {
+  border: 0;
+  background: linear-gradient(135deg, #1e78ff, #2d8cff);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(30, 120, 255, 0.26);
+}
+
+.admin-transaction-primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.admin-transaction-primary-btn span:first-child {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.admin-transaction-banner {
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-transaction-banner.is-error {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.admin-transaction-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-transaction-stat-card,
+.admin-transaction-filters,
+.admin-transaction-table-card {
+  background: #ffffff;
+  border: 1px solid #e5edf7;
+  border-radius: 18px;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+}
+
+.admin-transaction-stat-card {
+  padding: 18px;
+}
+
+.admin-transaction-stat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-transaction-stat-title,
+.admin-transaction-stat-meta {
+  margin: 0;
+}
+
+.admin-transaction-stat-title {
+  color: #7b8a9f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-transaction-stat-value {
+  margin: 12px 0 0;
+  color: #0f172a;
+  font-size: 32px;
+  line-height: 1.05;
+}
+
+.admin-transaction-stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.admin-transaction-stat-icon.is-blue {
+  background: #eaf2ff;
+  color: #2563eb;
+}
+
+.admin-transaction-stat-icon.is-orange {
+  background: #fff0e5;
+  color: #f97316;
+}
+
+.admin-transaction-stat-icon.is-green {
+  background: #e9fbef;
+  color: #10b981;
+}
+
+.admin-transaction-stat-meta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9aa8bb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-transaction-delta {
+  color: #10b981;
+}
+
+.admin-transaction-delta.is-negative {
+  color: #ef4444;
+}
+
+.admin-transaction-filters {
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.admin-transaction-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-transaction-filter-label {
+  font-size: 13px;
+  color: #7c8ba1;
+  font-weight: 700;
+}
+
+.admin-transaction-filters select {
+  padding: 9px 12px;
+  outline: 0;
+}
+
+.admin-transaction-clear-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-transaction-table-card {
+  overflow: hidden;
+}
+
+.admin-transaction-table-head,
+.admin-transaction-row {
+  display: grid;
+  grid-template-columns: 1.05fr 1.1fr 1.2fr 1.1fr 0.75fr 0.85fr 1.25fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.admin-transaction-table-head {
+  padding: 16px 18px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-transaction-table-body {
+  display: grid;
+}
+
+.admin-transaction-row {
+  padding: 16px 18px;
+  border-top: 1px solid #eef2f8;
+  font-size: 13px;
+  color: #334155;
+}
+
+.admin-transaction-row strong {
+  color: #0f172a;
+}
+
+.admin-transaction-amount {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-transaction-amount small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-transaction-method,
+.admin-transaction-status {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-transaction-method {
+  background: #eef4ff;
+  color: #2563eb;
+}
+
+.admin-transaction-method.is-wing {
+  background: #fff4dd;
+  color: #d97706;
+}
+
+.admin-transaction-method.is-cash {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.admin-transaction-method.is-item,
+.admin-transaction-method.is-unknown {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.admin-transaction-status.is-verified {
+  background: #e9fbef;
+  color: #10b981;
+}
+
+.admin-transaction-status.is-pending {
+  background: #fff4dd;
+  color: #d97706;
+}
+
+.admin-transaction-status.is-failed {
+  background: #fff1f2;
+  color: #ef4444;
+}
+
+.admin-transaction-empty {
+  padding: 28px 18px;
+  border-top: 1px solid #eef2f8;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.admin-transaction-table-footer {
+  padding: 14px 18px;
+  border-top: 1px solid #eef2f8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #7c8ba1;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-transaction-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-transaction-pagination button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.admin-transaction-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-transaction-pagination button.is-active {
+  border-color: #1e78ff;
+  background: #1e78ff;
+  color: #ffffff;
+}
+
+@media (max-width: 1180px) {
+  .admin-transaction-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-transaction-filters,
+  .admin-transaction-topbar,
+  .admin-transaction-table-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 960px) {
+  .admin-transaction-top-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-transaction-cta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-transaction-table-head,
+  .admin-transaction-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-transaction-table-head span:nth-child(n + 5),
+  .admin-transaction-row > :nth-child(n + 5) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-transaction-heading h1 {
+    font-size: 26px;
+  }
+
+  .admin-transaction-table-head,
+  .admin-transaction-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-transaction-table-head span:nth-child(n + 3),
+  .admin-transaction-row > :nth-child(n + 3) {
+    display: none;
+  }
+}

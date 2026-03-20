@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bold, Image, Italic, List, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Bold, Italic, List, UploadCloud } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
@@ -91,6 +91,27 @@ export default function OrganizationCampaignCreatePage() {
   }, [searchParams]);
   const isEditing = Boolean(editId);
 
+  const getStorageFileUrl = (path) => {
+    if (!path) return '';
+    const rawPath = String(path).trim();
+    if (
+      rawPath.startsWith('http://') ||
+      rawPath.startsWith('https://') ||
+      rawPath.startsWith('blob:') ||
+      rawPath.startsWith('data:')
+    ) {
+      return rawPath;
+    }
+
+    const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const appBase = apiBase.replace(/\/api\/?$/, '');
+    if (normalizedPath.startsWith('storage/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    return `${appBase}/storage/${normalizedPath}`;
+  };
+
   const getOrganizationSession = () => {
     try {
       const raw = window.localStorage.getItem('chomnuoy_session');
@@ -102,6 +123,37 @@ export default function OrganizationCampaignCreatePage() {
 
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const appendImageFiles = (files, replaceExisting = false) => {
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    imageFiles.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const src = reader.result;
+        if (typeof src !== 'string') return;
+        setImagePreviews((prev) => {
+          const nextItem = {
+            id: `${file.name}-${file.lastModified}-${index}`,
+            name: file.name,
+            src,
+            file,
+            isExisting: false,
+          };
+          if (replaceExisting) {
+            return [nextItem, ...prev.slice(1)];
+          }
+          return [...prev, nextItem];
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImagePreview = (id) => {
+    setImagePreviews((prev) => prev.filter((item) => item.id !== id));
   };
 
   const applyEditorChange = (nextValue, selectionStart, selectionEnd) => {
@@ -165,43 +217,15 @@ export default function OrganizationCampaignCreatePage() {
   const handleImagePick = (event) => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = reader.result;
-      if (typeof src !== 'string') return;
-      setImagePreviews((prev) => [
-        ...prev,
-        {
-          id: `${file.name}-${file.lastModified}-${prev.length}`,
-          name: file.name,
-          src,
-        },
-      ]);
-    };
-    reader.readAsDataURL(file);
+    appendImageFiles([file], true);
+    event.target.value = '';
   };
 
   const handleGalleryPick = (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
-    files.forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const src = reader.result;
-        if (typeof src !== 'string') return;
-        setImagePreviews((prev) => [
-          ...prev,
-          {
-            id: `${file.name}-${file.lastModified}-${prev.length}`,
-            name: file.name,
-            src,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+    appendImageFiles(files);
+    event.target.value = '';
   };
 
   const handleHybridItemChange = (id, field, value) => {
@@ -251,6 +275,28 @@ export default function OrganizationCampaignCreatePage() {
     if (!form.endDate) return 'End date is required.';
     if (!form.description.trim()) return 'Campaign description is required.';
     return '';
+  };
+
+  const uploadCampaignImages = async (campaignId) => {
+    const newImages = imagePreviews.filter((item) => item.file instanceof File);
+    if (newImages.length === 0) return;
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    await Promise.all(newImages.map(async (item) => {
+      const body = new FormData();
+      body.append('campaign_id', String(campaignId));
+      body.append('image', item.file);
+
+      const response = await fetch(`${apiBase}/campaign_image`, {
+        method: 'POST',
+        body,
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `Failed to upload image (${response.status})`);
+      }
+    }));
   };
 
   const handleSubmit = async (status) => {
@@ -310,6 +356,12 @@ export default function OrganizationCampaignCreatePage() {
         throw new Error(message || `Failed to save campaign (${response.status})`);
       }
 
+      const savedCampaign = await response.json();
+      const savedCampaignId = Number(savedCampaign?.id ?? editId);
+      if (savedCampaignId) {
+        await uploadCampaignImages(savedCampaignId);
+      }
+
       if (isEditing) {
         setSuccess('Campaign updated.');
       } else {
@@ -348,16 +400,24 @@ export default function OrganizationCampaignCreatePage() {
     setLoadingCampaign(true);
     setError('');
     setSuccess('');
-    fetch(`${apiBase}/campaigns/${editId}`)
-      .then((response) => {
+    Promise.all([
+      fetch(`${apiBase}/campaigns/${editId}`).then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to load campaign (${response.status})`);
         }
         return response.json();
-      })
-      .then((data) => {
+      }),
+      fetch(`${apiBase}/campaign_image?campaign_id=${editId}`).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load campaign images (${response.status})`);
+        }
+        return response.json();
+      }),
+    ])
+      .then(([data, images]) => {
         if (!mounted) return;
-        setForm({
+        setForm((prev) => ({
+          ...prev,
           title: data?.title || '',
           category: data?.category || '',
           location: data?.location || '',
@@ -366,7 +426,34 @@ export default function OrganizationCampaignCreatePage() {
           startDate: data?.start_date || '',
           endDate: data?.end_date || '',
           description: data?.description || '',
-        });
+          payoutMethod: data?.payout_method || '',
+          accountName: data?.account_name || '',
+          currency: data?.currency || 'USD',
+          materialPriority: data?.material_priority || '',
+          pickupInstructions: data?.pickup_instructions || '',
+          payoutSchedule: data?.payout_schedule || '',
+          receiptMessage: data?.receipt_message || '',
+          donationTiers: data?.donation_tiers || '',
+          contactName: data?.contact_name || '',
+          contactPhone: data?.contact_phone || '',
+          storageCapacity: data?.storage_capacity || '',
+          pickupWindow: data?.pickup_window || '',
+          donorUpdates: data?.donor_updates || '',
+          distributionPlan: data?.distribution_plan || '',
+          volunteerNeeds: data?.volunteer_needs || '',
+          enableRecurring: Boolean(data?.enable_recurring),
+        }));
+        setCampaignType(data?.campaign_type || '');
+        setImagePreviews(
+          Array.isArray(images)
+            ? images.map((image) => ({
+              id: `existing-${image.id}`,
+              name: image.image_path || `Campaign image ${image.id}`,
+              src: getStorageFileUrl(image.image_path),
+              isExisting: true,
+            }))
+            : [],
+        );
       })
       .catch((err) => {
         if (!mounted) return;
@@ -1173,166 +1260,180 @@ export default function OrganizationCampaignCreatePage() {
                 )
               ) : null}
               {activeStep === 3 ? (
-                campaignType === 'materials' ? (
+                <>
                   <section className="org-cpg-panel">
                     <div className="org-cpg-panel-head">
-                      <h2>Logistics & Storage</h2>
-                      <span>Materials Ops</span>
+                      <h2>Media Assets</h2>
+                      <span>Campaign Gallery</span>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Storage Capacity
-                        <input
-                          type="text"
-                          placeholder="e.g., 200 boxes / 1 room"
-                          value={form.storageCapacity}
-                          onChange={handleChange('storageCapacity')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Preferred Pickup Window
-                        <input
-                          type="text"
-                          placeholder="Weekdays 9:00 - 16:00"
-                          value={form.pickupWindow}
-                          onChange={handleChange('pickupWindow')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Contact Person
-                        <input
-                          type="text"
-                          placeholder="Full name"
-                          value={form.contactName}
-                          onChange={handleChange('contactName')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Contact Phone
-                        <input
-                          type="tel"
-                          placeholder="+855 12 345 678"
-                          value={form.contactPhone}
-                          onChange={handleChange('contactPhone')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
-                        Handling Notes
-                        <textarea
-                          rows={3}
-                          placeholder="Special handling instructions, storage limits, or staff availability."
-                          value={form.pickupInstructions}
-                          onChange={handleChange('pickupInstructions')}
-                          className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                    </div>
-                  </section>
-                ) : campaignType === 'monetary' ? (
-                  <section className="org-cpg-panel">
-                    <div className="org-cpg-panel-head">
-                      <h2>Payment & Receipts</h2>
-                      <span>Funds Flow</span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Payout Schedule
-                        <select
-                          value={form.payoutSchedule}
-                          onChange={handleChange('payoutSchedule')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        >
-                          <option value="">Select schedule</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Bi-weekly</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Receipt Message
-                        <input
-                          type="text"
-                          placeholder="Short thank-you note on donor receipt"
-                          value={form.receiptMessage}
-                          onChange={handleChange('receiptMessage')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
-                        Suggested Donation Tiers
-                        <textarea
-                          rows={3}
-                          placeholder="$10 - Provides a hygiene kit&#10;$50 - Covers school supplies for 1 child"
-                          value={form.donationTiers}
-                          onChange={handleChange('donationTiers')}
-                          className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                    </div>
-                  </section>
-                ) : (
-                  <>
-                    <section className="org-cpg-panel">
-                      <div className="org-cpg-panel-head">
-                        <h2>Media Assets</h2>
-                        <span>Campaign Gallery</span>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-semibold text-[#0F172A]">Campaign Cover Image</p>
-                          <p className="text-xs text-[#64748B]">High quality images increase donations by up to 30%.</p>
-                          <label className="mt-2 flex h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-center text-sm text-[#64748B]">
-                            <input
-                              ref={imageInputRef}
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImagePick}
-                              className="hidden"
-                            />
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E0EAFF] text-[#2563EB]">
-                              <UploadCloud className="h-5 w-5" />
-                            </div>
-                            <p className="mt-3 font-semibold text-[#0F172A]">Click to upload or drag and drop</p>
-                            <p className="text-xs text-[#94A3B8]">Recommended size: 1200 x 600px (PNG, JPG up to 5MB)</p>
-                          </label>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-semibold text-[#0F172A]">Gallery Photos</p>
-                          <p className="text-xs text-[#64748B]">Additional photos help donors visualize the impact.</p>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F172A]">Campaign Cover Image</p>
+                        <p className="text-xs text-[#64748B]">High quality images increase donations by up to 30%.</p>
+                        <label className="mt-2 flex h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-center text-sm text-[#64748B]">
                           <input
-                            ref={galleryInputRef}
+                            ref={imageInputRef}
                             type="file"
                             accept="image/*"
-                            multiple
-                            onChange={handleGalleryPick}
+                            onChange={handleImagePick}
                             className="hidden"
                           />
-                          <button
-                            type="button"
-                            onClick={() => galleryInputRef.current?.click()}
-                            className="mt-2 inline-flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-2xl font-semibold text-[#94A3B8] hover:border-[#93C5FD]"
-                          >
-                            +
-                          </button>
-                        </div>
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E0EAFF] text-[#2563EB]">
+                            <UploadCloud className="h-5 w-5" />
+                          </div>
+                          <p className="mt-3 font-semibold text-[#0F172A]">Click to upload a cover image</p>
+                          <p className="text-xs text-[#94A3B8]">Recommended size: 1200 x 600px (PNG, JPG up to 5MB)</p>
+                        </label>
                       </div>
 
-                      {imagePreviews.length > 0 ? (
-                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          {imagePreviews.map((image) => (
-                            <div className="overflow-hidden rounded-xl border border-[#E2E8F0]" key={image.id}>
-                              <img src={image.src} alt={image.name} className="h-24 w-full object-cover" />
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </section>
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F172A]">Gallery Photos</p>
+                        <p className="text-xs text-[#64748B]">Additional photos help donors visualize the impact.</p>
+                        <input
+                          ref={galleryInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleGalleryPick}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="mt-2 inline-flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-2xl font-semibold text-[#94A3B8] hover:border-[#93C5FD]"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
 
+                    {imagePreviews.length > 0 ? (
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {imagePreviews.map((image, index) => (
+                          <div className="overflow-hidden rounded-xl border border-[#E2E8F0]" key={image.id}>
+                            <img src={image.src} alt={image.name} className="h-24 w-full object-cover" />
+                            <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-[#475569]">
+                              <span className="truncate font-medium">
+                                {index === 0 ? `Cover: ${image.name}` : image.name}
+                              </span>
+                              {!image.isExisting ? (
+                                <button
+                                  type="button"
+                                  className="font-semibold text-[#DC2626]"
+                                  onClick={() => removeImagePreview(image.id)}
+                                >
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {campaignType === 'materials' ? (
+                    <section className="org-cpg-panel">
+                      <div className="org-cpg-panel-head">
+                        <h2>Logistics & Storage</h2>
+                        <span>Materials Ops</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Storage Capacity
+                          <input
+                            type="text"
+                            placeholder="e.g., 200 boxes / 1 room"
+                            value={form.storageCapacity}
+                            onChange={handleChange('storageCapacity')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Preferred Pickup Window
+                          <input
+                            type="text"
+                            placeholder="Weekdays 9:00 - 16:00"
+                            value={form.pickupWindow}
+                            onChange={handleChange('pickupWindow')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Contact Person
+                          <input
+                            type="text"
+                            placeholder="Full name"
+                            value={form.contactName}
+                            onChange={handleChange('contactName')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Contact Phone
+                          <input
+                            type="tel"
+                            placeholder="+855 12 345 678"
+                            value={form.contactPhone}
+                            onChange={handleChange('contactPhone')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
+                          Handling Notes
+                          <textarea
+                            rows={3}
+                            placeholder="Special handling instructions, storage limits, or staff availability."
+                            value={form.pickupInstructions}
+                            onChange={handleChange('pickupInstructions')}
+                            className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                  ) : campaignType === 'monetary' ? (
+                    <section className="org-cpg-panel">
+                      <div className="org-cpg-panel-head">
+                        <h2>Payment & Receipts</h2>
+                        <span>Funds Flow</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Payout Schedule
+                          <select
+                            value={form.payoutSchedule}
+                            onChange={handleChange('payoutSchedule')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          >
+                            <option value="">Select schedule</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="biweekly">Bi-weekly</option>
+                            <option value="monthly">Monthly</option>
+                          </select>
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Receipt Message
+                          <input
+                            type="text"
+                            placeholder="Short thank-you note on donor receipt"
+                            value={form.receiptMessage}
+                            onChange={handleChange('receiptMessage')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
+                          Suggested Donation Tiers
+                          <textarea
+                            rows={3}
+                            placeholder="$10 - Provides a hygiene kit&#10;$50 - Covers school supplies for 1 child"
+                            value={form.donationTiers}
+                            onChange={handleChange('donationTiers')}
+                            className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                  ) : (
                     <section className="org-cpg-panel">
                       <div className="org-cpg-panel-head">
                         <h2>Logistics Snapshot</h2>
@@ -1361,8 +1462,8 @@ export default function OrganizationCampaignCreatePage() {
                         </label>
                       </div>
                     </section>
-                  </>
-                )
+                  )}
+                </>
               ) : null}
 
               {activeStep === 4 ? (

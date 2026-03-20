@@ -7,8 +7,8 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
@@ -86,12 +86,14 @@ class SocialAuthController extends Controller
     {
         $frontend = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
         $encoded = base64_encode(json_encode($payload));
-        return redirect()->away("{$frontend}/oauth/callback?payload=" . urlencode($encoded));
+        
+        return redirect("{$frontend}/oauth/callback?payload=" . urlencode($encoded));
     }
 
     protected function redirectToFrontendError(string $message): RedirectResponse
     {
         $frontend = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
-        return redirect()->away("{$frontend}/oauth/callback?error=" . urlencode($message));
+        
+        return redirect("{$frontend}/oauth/callback?error=" . urlencode($message));
     }
 }

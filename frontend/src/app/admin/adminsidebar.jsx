@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import './style.css';
 
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
 const SESSION_STORAGE_KEY = 'chomnuoy_session';
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Material Pickups',
+    path: '/admin/pickups',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 7h10l2 3h4v7h-2M4 17h8M6 19a2 2 0 1 1 4 0M16 19a2 2 0 1 1 4 0" />
@@ -42,6 +44,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Reports',
+    path: '/admin',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 19h16M7 16V9M12 16V5M17 16v-7" />
@@ -50,6 +53,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Donations',
+    path: '/admin/donations',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z" />
@@ -58,6 +62,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Transactions',
+    path: '/admin/transactions',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M7 7h10M7 7l3-3M7 7l3 3M17 17H7M17 17l-3-3M17 17l-3 3" />
@@ -87,6 +92,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Settings',
+    path: '/admin/settings',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" />
@@ -150,103 +156,95 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
 
   return (
     <aside className="admin-sidebar" aria-label="Admin navigation">
-    <div className="admin-brand">
-      <span className="admin-brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" className="admin-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      <div className="admin-brand-text">
-        <p className="admin-brand-name">{'\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY'}</p>
-        <p className="admin-brand-sub">DIGITAL DONATION PLATFORM</p>
+      <div className="admin-brand">
+        <span className="admin-brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="admin-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        <div className="admin-brand-text">
+          <p className="admin-brand-name">{'\u1787\u17c6\u1793\u17bd\u1799 / CHOMNUOY'}</p>
+          <p className="admin-brand-sub">Admin Panel</p>
+        </div>
       </div>
-    </div>
 
-    <nav className="admin-nav">
-      {NAV_ITEMS.map((item) => {
-        if (item.path) {
-          return (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
-              end={item.path === '/admin'}
-            >
-              <span className="admin-nav-icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-              {item.showBadge && unreadCount > 0 ? (
-                <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
-                  {unreadCount}
-                </span>
-              ) : null}
-            </NavLink>
-          );
-        }
-
-        return (
-          <button key={item.label} type="button" className="admin-nav-item">
+      <nav className="admin-nav">
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path}
+            className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
+            end={item.path === '/admin'}
+          >
             <span className="admin-nav-icon" aria-hidden="true">
               {item.icon}
             </span>
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
+            <span className="admin-nav-label">{item.label}</span>
+            {item.showBadge && unreadCount > 0 ? (
+              <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount}
+              </span>
+            ) : null}
+          </NavLink>
+        ))}
+      </nav>
 
-    <div className="admin-sidebar-footer">
-      <div className="admin-user">
-        <div className="admin-avatar" aria-hidden="true">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" />
-          ) : (
-            userName
-              .split(' ')
-              .map((part) => part[0])
-              .slice(0, 2)
-              .join('')
-              .toUpperCase()
-          )}
+      <div className="admin-sidebar-footer">
+        <div className="admin-user">
+          <div className="admin-avatar" aria-hidden="true">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" />
+            ) : (
+              userName
+                .split(' ')
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()
+            )}
+          </div>
+          <div className="admin-user-meta">
+            <p className="admin-user-name">{userName}</p>
+            <p className="admin-user-role">{userRole}</p>
+          </div>
         </div>
-        <div>
-          <p className="admin-user-name">{userName}</p>
-          <p className="admin-user-role">{userRole}</p>
-        </div>
+        <button className="admin-logout-btn" type="button" onClick={onLogout}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17 15 12 10 7" />
+            <path d="M15 12H3" />
+            <path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+          </svg>
+          <span>Logout</span>
+        </button>
       </div>
-      <button className="admin-logout-btn" type="button" onClick={onLogout}>
-        Logout
-      </button>
-    </div>
-  </aside>
+    </aside>
   );
 };
 

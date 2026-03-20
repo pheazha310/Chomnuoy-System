@@ -4,11 +4,43 @@ import { CalendarPlus2, CircleCheckBig, Package, Search, EllipsisVertical, Info,
 import './material-pickup.css';
 
 const PAGE_SIZE = 6;
+const PICKUP_CACHE_KEY = 'donor_material_pickups_v1';
+const PICKUP_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
+function readPickupCache() {
+  try {
+    const raw = window.sessionStorage.getItem(PICKUP_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp) return null;
+    if (Date.now() - parsed.timestamp > PICKUP_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(PICKUP_CACHE_KEY);
+      return null;
+    }
+    return parsed.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writePickupCache(data) {
+  try {
+    window.sessionStorage.setItem(
+      PICKUP_CACHE_KEY,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data,
+      })
+    );
+  } catch {
+    // Ignore cache write failures.
+  }
+}
 
 export default function MaterialPickupPage() {
   const navigate = useNavigate();
-  const [pickupRows, setPickupRows] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const cachedRows = useMemo(() => readPickupCache(), []);
+  const [pickupRows, setPickupRows] = useState(Array.isArray(cachedRows) ? cachedRows : []);
+  const [loading, setLoading] = useState(!Array.isArray(cachedRows));
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,8 +93,10 @@ export default function MaterialPickupPage() {
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
-    setLoading(true);
     setError('');
+    if (!Array.isArray(cachedRows)) {
+      setLoading(true);
+    }
 
     fetch(`${apiBase}/material_pickups`)
       .then((response) => {
@@ -92,12 +126,15 @@ export default function MaterialPickupPage() {
           };
         });
         setPickupRows(mapped);
+        writePickupCache(mapped);
         setCurrentPage(1);
       })
       .catch((err) => {
         if (!alive) return;
         setError(err instanceof Error ? err.message : 'Failed to load pickups.');
-        setPickupRows([]);
+        if (!Array.isArray(cachedRows)) {
+          setPickupRows([]);
+        }
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -134,7 +171,11 @@ export default function MaterialPickupPage() {
       quantity: 1,
     };
 
-    setPickupRows((prev) => [nextRow, ...prev]);
+    setPickupRows((prev) => {
+      const nextRows = [nextRow, ...prev];
+      writePickupCache(nextRows);
+      return nextRows;
+    });
     setCurrentPage(1);
     setNewPickupForm({
       date: '',
@@ -326,11 +367,13 @@ export default function MaterialPickupPage() {
                               role="menuitem"
                               className="danger"
                               onClick={() => {
-                                setPickupRows((prev) =>
-                                  prev.filter(
+                                setPickupRows((prev) => {
+                                  const nextRows = prev.filter(
                                     (item) => (item.id ?? `${item.org}-${item.date}`) !== rowKey,
-                                  ),
-                                );
+                                  );
+                                  writePickupCache(nextRows);
+                                  return nextRows;
+                                });
                                 setOpenMenuKey(null);
                               }}
                             >

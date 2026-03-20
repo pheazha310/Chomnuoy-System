@@ -11,7 +11,7 @@
   min-height: 100vh;
   background: var(--contact-color-bg);
   color: var(--contact-color-text);
-  font-family: var(--contact-font-sans);
+  font-family: var(--font-sans);
 }
 
 .contact-container {
@@ -527,4 +527,22 @@
     grid-template-columns: 1fr;
     gap: 24px;
   }
+}
+
+body.public-theme {
+  --contact-color-primary: var(--public-accent);
+  --contact-color-bg: var(--public-bg-1);
+  --contact-color-text: var(--public-ink);
+}
+
+body.public-theme .contact-hero-overlay {
+  background: linear-gradient(180deg, rgba(67, 45, 30, 0.45), rgba(47, 34, 24, 0.65));
+}
+
+body.public-theme .support-link {
+  color: var(--public-accent-strong);
+}
+
+body.public-theme .support-link:hover {
+  color: var(--public-accent);
 }

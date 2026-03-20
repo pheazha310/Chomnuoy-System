@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #f1f5f9;
   padding: 2rem 0 2.4rem;
-  font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   color: #0f172a;
 }
 
