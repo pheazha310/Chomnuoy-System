@@ -16,6 +16,14 @@ function formatMoney(value) {
   return `$${value.toLocaleString("en-US")}`;
 }
 
+function resolveCampaignImage(item) {
+  const candidates = [item?.image_url, item?.image, item?.image_path];
+
+  return candidates.find((value) => typeof value === "string" && value.trim())
+    ? candidates
+    : [];
+}
+
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All Campaigns");
@@ -55,11 +63,38 @@ export default function OrganizationCampaignsPage() {
 
     const normalizedPath = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
-    const appBase = apiBase.replace(/\/api\/?$/, "");
-    if (normalizedPath.startsWith("storage/")) {
-      return `${appBase}/${normalizedPath}`;
+    const relativePath = normalizedPath.startsWith("storage/")
+      ? normalizedPath.replace(/^storage\//, "")
+      : normalizedPath;
+    const encodedPath = relativePath
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    return `${apiBase}/files/${encodedPath}`;
+  };
+
+  const getCampaignImageUrl = (item) => {
+    const candidates = resolveCampaignImage(item);
+
+    for (const candidate of candidates) {
+      const rawValue = String(candidate || "").trim();
+      if (!rawValue) continue;
+
+      if (
+        rawValue.startsWith("http://") ||
+        rawValue.startsWith("https://") ||
+        rawValue.startsWith("blob:") ||
+        rawValue.startsWith("data:")
+      ) {
+        return rawValue;
+      }
+
+      return getStorageFileUrl(rawValue);
     }
-    return `${appBase}/storage/${normalizedPath}`;
+
+    return placeholderImage;
   };
 
   const normalizeStatus = (status) => {
@@ -120,11 +155,7 @@ export default function OrganizationCampaignsPage() {
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
             action: actionLabelMap[status],
             actionTone: actionToneMap[status],
-            image:
-              getStorageFileUrl(item.image_path) ||
-              item.image_url ||
-              item.image ||
-              placeholderImage,
+            image: getCampaignImageUrl(item),
           };
         });
         setCampaigns(mapped);
@@ -265,8 +296,18 @@ export default function OrganizationCampaignsPage() {
           if (!alive) return;
           const items = Array.isArray(data) ? data : [];
           const filtered = userId
-            ? items.filter((item) => Number(item.user_id) === userId)
-            : items;
+            ? items.filter((item) => {
+                const recipientType = String(item.recipient_type || "").toLowerCase();
+                const recipientId = Number(item.recipient_id || 0);
+                if (recipientType) {
+                  if (recipientType !== "organization" || recipientId !== userId) return false;
+                } else if (Number(item.user_id) !== userId) {
+                  return false;
+                }
+                const type = String(item.type || "").toLowerCase();
+                return type !== "message" && type !== "reply";
+              })
+            : [];
           const mapped = filtered.map((item) => ({
             id: item.id,
             title: item.type === "campaign" ? "Campaign Update" : "Notification",
@@ -611,6 +652,11 @@ export default function OrganizationCampaignsPage() {
                       className="h-full w-full object-cover"
                       loading="lazy"
                       referrerPolicy="no-referrer"
+                      onError={(event) => {
+                        if (event.currentTarget.src !== placeholderImage) {
+                          event.currentTarget.src = placeholderImage;
+                        }
+                      }}
                     />
                     <span
                       className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${item.statusTone}`}

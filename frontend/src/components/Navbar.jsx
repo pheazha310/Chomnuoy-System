@@ -199,7 +199,16 @@ function Navbar() {
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
-        const filtered = userId ? list.filter((item) => Number(item.user_id) === userId) : list;
+        const filtered = userId
+          ? list.filter((item) => {
+              const recipientType = String(item.recipient_type || '').toLowerCase();
+              const recipientId = Number(item.recipient_id || 0);
+              if (recipientType) {
+                return recipientType === 'user' && recipientId === userId;
+              }
+              return Number(item.user_id) === userId;
+            })
+          : [];
         const mapped = filtered
           .filter((item) => {
             const type = String(item.type || '').toLowerCase();
@@ -296,6 +305,10 @@ function Navbar() {
     const fromEmail = session?.email || 'donor@example.com';
     const payload = {
       user_id: userId,
+      sender_type: 'user',
+      sender_name: fromName,
+      sender_email: fromEmail,
+      recipient_type: 'admin',
       message: `From: ${fromName} <${fromEmail}>\nSubject: Reply: ${subject}\nMessage: ${replyDraft.trim()}`,
       type: 'message',
       is_read: false,

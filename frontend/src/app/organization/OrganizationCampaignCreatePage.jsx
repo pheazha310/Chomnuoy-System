@@ -310,6 +310,7 @@ export default function OrganizationCampaignCreatePage() {
 
     const session = getOrganizationSession();
     const organizationId = Number(session?.userId ?? 0);
+    const organizationName = String(session?.name || 'Organization').trim() || 'Organization';
     if (!organizationId) {
       setError('Organization session not found. Please log in again.');
       return;
@@ -366,22 +367,6 @@ export default function OrganizationCampaignCreatePage() {
         setSuccess('Campaign updated.');
       } else {
         setSuccess(status === 'draft' ? 'Draft saved.' : 'Campaign published.');
-      }
-      if (status === 'active') {
-        try {
-          await fetch(`${apiBase}/notifications`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: organizationId,
-              message: `New campaign published: ${form.title.trim() || 'Untitled Campaign'}`,
-              type: 'campaign',
-              is_read: false,
-            }),
-          });
-        } catch {
-          // non-blocking notification failure
-        }
       }
       window.setTimeout(() => {
         navigate(ROUTES.ORGANIZATION_CAMPAIGNS);

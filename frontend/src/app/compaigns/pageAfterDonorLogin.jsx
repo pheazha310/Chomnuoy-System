@@ -3,6 +3,12 @@ import { Clock, Sparkles, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
+const fallbackCampaignImage =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="50%" y="50%" font-size="36" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
+  );
+
 export default function CampaignCard({
   id,
   title,
@@ -43,6 +49,11 @@ export default function CampaignCard({
           alt={title}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           referrerPolicy="no-referrer"
+          onError={(event) => {
+            if (event.currentTarget.src !== fallbackCampaignImage) {
+              event.currentTarget.src = fallbackCampaignImage;
+            }
+          }}
         />
         {isUrgent && (
           <div className="absolute top-4 left-4 flex items-center gap-1 rounded-full bg-red-600 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg">

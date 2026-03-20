@@ -351,12 +351,15 @@ export default function AdminNotificationPage() {
     Promise.all([
       fetch(`${apiBase}/notifications`, { headers }).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/users`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`, { headers }).then((response) => (response.ok ? response.json() : [])),
     ])
-      .then(([data, usersData]) => {
+      .then(([data, usersData, organizationsData]) => {
         if (!active) return;
         const list = Array.isArray(data) ? data : [];
         const usersList = Array.isArray(usersData) ? usersData : [];
+        const organizationsList = Array.isArray(organizationsData) ? organizationsData : [];
         const usersById = new Map();
+        const organizationsById = new Map();
         usersList.forEach((user) => {
           if (user?.id) {
             const avatarRaw =
@@ -377,23 +380,48 @@ export default function AdminNotificationPage() {
             });
           }
         });
+        organizationsList.forEach((organization) => {
+          if (organization?.id) {
+            organizationsById.set(Number(organization.id), {
+              id: organization.id,
+              name: organization.name || 'Organization',
+            });
+          }
+        });
         const readMap = loadReadMap();
-        const mapped = list.map((item) => {
+        const mapped = list
+          .filter((item) => {
+            const recipientType = String(item.recipient_type || '').toLowerCase();
+            const type = String(item.type || '').toLowerCase();
+            if (recipientType) {
+              return recipientType === 'admin';
+            }
+            return type === 'message' || type === 'campaign';
+          })
+          .map((item) => {
           const type = String(item.type || '').toLowerCase();
           const createdAt = item.created_at ? new Date(item.created_at) : new Date();
           const minutesAgo = Math.max(1, Math.round((Date.now() - createdAt.getTime()) / 60000));
           const parsed = parseMessageDetails(item.message || '');
           const sender = usersById.get(Number(item.user_id)) || null;
-          const senderName = sender?.name || parsed.from || 'User';
-          const senderEmail = sender?.email || parsed.fromEmail || '';
-          const senderAvatarUrl = sender?.avatarUrl || '';
+          const organization = organizationsById.get(Number(item.user_id)) || null;
+          const senderType = String(item.sender_type || (type === 'campaign' ? 'organization' : '')).toLowerCase();
+          const senderName = senderType === 'organization'
+            ? (item.sender_name || organization?.name || 'Organization')
+            : (item.sender_name || parsed.from || sender?.name || 'User');
+          const senderEmail = senderType === 'organization'
+            ? (item.sender_email || '')
+            : (item.sender_email || parsed.fromEmail || sender?.email || '');
+          const senderAvatarUrl = senderType === 'user' ? (sender?.avatarUrl || '') : '';
           const title = type === 'message'
             ? senderName
             : parsed.subject
               ? parsed.subject
               : type === 'reply'
                 ? 'Admin reply'
-                : `Message from ${senderName}`;
+                : senderType === 'organization'
+                  ? `Post by ${senderName}`
+                  : `Message from ${senderName}`;
           const isReadFromServer = Boolean(item.is_read);
           const isReadLocally = Boolean(readMap[item.id]);
           const isUnread = !(isReadFromServer || isReadLocally);
@@ -410,9 +438,10 @@ export default function AdminNotificationPage() {
             actions: type === 'message' ? ['Reply'] : undefined,
             icon: type === 'message' ? 'mention' : 'analytics',
             type: type || 'update',
-            sender: type === 'message' ? senderName : (parsed.from || undefined),
-            senderEmail: type === 'message' ? senderEmail : undefined,
-            senderAvatarUrl: type === 'message' ? senderAvatarUrl : '',
+            sender: senderName,
+            senderEmail,
+            senderAvatarUrl,
+            senderType,
             source: 'api',
             replied: false,
           };
@@ -499,6 +528,10 @@ export default function AdminNotificationPage() {
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: activeNotification.userId,
+          sender_type: 'admin',
+          sender_name: adminName,
+          recipient_type: 'user',
+          recipient_id: activeNotification.userId,
           message: replyDraft.trim(),
           type: 'reply',
           is_read: false,

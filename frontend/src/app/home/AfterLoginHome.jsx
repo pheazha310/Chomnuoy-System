@@ -198,8 +198,15 @@ function mapDonationMetrics(donationsData, userId) {
 function mapActivity(notificationsData, userId) {
   const notifications = Array.isArray(notificationsData) ? notificationsData : [];
   const filtered = userId
-    ? notifications.filter((item) => Number(item.user_id) === userId)
-    : notifications;
+    ? notifications.filter((item) => {
+        const recipientType = String(item.recipient_type || '').toLowerCase();
+        const recipientId = Number(item.recipient_id || 0);
+        if (recipientType) {
+          return recipientType === 'user' && recipientId === userId;
+        }
+        return Number(item.user_id) === userId;
+      })
+    : [];
 
   return filtered.slice(0, 4).map((item) => {
     const type = String(item.type || '').toLowerCase();

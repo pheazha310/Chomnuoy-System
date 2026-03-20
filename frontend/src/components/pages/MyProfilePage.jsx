@@ -290,7 +290,6 @@ export default function MyProfilePage() {
     }
   };
 
-<<<<<<< HEAD
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -298,9 +297,6 @@ export default function MyProfilePage() {
       </main>
     );
   }
-
-=======
->>>>>>> 5bca752d3c2aa01203d79e7c651ad1fbc06f1d66
   return (
     <main className="mx-auto w-full max-w-6xl bg-[#F4F6FA] px-4 py-8">
       {showSaveToast ? (
