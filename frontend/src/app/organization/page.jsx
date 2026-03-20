@@ -10,6 +10,15 @@ function getOrganizationSession() {
   }
 }
 
+function getStoredProfile() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_org_profile');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function getInitials(name) {
   if (!name) return 'OR';
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -23,7 +32,9 @@ function Topbar({ notifications, setNotifications }) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [activeNotificationTab, setActiveNotificationTab] = useState('all');
   const session = getOrganizationSession();
-  const organizationName = session?.name || 'Organization';
+  const storedProfile = getStoredProfile();
+  const organizationName = storedProfile?.name || session?.name || 'Organization';
+  const organizationLogo = storedProfile?.logo || '';
   const roleLabel = session?.role === 'Organization' ? 'Administrator' : (session?.role || 'Administrator');
   const initials = getInitials(organizationName);
   const unreadCount = notifications.filter((item) => item.unread).length;
@@ -77,7 +88,9 @@ function Topbar({ notifications, setNotifications }) {
             <p>{organizationName}</p>
             <span>{roleLabel}</span>
           </div>
-          <span className="org-avatar">{initials}</span>
+          <span className="org-avatar">
+            {organizationLogo ? <img src={organizationLogo} alt="" /> : initials}
+          </span>
         </div>
       </header>
 

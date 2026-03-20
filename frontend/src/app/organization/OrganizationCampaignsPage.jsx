@@ -24,6 +24,31 @@ function resolveCampaignImage(item) {
     : [];
 }
 
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem("chomnuoy_session");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredProfile() {
+  try {
+    const raw = window.localStorage.getItem("chomnuoy_org_profile");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getInitials(name) {
+  const parts = String(name || "Organization").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "OR";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All Campaigns");
@@ -39,15 +64,6 @@ export default function OrganizationCampaignsPage() {
   const [activeNotificationTab, setActiveNotificationTab] = useState("all");
   const [globalSearch, setGlobalSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-
-  const getOrganizationSession = () => {
-    try {
-      const raw = window.localStorage.getItem("chomnuoy_session");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
 
   const getStorageFileUrl = (path) => {
     if (!path) return "";
@@ -122,6 +138,12 @@ export default function OrganizationCampaignsPage() {
     Completed: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#F1F5F9]",
     Draft: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
   };
+
+  const session = getOrganizationSession();
+  const storedProfile = getStoredProfile();
+  const organizationName = storedProfile?.name || session?.name || "Organization";
+  const organizationLogo = storedProfile?.logo || "";
+  const organizationInitials = getInitials(organizationName);
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -362,11 +384,11 @@ export default function OrganizationCampaignsPage() {
             </button>
             <div className="org-cpg-user-card" aria-label="Organization profile">
               <span className="org-cpg-user-avatar" aria-hidden="true">
-                DC
+                {organizationLogo ? <img src={organizationLogo} alt="" /> : organizationInitials}
                 <span className="org-cpg-user-status" />
               </span>
               <div className="org-cpg-user-meta">
-                <p className="org-cpg-user-name">Dr. Chomnuoy</p>
+                <p className="org-cpg-user-name">{organizationName}</p>
                 <p className="org-cpg-user-role">Organization</p>
               </div>
             </div>

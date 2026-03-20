@@ -221,11 +221,6 @@ export default function AdminUserProfilePage() {
                 </div>
               </div>
             </div>
-
-            <div className="admin-user-profile-actions">
-              <button type="button" className="admin-user-profile-action-ghost">Suspend Account</button>
-              <button type="button" className="admin-user-profile-action-primary">Modify Permissions</button>
-            </div>
           </section>
         ) : null}
       </main>
