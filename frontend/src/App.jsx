@@ -36,6 +36,7 @@ const AdminPage = lazy(() => import('@/app/admin/page.jsx'));
 const UserDashboard = lazy(() => import('@/app/admin/userDashboard.jsx'));
 const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
 const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboard.jsx'));
+const AdminOrganizationProfilePage = lazy(() => import('@/app/admin/organizationProfile.jsx'));
 const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdmin.jsx'));
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
@@ -469,6 +470,14 @@ export default function App() {
             element={(
               <RequireAdminAuth>
                 <OrganizationDashboard />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/organizations/:id"
+            element={(
+              <RequireAdminAuth>
+                <AdminOrganizationProfilePage />
               </RequireAdminAuth>
             )}
           />
