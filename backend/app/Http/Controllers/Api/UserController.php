@@ -18,6 +18,21 @@ class UserController extends Controller
         return response()->json(User::query()->orderByDesc('id')->get());
     }
 
+    public function findByEmail(Request $request): JsonResponse
+    {
+        $email = strtolower(trim((string) $request->query('email', '')));
+        if ($email === '') {
+            return response()->json(['message' => 'Email is required.'], 422);
+        }
+
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        return response()->json($user);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $record = User::create($request->all());

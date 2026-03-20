@@ -18,6 +18,21 @@ class OrganizationController extends Controller
         return response()->json(Organization::query()->orderByDesc('id')->get());
     }
 
+    public function findByEmail(Request $request): JsonResponse
+    {
+        $email = strtolower(trim((string) $request->query('email', '')));
+        if ($email === '') {
+            return response()->json(['message' => 'Email is required.'], 422);
+        }
+
+        $organization = Organization::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if (!$organization) {
+            return response()->json(['message' => 'Organization not found.'], 404);
+        }
+
+        return response()->json($organization);
+    }
+
      // Method to create new organization (POST /organizations)
     public function store(Request $request): JsonResponse
     {
