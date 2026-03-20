@@ -410,6 +410,14 @@
   gap: 12px;
 }
 
+.admin-report-filter-actions .admin-report-ghost,
+.admin-report-filter-actions .admin-primary-btn {
+  padding: 8px 14px;
+  font-size: 16px;
+  border-radius: 10px;
+  height: 40px;
+}
+
 .admin-report-bars {
   display: grid;
   gap: 12px;
