@@ -787,7 +787,7 @@
   cursor: pointer;
 }
 
-.admin-content-grid > .admin-panel:nth-child(3) {
+.admin-content-grid>.admin-panel:nth-child(3) {
   grid-column: 1 / 2;
 }
 

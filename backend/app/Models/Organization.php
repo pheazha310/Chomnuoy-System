@@ -18,9 +18,16 @@ class Organization extends Model
         'password',
         'category_id',
         'location',
+        'latitude',
+        'longitude',
         'description',
         'verified_status',
         'avatar_path',
+    ];
+
+    protected $casts = [
+        'latitude' => 'decimal:6',
+        'longitude' => 'decimal:6',
     ];
 
     protected $hidden = ['password'];

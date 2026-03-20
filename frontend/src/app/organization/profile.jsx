@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import Map from '../home/map.jsx';
 
 function getOrganizationSession() {
   try {
@@ -73,10 +74,9 @@ export default function OrganizationProfilePage() {
         ]
       : fallbackSocials;
 
-  const mapQuery = encodeURIComponent(
-    storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
-  );
-
+  const latitude = storedProfile?.latitude || orgData?.latitude || '';
+  const longitude = storedProfile?.longitude || orgData?.longitude || '';
+  const hasCoordinates = latitude && longitude;
   useEffect(() => {
     const sessionData = getOrganizationSession();
     const organizationId = Number(sessionData?.userId ?? 0);
@@ -144,6 +144,7 @@ export default function OrganizationProfilePage() {
       email: storedProfile?.email || orgData?.email || session?.email || 'contact@chomnuoy.org',
       phone: storedProfile?.phone || orgData?.phone || 'N/A',
       location: storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
+      coordinates: hasCoordinates ? `${latitude}, ${longitude}` : 'Not set yet',
       website: storedProfile?.website || orgData?.website || 'chomnuoy.org',
     },
     stats: [
@@ -211,15 +212,14 @@ export default function OrganizationProfilePage() {
             <article className="org-profile-card org-profile-map">
               <div className="org-profile-card-head">
                 <h2>Headquarters</h2>
-                <span className="org-profile-meta">{profile.contact.location}</span>
+                <span className="org-profile-meta">{hasCoordinates ? profile.contact.coordinates : profile.contact.location}</span>
               </div>
-              <iframe
-                title="Organization Map"
-                className="org-profile-map-embed"
-                src={`https://www.google.com/maps?q=${mapQuery}&output=embed`}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+              <div className="org-profile-map-shell">
+                <Map />
+              </div>
+              <p className="org-profile-location-caption">
+                {hasCoordinates ? `Saved coordinates: ${latitude} | ${longitude}` : 'Use the map below to detect location from your device.'}
+              </p>
               <div className="org-profile-tags">
                 {profile.impactAreas.map((area) => (
                   <span key={area} className="org-profile-tag">{area}</span>
@@ -243,6 +243,10 @@ export default function OrganizationProfilePage() {
                 <div>
                   <small>Location</small>
                   <p>{profile.contact.location}</p>
+                </div>
+                <div>
+                  <small>Coordinates</small>
+                  <p>{profile.contact.coordinates}</p>
                 </div>
                 <div>
                   <small>Website</small>

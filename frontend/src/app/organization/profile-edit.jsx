@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import { getOrganizationById, updateOrganizationProfile } from '../../services/user-service';
+import { DEFAULT_MAP_CENTER, getCurrentCoordinates } from '../../utils/geolocation';
 
 function getOrganizationSession() {
   try {
@@ -25,8 +27,12 @@ export default function OrganizationProfileEditPage() {
   const navigate = useNavigate();
   const session = useMemo(() => getOrganizationSession(), []);
   const storedProfile = useMemo(() => getStoredProfile(), []);
+  const organizationId = Number(session?.userId ?? 0);
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
+  const [error, setError] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
+  const [selectedLogoFile, setSelectedLogoFile] = useState(null);
 
   const [formData, setFormData] = useState({
     name: storedProfile?.name || session?.name || 'Organization',
@@ -41,7 +47,9 @@ export default function OrganizationProfileEditPage() {
     phone: storedProfile?.phone || '',
     location:
       storedProfile?.location ||
-      'Passerelles numériques Cambodia (PNC), BP 511, Phum Tropeang Chhuk (Borey Sorla) Sangtak, Street 371, Phnom Penh, Cambodia',
+      'Passerelles numeriques Cambodia (PNC), Street 371, Phnom Penh, Cambodia',
+    latitude: storedProfile?.latitude || '',
+    longitude: storedProfile?.longitude || '',
     website: storedProfile?.website || '',
     socials: {
       facebook: storedProfile?.socials?.facebook || '',
@@ -50,6 +58,36 @@ export default function OrganizationProfileEditPage() {
     },
     impactAreas: storedProfile?.impactAreas || ['Amazon Basin', 'Southeast Asian Rainforests', 'Arctic Circle'],
   });
+
+  useEffect(() => {
+    if (!organizationId) {
+      return;
+    }
+
+    let active = true;
+
+    getOrganizationById(organizationId)
+      .then((organization) => {
+        if (!active || !organization) {
+          return;
+        }
+
+        setFormData((current) => ({
+          ...current,
+          name: current.name || organization.name || 'Organization',
+          email: current.email || organization.email || '',
+          location: current.location || organization.location || '',
+          latitude: current.latitude || String(organization.latitude || ''),
+          longitude: current.longitude || String(organization.longitude || ''),
+          about: current.about || organization.description || '',
+        }));
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [organizationId]);
 
   const handleChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
@@ -67,6 +105,8 @@ export default function OrganizationProfileEditPage() {
     event.target.value = '';
     if (!file) return;
 
+    setSelectedLogoFile(file);
+
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === 'string' ? reader.result : '';
@@ -75,12 +115,62 @@ export default function OrganizationProfileEditPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = (event) => {
+  const captureLocation = async ({ useFallback = false } = {}) => {
+    setIsLocating(true);
+    setSavedMessage('');
+    setError('');
+
+    try {
+      const coords = await getCurrentCoordinates();
+      setFormData((prev) => ({
+        ...prev,
+        latitude: String(coords.latitude),
+        longitude: String(coords.longitude),
+        location: prev.location || `${coords.latitude}, ${coords.longitude}`,
+      }));
+    } catch (err) {
+      if (useFallback) {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: String(DEFAULT_MAP_CENTER.latitude),
+          longitude: String(DEFAULT_MAP_CENTER.longitude),
+          location: prev.location || `${DEFAULT_MAP_CENTER.latitude}, ${DEFAULT_MAP_CENTER.longitude}`,
+        }));
+      }
+      setError(err.message || 'Unable to get your current location.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const hasCoordinates = formData.latitude && formData.longitude;
+  const mapSrc = hasCoordinates
+    ? `https://www.google.com/maps?q=${formData.latitude},${formData.longitude}&z=14&output=embed`
+    : `https://www.google.com/maps?q=${encodeURIComponent(formData.location || 'Phnom Penh, Cambodia')}&output=embed`;
+
+  const handleSave = async (event) => {
     event.preventDefault();
     setSaving(true);
     setSavedMessage('');
+    setError('');
 
-    window.setTimeout(() => {
+    try {
+      if (organizationId) {
+        const payload = new FormData();
+        payload.append('name', formData.name);
+        payload.append('email', formData.email);
+        payload.append('location', formData.location || '');
+        payload.append('latitude', formData.latitude || '');
+        payload.append('longitude', formData.longitude || '');
+        payload.append('description', formData.about || '');
+
+        if (selectedLogoFile) {
+          payload.append('avatar', selectedLogoFile);
+        }
+
+        await updateOrganizationProfile(organizationId, payload);
+      }
+
       window.localStorage.setItem(
         'chomnuoy_org_profile',
         JSON.stringify({
@@ -92,11 +182,15 @@ export default function OrganizationProfileEditPage() {
             instagram: formData.socials.instagram,
             telegram: formData.socials.telegram,
           },
-        })
+        }),
       );
-      setSaving(false);
+
       setSavedMessage('Profile saved & published.');
-    }, 600);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to save profile right now.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -127,6 +221,7 @@ export default function OrganizationProfileEditPage() {
           </div>
 
           {savedMessage ? <div className="org-profile-success">{savedMessage}</div> : null}
+          {error ? <div className="org-profile-error">{error}</div> : null}
 
           <section className="org-profile-edit-card">
             <div className="org-profile-logo-edit">
@@ -178,6 +273,14 @@ export default function OrganizationProfileEditPage() {
                 <input value={formData.location} onChange={handleChange('location')} placeholder="Headquarters address" />
               </label>
               <label>
+                Latitude
+                <input value={formData.latitude} onChange={handleChange('latitude')} placeholder="11.548038" />
+              </label>
+              <label>
+                Longitude
+                <input value={formData.longitude} onChange={handleChange('longitude')} placeholder="104.942829" />
+              </label>
+              <label>
                 Website
                 <input value={formData.website} onChange={handleChange('website')} placeholder="www.organization.org" />
               </label>
@@ -190,6 +293,39 @@ export default function OrganizationProfileEditPage() {
                   placeholder="Share your mission, focus areas, and impact."
                 />
               </label>
+            </div>
+
+            <div className="org-profile-location-tools">
+              <div className="org-profile-location-head">
+                <div>
+                  <h2>Organization Map</h2>
+                  <p>Track your profile location with latitude and longitude.</p>
+                </div>
+                <button
+                  type="button"
+                  className="org-profile-primary"
+                  onClick={() => captureLocation({ useFallback: true })}
+                  disabled={isLocating}
+                >
+                  {isLocating ? 'Detecting...' : 'Use Current Location'}
+                </button>
+              </div>
+              <iframe
+                title="Organization location preview"
+                className="org-profile-map-embed"
+                src={mapSrc}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+              {hasCoordinates ? (
+                <p className="org-profile-location-caption">
+                  Lat: {formData.latitude} | Lng: {formData.longitude}
+                </p>
+              ) : (
+                <p className="org-profile-location-caption">
+                  Add latitude and longitude or use your current device location.
+                </p>
+              )}
             </div>
           </section>
 

@@ -4,6 +4,7 @@ import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
 
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
@@ -23,6 +24,7 @@ const MyDonation = lazy(() => import('@/app/donate/myDonation.jsx'));
 const ViewDetail = lazy(() => import('@/app/donate/viewDetail.jsx'));
 const AccountSettings = lazy(() => import('@/app/setting/AccountSettings.jsx'));
 const OrganizationDashboardPage = lazy(() => import('@/app/organization/page.jsx'));
+const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
 const OrganizationDonationsPage = lazy(() => import('@/app/organization/donations.jsx'));
 const OrganizationCampaignsPage = lazy(() => import('@/app/organization/OrganizationCampaignsPage.jsx'));
 const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/OrganizationCampaignCreatePage.jsx'));
@@ -42,6 +44,7 @@ const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdm
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
 const TransactionAdminPage = lazy(() => import('@/app/admin/transactionAdmin.jsx'));
+const ReportsAdmin = lazy(() => import('@/components/pages/reports/ReportsAdmin.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -167,6 +170,7 @@ function RequireOrganizationAuth({ children }) {
 }
 
 function RequireAdminAuth({ children }) {
+  useAdminAutoTranslate();
   const location = useLocation();
   const session = getSession();
   const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
@@ -390,6 +394,14 @@ export default function App() {
             )}
           />
           <Route
+            path={ROUTES.ORGANIZATION_REPORTS}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationReports />
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
             path="/organization/donations"
             element={(
               <RequireOrganizationAuth>
@@ -490,6 +502,14 @@ export default function App() {
             element={(
               <RequireAdminAuth>
                 <AdminNotificationPage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/reports"
+            element={(
+              <RequireAdminAuth>
+                <ReportsAdmin />
               </RequireAdminAuth>
             )}
           />

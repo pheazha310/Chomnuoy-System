@@ -6,6 +6,7 @@
 import { getCategories, registerUser } from '../services/user-service';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
+import { DEFAULT_MAP_CENTER, getCurrentCoordinates } from '../utils/geolocation';
 import {
   User,
   Phone,
@@ -25,6 +26,8 @@ export default function RegisterPage({ onToggleMode }) {
   const [role, setRole] = useState('Donor');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
@@ -34,6 +37,8 @@ export default function RegisterPage({ onToggleMode }) {
     categoryId: '',
     categoryNameNew: '',
     location: '',
+    latitude: '',
+    longitude: '',
     description: '',
   });
 
@@ -53,6 +58,42 @@ export default function RegisterPage({ onToggleMode }) {
   useEffect(() => {
     if (role === 'Organization') {
       loadCategories();
+    }
+  }, [role]);
+
+  const updateOrganizationLocation = (coords) => {
+    setFormData((current) => ({
+      ...current,
+      location: `${coords.latitude}, ${coords.longitude}`,
+      latitude: String(coords.latitude),
+      longitude: String(coords.longitude),
+    }));
+  };
+
+  const captureLocation = async ({ useFallback = false } = {}) => {
+    if (role !== 'Organization') {
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError('');
+
+    try {
+      const coords = await getCurrentCoordinates();
+      updateOrganizationLocation(coords);
+    } catch (err) {
+      if (useFallback) {
+        updateOrganizationLocation(DEFAULT_MAP_CENTER);
+      }
+      setLocationError(err.message || 'Unable to get your current location.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (role === 'Organization' && !formData.latitude && !formData.longitude) {
+      captureLocation();
     }
   }, [role]);
 
@@ -77,7 +118,9 @@ export default function RegisterPage({ onToggleMode }) {
           name: formData.organizationName,
           category_id: formData.categoryId ? Number(formData.categoryId) : null,
           category_name_new: formData.categoryNameNew?.trim() || null,
-          location: formData.location,
+          location: formData.location || null,
+          latitude: formData.latitude ? Number(formData.latitude) : null,
+          longitude: formData.longitude ? Number(formData.longitude) : null,
           description: formData.description,
         } : null,
       });
@@ -181,16 +224,32 @@ export default function RegisterPage({ onToggleMode }) {
             </div>
 
             <div>
-              <label className="text-sm font-bold text-[#101828]">Location</label>
-              <div className="relative mt-2">
-                <input
-                  type="text"
-                  placeholder="City / Address"
-                  className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                />
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-sm font-bold text-[#101828]">Current Location</label>
+                <button
+                  type="button"
+                  onClick={() => captureLocation({ useFallback: true })}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] disabled:opacity-60"
+                  disabled={isLocating}
+                >
+                  {isLocating ? 'Detecting...' : 'Refresh Location'}
+                </button>
               </div>
+              <div className="mt-2 rounded-2xl border border-[#D0D5DD] bg-[#F8FAFC] px-4 py-3 text-sm text-[#344054]">
+                {formData.latitude && formData.longitude ? (
+                  <>
+                    <p><strong>Latitude:</strong> {formData.latitude}</p>
+                    <p><strong>Longitude:</strong> {formData.longitude}</p>
+                  </>
+                ) : (
+                  <p>We will try to collect your location automatically from your device.</p>
+                )}
+              </div>
+              {locationError && (
+                <p className="mt-2 text-xs font-medium text-amber-600">
+                  {locationError}
+                </p>
+              )}
             </div>
 
             <div>

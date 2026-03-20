@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 
-export default function OrganizationSidebar() {
+export default function OrganizationSidebar({ compact = false }) {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
 
   const handleLogout = () => {
@@ -13,7 +13,7 @@ export default function OrganizationSidebar() {
 
   return (
     <>
-      <aside className="org-sidebar" aria-label="Organization navigation">
+      <aside className={`org-sidebar${compact ? ' compact' : ''}`} aria-label="Organization navigation">
         <div className="org-brand">
           <span className="org-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="org-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -93,14 +93,17 @@ export default function OrganizationSidebar() {
             Donations
           </NavLink>
 
-          <button className="org-nav-item" type="button">
+          <NavLink
+            to={ROUTES.ORGANIZATION_REPORTS}
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M4 19h16M7 16V9M12 16V5M17 16v-7" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </span>
             Reports
-          </button>
+          </NavLink>
           <NavLink
             to="/organization/profile"
             className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
