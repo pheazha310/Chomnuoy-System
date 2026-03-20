@@ -103,6 +103,7 @@ Route::apiResource('regional_map_markers', RegionalMapMarkerController::class);
 Route::get('notifications/stream', [NotificationController::class, 'stream']);
 Route::apiResource('notifications', NotificationController::class);
 Route::apiResource('audit_logs', AuditLogController::class);
+Route::get('report/admin-dashboard', [ReportController::class, 'adminDashboard']);
 Route::apiResource('report', ReportController::class);
 Route::apiResource('campaigns', CampaignController::class);
 Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donations']);
