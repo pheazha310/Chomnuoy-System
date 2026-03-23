@@ -705,6 +705,19 @@
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
 }
 
+.admin-modal-large {
+  width: min(760px, 92vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-modal-large .admin-task-list {
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 .admin-modal h3 {
   margin: 0 0 6px;
   font-size: 18px;

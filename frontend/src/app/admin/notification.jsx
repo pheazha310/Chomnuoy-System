@@ -216,7 +216,8 @@ const NOTIFICATION_ICONS = {
   ),
   mention: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 18a6 6 0 1 1 6-6v3a2 2 0 1 1-4 0v-3a2 2 0 1 0-4 0 3 3 0 0 0 3 3"
+      <path
+        d="M12 18a6 6 0 1 1 6-6v3a2 2 0 1 1-4 0v-3a2 2 0 1 0-4 0 3 3 0 0 0 3 3"
         stroke="currentColor"
         strokeWidth="1.6"
         fill="none"
@@ -226,7 +227,8 @@ const NOTIFICATION_ICONS = {
   ),
   verified: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3 15 6l4 .7-2.7 3.5.6 4.2L12 13l-4.9 1.4.6-4.2L5 6.7 9 6l3-3Z"
+      <path
+        d="M12 3 15 6l4 .7-2.7 3.5.6 4.2L12 13l-4.9 1.4.6-4.2L5 6.7 9 6l3-3Z"
         stroke="currentColor"
         strokeWidth="1.6"
         fill="none"
@@ -285,13 +287,13 @@ export default function AdminNotificationPage() {
   const filteredItems = useMemo(() => {
     return items
       .filter((item) => {
-      if (item.category !== activeTab) return false;
-      if (item.type === 'reply' && activeFilter !== 'system') return false;
-      if (activeFilter === 'unread') return item.unread;
-      if (activeFilter === 'critical') return item.tone === 'danger';
-      if (activeFilter === 'system') return item.tone === 'info';
-      if (activeFilter === 'archive') return item.archived;
-      return true;
+        if (item.category !== activeTab) return false;
+        if (item.type === 'reply' && activeFilter !== 'system') return false;
+        if (activeFilter === 'unread') return item.unread;
+        if (activeFilter === 'critical') return item.tone === 'danger';
+        if (activeFilter === 'system') return item.tone === 'info';
+        if (activeFilter === 'archive') return item.archived;
+        return true;
       })
       .sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0));
   }, [items, activeFilter, activeTab]);
@@ -349,7 +351,7 @@ export default function AdminNotificationPage() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     Promise.all([
-      fetch(`${apiBase}/notifications`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/notifications?recipient_type=admin`, { headers }).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/users`, { headers }).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/organizations`, { headers }).then((response) => (response.ok ? response.json() : [])),
     ])
@@ -385,6 +387,7 @@ export default function AdminNotificationPage() {
             organizationsById.set(Number(organization.id), {
               id: organization.id,
               name: organization.name || 'Organization',
+              email: organization.email || '',
             });
           }
         });
@@ -399,53 +402,52 @@ export default function AdminNotificationPage() {
             return type === 'message' || type === 'campaign';
           })
           .map((item) => {
-          const type = String(item.type || '').toLowerCase();
-          const createdAt = item.created_at ? new Date(item.created_at) : new Date();
-          const minutesAgo = Math.max(1, Math.round((Date.now() - createdAt.getTime()) / 60000));
-          const parsed = parseMessageDetails(item.message || '');
-          const sender = usersById.get(Number(item.user_id)) || null;
-          const organization = organizationsById.get(Number(item.user_id)) || null;
-          const senderType = String(item.sender_type || (type === 'campaign' ? 'organization' : '')).toLowerCase();
-          const senderName = senderType === 'organization'
-            ? (item.sender_name || organization?.name || 'Organization')
-            : (item.sender_name || parsed.from || sender?.name || 'User');
-          const senderEmail = senderType === 'organization'
-            ? (item.sender_email || '')
-            : (item.sender_email || parsed.fromEmail || sender?.email || '');
-          const senderAvatarUrl = senderType === 'user' ? (sender?.avatarUrl || '') : '';
-          const title = type === 'message'
-            ? senderName
-            : parsed.subject
-              ? parsed.subject
-              : type === 'reply'
-                ? 'Admin reply'
-                : senderType === 'organization'
-                  ? `Post by ${senderName}`
-                  : `Message from ${senderName}`;
-          const isReadFromServer = Boolean(item.is_read);
-          const isReadLocally = Boolean(readMap[item.id]);
-          const isUnread = !(isReadFromServer || isReadLocally);
-          return {
-            id: item.id,
-            userId: item.user_id,
-            category: type === 'message' || type === 'reply' ? 'Mentions' : 'Primary',
-            title,
-            description: parsed.body || item.message || 'New update available.',
-            time: minutesAgo < 60 ? `${minutesAgo}m ago` : createdAt.toLocaleString(),
-            sortKey: minutesAgo,
-            tone: type === 'message' ? 'mention' : (type === 'reply' ? 'info' : 'primary'),
-            unread: isUnread,
+            const type = String(item.type || '').toLowerCase();
+            const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+            const minutesAgo = Math.max(1, Math.round((Date.now() - createdAt.getTime()) / 60000));
+            const parsed = parseMessageDetails(item.message || '');
+            const sender = usersById.get(Number(item.user_id)) || null;
+            const organization = organizationsById.get(Number(item.user_id)) || null;
+            const senderType = String(item.sender_type || (type === 'campaign' ? 'organization' : '')).toLowerCase();
+            const senderName = senderType === 'organization'
+              ? (item.sender_name || organization?.name || 'Organization')
+              : (item.sender_name || parsed.from || sender?.name || 'User');
+            const senderEmail = senderType === 'organization'
+              ? (item.sender_email || organization?.email || '')
+              : (item.sender_email || parsed.fromEmail || sender?.email || '');
+            const senderAvatarUrl = senderType === 'user' ? (sender?.avatarUrl || '') : '';
+            const title = type === 'message'
+              ? senderName
+              : parsed.subject
+                ? parsed.subject
+                : type === 'reply'
+                  ? 'Admin reply'
+                  : senderType === 'organization'
+                    ? `Post by ${senderName}`
+                    : `Message from ${senderName}`;
+            const isReadFromServer = Boolean(item.is_read);
+            const isReadLocally = Boolean(readMap[item.id]);
+            const isUnread = !(isReadFromServer || isReadLocally);
+            return {
+              id: item.id,
+              userId: item.user_id,
+              category: type === 'message' || type === 'reply' ? 'Mentions' : 'Primary',
+              title,
+              description: parsed.body || item.message || 'New update available.',
+              time: minutesAgo < 60 ? `${minutesAgo}m ago` : createdAt.toLocaleString(),
+              sortKey: minutesAgo,
+              tone: type === 'message' ? 'mention' : (type === 'reply' ? 'info' : 'primary'),
+              unread: isUnread,
             actions: type === 'message' ? ['Reply'] : undefined,
-            icon: type === 'message' ? 'mention' : 'analytics',
-            type: type || 'update',
-            sender: senderName,
-            senderEmail,
-            senderAvatarUrl,
-            senderType,
-            source: 'api',
-            replied: false,
-          };
-        });
+              icon: type === 'message' ? 'mention' : 'analytics',
+              type: type || 'update',
+              sender: senderName,
+              senderEmail,
+              senderAvatarUrl,
+              source: 'api',
+              replied: false,
+            };
+          });
 
         setItems(mapped);
       })
@@ -532,7 +534,7 @@ export default function AdminNotificationPage() {
           sender_name: adminName,
           recipient_type: 'user',
           recipient_id: activeNotification.userId,
-          message: replyDraft.trim(),
+          message: `From: ${adminName}\nSubject: Reply to ${activeNotification.title}\nMessage: ${replyDraft.trim()}`,
           type: 'reply',
           is_read: false,
         }),
@@ -652,22 +654,20 @@ export default function AdminNotificationPage() {
                     <p>{item.description}</p>
                     {item.actions ? (
                       <div className="admin-notify-actions">
-                        {item.actions
-                          .filter((action) => (action === 'Reply' ? item.unread : true))
-                          .map((action) => (
-                          <button
-                            key={action}
-                            type="button"
-                            className={action === 'Dismiss' ? 'ghost' : ''}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (action === 'Reply') {
-                                openDetails(item);
-                              }
-                            }}
-                          >
-                            {action}
-                          </button>
+                        {item.actions.map((action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              className={action === 'Dismiss' ? 'ghost' : ''}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (action === 'Reply') {
+                                  openDetails(item);
+                                }
+                              }}
+                            >
+                              {action}
+                            </button>
                           ))}
                       </div>
                     ) : null}
@@ -804,7 +804,7 @@ export default function AdminNotificationPage() {
             </div>
             <p className="admin-notify-detail-body">{activeNotification.description}</p>
 
-            {activeNotification.type === 'message' && activeNotification.unread ? (
+            {activeNotification.type === 'message' ? (
               <div className="admin-notify-reply">
                 <div className="admin-notify-reply-header">
                   <span>Reply to {activeNotification.sender || 'sender'}</span>
@@ -831,4 +831,3 @@ export default function AdminNotificationPage() {
     </div>
   );
 }
-
