@@ -402,7 +402,9 @@ function AfterLoginHome() {
                       <span>{item.progressLabel}</span>
                     </div>
 
-                    <button type="button">Donate Now</button>
+                    <Link to="/donations" className="campaign-donate-link">
+                      Donate Now
+                    </Link>
                   </div>
                 </article>
               ))}
@@ -479,9 +481,9 @@ function AfterLoginHome() {
                 Start your own fundraising campaign for a cause
                 you care about.
               </p>
-              <button type="button">
+              <Link to="/campaigns/donor" className="cta-start-link">
                 Start Campaign
-              </button>
+              </Link>
             </section>
           </aside>
         </section>

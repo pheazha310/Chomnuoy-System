@@ -128,7 +128,7 @@ const Hero = () => (
           Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate donors with grassroots initiatives making a real difference.
         </p>
         <div className="about-header-actions">
-          <Link to="/login" className="about-header-btn about-header-btn-primary group">
+          <Link to={donateHref} className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
@@ -301,6 +301,10 @@ const FeaturedOrgs = () => (
 );
 
 export default function AboutPage() {
+  const sessionRaw = window.localStorage.getItem('chomnuoy_session');
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const donateHref = session?.isLoggedIn ? '/campaigns' : '/login?redirect=%2Fcampaigns';
+
   return (
     <div className="h-screen w-screen flex flex-col selection:bg-primary/10 selection:text-primary">
       <main className="flex-grow overflow-auto">
