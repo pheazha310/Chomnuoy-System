@@ -106,7 +106,7 @@ const TEAM = [
 
 // --- Components ---
 // Note: this is the header section of the about page
-const Hero = () => (
+const Hero = ({ donateHref }) => (
   <section className="about-hero">
     <div className="about-header-card">
       <motion.div 
@@ -308,7 +308,7 @@ export default function AboutPage() {
   return (
     <div className="h-screen w-screen flex flex-col selection:bg-primary/10 selection:text-primary">
       <main className="flex-grow overflow-auto">
-        <Hero />
+        <Hero donateHref={donateHref} />
         <Stats />
         <AboutContent />
         <FeaturedOrgs />
