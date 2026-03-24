@@ -133,3 +133,13 @@ export async function getOrganizationById(orgId) {
     const response = await apiClient.get(`/organizations/${normalizedId}`);
     return response.data;
 }
+
+export async function createBakongTransaction(payload) {
+    const response = await apiClient.post('/bakong/transactions', payload);
+    return response.data;
+}
+
+export async function verifyBakongTransaction(tranId) {
+    const response = await apiClient.post(`/bakong/transactions/${encodeURIComponent(tranId)}/verify`);
+    return response.data;
+}

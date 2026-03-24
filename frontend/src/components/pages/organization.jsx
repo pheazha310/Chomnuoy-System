@@ -137,9 +137,7 @@ const PAGE_SIZE = 3;
 const DONOR_PAGE_SIZE = 4;
 const DONATION_PRESET_AMOUNTS = [5, 10, 20, 50];
 const DONATION_PAYMENT_METHODS = [
-  { id: 'qr', label: 'QR Payment', badge: 'QR', badgeClassName: 'payment-badge-qr' },
-  { id: 'aba', label: 'ABA Pay', badge: 'ABA', badgeClassName: 'payment-badge-aba' },
-  { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
+  { id: 'khqr', label: 'Bakong KHQR', badge: 'KHQR', badgeClassName: 'payment-badge-qr' },
 ];
 const RATING_OPTIONS = [
   { value: 'all', label: 'All Ratings' },
@@ -218,7 +216,7 @@ function Organization() {
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qr');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('khqr');
   const [donationMessage, setDonationMessage] = useState('');
   const parsedCustomAmount = Number(customDonationAmount);
   const hasCustomInput = customDonationAmount.trim() !== '';
@@ -366,7 +364,7 @@ function Organization() {
   );
   const fromQuery = new URLSearchParams(location.search).get('from');
   const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
-  const selectedPaymentLabel = selectedPaymentMethod === 'aba' ? 'ABA Pay' : selectedPaymentMethod === 'wing' ? 'Wing Bank' : 'QR Payment';
+  const selectedPaymentLabel = 'Bakong KHQR';
 
   const handleSearch = () => {
     setSearchTerm(searchInput.trim());
@@ -509,8 +507,8 @@ function Organization() {
               <div className="donation-payment-grid">
                 <button
                   type="button"
-                  className={selectedPaymentMethod === 'qr' ? 'is-active' : ''}
-                  onClick={() => setSelectedPaymentMethod('qr')}
+                  className={selectedPaymentMethod === 'khqr' ? 'is-active' : ''}
+                  onClick={() => setSelectedPaymentMethod('khqr')}
                 >
                   <span className="payment-badge payment-badge-qr" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none">
@@ -518,23 +516,7 @@ function Organization() {
                       <path d="M14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor" stroke="none" />
                     </svg>
                   </span>
-                  <span className="payment-label">QR Payment</span>
-                </button>
-                <button
-                  type="button"
-                  className={selectedPaymentMethod === 'aba' ? 'is-active' : ''}
-                  onClick={() => setSelectedPaymentMethod('aba')}
-                >
-                  <span className="payment-badge payment-badge-aba">ABA</span>
-                  <span className="payment-label">ABA Pay</span>
-                </button>
-                <button
-                  type="button"
-                  className={selectedPaymentMethod === 'wing' ? 'is-active' : ''}
-                  onClick={() => setSelectedPaymentMethod('wing')}
-                >
-                  <span className="payment-badge payment-badge-wing">Wing</span>
-                  <span className="payment-label">Wing Bank</span>
+                  <span className="payment-label">Bakong KHQR</span>
                 </button>
               </div>
             </section>

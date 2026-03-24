@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bold, Crosshair, Italic, List, MapPinned, Plus, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Bold, Crosshair, Italic, List, MapPinned, Plus, Search, Trash2, UploadCloud } from 'lucide-react';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -77,6 +77,7 @@ export default function OrganizationCampaignCreatePage() {
   const imageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const materialPhotoInputRef = useRef(null);
+  const locationSearchAbortRef = useRef(null);
   const [form, setForm] = useState({
     title: '',
     category: '',
@@ -111,11 +112,14 @@ export default function OrganizationCampaignCreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingCampaign, setLoadingCampaign] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
+  const [locationSearchResults, setLocationSearchResults] = useState([]);
   const [locationError, setLocationError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [campaignType, setCampaignType] = useState('');
+  const [reviewAccepted, setReviewAccepted] = useState(false);
   const [typeError, setTypeError] = useState('');
   const [materialItem, setMaterialItem] = useState({
     category: 'clothing',
@@ -173,6 +177,9 @@ export default function OrganizationCampaignCreatePage() {
     : campaignType === 'materials'
       ? `${materialItem.quantity || 0} items requested`
       : `Progress: ${completion}%`;
+  const reviewRaisedText = campaignType === 'materials'
+    ? `${materialItem.quantity || 0} items requested`
+    : `$0 raised of ${form.goal ? `$${Number(form.goal).toLocaleString()}` : '$0'}`;
   const mediaTips = useMemo(() => {
     const tips = [];
     if (!previewImage) tips.push('Upload a cover image so donors immediately see your campaign.');
@@ -197,6 +204,12 @@ export default function OrganizationCampaignCreatePage() {
   }, [searchParams]);
   const isEditing = Boolean(editId);
 
+  useEffect(() => () => {
+    if (locationSearchAbortRef.current) {
+      locationSearchAbortRef.current.abort();
+    }
+  }, []);
+
   const getStorageFileUrl = (path) => {
     if (!path) return '';
     const rawPath = String(path).trim();
@@ -212,6 +225,9 @@ export default function OrganizationCampaignCreatePage() {
     const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const appBase = apiBase.replace(/\/api\/?$/, '');
+    if (normalizedPath.startsWith('uploads/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
     if (normalizedPath.startsWith('storage/')) {
       return `${appBase}/${normalizedPath}`;
     }
@@ -231,6 +247,106 @@ export default function OrganizationCampaignCreatePage() {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
+  const applyLocationSelection = (result) => {
+    const latitude = Number(result?.lat);
+    const longitude = Number(result?.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setLocationError('Selected location does not contain valid coordinates.');
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      location: result.display_name || prev.location,
+      latitude: latitude.toFixed(6),
+      longitude: longitude.toFixed(6),
+    }));
+    setLocationError('');
+    setLocationSearchResults([]);
+  };
+
+  const searchPickupLocation = async () => {
+    const query = form.location.trim();
+    if (!query) {
+      setLocationError('Enter an address or pickup area to search.');
+      setLocationSearchResults([]);
+      return;
+    }
+
+    if (locationSearchAbortRef.current) {
+      locationSearchAbortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    locationSearchAbortRef.current = controller;
+    setLocationSearchLoading(true);
+    setLocationError('');
+
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/search');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('limit', '5');
+      url.searchParams.set('countrycodes', 'kh');
+      url.searchParams.set('addressdetails', '1');
+      url.searchParams.set('q', query);
+
+      const response = await fetch(url.toString(), {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Location search failed (${response.status})`);
+      }
+
+      const results = await response.json();
+      if (!Array.isArray(results) || results.length === 0) {
+        setLocationSearchResults([]);
+        setLocationError('No matching locations were found. Try a more specific address.');
+        return;
+      }
+
+      setLocationSearchResults(results);
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      setLocationSearchResults([]);
+      setLocationError(err instanceof Error ? err.message : 'Unable to search locations right now.');
+    } finally {
+      if (locationSearchAbortRef.current === controller) {
+        locationSearchAbortRef.current = null;
+      }
+      setLocationSearchLoading(false);
+    }
+  };
+
+  const reverseLookupPickupLocation = async (latitude, longitude) => {
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('lat', String(latitude));
+      url.searchParams.set('lon', String(longitude));
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) return;
+      const result = await response.json();
+      if (typeof result?.display_name !== 'string' || !result.display_name.trim()) return;
+
+      setForm((prev) => ({
+        ...prev,
+        location: result.display_name,
+      }));
+    } catch {
+      // keep detected coordinates even if reverse lookup fails
+    }
+  };
+
   const handleDetectPickupLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported on this device.');
@@ -242,12 +358,16 @@ export default function OrganizationCampaignCreatePage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const latitude = position.coords.latitude.toFixed(6);
+        const longitude = position.coords.longitude.toFixed(6);
         setForm((prev) => ({
           ...prev,
-          latitude: position.coords.latitude.toFixed(6),
-          longitude: position.coords.longitude.toFixed(6),
+          latitude,
+          longitude,
         }));
+        setLocationSearchResults([]);
         setLocationLoading(false);
+        reverseLookupPickupLocation(latitude, longitude);
       },
       (geoError) => {
         setLocationError(geoError?.message || 'Unable to detect your location.');
@@ -656,9 +776,11 @@ export default function OrganizationCampaignCreatePage() {
 
   const uploadCampaignImages = async (campaignId) => {
     const newImages = imagePreviews.filter((item) => item.file instanceof File);
-    if (newImages.length === 0) return;
+    if (newImages.length === 0) return [];
 
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const failures = [];
+
     await Promise.all(newImages.map(async (item) => {
       const body = new FormData();
       body.append('campaign_id', String(campaignId));
@@ -671,9 +793,11 @@ export default function OrganizationCampaignCreatePage() {
 
       if (!response.ok) {
         const message = await response.text();
-        throw new Error(message || `Failed to upload image (${response.status})`);
+        failures.push(message || `Failed to upload image (${response.status})`);
       }
     }));
+
+    return failures;
   };
 
   const handleSubmit = async (status) => {
@@ -738,14 +862,25 @@ export default function OrganizationCampaignCreatePage() {
 
       const savedCampaign = await response.json();
       const savedCampaignId = Number(savedCampaign?.id ?? editId);
+      let imageUploadFailures = [];
       if (savedCampaignId) {
-        await uploadCampaignImages(savedCampaignId);
+        imageUploadFailures = await uploadCampaignImages(savedCampaignId);
       }
 
       if (isEditing) {
-        setSuccess('Campaign updated.');
+        setSuccess(
+          imageUploadFailures.length > 0
+            ? 'Campaign updated, but campaign images could not be uploaded.'
+            : 'Campaign updated.'
+        );
       } else {
-        setSuccess(status === 'draft' ? 'Draft saved.' : 'Campaign published.');
+        setSuccess(
+          imageUploadFailures.length > 0
+            ? (status === 'draft'
+              ? 'Draft saved, but campaign images could not be uploaded.'
+              : 'Campaign published, but campaign images could not be uploaded.')
+            : (status === 'draft' ? 'Draft saved.' : 'Campaign published.')
+        );
       }
       if (status === 'active') {
         try {
@@ -1511,13 +1646,58 @@ export default function OrganizationCampaignCreatePage() {
                       <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Drop-off / Pickup Location
                         <div className="mt-2 grid gap-3">
-                          <input
-                            type="text"
-                            placeholder="Warehouse address or pickup area"
-                            value={form.location}
-                            onChange={handleChange('location')}
-                            className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                          />
+                          <div className="space-y-2">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <input
+                                type="text"
+                                placeholder="Warehouse address or pickup area"
+                                value={form.location}
+                                onChange={(event) => {
+                                  setForm((prev) => ({ ...prev, location: event.target.value }));
+                                  setLocationSearchResults([]);
+                                  setLocationError('');
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    searchPickupLocation();
+                                  }
+                                }}
+                                className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                              />
+                              <button
+                                type="button"
+                                onClick={searchPickupLocation}
+                                disabled={locationSearchLoading}
+                                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#BFD6FF] bg-white px-4 text-sm font-bold text-[#2563EB] transition hover:border-[#93C5FD] hover:text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Search size={16} />
+                                {locationSearchLoading ? 'Searching...' : 'Search'}
+                              </button>
+                            </div>
+                            {locationSearchResults.length > 0 ? (
+                              <div className="overflow-hidden rounded-2xl border border-[#D9E6F6] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+                                {locationSearchResults.map((result) => (
+                                  <button
+                                    type="button"
+                                    key={`${result.place_id}-${result.lat}-${result.lon}`}
+                                    onClick={() => applyLocationSelection(result)}
+                                    className="flex w-full items-start justify-between gap-3 border-b border-[#EEF3F9] px-4 py-3 text-left transition hover:bg-[#F8FBFF] last:border-b-0"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-[#0F172A]">{result.display_name}</p>
+                                      <p className="mt-1 text-xs text-[#64748B]">
+                                        Lat {Number(result.lat).toFixed(5)}, Lng {Number(result.lon).toFixed(5)}
+                                      </p>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#2563EB]">
+                                      Pick
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                           {renderCoordinateTracker({
                             title: 'Map Coordinates',
                             description: 'Detect the pickup point and store its latitude and longitude with this campaign.',
@@ -2433,19 +2613,39 @@ export default function OrganizationCampaignCreatePage() {
                     <span className="org-cpg-chip">Review</span>
                   </div>
                   <div className="org-cpg-live-preview">
-                    <div className="org-cpg-live-image" />
+                    <div className="org-cpg-live-image">
+                      {previewImage ? (
+                        <img src={previewImage} alt={previewTitle} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-center text-sm font-medium text-[#64748B]">
+                          Upload a cover image to display the real campaign card.
+                        </div>
+                      )}
+                    </div>
                     <div className="org-cpg-live-meta">
-                      <span className="org-cpg-live-tag">Water</span>
-                      <h4>Clean Water for Sub-Saharan Communities</h4>
-                      <p>$0 raised</p>
+                      <span className="org-cpg-live-tag">{previewCategory}</span>
+                      <h4>{previewTitle}</h4>
+                      <p>{reviewRaisedText}</p>
                     </div>
                   </div>
                   <label className="mt-4 flex items-start gap-2 text-xs text-[#64748B]">
-                    <input type="checkbox" className="mt-1" />
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={reviewAccepted}
+                      onChange={(event) => setReviewAccepted(event.target.checked)}
+                    />
                     I agree to the Terms of Service and confirm that all information is accurate.
                   </label>
-                  <button type="button" className="org-cpg-launch-btn">Launch Campaign</button>
-                  <button type="button" className="org-cpg-back-link" onClick={() => setActiveStep(3)}>
+                  <button
+                    type="button"
+                    className="org-cpg-launch-btn"
+                    onClick={() => handleSubmit('active')}
+                    disabled={!reviewAccepted || submitting}
+                  >
+                    {submitting ? 'Publishing...' : (isEditing ? 'Update Campaign' : 'Launch Campaign')}
+                  </button>
+                  <button type="button" className="org-cpg-back-link" onClick={() => setActiveStep(4)}>
                     Back to Story & Impact
                   </button>
                 </section>

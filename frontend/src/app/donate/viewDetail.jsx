@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { verifyBakongTransaction } from '../../services/user-service';
 import {
   ArrowLeft,
   Award,
   BadgeCheck,
-  CreditCard,
   Download,
   FileText,
   HandHeart,
@@ -12,13 +12,13 @@ import {
   Linkedin,
   Send,
   Wallet,
-  Landmark,
   ScanQrCode,
   MapPin,
 } from 'lucide-react';
 import './viewDetail.css';
 
 const LAST_DONATION_DETAIL_KEY = 'chomnuoy_last_donation_detail';
+const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
 
 function getSession() {
   try {
@@ -44,6 +44,9 @@ function getStorageFileUrl(path) {
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('uploads/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
   if (normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
@@ -52,16 +55,10 @@ function getStorageFileUrl(path) {
 
 function getPaymentMeta(method = '') {
   const normalized = String(method).toLowerCase();
-  if (normalized.includes('paypal')) {
-    return { icon: Wallet, label: 'PayPal' };
+  if (normalized.includes('bakong') || normalized.includes('khqr') || normalized.includes('qr')) {
+    return { icon: ScanQrCode, label: 'Bakong KHQR' };
   }
-  if (normalized.includes('bank')) {
-    return { icon: Landmark, label: 'Bank Transfer' };
-  }
-  if (normalized.includes('qr')) {
-    return { icon: ScanQrCode, label: 'QR Code' };
-  }
-  return { icon: CreditCard, label: 'Credit Card' };
+  return { icon: Wallet, label: 'ABA Pay' };
 }
 
 export default function ViewDetail() {
@@ -88,15 +85,28 @@ export default function ViewDetail() {
       return;
     }
 
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
-    Promise.all([
+    const verifyPendingTransaction = async () => {
+      try {
+        const raw = window.sessionStorage.getItem(PENDING_BAKONG_TRANSACTION_KEY);
+        if (!raw) return;
+        const pending = JSON.parse(raw);
+        if (!pending?.tranId) return;
+        await verifyBakongTransaction(pending.tranId);
+        window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+      } catch {
+        // Let the page continue loading local records even if verification is not reachable yet.
+      }
+    };
+
+    verifyPendingTransaction().then(() => Promise.all([
       fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
       fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
       fetch(`${apiBase}/payments`).then((r) => (r.ok ? r.json() : [])),
       fetch(`${apiBase}/organizations`).then((r) => (r.ok ? r.json() : [])),
-    ])
+    ]))
       .then(([donationsData, campaignsData, paymentsData, organizationsData]) => {
         if (!alive) return;
 
@@ -127,7 +137,7 @@ export default function ViewDetail() {
             year: 'numeric',
           }),
           transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${latestDonation.id}`,
-          paymentMethod: payment?.payment_method || payment?.payment_status || 'Credit Card',
+          paymentMethod: payment?.payment_method || payment?.payment_status || 'Bakong KHQR',
           campaignTitle: campaign?.title || 'Campaign',
           campaignImage:
             getStorageFileUrl(campaign?.image_path) ||
