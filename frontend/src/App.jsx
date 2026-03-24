@@ -82,7 +82,7 @@ function getStorageFileUrl(path) {
   }
 
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
   if (normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;

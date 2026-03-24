@@ -244,7 +244,7 @@ export default function AdminNotificationPage() {
   const [activeNotification, setActiveNotification] = useState(null);
   const [replyDraft, setReplyDraft] = useState('');
   const [isReplySending, setIsReplySending] = useState(false);
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
