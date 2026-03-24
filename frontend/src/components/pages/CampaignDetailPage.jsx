@@ -10,11 +10,6 @@ import {
   Droplets,
   HandHeart,
   ShieldCheck,
-  User,
-  Mail,
-  CreditCard,
-  Landmark,
-  Wallet,
   Lock,
   ScanQrCode,
   CircleCheckBig,
@@ -22,6 +17,7 @@ import {
   Circle,
   Clock3,
 } from 'lucide-react';
+import { createBakongTransaction, verifyBakongTransaction } from '../../services/user-service';
 
 import { getCampaignById } from '../../data/campaigns';
 import '../css/Campaigns.css';
@@ -32,6 +28,7 @@ const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v1';
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
 const LAST_DONATION_DETAIL_KEY = 'chomnuoy_last_donation_detail';
+const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
 
 function getSavedCampaignIds() {
   try {
@@ -144,6 +141,9 @@ function getStorageFileUrl(path) {
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('uploads/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
   if (normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
@@ -160,6 +160,19 @@ function clearDonationCaches() {
   }
 }
 
+function getApiErrorMessage(error, fallbackMessage) {
+  const validationErrors = error?.response?.data?.errors;
+  const firstValidationMessage = validationErrors && typeof validationErrors === 'object'
+    ? Object.values(validationErrors).flat().find(Boolean)
+    : null;
+
+  return error?.response?.data?.message
+    || error?.response?.data?.error
+    || firstValidationMessage
+    || error?.message
+    || fallbackMessage;
+}
+
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
@@ -170,19 +183,18 @@ function CampaignDetailPage({ campaignId }) {
   const [isSaved, setIsSaved] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(25);
   const [customAmountInput, setCustomAmountInput] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Credit Card');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Bakong KHQR');
   const [donationMessage, setDonationMessage] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
   const [showDonationSuccess, setShowDonationSuccess] = useState(false);
   const [receiptDetails, setReceiptDetails] = useState(null);
   const [recentDonors, setRecentDonors] = useState([]);
   const [donationSubmitting, setDonationSubmitting] = useState(false);
+  const [abaQrCheckout, setAbaQrCheckout] = useState(null);
+  const [autoStartAbaQr, setAutoStartAbaQr] = useState(false);
   const [monthlyDonation, setMonthlyDonation] = useState(false);
   const [donorName, setDonorName] = useState('');
   const [donorEmail, setDonorEmail] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvc, setCvc] = useState('');
   const [locationState, setLocationState] = useState({
     loading: false,
     error: '',
@@ -203,6 +215,7 @@ function CampaignDetailPage({ campaignId }) {
     setDonorName(session?.name || 'John Doe');
     setDonorEmail(session?.email || 'john.doe@example.com');
   }, [session?.name, session?.email]);
+
 
   useEffect(() => {
     let mounted = true;
@@ -341,6 +354,107 @@ function CampaignDetailPage({ campaignId }) {
     };
   }, [resolvedCampaignId, showDonationSuccess]);
 
+  const safeTitle = campaign?.title || 'Campaign';
+  const safeCategory = campaign?.category || 'General';
+  const safeSummary = campaign?.summary || 'No description available yet.';
+  const safeLocation = campaign?.location || 'Kampong Speu, Cambodia';
+  const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
+    ? campaign.donationTiers
+        .map((item) => Number(item?.amount ?? item))
+        .filter((amount) => Number.isFinite(amount) && amount > 0)
+        .slice(0, 5)
+    : [10, 25, 50, 100, 250];
+  const safeImage =
+    campaign?.image ||
+    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
+  const goalAmount = Number(campaign?.goalAmount ?? 0);
+  const raisedAmount = Number(campaign?.raisedAmount ?? 0);
+  const percentRaised = goalAmount > 0 ? Math.round((raisedAmount / goalAmount) * 100) : 0;
+  const progressWidth = Math.min(percentRaised, 100);
+  const backers = Math.max(24, Math.round(raisedAmount / 35) || 0);
+  const daysToGo = Math.max(5, 45 - Math.floor(raisedAmount / 5000) || 0);
+  const organizationName = String(campaign?.organization || 'Organization');
+  const creatorName =
+    organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
+  const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const processingFee = 0;
+  const totalDonation = selectedAmount + processingFee;
+
+  useEffect(() => {
+    if (!abaQrCheckout?.tranId || abaQrCheckout?.status === 'completed' || abaQrCheckout?.status === 'failed') {
+      return undefined;
+    }
+
+    let active = true;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const verification = await verifyBakongTransaction(abaQrCheckout.tranId);
+        if (!active) return;
+
+        const transaction = verification?.transaction;
+        const normalizedStatus = String(transaction?.status || '').toLowerCase();
+        if (!normalizedStatus) return;
+
+        setAbaQrCheckout((previous) => (
+          previous ? { ...previous, status: normalizedStatus } : previous
+        ));
+
+        if (normalizedStatus === 'completed') {
+          const nextReceiptDetails = {
+            amount: Number(transaction?.amount ?? totalDonation).toFixed(2),
+            date: new Date(transaction?.paid_at || Date.now()).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            donationId: transaction?.donation_id ?? null,
+            transactionId: transaction?.tran_id ? `#${transaction.tran_id}` : '',
+            paymentMethod: abaQrCheckout.paymentLabel,
+            campaignTitle: safeTitle,
+            campaignImage: safeImage,
+            campaignLocation: safeLocation,
+            organizationName,
+            receiptMessage: campaign?.receiptMessage || '',
+            status: normalizedStatus,
+          };
+
+          clearDonationCaches();
+          setReceiptDetails(nextReceiptDetails);
+          try {
+            window.sessionStorage.setItem(LAST_DONATION_DETAIL_KEY, JSON.stringify(nextReceiptDetails));
+          } catch {
+            // Ignore persistence failures.
+          }
+          setShowCheckout(false);
+          setShowDonationSuccess(true);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+          return;
+        }
+
+        if (['failed', 'cancelled', 'expired'].includes(normalizedStatus)) {
+          setDonationMessage(`Payment ${normalizedStatus}. Please generate a new KHQR and try again.`);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+        }
+      } catch {
+        // Continue polling quietly while the QR is active.
+      }
+    }, 4000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [abaQrCheckout, totalDonation, safeTitle, safeImage, safeLocation, organizationName, campaign?.receiptMessage]);
+
+  useEffect(() => {
+    if (!showCheckout || !autoStartAbaQr || donationSubmitting || abaQrCheckout) {
+      return;
+    }
+
+    setAutoStartAbaQr(false);
+    handleCompleteDonation();
+  }, [showCheckout, autoStartAbaQr, donationSubmitting, abaQrCheckout]);
+
   if (!campaign && campaignLoading) {
     return (
       <main className="campaign-detail-loading-screen" aria-busy="true">
@@ -369,32 +483,6 @@ function CampaignDetailPage({ campaignId }) {
       </div>
     );
   }
-
-  const safeTitle = campaign?.title || 'Campaign';
-  const safeCategory = campaign?.category || 'General';
-  const safeSummary = campaign?.summary || 'No description available yet.';
-  const safeLocation = campaign?.location || 'Kampong Speu, Cambodia';
-  const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
-    ? campaign.donationTiers
-        .map((item) => Number(item?.amount ?? item))
-        .filter((amount) => Number.isFinite(amount) && amount > 0)
-        .slice(0, 5)
-    : [10, 25, 50, 100, 250];
-  const safeImage =
-    campaign?.image ||
-    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
-  const goalAmount = Number(campaign?.goalAmount ?? 0);
-  const raisedAmount = Number(campaign?.raisedAmount ?? 0);
-  const percentRaised = goalAmount > 0 ? Math.round((raisedAmount / goalAmount) * 100) : 0;
-  const progressWidth = Math.min(percentRaised, 100);
-  const backers = Math.max(24, Math.round(raisedAmount / 35) || 0);
-  const daysToGo = Math.max(5, 45 - Math.floor(raisedAmount / 5000) || 0);
-  const organizationName = String(campaign?.organization || 'Organization');
-  const creatorName =
-    organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
-  const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const processingFee = 0;
-  const totalDonation = selectedAmount + processingFee;
 
   function requestRealLocation() {
     if (typeof window !== 'undefined' && window.isSecureContext === false) {
@@ -525,7 +613,11 @@ function CampaignDetailPage({ campaignId }) {
 
   function handleDonateNow() {
     setDonationMessage('');
+    setAbaQrCheckout(null);
     setShowCheckout(true);
+    if (selectedPaymentMethod === 'Bakong KHQR') {
+      setAutoStartAbaQr(true);
+    }
   }
 
   async function handleCompleteDonation() {
@@ -543,20 +635,76 @@ function CampaignDetailPage({ campaignId }) {
     setDonationSubmitting(true);
     setDonationMessage('');
 
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const token = window.localStorage.getItem('authToken');
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    const organizationId =
+      Number(
+        routeCampaign?.organizationId ??
+        routeCampaign?.organization_id ??
+        campaignData?.organizationId ??
+        campaignData?.organization_id ??
+        campaign?.organizationId ??
+        campaign?.organization_id ??
+        0
+      ) || undefined;
 
     try {
+      if (selectedPaymentMethod === 'Bakong KHQR') {
+        const bakongTransaction = await createBakongTransaction({
+          user_id: userId,
+          ...(organizationId ? { organization_id: organizationId } : {}),
+          campaign_id: Number(campaign.id),
+          amount: totalDonation,
+          customer_name: donorName,
+          customer_email: donorEmail,
+        });
+
+        const checkoutMeta = bakongTransaction?.checkout?.meta ?? {};
+        const qrData = bakongTransaction?.checkout?.qr;
+        if (!qrData?.image && !qrData?.string) {
+          throw new Error('The Bakong QR payload is incomplete.');
+        }
+
+        window.sessionStorage.setItem(PENDING_BAKONG_TRANSACTION_KEY, JSON.stringify({
+          tranId: bakongTransaction?.transaction?.tran_id || '',
+          donationId: bakongTransaction?.donation?.id || null,
+          campaignId: Number(campaign.id),
+          organizationId,
+          amount: totalDonation,
+          paymentOption: checkoutMeta?.payment_option || '',
+          environment: checkoutMeta?.environment || 'sandbox',
+          createdAt: new Date().toISOString(),
+        }));
+
+        setAbaQrCheckout({
+          tranId: bakongTransaction?.transaction?.tran_id || '',
+          donationId: bakongTransaction?.donation?.id || null,
+          image: qrData?.image || '',
+          qrString: qrData?.string || '',
+          deeplink: qrData?.deeplink || '',
+          checkoutUrl: qrData?.checkout_url || '',
+          appStore: qrData?.app_store || '',
+          playStore: qrData?.play_store || '',
+          amount: Number(qrData?.amount ?? totalDonation).toFixed(2),
+          currency: qrData?.currency || 'USD',
+          environment: checkoutMeta?.environment || 'sandbox',
+          status: 'pending',
+          paymentLabel: checkoutMeta?.payment_label || 'Bakong KHQR',
+        });
+        return;
+      }
+
+      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      const token = window.localStorage.getItem('authToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
       const response = await fetch(`${apiBase}/donations`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           user_id: userId,
-          organization_id: Number(routeCampaign?.organization_id ?? campaignData?.organizationId ?? campaignData?.organization_id ?? 0) || undefined,
+          organization_id: organizationId,
           campaign_id: Number(campaign.id),
           amount: totalDonation,
           donation_type: 'money',
@@ -630,7 +778,7 @@ function CampaignDetailPage({ campaignId }) {
       }
       setShowDonationSuccess(true);
     } catch (error) {
-      setDonationMessage(error instanceof Error ? error.message : 'Failed to complete donation.');
+      setDonationMessage(getApiErrorMessage(error, 'Failed to complete donation.'));
     } finally {
       setDonationSubmitting(false);
     }
@@ -750,130 +898,163 @@ function CampaignDetailPage({ campaignId }) {
   }
 
   if (showCheckout) {
-    const paymentOptions = [
-      { label: 'Credit Card', icon: CreditCard },
-      { label: 'QR Code', icon: ScanQrCode },
-      { label: 'PayPal', icon: Wallet },
-      { label: 'Bank Transfer', icon: Landmark },
-    ];
+    if (abaQrCheckout) {
+      return (
+        <main className="campaign-detail-page donation-checkout-page">
+          <button
+            type="button"
+            className="detail-back-link donation-checkout-back"
+            onClick={() => {
+              setAbaQrCheckout(null);
+              setShowCheckout(false);
+            }}
+          >
+            <ArrowLeft size={16} /> Back to Campaign
+          </button>
+
+          <section className="donation-checkout-header">
+            <div>
+              <h1>Scan to Donate</h1>
+              <p>Scan this QR code to complete your donation. We will confirm the payment automatically.</p>
+            </div>
+            <div className="donation-checkout-secure">
+              <ShieldCheck size={16} />
+              <span>{abaQrCheckout.environment === 'production' ? 'Live Bakong KHQR' : 'Sandbox Bakong KHQR'}</span>
+            </div>
+          </section>
+
+          <section className="donation-checkout-layout" aria-label="Bakong QR payment">
+            <div className="donation-checkout-main">
+              <article className="donation-checkout-card">
+                <h2><ScanQrCode size={18} /> {abaQrCheckout.paymentLabel}</h2>
+                <div className="donation-qr-panel">
+                  <div className="donation-qr-frame">
+                    <div className="donation-qr-card">
+                      {abaQrCheckout.image ? (
+                        <img
+                          src={abaQrCheckout.image}
+                          alt={`${abaQrCheckout.paymentLabel} QR code`}
+                          style={{ width: '100%', maxWidth: 280, borderRadius: 16, display: 'block' }}
+                        />
+                      ) : (
+                        <div className="donation-qr-code" aria-hidden="true">
+                          {Array.from({ length: 49 }).map((_, index) => (
+                            <span key={`fallback-qr-cell-${index}`} className={index % 2 === 0 || index % 5 === 0 ? 'is-filled' : ''} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <strong>{abaQrCheckout.paymentLabel} Ready</strong>
+                  <p>
+                    Amount: ${abaQrCheckout.amount} {abaQrCheckout.currency}. Scan with Bakong or any KHQR-supported banking app.
+                  </p>
+                  <div className="donation-qr-badges" aria-label="Supported apps">
+                    <span>{abaQrCheckout.paymentLabel}</span>
+                    <span>{abaQrCheckout.status === 'completed' ? 'Paid' : 'Waiting'}</span>
+                  </div>
+                  {abaQrCheckout.deeplink ? (
+                    <a className="detail-share-btn" href={abaQrCheckout.deeplink}>
+                      Open in banking app
+                    </a>
+                  ) : null}
+                  {!abaQrCheckout.deeplink && abaQrCheckout.checkoutUrl ? (
+                    <a className="detail-share-btn" href={abaQrCheckout.checkoutUrl} target="_blank" rel="noreferrer">
+                      Open checkout page
+                    </a>
+                  ) : null}
+                  {!abaQrCheckout.image && abaQrCheckout.qrString ? (
+                    <p className="donation-inline-message">KHQR string received from gateway. If your app cannot scan here, use the checkout link.</p>
+                  ) : null}
+                  {abaQrCheckout.status !== 'completed' ? (
+                    <p className="donation-inline-message">
+                      Waiting for payment confirmation. Transaction ID: {abaQrCheckout.tranId}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            </div>
+
+            <aside className="donation-summary-card">
+              <h2>Donation Summary</h2>
+              <div className="donation-summary-campaign">
+                <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+                <div>
+                  <p>CAMPAIGN</p>
+                  <strong>{safeTitle}</strong>
+                  <span><MapPin size={13} /> {safeLocation}</span>
+                </div>
+              </div>
+
+              <div className="donation-summary-lines">
+                <div>
+                  <span>Donor</span>
+                  <strong>{donorName || 'Donor'}</strong>
+                </div>
+                <div>
+                  <span>Payment Method</span>
+                  <strong>{abaQrCheckout.paymentLabel}</strong>
+                </div>
+              </div>
+
+              <div className="donation-summary-total">
+                <span>Total to Donate</span>
+                <strong>${abaQrCheckout.amount}</strong>
+              </div>
+
+              {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
+            </aside>
+          </section>
+        </main>
+      );
+    }
 
     return (
       <main className="campaign-detail-page donation-checkout-page">
-        <button type="button" className="detail-back-link donation-checkout-back" onClick={() => setShowCheckout(false)}>
+        <button
+          type="button"
+          className="detail-back-link donation-checkout-back"
+          onClick={() => {
+            setShowCheckout(false);
+            setDonationSubmitting(false);
+          }}
+        >
           <ArrowLeft size={16} /> Back to Campaign
         </button>
 
         <section className="donation-checkout-header">
           <div>
-            <h1>Complete Your Donation</h1>
-            <p>Finish your support for this campaign with a clean, secure checkout.</p>
+            <h1>Preparing QR Code</h1>
+            <p>We are generating your Bakong KHQR payment so you can scan it immediately.</p>
           </div>
           <div className="donation-checkout-secure">
             <ShieldCheck size={16} />
-            <span>Secure Checkout</span>
+            <span>Bakong KHQR</span>
           </div>
         </section>
 
-        <section className="donation-checkout-layout" aria-label="Donation checkout">
+        <section className="donation-checkout-layout" aria-label="Donation QR checkout">
           <div className="donation-checkout-main">
             <article className="donation-checkout-card">
-              <h2><User size={18} /> Donor Information</h2>
-              <div className="donation-checkout-grid">
-                <label>
-                  <span>Full Name</span>
-                  <div className="checkout-input-wrap">
-                    <User size={16} />
-                    <input type="text" value={donorName} onChange={(event) => setDonorName(event.target.value)} />
-                  </div>
-                </label>
-                <label>
-                  <span>Email Address</span>
-                  <div className="checkout-input-wrap">
-                    <Mail size={16} />
-                    <input type="email" value={donorEmail} onChange={(event) => setDonorEmail(event.target.value)} />
-                  </div>
-                </label>
-              </div>
-            </article>
-
-            <article className="donation-checkout-card">
-              <h2><CreditCard size={18} /> Payment Method</h2>
-              <div className="checkout-payment-methods" role="radiogroup" aria-label="Payment method">
-                {paymentOptions.map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = selectedPaymentMethod === option.label;
-                  return (
-                    <button
-                      key={option.label}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      className={isSelected ? 'is-selected' : ''}
-                      onClick={() => setSelectedPaymentMethod(option.label)}
-                    >
-                      <Icon size={20} />
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedPaymentMethod === 'QR Code' ? (
-                <div className="donation-qr-panel">
-                  <div className="donation-qr-frame">
-                    <div className="donation-qr-card">
-                      <div className="donation-qr-code" aria-hidden="true">
-                        {Array.from({ length: 49 }).map((_, index) => (
-                          <span key={`qr-cell-${index}`} className={index % 2 === 0 || index % 5 === 0 ? 'is-filled' : ''} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <strong>Scan to Pay</strong>
-                  <p>Scan this QR code with your mobile banking app to complete the ${totalDonation.toFixed(2)} donation securely.</p>
-                  <div className="donation-qr-badges" aria-label="Supported apps">
-                    <span>KHQR</span>
-                    <span>ABA</span>
-                  </div>
+              <h2><ScanQrCode size={18} /> Bakong KHQR</h2>
+              <div className="donation-qr-panel">
+                <strong>{donationSubmitting ? 'Generating your QR...' : 'QR unavailable'}</strong>
+                <p>
+                  {donationSubmitting
+                    ? 'Please wait while we connect to the payment gateway and prepare the QR code.'
+                    : 'We could not prepare the QR code yet. You can retry from this page.'}
+                </p>
+                <div className="donation-qr-badges" aria-label="Supported apps">
+                  <span>KHQR</span>
+                  <span>Bakong</span>
                 </div>
-              ) : (
-                <div className="donation-checkout-form">
-                  <label>
-                    <span>Card Number</span>
-                    <div className="checkout-input-wrap">
-                      <CreditCard size={16} />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="0000 0000 0000 0000"
-                        value={cardNumber}
-                        onChange={(event) => setCardNumber(event.target.value)}
-                      />
-                    </div>
-                  </label>
-                  <div className="donation-checkout-grid">
-                    <label>
-                      <span>Expiry Date</span>
-                      <input
-                        type="text"
-                        placeholder="MM/YY"
-                        value={expiryDate}
-                        onChange={(event) => setExpiryDate(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>CVC</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="123"
-                        value={cvc}
-                        onChange={(event) => setCvc(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                </div>
-              )}
+                {!donationSubmitting ? (
+                  <button type="button" className="donation-complete-button" onClick={handleCompleteDonation}>
+                    <Lock size={16} /> Try Again
+                  </button>
+                ) : null}
+                {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
+              </div>
             </article>
           </div>
 
@@ -894,37 +1075,15 @@ function CampaignDetailPage({ campaignId }) {
                 <strong>${selectedAmount.toFixed(2)}</strong>
               </div>
               <div>
-                <span>Processing Fee (Covered)</span>
-                <strong>${processingFee.toFixed(2)}</strong>
+                <span>Payment Method</span>
+                <strong>Bakong KHQR</strong>
               </div>
             </div>
-
-            <label className="donation-monthly-toggle">
-              <input
-                type="checkbox"
-                checked={monthlyDonation}
-                onChange={(event) => setMonthlyDonation(event.target.checked)}
-              />
-              <div>
-                <strong>Make this a monthly donation</strong>
-                <span>I want to support this village every month.</span>
-              </div>
-            </label>
 
             <div className="donation-summary-total">
               <span>Total to Donate</span>
               <strong>${totalDonation.toFixed(2)}</strong>
             </div>
-
-            <button type="button" className="donation-complete-button" onClick={handleCompleteDonation} disabled={donationSubmitting}>
-              <Lock size={16} /> {donationSubmitting ? 'Processing...' : 'Complete Donation'}
-            </button>
-
-            <p className="donation-summary-terms">
-              By clicking &quot;Complete Donation&quot;, you agree to the Terms of Service and Privacy Policy.
-            </p>
-
-            {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
           </aside>
         </section>
       </main>
@@ -1088,20 +1247,6 @@ function CampaignDetailPage({ campaignId }) {
                 <button type="submit">Apply</button>
               </div>
             </form>
-            <div className="payment-methods-inline" role="radiogroup" aria-label="Payment method">
-              {['QR Payment', 'ABA Pay', 'Wing Bank'].map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedPaymentMethod === method}
-                  className={selectedPaymentMethod === method ? 'is-selected' : ''}
-                  onClick={() => setSelectedPaymentMethod(method)}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
             <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
             <button
               type="button"

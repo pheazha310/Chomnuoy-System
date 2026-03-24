@@ -8,13 +8,73 @@ import {
 } from './organizationShared';
 import '../css/organization.css';
 
+const FALLBACK_ORGANIZATION_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="%23EAF2FF"/><circle cx="120" cy="110" r="44" fill="%232563EB" opacity="0.16"/><circle cx="535" cy="82" r="58" fill="%232563EB" opacity="0.1"/><circle cx="500" cy="282" r="74" fill="%232563EB" opacity="0.08"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="%231E3A5F">Organization</text></svg>';
+
+function buildCandidateApiBases() {
+  const configuredApiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const runtimeApiBase = `${window.location.protocol}//${window.location.hostname}:8000/api`;
+
+  return [
+    configuredApiBase,
+    runtimeApiBase,
+    'http://127.0.0.1:8000/api',
+    'http://localhost:8000/api',
+  ].filter((value, index, array) => value && array.indexOf(value) === index);
+}
+
+function getStorageFileUrl(path, apiBase) {
+  if (!path) return '';
+
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
+  }
+
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+
+  return `${appBase}/storage/${normalizedPath}`;
+}
+
+function mapOrganizations(items, apiBase) {
+  return items.map((item) => {
+    const rating = Number(item.rating ?? 4.5);
+    const reviews = item.reviews ?? item.review_count ?? '\u2014';
+    const tags = Array.isArray(item.tags)
+      ? item.tags
+      : [item.category_name || item.category || item.type || item.location || 'General'].filter(Boolean);
+
+    return {
+      id: item.id,
+      name: item.name || 'Organization',
+      summary: item.mission || item.summary || item.description || 'No description available.',
+      tags,
+      rating: Number.isFinite(rating) ? rating : 4.5,
+      reviews,
+      image:
+        getStorageFileUrl(
+          item.avatar_url || item.avatar_path || item.logo || item.logo_path || item.image_path || item.cover_image,
+          apiBase,
+        ) || FALLBACK_ORGANIZATION_IMAGE,
+    };
+  });
+}
+
 function OrganizationBeforeLogin() {
   const location = useLocation();
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [ratingFilter, setRatingFilter] = useState('4plus');
+  const [ratingFilter, setRatingFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
@@ -62,15 +122,15 @@ function OrganizationBeforeLogin() {
       if (sortBy === 'nameZA') return right.name.localeCompare(left.name);
       return right.id - left.id;
     });
-  }, [searchTerm, selectedCategory, ratingFilter, sortBy]);
+  }, [organizations, ratingFilter, searchTerm, selectedCategory, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrganizations.length / PAGE_SIZE));
-  const paginationItems = useMemo(() => getPaginationItems(totalPages, currentPage), [totalPages, currentPage]);
+  const paginationItems = useMemo(() => getPaginationItems(totalPages, currentPage), [currentPage, totalPages]);
 
   const paginatedOrganizations = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredOrganizations.slice(start, start + PAGE_SIZE);
-  }, [filteredOrganizations, currentPage]);
+  }, [currentPage, filteredOrganizations]);
 
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
   const ratingLabel = RATING_OPTIONS.find((option) => option.value === ratingFilter)?.label || 'All Ratings';
@@ -79,75 +139,51 @@ function OrganizationBeforeLogin() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, ratingFilter, sortBy]);
+  }, [ratingFilter, searchTerm, selectedCategory, sortBy]);
 
   useEffect(() => {
     setCurrentPage((previousPage) => Math.min(previousPage, totalPages));
   }, [totalPages]);
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let active = true;
     setLoading(true);
     setError('');
 
-    const getStorageFileUrl = (path) => {
-      if (!path) return '';
-      const rawPath = String(path).trim();
-      if (
-        rawPath.startsWith('http://') ||
-        rawPath.startsWith('https://') ||
-        rawPath.startsWith('blob:') ||
-        rawPath.startsWith('data:')
-      ) {
-        return rawPath;
+    const candidateApiBases = buildCandidateApiBases();
+
+    const loadOrganizations = async () => {
+      let lastError = 'Failed to load organizations.';
+
+      for (const apiBase of candidateApiBases) {
+        try {
+          const response = await fetch(`${apiBase}/organizations`);
+          if (!response.ok) {
+            throw new Error(`Failed to load organizations (${response.status}) from ${apiBase}`);
+          }
+
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : [];
+
+          if (!active) return;
+
+          setOrganizations(mapOrganizations(items, apiBase));
+          setError(items.length === 0 ? `No organizations were returned from ${apiBase}.` : '');
+          return;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : 'Failed to load organizations.';
+        }
       }
-      const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-      const appBase = apiBase.replace(/\/api\/?$/, '');
-      if (normalizedPath.startsWith('storage/')) {
-        return `${appBase}/${normalizedPath}`;
-      }
-      return `${appBase}/storage/${normalizedPath}`;
+
+      if (!active) return;
+      setOrganizations([]);
+      setError(lastError);
     };
 
-    fetch(`${apiBase}/organizations`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load organizations (${response.status})`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (!active) return;
-        const items = Array.isArray(data) ? data : [];
-        const mapped = items.map((item) => {
-          const rating = Number(item.rating || 4.5);
-          const reviews = item.reviews || item.review_count || '—';
-          const tags = Array.isArray(item.tags)
-            ? item.tags
-            : [item.category || item.type || 'General'].filter(Boolean);
-
-          return {
-            id: item.id,
-            name: item.name || 'Organization',
-            summary: item.mission || item.summary || item.description || 'No description available.',
-            tags,
-            rating: Number.isFinite(rating) ? rating : 4.5,
-            reviews,
-            image: getStorageFileUrl(item.logo || item.logo_path || item.image_path || item.cover_image) || '',
-          };
-        });
-        setOrganizations(mapped);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : 'Failed to load organizations.');
-        setOrganizations([]);
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-      });
+    loadOrganizations().finally(() => {
+      if (!active) return;
+      setLoading(false);
+    });
 
     return () => {
       active = false;
@@ -354,7 +390,7 @@ function OrganizationBeforeLogin() {
               setSearchInput('');
               setSearchTerm('');
               setSelectedCategory('all');
-              setRatingFilter('4plus');
+              setRatingFilter('all');
               setSortBy('recent');
               setIsCategoryMenuOpen(false);
               setIsRatingMenuOpen(false);
@@ -371,7 +407,14 @@ function OrganizationBeforeLogin() {
         {error ? <p className="text-red-500">{error}</p> : null}
         {paginatedOrganizations.map((organization) => (
           <article key={organization.id} className="organization-card">
-            <img src={organization.image} alt={organization.name} />
+            <img
+              src={organization.image || FALLBACK_ORGANIZATION_IMAGE}
+              alt={organization.name}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = FALLBACK_ORGANIZATION_IMAGE;
+              }}
+            />
             <div className="card-body">
               <p className="rating">
                 <span aria-hidden="true">*</span> {organization.rating} <span className="reviews">({organization.reviews})</span>
@@ -405,7 +448,7 @@ function OrganizationBeforeLogin() {
       <nav className="pagination" aria-label="Pagination">
         <button type="button" aria-label="Previous page" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="pagination-icon">
-            <path d="M15 18l-6-6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M15 18l-6-6 6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         {paginationItems.map((item, index) =>
@@ -421,11 +464,11 @@ function OrganizationBeforeLogin() {
             >
               {item}
             </button>
-          )
+          ),
         )}
         <button type="button" aria-label="Next page" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="pagination-icon">
-            <path d="M9 18l6-6-6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 18l6-6-6-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </nav>

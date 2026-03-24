@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\AbaPayWayController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CampaignImageController;
@@ -26,7 +27,6 @@ use App\Http\Controllers\Api\UserCredentialController;
 use App\Http\Controllers\Api\UserHistoryController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);

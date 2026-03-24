@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '../../constants/routes';
+import { createBakongTransaction, verifyBakongTransaction } from '../../services/user-service';
 import {
   DONATION_PAYMENT_METHODS,
   DONATION_PRESET_AMOUNTS,
@@ -17,6 +18,20 @@ const ORG_IMAGE_POOL = [
   'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=960&q=80',
   'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?auto=format&fit=crop&w=960&q=80',
 ];
+const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const validationErrors = error?.response?.data?.errors;
+  const firstValidationMessage = validationErrors && typeof validationErrors === 'object'
+    ? Object.values(validationErrors).flat().find(Boolean)
+    : null;
+
+  return error?.response?.data?.message
+    || error?.response?.data?.error
+    || firstValidationMessage
+    || error?.message
+    || fallbackMessage;
+}
 
 function OrganizationAfterLogin() {
   const navigate = useNavigate();
@@ -45,9 +60,11 @@ function OrganizationAfterLogin() {
   const [donorCausesSupported, setDonorCausesSupported] = useState(0);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qr');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('khqr');
   const [donationMessage, setDonationMessage] = useState('');
   const [donationStatusMessage, setDonationStatusMessage] = useState('');
+  const [isSubmittingDonation, setIsSubmittingDonation] = useState(false);
+  const [donationQrData, setDonationQrData] = useState(null);
 
   const donorSortMenuRef = useRef(null);
   const donorCategoryMenuRef = useRef(null);
@@ -112,7 +129,7 @@ function OrganizationAfterLogin() {
   }, [organizationId, organizationItems]);
   const fromQuery = new URLSearchParams(location.search).get('from');
   const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
-  const selectedPaymentLabel = DONATION_PAYMENT_METHODS.find((method) => method.id === selectedPaymentMethod)?.label || 'QR Payment';
+  const selectedPaymentLabel = DONATION_PAYMENT_METHODS.find((method) => method.id === selectedPaymentMethod)?.label || 'Bakong KHQR';
 
   const donorSortLabel = DONOR_SORT_OPTIONS.find((option) => option.value === donorSortBy)?.label || 'Most Recent';
   const donorCategoryLabel = donorCategory || 'All Categories';
@@ -121,6 +138,47 @@ function OrganizationAfterLogin() {
   useEffect(() => {
     setDonorPage(1);
   }, [donorSearchTerm, donorCategory, donorRegion, donorVerifiedOnly, donorTaxEligibleOnly, donorSortBy]);
+
+  useEffect(() => {
+    if (!donationQrData?.tranId) {
+      return undefined;
+    }
+
+    let active = true;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const result = await verifyBakongTransaction(donationQrData.tranId);
+        if (!active) return;
+
+        const status = String(result?.transaction?.status || '').toLowerCase();
+        if (!status) return;
+
+        setDonationQrData((previous) => (
+          previous ? { ...previous, status } : previous
+        ));
+
+        if (status === 'completed') {
+          setDonationStatusMessage('Payment confirmed. The donation was recorded successfully.');
+          setIsSubmittingDonation(false);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+          return;
+        }
+
+        if (['failed', 'cancelled', 'expired'].includes(status)) {
+          setDonationStatusMessage(`Payment ${status}. Please generate a new KHQR and try again.`);
+          setIsSubmittingDonation(false);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+        }
+      } catch {
+        // Keep polling while the QR session is active.
+      }
+    }, 4000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [donationQrData?.tranId]);
 
   useEffect(() => {
     setDonorPage((previousPage) => Math.min(previousPage, donorTotalPages));
@@ -239,20 +297,69 @@ function OrganizationAfterLogin() {
   const navigateToDonatePage = (organization) => {
     setSelectedDonationAmount(10);
     setCustomDonationAmount('');
-    setSelectedPaymentMethod('qr');
+    setSelectedPaymentMethod('khqr');
     setDonationMessage('');
     setDonationStatusMessage('');
+    setDonationQrData(null);
     navigate(`${ROUTES.ORGANIZATION_DONATE(organization.id)}?from=${encodeURIComponent(ROUTES.ORGANIZATIONS)}`);
   };
 
-  const handleConfirmDonation = () => {
+  const handleConfirmDonation = async () => {
     if (hasInvalidCustomAmount || donationAmount <= 0) {
       return;
     }
 
-    setDonationStatusMessage(
-      `Donation submitted: $${donationAmount.toLocaleString()} to ${selectedDonationOrg?.name} via ${selectedPaymentLabel}.`
-    );
+    if (!selectedDonationOrg || !donorSession?.userId) {
+      setDonationStatusMessage('Your donor session is missing. Please sign in again.');
+      return;
+    }
+
+    setIsSubmittingDonation(true);
+    setDonationStatusMessage('Preparing Bakong KHQR checkout...');
+
+    try {
+      const result = await createBakongTransaction({
+        user_id: Number(donorSession.userId),
+        organization_id: Number(selectedDonationOrg.id),
+        amount: donationAmount,
+        customer_name: donorSession.name || '',
+        customer_email: donorSession.email || '',
+        customer_phone: donorSession.phone || '',
+        message: donationMessage,
+      });
+
+      const checkout = result?.checkout;
+      const qr = checkout?.qr;
+      if (checkout?.mode !== 'qr' || (!qr?.image && !qr?.string)) {
+        throw new Error('The Bakong QR payload is incomplete.');
+      }
+
+      window.sessionStorage.setItem(PENDING_BAKONG_TRANSACTION_KEY, JSON.stringify({
+        tranId: result?.transaction?.tran_id || '',
+        donationId: result?.donation?.id || null,
+        organizationId: selectedDonationOrg.id,
+        amount: donationAmount,
+        paymentOption: result?.checkout?.meta?.payment_option || '',
+        environment: result?.checkout?.meta?.environment || 'sandbox',
+        createdAt: new Date().toISOString(),
+      }));
+
+      setDonationQrData({
+        image: qr?.image || '',
+        qrString: qr?.string || '',
+        deeplink: qr?.deeplink || '',
+        checkoutUrl: qr?.checkout_url || '',
+        amount: qr?.amount || donationAmount,
+        currency: qr?.currency || 'USD',
+        paymentLabel: result?.checkout?.meta?.payment_label || selectedPaymentLabel,
+        tranId: result?.transaction?.tran_id || '',
+        status: 'pending',
+      });
+      setDonationStatusMessage('QR code generated. Ask the donor to scan and complete payment.');
+    } catch (error) {
+      setDonationStatusMessage(getApiErrorMessage(error, 'Failed to start Bakong KHQR checkout.'));
+      setIsSubmittingDonation(false);
+    }
   };
 
   if (!isDonorLoggedIn) {
@@ -430,11 +537,32 @@ function OrganizationAfterLogin() {
                   type="button"
                   className="donation-confirm-btn"
                   onClick={handleConfirmDonation}
-                  disabled={hasInvalidCustomAmount || donationAmount <= 0}
+                  disabled={hasInvalidCustomAmount || donationAmount <= 0 || isSubmittingDonation}
                 >
-                  <span aria-hidden="true">&#10084;</span> Confirm Donation (${donationAmount.toLocaleString()})
+                  <span aria-hidden="true">&#10084;</span> {isSubmittingDonation ? 'Generating KHQR...' : `Confirm Donation ($${donationAmount.toLocaleString()})`}
                 </button>
                 {donationStatusMessage ? <p className="donation-status-note">{donationStatusMessage}</p> : null}
+                {donationQrData ? (
+                  <div className="donation-status-note">
+                    {donationQrData.image ? (
+                      <img
+                        src={donationQrData.image}
+                        alt={`${donationQrData.paymentLabel} QR code`}
+                        style={{ width: '100%', maxWidth: 240, display: 'block', margin: '12px auto', borderRadius: 16 }}
+                      />
+                    ) : null}
+                    <p>Transaction: {donationQrData.tranId}</p>
+                    <p>Amount: ${Number(donationQrData.amount).toFixed(2)} {donationQrData.currency}</p>
+                    <p>Status: {String(donationQrData.status || 'pending').toUpperCase()}</p>
+                    {donationQrData.deeplink ? <a href={donationQrData.deeplink}>Open banking app</a> : null}
+                    {!donationQrData.deeplink && donationQrData.checkoutUrl ? (
+                      <a href={donationQrData.checkoutUrl} target="_blank" rel="noreferrer">Open checkout page</a>
+                    ) : null}
+                    {!donationQrData.image && donationQrData.qrString ? (
+                      <p>KHQR string is ready from the gateway. Use the checkout link if scan rendering is unavailable.</p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <p className="donation-legal">
                   By clicking confirm, you agree to our Terms of Service. 100% of your donation (minus payment processing fees)
                   goes directly to the organization.

@@ -127,6 +127,9 @@ function CampaignsPage() {
     const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const appBase = apiBase.replace(/\/api\/?$/, '');
+    if (normalizedPath.startsWith('uploads/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
     if (normalizedPath.startsWith('storage/')) {
       return `${appBase}/${normalizedPath}`;
     }
@@ -164,6 +167,7 @@ function CampaignsPage() {
           .filter((item) => isPublicCampaignStatus(item.status))
           .map((item) => ({
             id: item.id,
+            organizationId: Number(item.organization_id ?? 0) || null,
             title: item.title || 'Untitled Campaign',
             summary: item.summary || item.description || 'No description available.',
             category: item.category || 'Environment',
