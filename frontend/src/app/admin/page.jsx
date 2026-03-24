@@ -136,7 +136,7 @@ const AdminDashboard = () => {
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
   const adminRole = session?.role || session?.accountType || 'Admin';
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
   const rangeLabel = rangeDays === 1 ? 'Today' : `Last ${rangeDays} Days`;
   const chartLabels = useMemo(() => {
     if (rangeDays === 7) return CHART_LABELS;
