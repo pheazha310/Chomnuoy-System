@@ -117,4 +117,3 @@ Route::get('admin/settings/{key}', [AdminSettingsController::class, 'show']);
 Route::post('admin/settings', [AdminSettingsController::class, 'store']);
 Route::put('admin/settings/{key}', [AdminSettingsController::class, 'update']);
 Route::delete('admin/settings/{key}', [AdminSettingsController::class, 'destroy']);
-

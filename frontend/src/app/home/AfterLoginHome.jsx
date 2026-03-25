@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import ROUTES from '@/constants/routes.js';
 import {
   Users,
   FileText,
@@ -214,6 +215,7 @@ function mapActivity(notificationsData, userId) {
 }
 
 function AfterLoginHome() {
+  const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
   const cachedDashboard = useMemo(() => readDashboardCache(), []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
@@ -472,7 +474,11 @@ function AfterLoginHome() {
                 Start your own fundraising campaign for a cause
                 you care about.
               </p>
-              <button type="button">
+              <button
+                type="button"
+                className=""
+                onClick={() => navigate(ROUTES.CAMPAIGNS)}
+              >
                 Start Campaign
               </button>
             </section>

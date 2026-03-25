@@ -250,7 +250,7 @@ export default function MyDonation() {
         item.donation_type === 'material'
           ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
           : `$${Number(item.amount || 0).toLocaleString()}`;
-      const dateValue = item.created_at ? new Date(item.created_at) : null;
+      const dateValue = toDate(item.created_at);
 
       return {
         id: item.id,

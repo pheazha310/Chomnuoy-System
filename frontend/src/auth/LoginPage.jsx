@@ -8,9 +8,6 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { useLocation } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
-import { GoogleOAuthProvider } from "@react-oauth/google";
-import { GoogleLogin } from "@react-oauth/google";
-import { jwtDecode } from "jwt-decode";
 
 function GoogleIcon(props) {
   return (
@@ -67,8 +64,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       import.meta.env.VITE_FACEBOOK_AUTH_URL ??
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
-  const isGoogleSignInConfigured = Boolean(googleClientId);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -111,37 +106,13 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     window.location.assign(authUrl);
   };
 
-  const handleGoogleSuccess = (credentialResponse) => {
-    try {
-      const credential = credentialResponse?.credential;
-      if (!credential) {
-        setError("Google did not return a credential. Please try again.");
-        return;
-      }
-
-      const payload = jwtDecode(credential);
-      const profile = {
-        id: payload?.sub ?? null,
-        name: payload?.name ?? payload?.email ?? "Google User",
-        email: payload?.email ?? "",
-        avatar: payload?.picture ?? null,
-      };
-
-      onLoginSuccess?.({
-        message: "Login successful",
-        account_type: "Donor",
-        user: profile,
-        organization: null,
-        google_id_token: credential,
-      });
-    } catch (decodeError) {
-      console.error("Failed to process Google credential:", decodeError);
-      setError("Unable to process Google login response. Please try again.");
-    }
-  };
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
       <div className="text-center lg:pt-4">
         <h1 className="text-4xl font-bold tracking-tight text-[#101828]">Welcome back</h1>
         <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
@@ -249,31 +220,15 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             Gmail
           </button> */}
 
-          {isGoogleSignInConfigured ? (
-            <GoogleOAuthProvider clientId={googleClientId}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  const currentOrigin =
-                    typeof window !== "undefined"
-                      ? window.location.origin
-                      : "your-app-origin";
-                  setError(
-                    `Google login failed. Ensure ${currentOrigin} is added to Authorized JavaScript origins for this OAuth client ID.`
-                  );
-                }}
-              />
-            </GoogleOAuthProvider>
-          ) : (
-            <button
-              type="button"
-              disabled
-              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 text-sm font-semibold text-[#98A2B3]"
-              title="Set VITE_GOOGLE_CLIENT_ID in frontend/.env and restart the frontend server."
-            >
-              Google not configured
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => handleSocialLogin('google')}
+            disabled={socialLoading !== null}
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <GoogleIcon className="h-5 w-5" />
+            Google
+          </button>
           <button
             type="button"
             onClick={() => handleSocialLogin('facebook')}
