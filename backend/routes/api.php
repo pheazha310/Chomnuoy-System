@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AdminProfileController;
+use App\Http\Controllers\Api\AbaPayWayController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CampaignImageController;
@@ -40,7 +41,6 @@ use App\Http\Controllers\Api\UserCredentialController;
 use App\Http\Controllers\Api\UserHistoryController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -63,12 +63,14 @@ Route::get('/health', function (): JsonResponse {
     ]);
 });
 
+Route::get('/users/by-email', [UserController::class, 'findByEmail']);
 Route::apiResource('users', UserController::class);
 Route::post('/users/{id}/last-seen', [UserController::class, 'updateLastSeen']);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('user_roles', UserRoleController::class);
 Route::apiResource('user_credentials', UserCredentialController::class);
 Route::apiResource('user_history', UserHistoryController::class);
+Route::get('/organizations/by-email', [OrganizationController::class, 'findByEmail']);
 Route::apiResource('organizations', OrganizationController::class);
 Route::apiResource('organization_verifications', OrganizationVerificationController::class);
 Route::apiResource('organization_history', OrganizationHistoryController::class);
@@ -106,6 +108,7 @@ Route::apiResource('campaigns', CampaignController::class);
 Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donations']);
 Route::get('campaigns/{campaign}/velocity', [CampaignController::class, 'velocity']);
 Route::apiResource('campaign_image', CampaignImageController::class);
+<<<<<<< HEAD
 Route::apiResource('campaign_update', CampaignUpdateController::class);
 
 // Admin Settings Routes
@@ -116,3 +119,6 @@ Route::post('admin/settings', [AdminSettingsController::class, 'store']);
 Route::put('admin/settings/{key}', [AdminSettingsController::class, 'update']);
 Route::delete('admin/settings/{key}', [AdminSettingsController::class, 'destroy']);
 
+=======
+Route::apiResource('campaign_update', CampaignUpdateController::class);
+>>>>>>> f0498fc17eec8e3dc0fc43d07599212388f35d86

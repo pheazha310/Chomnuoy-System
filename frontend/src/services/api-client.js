@@ -1,15 +1,7 @@
 import axios from 'axios';
 
-const defaultApiUrl = 'http://127.0.0.1:8000/api';
-const useDefaultLocal = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-].includes(window.location.origin);
-
-const baseURL = import.meta.env.VITE_API_URL || (useDefaultLocal ? defaultApiUrl : `${window.location.origin}/api`);
-
 const apiClient = axios.create({
-  baseURL,
+  baseURL: import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

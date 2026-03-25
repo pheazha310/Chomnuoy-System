@@ -18,6 +18,21 @@ class OrganizationController extends Controller
         return response()->json(Organization::query()->orderByDesc('id')->get());
     }
 
+    public function findByEmail(Request $request): JsonResponse
+    {
+        $email = strtolower(trim((string) $request->query('email', '')));
+        if ($email === '') {
+            return response()->json(['message' => 'Email is required.'], 422);
+        }
+
+        $organization = Organization::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if (!$organization) {
+            return response()->json(['message' => 'Organization not found.'], 404);
+        }
+
+        return response()->json($organization);
+    }
+
      // Method to create new organization (POST /organizations)
     public function store(Request $request): JsonResponse
     {
@@ -48,6 +63,8 @@ class OrganizationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('organizations', 'email')->ignore($record->id)],
             'location' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'description' => ['nullable', 'string'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);

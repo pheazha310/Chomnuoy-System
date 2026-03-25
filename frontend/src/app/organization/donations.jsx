@@ -186,7 +186,7 @@ export default function OrganizationDonationsPage() {
         <meta charset="utf-8" />
         <title>Organization Donations</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 20px; color: #0f172a; }
+          body { font-family: "Source Sans 3", "Noto Sans Khmer", sans-serif; padding: 20px; color: #0f172a; }
           h1 { margin: 0 0 10px; font-size: 22px; }
           table { width: 100%; border-collapse: collapse; margin-top: 12px; }
           th, td { border: 1px solid #dbe3ee; padding: 8px; font-size: 12px; text-align: left; }
@@ -224,7 +224,7 @@ export default function OrganizationDonationsPage() {
         <meta charset="utf-8" />
         <title>Donation Record</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+          body { font-family: "Source Sans 3", "Noto Sans Khmer", sans-serif; padding: 24px; color: #0f172a; }
           h1 { margin: 0 0 12px; font-size: 22px; }
           .card { border: 1px solid #dbe3ee; border-radius: 10px; padding: 14px; max-width: 520px; }
           .row { display: flex; justify-content: space-between; gap: 12px; margin: 8px 0; }
@@ -397,16 +397,20 @@ export default function OrganizationDonationsPage() {
                 </button>
                 {isFilterOpen ? (
                   <div className="org-donations-filter-menu">
-                    <p>Status</p>
-                    <div className="org-donations-filter-row">
-                      <button type="button" className={statusFilter === 'all' ? 'active' : ''} onClick={() => setStatusFilter('all')}>All</button>
-                      <button type="button" className={statusFilter === 'completed' ? 'active' : ''} onClick={() => setStatusFilter('completed')}>Completed</button>
-                      <button type="button" className={statusFilter === 'pending' ? 'active' : ''} onClick={() => setStatusFilter('pending')}>Pending</button>
+                    <div className="org-donations-filter-section">
+                      <p className="org-donations-filter-label">Status</p>
+                      <div className="org-donations-filter-row">
+                        <button type="button" className={statusFilter === 'all' ? 'active' : ''} onClick={() => setStatusFilter('all')}>All</button>
+                        <button type="button" className={statusFilter === 'completed' ? 'active' : ''} onClick={() => setStatusFilter('completed')}>Completed</button>
+                        <button type="button" className={statusFilter === 'pending' ? 'active' : ''} onClick={() => setStatusFilter('pending')}>Pending</button>
+                      </div>
                     </div>
-                    <p>Sort</p>
-                    <div className="org-donations-filter-row">
-                      <button type="button" className={sortOrder === 'newest' ? 'active' : ''} onClick={() => setSortOrder('newest')}>Newest</button>
-                      <button type="button" className={sortOrder === 'oldest' ? 'active' : ''} onClick={() => setSortOrder('oldest')}>Oldest</button>
+                    <div className="org-donations-filter-section">
+                      <p className="org-donations-filter-label">Sort</p>
+                      <div className="org-donations-filter-row">
+                        <button type="button" className={sortOrder === 'newest' ? 'active' : ''} onClick={() => setSortOrder('newest')}>Newest</button>
+                        <button type="button" className={sortOrder === 'oldest' ? 'active' : ''} onClick={() => setSortOrder('oldest')}>Oldest</button>
+                      </div>
                     </div>
                     <button type="button" className="org-donations-filter-close" onClick={() => setIsFilterOpen(false)}>
                       Apply

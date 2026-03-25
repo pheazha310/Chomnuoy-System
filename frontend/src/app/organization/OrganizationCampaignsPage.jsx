@@ -6,9 +6,18 @@ import OrganizationSidebar from "./OrganizationSidebar.jsx";
 import "./organization.css";
 
 const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
+const placeholderImage =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FCD9B6"/><stop offset="100%" stop-color="#FFF7ED"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#475569">Campaign Image</text></svg>'
+  );
 
 function formatMoney(value) {
   return `$${value.toLocaleString("en-US")}`;
+}
+
+function escapeCsvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 export default function OrganizationCampaignsPage() {
@@ -34,6 +43,30 @@ export default function OrganizationCampaignsPage() {
     } catch {
       return null;
     }
+  };
+
+  const getStorageFileUrl = (path) => {
+    if (!path) return "";
+    const rawPath = String(path).trim();
+    if (
+      rawPath.startsWith("http://") ||
+      rawPath.startsWith("https://") ||
+      rawPath.startsWith("blob:") ||
+      rawPath.startsWith("data:")
+    ) {
+      return rawPath;
+    }
+
+    const normalizedPath = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const appBase = apiBase.replace(/\/api\/?$/, "");
+    if (normalizedPath.startsWith("uploads/")) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith("storage/")) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    return `${appBase}/storage/${normalizedPath}`;
   };
 
   const normalizeStatus = (status) => {
@@ -62,13 +95,6 @@ export default function OrganizationCampaignsPage() {
     Draft: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
   };
 
-  const artPalette = [
-    "from-[#FCD9B6] via-[#FDEAD6] to-[#FFF7ED]",
-    "from-[#E2E8F0] via-[#EEF2F7] to-[#F8FAFC]",
-    "from-[#FFE6C7] via-[#FFF1DF] to-[#FFFBF5]",
-    "from-[#FBC7B7] via-[#FBD9CF] to-[#FFECE7]",
-  ];
-
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
     const session = getOrganizationSession();
@@ -87,7 +113,7 @@ export default function OrganizationCampaignsPage() {
         const filtered = organizationId
           ? items.filter((item) => Number(item.organization_id) === organizationId)
           : items;
-        const mapped = filtered.map((item, index) => {
+        const mapped = filtered.map((item) => {
           const status = normalizeStatus(item.status);
           return {
             id: item.id,
@@ -101,7 +127,11 @@ export default function OrganizationCampaignsPage() {
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
             action: actionLabelMap[status],
             actionTone: actionToneMap[status],
-            art: artPalette[index % artPalette.length],
+            image:
+              getStorageFileUrl(item.image_path) ||
+              item.image_url ||
+              item.image ||
+              placeholderImage,
           };
         });
         setCampaigns(mapped);
@@ -211,6 +241,52 @@ export default function OrganizationCampaignsPage() {
     }
     return notifications;
   }, [activeNotificationTab, notifications]);
+
+  const handleExportReport = () => {
+    const summaryRows = [
+      ["Report", "Organization Campaign Report"],
+      ["Generated At", new Date().toLocaleString()],
+      ["Tab", activeTab],
+      ["Category Filter", selectedCategory],
+      ["Sort", selectedSort],
+      ["Search", `${globalSearch} ${searchTerm}`.trim() || "None"],
+      ["Total Campaigns", overview.total],
+      ["Active Campaigns", overview.Active],
+      ["Completed Campaigns", overview.Completed],
+      ["Draft Campaigns", overview.Draft],
+      ["Total Raised", overview.raised],
+      ["Total Goal", overview.goal],
+      ["Completion Rate", `${overview.completionRate}%`],
+      [],
+      ["ID", "Title", "Category", "Status", "Raised USD", "Goal USD", "Progress %"],
+      ...filteredCampaigns.map((item) => {
+        const progress = item.goal > 0 ? Math.min(100, Math.round((item.raised / item.goal) * 100)) : 0;
+        return [
+          item.id,
+          item.title,
+          item.category,
+          item.status,
+          item.raised,
+          item.goal,
+          progress,
+        ];
+      }),
+    ];
+
+    const csv = summaryRows
+      .map((row) => row.map(escapeCsvCell).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `organization-campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const markAllNotificationsRead = () => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -406,6 +482,7 @@ export default function OrganizationCampaignsPage() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
+                    onClick={handleExportReport}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-5 py-3 text-sm font-semibold text-[#475569] shadow-[0_10px_24px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
                   >
                     Export Report
@@ -581,9 +658,14 @@ export default function OrganizationCampaignsPage() {
                   key={item.id}
                   className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                 >
-                  <div
-                    className={`relative h-40 w-full bg-gradient-to-br ${item.art}`}
-                  >
+                  <div className="relative h-40 w-full overflow-hidden bg-[#F8FAFC]">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
                     <span
                       className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${item.statusTone}`}
                     >

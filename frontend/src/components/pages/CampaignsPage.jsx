@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import '../css/Campaigns.css';
+
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
@@ -62,6 +74,13 @@ const donorProfileImages = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
 ];
+const hiddenCampaignStatuses = new Set(['draft', 'completed', 'complete', 'closed', 'archived', 'cancelled']);
+
+function isPublicCampaignStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (!value) return true;
+  return !hiddenCampaignStatuses.has(value);
+}
 
 function campaignCategoryToSidebarCategory(category) {
   if (category === 'Technology' || category === 'Social Good') {
@@ -80,6 +99,8 @@ function campaignCategoryToSidebarCategory(category) {
 }
 
 function CampaignsPage() {
+  const session = getSession();
+  const isLoggedIn = Boolean(session?.isLoggedIn);
   const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
   const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -106,6 +127,9 @@ function CampaignsPage() {
     const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const appBase = apiBase.replace(/\/api\/?$/, '');
+    if (normalizedPath.startsWith('uploads/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
     if (normalizedPath.startsWith('storage/')) {
       return `${appBase}/${normalizedPath}`;
     }
@@ -140,18 +164,25 @@ function CampaignsPage() {
         if (!active) return;
         const items = Array.isArray(data) ? data : [];
         const mapped = items
-          .filter((item) => {
-            const status = String(item.status || '').toLowerCase();
-            return !status || status === 'active';
-          })
+          .filter((item) => isPublicCampaignStatus(item.status))
           .map((item) => ({
             id: item.id,
+            organizationId: Number(item.organization_id ?? 0) || null,
             title: item.title || 'Untitled Campaign',
             summary: item.summary || item.description || 'No description available.',
             category: item.category || 'Environment',
+            organization:
+              item.organization_name ||
+              item.organization ||
+              item.organizationTitle ||
+              (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
             raisedAmount: Number(item.current_amount || 0),
             goalAmount: Math.max(1, Number(item.goal_amount || 0)),
-            image: getStorageFileUrl(item.image_path) || '',
+            image:
+              getStorageFileUrl(item.image_path) ||
+              item.image_url ||
+              item.image ||
+              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
           }));
         setCampaigns(mapped);
@@ -217,7 +248,7 @@ function CampaignsPage() {
     }
 
     return baseList;
-  }, [selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
+  }, [campaigns, selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -336,27 +367,43 @@ function CampaignsPage() {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
+            const detailState = {
+              from: '/campaigns',
+              campaign,
+            };
+            const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
             const isUrgent = percentRaised < 40;
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
             const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
 
+            const persistCampaign = () => {
+              window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaign));
+            };
+
             return (
               <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
-                <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                <Link
+                  to={detailPath}
+                  state={detailState}
+                  className="campaign-media-link"
+                  aria-label={`Open ${campaign.title} details`}
+                  onClick={persistCampaign}
+                >
                   <img src={campaign.image} alt={campaign.title} className="campaign-image campaign-dashboard-image" loading="lazy" />
                   <div className="campaign-card-badges">
                     <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
                     <span className="campaign-badge campaign-badge-verified">Verified</span>
                     {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
                   </div>
-                </a>
+                </Link>
 
                 <div className="campaign-content campaign-dashboard-content">
                   <h2>
-                    <a href={detailPath} className="campaign-title-link">
+                    <Link to={detailPath} state={detailState} className="campaign-title-link" onClick={persistCampaign}>
                       {campaign.title}
-                    </a>
+                    </Link>
                   </h2>
+                  <p className="campaign-organization">Posted by {campaign.organization}</p>
                   <p className="campaign-summary">{campaign.summary}</p>
 
                   <div className="campaign-funding-row">
@@ -380,16 +427,31 @@ function CampaignsPage() {
                       <img className="donor-avatar donor-avatar-image" src={donorProfileImages[1]} alt="" aria-hidden="true" />
                       <span className="donor-avatar donor-avatar-more">+{mockDonorCount}</span>
                     </div>
-                    <a href={detailPath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
-                      Donate Now
-                    </a>
+                    {isLoggedIn ? (
+                      <Link
+                        to={detailPath}
+                        state={detailState}
+                        className="donate-button campaign-donate-button"
+                        aria-label={`Donate to ${campaign.title}`}
+                        onClick={persistCampaign}
+                      >
+                        Donate Now
+                      </Link>
+                    ) : (
+                      <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
+                        Donate Now
+                      </a>
+                    )}
                   </div>
                 </div>
               </article>
             );
           })}
           {!loading && !error && paginatedCampaigns.length === 0 ? (
-            <p className="campaign-empty">No campaigns match your filters.</p>
+            <div className="campaign-empty">
+              <strong>No public campaigns match these filters.</strong>
+              <span>Try All Campaigns or check back after organizations publish more active campaigns.</span>
+            </div>
           ) : null}
         </section>
 

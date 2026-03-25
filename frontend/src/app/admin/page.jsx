@@ -2,51 +2,6 @@ import './style.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from './adminsidebar';
 
-const STATS = [
-  {
-    id: 'funds',
-    label: 'Total Funds Raised',
-    value: '$428,500.00',
-    change: '+12.5%',
-    tone: 'success',
-  },
-  {
-    id: 'items',
-    label: 'Total Items Donated',
-    value: '12,840',
-    change: '+8.2%',
-    tone: 'info',
-  },
-  {
-    id: 'tasks',
-    label: 'Urgent Tasks',
-    value: '14',
-    change: 'Action required',
-    tone: 'warning',
-  },
-];
-
-const TASKS = [
-  {
-    title: 'Verify Organization Documents',
-    description: "Helping Hands' files need approval.",
-    due: 'Due today',
-    tone: 'danger',
-  },
-  {
-    title: 'Schedule Bulk Material Pickup',
-    description: '5 active requests waiting.',
-    due: 'In 2 hours',
-    tone: 'info',
-  },
-  {
-    title: 'Flagged Donation Report',
-    description: 'Suspicious transaction alert.',
-    due: 'ASAP',
-    tone: 'warning',
-  },
-];
-
 const CHART_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const TASK_ICONS = {
@@ -101,6 +56,62 @@ const normalizeStatus = (value) => {
   return value ? String(value) : 'Pending';
 };
 
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isCompletedDonation = (donation) => {
+  const status = String(donation?.status || '').toLowerCase();
+  return status === '' || status === 'completed' || status === 'success' || status === 'paid';
+};
+
+const isMoneyDonation = (donation) => String(donation?.donation_type || '').toLowerCase() === 'money';
+
+const isMaterialDonation = (donation) => String(donation?.donation_type || '').toLowerCase() === 'material';
+
+const isPendingLike = (value) => {
+  const status = String(value || '').toLowerCase();
+  return !status || status.includes('pending') || status.includes('review') || status.includes('urgent');
+};
+
+const countInDateWindow = (items, getValue, start, end) => (
+  items.reduce((total, item) => {
+    const dateValue = getValue(item);
+    if (!dateValue) return total;
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return total;
+    return date >= start && date <= end ? total + 1 : total;
+  }, 0)
+);
+
+const sumInDateWindow = (items, amountSelector, dateSelector, start, end) => (
+  items.reduce((total, item) => {
+    const dateValue = dateSelector(item);
+    if (!dateValue) return total;
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime()) || date < start || date > end) return total;
+    return total + toNumber(amountSelector(item));
+  }, 0)
+);
+
+const formatCurrency = (value) => `$${toNumber(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatCount = (value) => toNumber(value).toLocaleString();
+
+const formatDeltaPercent = (current, previous) => {
+  const currentValue = toNumber(current);
+  const previousValue = toNumber(previous);
+
+  if (previousValue <= 0) {
+    return currentValue > 0 ? 'New activity' : 'No change';
+  }
+
+  const percent = ((currentValue - previousValue) / previousValue) * 100;
+  const rounded = Math.abs(percent).toFixed(1);
+  return `${percent >= 0 ? '+' : '-'}${rounded}%`;
+};
+
 
 const AdminDashboard = () => {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
@@ -112,11 +123,21 @@ const AdminDashboard = () => {
   const [recentOrgs, setRecentOrgs] = useState([]);
   const [recentOrgsLoading, setRecentOrgsLoading] = useState(true);
   const [recentOrgsError, setRecentOrgsError] = useState('');
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState('');
+  const [overviewStats, setOverviewStats] = useState([
+    { id: 'funds', label: 'Total Funds Raised', value: '$0.00', change: 'Loading...', tone: 'success' },
+    { id: 'items', label: 'Total Items Donated', value: '0', change: 'Loading...', tone: 'info' },
+    { id: 'tasks', label: 'Urgent Tasks', value: '0', change: 'Loading...', tone: 'warning' },
+  ]);
+  const [urgentTasks, setUrgentTasks] = useState([]);
+  const [urgentTaskTotal, setUrgentTaskTotal] = useState(0);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
   const adminRole = session?.role || session?.accountType || 'Admin';
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
+  const rangeLabel = rangeDays === 1 ? 'Today' : `Last ${rangeDays} Days`;
   const chartLabels = useMemo(() => {
     if (rangeDays === 7) return CHART_LABELS;
     const labels = [];
@@ -204,6 +225,157 @@ const AdminDashboard = () => {
     const token = window.localStorage.getItem('authToken');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
+    setOverviewLoading(true);
+    setOverviewError('');
+
+    Promise.all([
+      fetch(`${apiBase}/donations`, { headers }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${apiBase}/material_items`, { headers }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${apiBase}/material_pickups`, { headers }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
+      fetch(`${apiBase}/notifications`, { headers }).then((res) => (res.ok ? res.json() : [])),
+    ])
+      .then(([donationsData, materialItemsData, pickupsData, organizationsData, notificationsData]) => {
+        if (!active) return;
+
+        const donations = Array.isArray(donationsData) ? donationsData : [];
+        const materialItems = Array.isArray(materialItemsData) ? materialItemsData : [];
+        const pickups = Array.isArray(pickupsData) ? pickupsData : [];
+        const organizations = Array.isArray(organizationsData) ? organizationsData : [];
+        const notifications = Array.isArray(notificationsData) ? notificationsData : [];
+
+        const completedMoneyDonations = donations.filter((item) => isMoneyDonation(item) && isCompletedDonation(item));
+        const completedMaterialDonations = donations.filter((item) => isMaterialDonation(item) && isCompletedDonation(item));
+
+        const totalFundsRaised = completedMoneyDonations.reduce((sum, item) => sum + toNumber(item.amount), 0);
+        const totalItemsDonated = materialItems.length > 0
+          ? materialItems.reduce((sum, item) => sum + Math.max(0, toNumber(item.quantity) || 1), 0)
+          : completedMaterialDonations.length;
+
+        const now = new Date();
+        const currentWindowStart = new Date(now);
+        currentWindowStart.setDate(now.getDate() - 29);
+        currentWindowStart.setHours(0, 0, 0, 0);
+
+        const previousWindowEnd = new Date(currentWindowStart);
+        previousWindowEnd.setMilliseconds(-1);
+
+        const previousWindowStart = new Date(currentWindowStart);
+        previousWindowStart.setDate(currentWindowStart.getDate() - 30);
+
+        const currentFunds = sumInDateWindow(completedMoneyDonations, (item) => item.amount, (item) => item.created_at, currentWindowStart, now);
+        const previousFunds = sumInDateWindow(completedMoneyDonations, (item) => item.amount, (item) => item.created_at, previousWindowStart, previousWindowEnd);
+
+        const currentItems = materialItems.length > 0
+          ? sumInDateWindow(materialItems, (item) => item.quantity || 1, (item) => item.created_at, currentWindowStart, now)
+          : countInDateWindow(completedMaterialDonations, (item) => item.created_at, currentWindowStart, now);
+
+        const previousItems = materialItems.length > 0
+          ? sumInDateWindow(materialItems, (item) => item.quantity || 1, (item) => item.created_at, previousWindowStart, previousWindowEnd)
+          : countInDateWindow(completedMaterialDonations, (item) => item.created_at, previousWindowStart, previousWindowEnd);
+
+        const pendingOrganizations = organizations.filter((item) => isPendingLike(item?.verified_status || item?.status));
+        const pendingPickups = pickups.filter((item) => isPendingLike(item?.status));
+        const unreadNotifications = notifications.filter((item) => !item?.is_read);
+
+        const dynamicTasks = [
+          pendingOrganizations.length > 0
+            ? {
+              title: 'Verify Organization Documents',
+              description: `${pendingOrganizations.length} organization${pendingOrganizations.length === 1 ? '' : 's'} waiting for review.`,
+              due: 'Needs review',
+              tone: 'danger',
+            }
+            : null,
+          pendingPickups.length > 0
+            ? {
+              title: 'Schedule Material Pickups',
+              description: `${pendingPickups.length} pickup request${pendingPickups.length === 1 ? '' : 's'} still pending.`,
+              due: 'Pending scheduling',
+              tone: 'info',
+            }
+            : null,
+          unreadNotifications.length > 0
+            ? {
+              title: 'Check Unread Notifications',
+              description: `${unreadNotifications.length} unread alert${unreadNotifications.length === 1 ? '' : 's'} require attention.`,
+              due: 'Action required',
+              tone: 'warning',
+            }
+            : null,
+        ].filter(Boolean);
+
+        const urgentCount = pendingOrganizations.length + pendingPickups.length + unreadNotifications.length;
+
+        setOverviewStats([
+          {
+            id: 'funds',
+            label: 'Total Funds Raised',
+            value: formatCurrency(totalFundsRaised),
+            change: formatDeltaPercent(currentFunds, previousFunds),
+            tone: 'success',
+          },
+          {
+            id: 'items',
+            label: 'Total Items Donated',
+            value: formatCount(totalItemsDonated),
+            change: formatDeltaPercent(currentItems, previousItems),
+            tone: 'info',
+          },
+          {
+            id: 'tasks',
+            label: 'Urgent Tasks',
+            value: formatCount(urgentCount),
+            change: urgentCount > 0 ? 'Action required' : 'All clear',
+            tone: 'warning',
+          },
+        ]);
+        setUrgentTasks(dynamicTasks);
+        setUrgentTaskTotal(urgentCount);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setOverviewStats([
+          {
+            id: 'funds',
+            label: 'Total Funds Raised',
+            value: '$0.00',
+            change: 'Unavailable',
+            tone: 'success',
+          },
+          {
+            id: 'items',
+            label: 'Total Items Donated',
+            value: '0',
+            change: 'Unavailable',
+            tone: 'info',
+          },
+          {
+            id: 'tasks',
+            label: 'Urgent Tasks',
+            value: '0',
+            change: 'Unavailable',
+            tone: 'warning',
+          },
+        ]);
+        setUrgentTasks([]);
+        setUrgentTaskTotal(0);
+        setOverviewError(err instanceof Error ? err.message : 'Unable to load overview data.');
+      })
+      .finally(() => {
+        if (active) setOverviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [apiBase]);
+
+  useEffect(() => {
+    let active = true;
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
     setRecentOrgsLoading(true);
     setRecentOrgsError('');
 
@@ -255,7 +427,7 @@ const AdminDashboard = () => {
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   return (
@@ -277,10 +449,11 @@ const AdminDashboard = () => {
         </header>
 
       <section className="admin-stats">
-        {STATS.map((stat) => (
+        {overviewStats.map((stat) => (
           <StatCard key={stat.id} stat={stat} />
         ))}
       </section>
+      {overviewError && !overviewLoading ? <p className="admin-chart-footnote">{overviewError}</p> : null}
 
         <section className="admin-content-grid">
           <div className="admin-panel">
@@ -294,10 +467,24 @@ const AdminDashboard = () => {
                   aria-haspopup="listbox"
                   aria-expanded={isRangeOpen}
                 >
-                  Last {rangeDays} Days
+                  <span>{rangeLabel}</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M5 7.5 10 12.5l5-5" />
+                  </svg>
                 </button>
                 {isRangeOpen ? (
                   <div className="admin-range-menu" role="listbox">
+                    <button
+                      type="button"
+                      className={rangeDays === 1 ? 'is-active' : ''}
+                      onClick={() => {
+                        setRangeDays(1);
+                        setIsRangeOpen(false);
+                      }}
+                    >
+                      <span>Today</span>
+                      <small>Current day activity</small>
+                    </button>
                     <button
                       type="button"
                       className={rangeDays === 7 ? 'is-active' : ''}
@@ -306,7 +493,8 @@ const AdminDashboard = () => {
                         setIsRangeOpen(false);
                       }}
                     >
-                      Last 7 Days
+                      <span>Last 7 Days</span>
+                      <small>Weekly trend</small>
                     </button>
                     <button
                       type="button"
@@ -316,7 +504,8 @@ const AdminDashboard = () => {
                         setIsRangeOpen(false);
                       }}
                     >
-                      Last 30 Days
+                      <span>Last 30 Days</span>
+                      <small>Monthly overview</small>
                     </button>
                   </div>
                 ) : null}
@@ -386,10 +575,10 @@ const AdminDashboard = () => {
         <div className="admin-panel admin-tasks">
           <div className="admin-panel-header">
             <h2>Urgent Tasks</h2>
-            <span className="admin-pill">3 new</span>
+            <span className="admin-pill">{formatCount(urgentTaskTotal)} open</span>
           </div>
           <div className="admin-task-list">
-            {TASKS.map((task) => (
+            {urgentTasks.length > 0 ? urgentTasks.map((task) => (
               <div key={task.title} className={`admin-task admin-tone-${task.tone}`}>
                 <div className="admin-task-icon" aria-hidden="true">
                   {TASK_ICONS[task.tone] ?? TASK_ICONS.info}
@@ -400,7 +589,18 @@ const AdminDashboard = () => {
                   <span>{task.due}</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="admin-task admin-tone-info">
+                <div className="admin-task-icon" aria-hidden="true">
+                  {TASK_ICONS.info}
+                </div>
+                <div className="admin-task-body">
+                  <h3>No urgent tasks</h3>
+                  <p>Current project data does not show pending admin actions.</p>
+                  <span>All clear</span>
+                </div>
+              </div>
+            )}
           </div>
           <button className="admin-ghost-btn admin-full-btn" type="button">View All Tasks</button>
         </div>
@@ -456,7 +656,7 @@ const AdminDashboard = () => {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="admin-logout-title">Are you sure you want to logout?</h3>
-            <p>You will be returned to the login page.</p>
+            <p>You will be returned to the public home page.</p>
             <div className="admin-modal-actions">
               <button type="button" className="admin-modal-cancel" onClick={() => setIsLogoutOpen(false)}>
                 Cancel

@@ -133,9 +133,7 @@ export const DONOR_PAGE_SIZE = 4;
 
 export const DONATION_PRESET_AMOUNTS = [5, 10, 20, 50];
 export const DONATION_PAYMENT_METHODS = [
-  { id: 'qr', label: 'QR Payment', badge: 'QR', badgeClassName: 'payment-badge-qr' },
-  { id: 'aba', label: 'ABA Pay', badge: 'ABA', badgeClassName: 'payment-badge-aba' },
-  { id: 'wing', label: 'Wing Bank', badge: 'Wing', badgeClassName: 'payment-badge-wing' },
+  { id: 'khqr', label: 'Bakong KHQR', badge: 'KHQR', badgeClassName: 'payment-badge-qr' },
 ];
 
 export const RATING_OPTIONS = [

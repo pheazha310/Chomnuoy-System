@@ -3,11 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './adminsidebar';
 import './user.css';
 
+const USERS_CACHE_KEY = 'admin_user_dashboard_users_cache';
+const ROLES_CACHE_KEY = 'admin_user_dashboard_roles_cache';
+const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
 function formatDate(value) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' });
+}
+
+function readCache(key) {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp || !Array.isArray(parsed?.data)) {
+      return [];
+    }
+    if (Date.now() - parsed.timestamp > CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(key);
+      return [];
+    }
+    return parsed.data;
+  } catch {
+    return [];
+  }
+}
+
+function writeCache(key, data) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify({
+      timestamp: Date.now(),
+      data: Array.isArray(data) ? data : [],
+    }));
+  } catch {
+    // Ignore storage write failures.
+  }
 }
 
 function normalizeRoleLabel(raw) {
@@ -48,10 +80,13 @@ const StatCard = ({ stat }) => (
 
 export default function UserDashboard() {
   const navigate = useNavigate();
+  const cachedUsers = readCache(USERS_CACHE_KEY);
+  const cachedRoles = readCache(ROLES_CACHE_KEY);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState(cachedUsers);
+  const [roles, setRoles] = useState(cachedRoles);
+  const [loading, setLoading] = useState(cachedUsers.length === 0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -80,7 +115,7 @@ export default function UserDashboard() {
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   const handleMenuToggle = (userId) => {
@@ -160,30 +195,43 @@ export default function UserDashboard() {
     let refreshId;
     const token = window.localStorage.getItem('authToken');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const hasCachedUsers = cachedUsers.length > 0;
 
-    async function load() {
-      setLoading(true);
+    async function load({ silent = false } = {}) {
+      if (!silent && !hasCachedUsers) {
+        setLoading(true);
+      }
+      if (silent || hasCachedUsers) {
+        setIsRefreshing(true);
+      }
       setError('');
       try {
-        const [usersResponse, rolesResponse] = await Promise.all([
-          fetch(`${apiBase}/users`, { headers }),
-          fetch(`${apiBase}/roles`, { headers }),
-        ]);
+        const usersResponse = await fetch(`${apiBase}/users`, { headers });
 
         if (!usersResponse.ok) {
           throw new Error(`Failed to load users (${usersResponse.status})`);
         }
 
-        if (!rolesResponse.ok) {
-          throw new Error(`Failed to load roles (${rolesResponse.status})`);
-        }
-
-        const [usersData, rolesData] = await Promise.all([usersResponse.json(), rolesResponse.json()]);
+        const usersData = await usersResponse.json();
 
         if (mounted) {
-          setUsers(Array.isArray(usersData) ? usersData : []);
-          setRoles(Array.isArray(rolesData) ? rolesData : []);
+          const nextUsers = Array.isArray(usersData) ? usersData : [];
+          setUsers(nextUsers);
+          writeCache(USERS_CACHE_KEY, nextUsers);
         }
+
+        fetch(`${apiBase}/roles`, { headers })
+          .then(async (rolesResponse) => {
+            if (!rolesResponse.ok) {
+              throw new Error(`Failed to load roles (${rolesResponse.status})`);
+            }
+            const rolesData = await rolesResponse.json();
+            if (!mounted) return;
+            const nextRoles = Array.isArray(rolesData) ? rolesData : [];
+            setRoles(nextRoles);
+            writeCache(ROLES_CACHE_KEY, nextRoles);
+          })
+          .catch(() => {});
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err.message : 'Unable to load users');
@@ -191,12 +239,13 @@ export default function UserDashboard() {
       } finally {
         if (mounted) {
           setLoading(false);
+          setIsRefreshing(false);
         }
       }
     }
 
     load();
-    refreshId = window.setInterval(load, 60000);
+    refreshId = window.setInterval(() => load({ silent: true }), 60000);
     return () => {
       mounted = false;
       if (refreshId) {
@@ -281,6 +330,7 @@ export default function UserDashboard() {
           <div>
             <h1 style={{fontSize:'35px'}}>Admin User Management</h1>
             <p>Manage donors and organization representatives.</p>
+            {isRefreshing && !loading ? <span className="admin-user-refreshing">Refreshing data...</span> : null}
           </div>
           {/* <div className="admin-user-header-actions">
             <button className="admin-user-primary-btn" type="button">
@@ -347,7 +397,23 @@ export default function UserDashboard() {
               <span>Actions</span>
             </div>
             {loading ? (
-              <div className="admin-user-empty">Loading users...</div>
+              <div className="admin-user-skeleton-list" aria-hidden="true">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="admin-user-skeleton-row">
+                    <div className="admin-user-skeleton-user">
+                      <span className="admin-user-skeleton-avatar" />
+                      <div className="admin-user-skeleton-text">
+                        <span className="admin-user-skeleton-line admin-user-skeleton-line-name" />
+                        <span className="admin-user-skeleton-line admin-user-skeleton-line-email" />
+                      </div>
+                    </div>
+                    <span className="admin-user-skeleton-pill" />
+                    <span className="admin-user-skeleton-line admin-user-skeleton-line-date" />
+                    <span className="admin-user-skeleton-pill" />
+                    <span className="admin-user-skeleton-dots" />
+                  </div>
+                ))}
+              </div>
             ) : null}
             {!loading && error ? (
               <div className="admin-user-empty is-error">{error}</div>
@@ -386,9 +452,9 @@ export default function UserDashboard() {
                       </span>
                     )}
                   </span>
-                  <div>
-                    <p>{user.name}</p>
-                    <span>{user.displayEmail}</span>
+                  <div className="admin-user-profile-copy">
+                    <p className="admin-user-profile-name">{user.name}</p>
+                    <span className="admin-user-profile-email">{user.displayEmail}</span>
                     {user.phone ? <small className="admin-user-phone">{user.phone}</small> : null}
                   </div>
                 </div>
@@ -441,7 +507,7 @@ export default function UserDashboard() {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="admin-logout-title">Are you sure you want to logout?</h3>
-            <p>You will be returned to the login page.</p>
+            <p>You will be returned to the public home page.</p>
             <div className="admin-modal-actions">
               <button type="button" className="admin-modal-cancel" onClick={() => setIsLogoutOpen(false)}>
                 Cancel

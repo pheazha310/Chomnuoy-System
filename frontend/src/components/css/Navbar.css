@@ -1,4 +1,4 @@
-.navbar {
+﻿.navbar {
   --nav-blue: #1f7de2;
   --nav-blue-dark: #1866c8;
   position: sticky;
@@ -47,7 +47,7 @@
 }
 
 .brand-name {
-  font-family: 'Noto Sans Khmer', 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.1rem;
   letter-spacing: 0.01em;
   line-height: 1.1;
@@ -57,7 +57,7 @@
 }
 
 .brand-subtitle {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.55rem;
   line-height: 1.15;
   letter-spacing: 0.17em;
@@ -353,7 +353,7 @@
   gap: 0.75rem;
   color: #1f7de2;
   text-decoration: none;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
 }
 
@@ -381,7 +381,7 @@
 }
 
 .donor-brand-name {
-  font-family: 'Noto Sans Khmer', 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.1rem;
   letter-spacing: 0.01em;
   line-height: 1.1;
@@ -391,7 +391,7 @@
 }
 
 .donor-brand-subtitle {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.55rem;
   line-height: 1.15;
   letter-spacing: 0.17em;
@@ -560,7 +560,7 @@
   margin: 0;
   font-size: 0.95rem;
   color: #0f172a;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-weight: 700;
 }
 
@@ -667,7 +667,7 @@
 
 .donor-notification-topline p {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.86rem;
   color: #0f172a;
   font-weight: 700;
@@ -1045,7 +1045,7 @@
 }
 
 .donor-profile-name {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.95rem;
   font-weight: 700;
   color: #1f2937;
@@ -1056,7 +1056,7 @@
 }
 
 .donor-profile-email {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   color: #6b7280;
   margin: 0 0 0.25rem 0;
@@ -1066,7 +1066,7 @@
 }
 
 .donor-profile-impact {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   color: #1f7de2;
   font-weight: 600;
@@ -1103,7 +1103,7 @@
   border: none;
   border-radius: 8px;
   text-decoration: none;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 500;
   color: #374151;
@@ -1245,7 +1245,7 @@
 .logout-popup-header h3 {
   margin: 0;
   color: #0f172a;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.2rem;
   line-height: 1.3;
   font-weight: 700;
@@ -1337,4 +1337,5 @@
     width: 100%;
   }
 }
+
 
