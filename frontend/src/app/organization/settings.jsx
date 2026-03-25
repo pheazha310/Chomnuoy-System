@@ -18,7 +18,7 @@ import {
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
-import apiClient from '@/services/api-client.js';
+import { getOrganizationById, updateOrganizationProfile } from '@/services/user-service.js';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import './organization.css';
 
@@ -89,8 +89,7 @@ function OrganizationSettingsPage() {
           throw new Error('User ID not found');
         }
 
-        const response = await apiClient.get(`/organizations/${userId}`);
-        const organization = response.data;
+        const organization = await getOrganizationById(userId);
 
         if (organization) {
           setProfileForm({
@@ -105,14 +104,23 @@ function OrganizationSettingsPage() {
           }
 
           // Load preferences
-          const prefResponse = await apiClient.get(`/organizations/${userId}/preferences`);
-          if (prefResponse.data) {
-            setPreferences(prev => ({ ...prev, ...prefResponse.data }));
+          try {
+            const prefResponse = await apiClient.get(`/organizations/${userId}/preferences`);
+            if (prefResponse.data) {
+              setPreferences(prev => ({ ...prev, ...prefResponse.data }));
+            }
+          } catch (prefError) {
+            console.warn('Failed to load preferences:', prefError);
+            // Continue without preferences
           }
         }
       } catch (error) {
         console.error('Profile loading error:', error);
-        setError(error.response?.data?.message || 'Failed to load organization profile');
+        if (error.response?.status === 404) {
+          setError('Organization profile not found. Please create your organization profile first.');
+        } else {
+          setError(error.response?.data?.message || 'Failed to load organization profile');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -164,11 +172,7 @@ function OrganizationSettingsPage() {
         formData.append('avatar', blob, 'logo.jpg');
       }
 
-      await apiClient.post(`/organizations/${userId}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await updateOrganizationProfile(userId, formData);
 
       // Update session with new data
       const updatedSession = {
@@ -298,6 +302,21 @@ function OrganizationSettingsPage() {
             <div className="error-message">
               <AlertTriangle size={20} />
               {error}
+            </div>
+          )}
+
+          {/* Show Create Organization button if no profile exists */}
+          {error && error.includes('Organization profile not found') && (
+            <div className="create-org-section">
+              <h3>Create Your Organization Profile</h3>
+              <p>It looks like you don't have an organization profile yet. Create one to get started!</p>
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/organization/profile')}
+              >
+                <User size={16} />
+                Create Organization Profile
+              </button>
             </div>
           )}
 
