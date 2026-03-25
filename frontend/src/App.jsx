@@ -28,6 +28,7 @@ const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/Org
 const OrganizationCampaignDetailPage = lazy(() => import('@/app/organization/OrganizationCampaignDetailPage.jsx'));
 const OrganizationProfilePage = lazy(() => import('@/app/organization/profile.jsx'));
 const OrganizationProfileEditPage = lazy(() => import('@/app/organization/profile-edit.jsx'));
+const OrganizationSettingsPage = lazy(() => import('@/app/organization/settings.jsx'));
 const MaterialPickupPage = lazy(() => import('@/app/material-pickup.jsx/materialPickup.jsx'));
 const PickupViewDetailPage = lazy(() => import('@/app/material-pickup.jsx/pickupViewDetail.jsx'));
 const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickupReschedule.jsx'));
@@ -542,7 +543,14 @@ export default function App() {
               </RequireAuth>
             )}
           />
-          <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
+          <Route
+            path="/organization/settings"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsPage />
+              </RequireOrganizationAuth>
+            )}
+          />
         </Routes>
       </Suspense>
       {!hideShell && <Footer />}
