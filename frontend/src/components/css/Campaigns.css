@@ -1127,6 +1127,75 @@
   overflow-wrap: anywhere;
 }
 
+.material-donation-card {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.material-donation-item {
+  border: 1px solid #d9e6f3;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  padding: 0.85rem;
+}
+
+.material-donation-item strong {
+  display: block;
+  color: #17324d;
+  font-size: 0.98rem;
+}
+
+.material-donation-item p {
+  margin: 0.35rem 0 0;
+  color: #607489;
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.material-donation-label {
+  color: #5e7288;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.material-quantity-picker {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 0.5rem;
+}
+
+.material-quantity-picker button,
+.material-quantity-picker input,
+.material-donation-input,
+.material-donation-textarea {
+  border: 1px solid #d4e0ec;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #17324d;
+  font: inherit;
+}
+
+.material-quantity-picker button {
+  height: 44px;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.material-quantity-picker input,
+.material-donation-input {
+  height: 44px;
+  padding: 0 0.9rem;
+}
+
+.material-donation-textarea {
+  min-height: 92px;
+  padding: 0.8rem 0.9rem;
+  resize: vertical;
+}
+
 .donation-checkout-page {
   width: min(1240px, calc(100% - 2rem));
   margin: 2rem auto 3.5rem;

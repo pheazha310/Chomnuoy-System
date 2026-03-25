@@ -1292,6 +1292,29 @@ export default function OrganizationCampaignCreatePage() {
 
                     <div className="org-cpg-material-form">
                       <label className="org-cpg-material-label">
+                        Campaign Title
+                        <input
+                          type="text"
+                          placeholder="e.g., School Supply Drive for Rural Students"
+                          value={form.title}
+                          onChange={handleChange('title')}
+                        />
+                      </label>
+                      <label className="org-cpg-material-label">
+                        Campaign Category
+                        <select
+                          value={form.category}
+                          onChange={handleChange('category')}
+                        >
+                          <option value="">Select Category</option>
+                          <option value="Education">Education</option>
+                          <option value="Healthcare">Healthcare</option>
+                          <option value="Environment">Environment</option>
+                          <option value="Community">Community</option>
+                          <option value="Infrastructure">Infrastructure</option>
+                        </select>
+                      </label>
+                      <label className="org-cpg-material-label">
                         Item Name
                         <input
                           type="text"
