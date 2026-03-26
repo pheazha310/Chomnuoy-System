@@ -23,9 +23,21 @@ export default function CampaignCard({
   isNew,
 }) {
   const navigate = useNavigate();
-  const safeGoal = goal > 0 ? goal : 1;
-  const progress = Math.min((raised / safeGoal) * 100, 100);
-  const campaignTypeLabel = String(campaignType || '').toLowerCase().includes('material') ? 'Material Drive' : 'Monetary Campaign';
+  const isMaterialCampaign = String(campaignType || '').toLowerCase().includes('material');
+  const requestedItems = Math.max(1, Number(materialItem?.quantity || goal || 1));
+  const pledgedItems = Math.max(0, Number(raised || 0));
+  const safeGoal = isMaterialCampaign ? requestedItems : (goal > 0 ? goal : 1);
+  const progressBase = isMaterialCampaign ? pledgedItems : raised;
+  const progress = Math.min((progressBase / safeGoal) * 100, 100);
+  const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
+  const primaryMetricLabel = isMaterialCampaign ? 'Pledged' : 'Raised';
+  const secondaryMetricLabel = isMaterialCampaign ? 'Needed' : 'Goal';
+  const primaryMetricValue = isMaterialCampaign ? pledgedItems.toLocaleString() : `$${raised.toLocaleString()}`;
+  const secondaryMetricValue = isMaterialCampaign ? requestedItems.toLocaleString() : `$${goal.toLocaleString()}`;
+  const progressLabel = isMaterialCampaign ? `${Math.round(progress)}% pledged` : `${Math.round(progress)}% funded`;
+  const remainingValue = isMaterialCampaign
+    ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items remaining`
+    : `$${Math.max(0, goal - raised).toLocaleString()} remaining`;
   const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
   const campaignState = {
     from: '/campaigns/donor',
@@ -118,21 +130,21 @@ export default function CampaignCard({
 
         <div className="space-y-3">
           <div className="rounded-[14px] border border-[#e5ebf2] bg-[#fbfdff] px-3.5 py-3">
-            <div className="flex items-end justify-between gap-3 text-sm">
+              <div className="flex items-end justify-between gap-3 text-sm">
               <div className="flex flex-col">
-                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Raised</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">{primaryMetricLabel}</span>
                 <span className="text-[1.15rem] font-black leading-tight text-slate-900">
-                  ${raised.toLocaleString()}
+                  {primaryMetricValue}
                 </span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Goal</span>
-                <span className="text-[0.92rem] font-bold text-slate-700">${goal.toLocaleString()}</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">{secondaryMetricLabel}</span>
+                <span className="text-[0.92rem] font-bold text-slate-700">{secondaryMetricValue}</span>
               </div>
             </div>
 
             <div className="mt-2.5 flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
-              <span>{Math.round(progress)}% funded</span>
+              <span>{progressLabel}</span>
               <span>{campaignTypeLabel}</span>
             </div>
 
@@ -153,14 +165,14 @@ export default function CampaignCard({
               </span>
               <div className="flex flex-col">
                 <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Timeline</span>
-                <span>{timeLeft}</span>
+                <span>{isMaterialCampaign ? remainingValue : timeLeft}</span>
               </div>
             </div>
             <button
               onClick={handleDonateClick}
               className="rounded-lg bg-gradient-to-r from-[#3294ff] to-[#1f7de2] px-3.5 py-2 text-[0.72rem] font-extrabold text-white shadow-[0_8px_18px_rgba(31,125,226,0.2)] transition hover:translate-y-[-1px] hover:from-[#2589f6] hover:to-[#156fd6]"
             >
-              Support
+              {isMaterialCampaign ? 'Pledge Support' : 'Support'}
             </button>
           </div>
         </div>

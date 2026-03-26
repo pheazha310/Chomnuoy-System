@@ -317,7 +317,12 @@ function CampaignsPage() {
 
         <section key={gridAnimationKey} className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">
           {paginatedCampaigns.map((campaign, index) => {
-            const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
+            const isMaterialCampaign = String(campaign.campaignType || '').toLowerCase().includes('material');
+            const requestedItems = Math.max(1, Number(campaign.materialItem?.quantity || campaign.goalAmount || 1));
+            const pledgedItems = Math.max(0, Number(campaign.raisedAmount || 0));
+            const percentRaised = isMaterialCampaign
+              ? Math.round((pledgedItems / requestedItems) * 100)
+              : Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
             const detailState = {
@@ -364,12 +369,12 @@ function CampaignsPage() {
 
                   <div className="campaign-funding-row">
                     <p className="campaign-raised">
-                      <span>Raised</span>
-                      <strong>{formatCurrency(campaign.raisedAmount)}</strong>
+                      <span>{isMaterialCampaign ? 'Pledged' : 'Raised'}</span>
+                      <strong>{isMaterialCampaign ? pledgedItems.toLocaleString() : formatCurrency(campaign.raisedAmount)}</strong>
                     </p>
                     <p className="campaign-target">
-                      <span>Goal</span>
-                      <strong>{formatCurrency(campaign.goalAmount)}</strong>
+                      <span>{isMaterialCampaign ? 'Needed' : 'Goal'}</span>
+                      <strong>{isMaterialCampaign ? requestedItems.toLocaleString() : formatCurrency(campaign.goalAmount)}</strong>
                     </p>
                   </div>
 

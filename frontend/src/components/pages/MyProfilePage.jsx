@@ -71,6 +71,20 @@ export default function MyProfilePage() {
   });
 
   const isOrganization = session?.role === 'Organization' || session?.accountType === 'Organization';
+  const displayName = (formData.name || session?.name || 'Your Name').trim() || 'Your Name';
+  const accountLabel = isOrganization ? 'Organization account' : 'Donor account';
+  const profileHint = loading
+    ? 'Loading your profile information...'
+    : saving
+      ? 'Saving your latest profile changes...'
+      : 'Click camera icon to change profile picture';
+  const avatarInitials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'U';
   const accountId =
     session?.userId ?? session?.accountId ?? session?.id ?? session?.user_id ?? null;
   const [resolvedAccountId, setResolvedAccountId] = useState(accountId);
@@ -408,17 +422,23 @@ export default function MyProfilePage() {
 
         <form onSubmit={handleSave} className="space-y-6">
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-5">
-            <div className="flex items-center gap-4">
-              <div className="relative h-20 w-20">
-                <img
-                  src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                  alt="Profile avatar"
-                  className="h-20 w-20 rounded-full border border-[#CBD5E1] object-cover"
-                />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative h-24 w-24 shrink-0">
+                {formData.avatar ? (
+                  <img
+                    src={formData.avatar}
+                    alt="Profile avatar"
+                    className="h-24 w-24 rounded-full border border-[#CBD5E1] object-cover shadow-[0_10px_24px_rgba(15,23,42,0.08)]"
+                  />
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[#CBD5E1] bg-[linear-gradient(180deg,#EAF3FF_0%,#DDEBFF_100%)] text-2xl font-black text-[#1D4ED8] shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+                    {avatarInitials}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsCameraModalOpen(true)}
-                  className="absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+                  className="absolute bottom-0 right-0 inline-flex h-10 w-10 items-center justify-center rounded-full border-4 border-[#F8FAFC] bg-[#2563EB] text-white shadow-[0_8px_18px_rgba(37,99,235,0.25)] transition hover:scale-[1.03] hover:bg-[#1D4ED8]"
                   aria-label="Upload avatar"
                 >
                   <Camera className="h-4 w-4" />
@@ -439,10 +459,10 @@ export default function MyProfilePage() {
                   onChange={handleAvatarChange}
                 />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-[#0F172A]">{formData.name || 'Your Name'}</p>
-                <p className="text-sm text-[#64748B]">{isOrganization ? 'Organization account' : 'Donor account'}</p>
-                <p className="mt-1 text-xs text-[#64748B]">Click camera icon to change profile picture</p>
+              <div className="min-w-0">
+                <p className="text-[2rem] font-black leading-none tracking-tight text-[#0F172A]">{displayName}</p>
+                <p className="mt-2 text-lg font-medium text-[#476581]">{accountLabel}</p>
+                <p className="mt-1 text-sm text-[#64748B]">{profileHint}</p>
               </div>
             </div>
           </div>

@@ -116,6 +116,17 @@ export default function OrganizationCampaignsPage() {
           : items;
         const mapped = filtered.map((item) => {
           const status = normalizeStatus(item.status);
+          const materialItem = (() => {
+            if (item.material_item && typeof item.material_item === "object") return item.material_item;
+            if (typeof item.material_item === "string") {
+              try {
+                return JSON.parse(item.material_item);
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          })();
           return {
             id: item.id,
             status,
@@ -123,6 +134,8 @@ export default function OrganizationCampaignsPage() {
             category: item.category || "General",
             title: item.title || "Untitled Campaign",
             description: item.description || "No description provided.",
+            campaignType: item.campaign_type || (materialItem ? "material" : "monetary"),
+            materialItem,
             raised: Number(item.current_amount || 0),
             goal: Number(item.goal_amount || 0),
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
@@ -640,11 +653,25 @@ export default function OrganizationCampaignsPage() {
 
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filteredCampaigns.map((item) => {
-              const progress =
-                item.goal > 0
+              const isMaterialCampaign = String(item.campaignType || "").toLowerCase().includes("material");
+              const pledgedItems = Math.max(0, Number(item.raised || 0));
+              const requestedItems = Math.max(1, Number(item.materialItem?.quantity || item.goal || 1));
+              const progress = isMaterialCampaign
+                ? Math.min(100, Math.round((pledgedItems / requestedItems) * 100))
+                : (item.goal > 0
                   ? Math.min(100, Math.round((item.raised / item.goal) * 100))
-                  : 0;
-              const remaining = Math.max(0, item.goal - item.raised);
+                  : 0);
+              const remaining = isMaterialCampaign
+                ? Math.max(0, requestedItems - pledgedItems)
+                : Math.max(0, item.goal - item.raised);
+              const metricLeftLabel = isMaterialCampaign ? "PLEDGED" : "RAISED";
+              const metricRightLabel = isMaterialCampaign ? "NEEDED" : "GOAL";
+              const metricLeftValue = isMaterialCampaign ? pledgedItems.toLocaleString() : formatMoney(item.raised);
+              const metricRightValue = isMaterialCampaign ? requestedItems.toLocaleString() : formatMoney(item.goal);
+              const progressLabel = isMaterialCampaign ? `${progress}% pledged` : `${progress}% funded`;
+              const remainingLabel = isMaterialCampaign
+                ? `${remaining.toLocaleString()} items remaining`
+                : `${formatMoney(remaining)} remaining`;
               return (
                 <article
                   key={item.id}
@@ -677,18 +704,18 @@ export default function OrganizationCampaignsPage() {
 
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
-                        <span>RAISED</span>
-                        <span>GOAL</span>
+                        <span>{metricLeftLabel}</span>
+                        <span>{metricRightLabel}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm font-semibold text-[#0F172A]">
                         <span className="text-[#1f6fe6]">
-                          {formatMoney(item.raised)}
+                          {metricLeftValue}
                         </span>
-                        <span>{formatMoney(item.goal)}</span>
+                        <span>{metricRightValue}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs font-semibold text-[#94A3B8]">
-                        <span>{progress}% funded</span>
-                        <span>{formatMoney(remaining)} remaining</span>
+                        <span>{progressLabel}</span>
+                        <span>{remainingLabel}</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-[#E2E8F0]">
                         <div
