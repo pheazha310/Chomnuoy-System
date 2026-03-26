@@ -267,8 +267,8 @@ export default function App() {
       key: 'All Campaigns',
       label: 'All Campaigns',
       icon: LayoutGrid,
-      activeClass: 'border-slate-900 bg-slate-900 text-white shadow-sm',
-      inactiveClass: 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100',
+      activeClass: 'border-blue-600 bg-blue-600 text-white shadow-sm',
+      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/70',
     },
     {
       key: 'Urgent',
@@ -281,22 +281,22 @@ export default function App() {
       key: 'Newest',
       label: 'Newest',
       icon: Zap,
-      activeClass: 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm',
-      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/70 hover:text-blue-700',
+      activeClass: 'border-slate-200 bg-slate-50 text-slate-700 shadow-sm',
+      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
     },
     {
       key: 'Education',
       label: 'Education',
       icon: GraduationCap,
-      activeClass: 'border-amber-200 bg-amber-50 text-amber-700 shadow-sm',
-      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:bg-amber-50/70 hover:text-amber-700',
+      activeClass: 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm',
+      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/70 hover:text-indigo-700',
     },
     {
       key: 'Medical',
       label: 'Medical',
       icon: Stethoscope,
-      activeClass: 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm',
-      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50/70 hover:text-sky-700',
+      activeClass: 'border-teal-200 bg-teal-50 text-teal-700 shadow-sm',
+      inactiveClass: 'border-slate-200 bg-white text-slate-700 hover:border-teal-200 hover:bg-teal-50/70 hover:text-teal-700',
     },
     {
       key: 'Environment',
@@ -308,13 +308,13 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-[#f4f8fc]">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Welcome & Stats Summary */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
+        <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
           <div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Active Fundraising Campaigns</h1>
-            <p className="text-slate-600 mt-1">Hello, {donorName}. Thanks for supporting causes this year.</p>
+            <h1 className="text-[2.35rem] font-black tracking-tight text-slate-950">Active Fundraising Campaigns</h1>
+            <p className="mt-1 text-sm text-slate-500">Hello, {donorName}. You&apos;ve helped 12 causes this year. Keep the momentum going!</p>
           </div>
           <div className="flex flex-wrap gap-4">
             <StatsCard 
@@ -335,30 +335,30 @@ export default function App() {
         </div>
 
         {/* Filters Section */}
-        <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex-row md:items-center">
-          <div className="flex items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mb-8 flex flex-col gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filterButtons.map(({ key, label, icon: Icon, activeClass, inactiveClass }, index) => (
               <React.Fragment key={key}>
-                {index === 3 ? <div className="mx-1 hidden h-7 w-px shrink-0 bg-slate-200 md:block" /> : null}
+                {index === 3 ? <div className="mx-1 hidden h-6 w-px shrink-0 bg-slate-200 md:block" /> : null}
                 <button
                   type="button"
                   onClick={() => setSelectedFilter(key)}
-                  className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-all ${
+                  className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-all ${
                     selectedFilter === key ? activeClass : inactiveClass
                   }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span>{label}</span>
                 </button>
               </React.Fragment>
             ))}
           </div>
-          <div className="px-2 md:ml-auto">
+          <div className="md:ml-auto">
             <button
               type="button"
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-400 hover:bg-slate-50 md:w-auto"
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-[13px] font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-400 hover:bg-slate-50 md:w-auto"
             >
-              <Filter className="h-4 w-4 shrink-0 text-slate-500" /> More Filters
+              <Filter className="h-3.5 w-3.5 shrink-0 text-slate-500" /> More Filters
             </button>
           </div>
         </div>
@@ -371,15 +371,15 @@ export default function App() {
         ) : null}
 
         {/* Campaign Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {loading ? Array.from({ length: 6 }).map((_, index) => (
             <div
               key={`campaign-skeleton-${index}`}
-              className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm"
+              className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm"
               aria-hidden="true"
             >
-              <div className="h-48 animate-pulse bg-slate-200" />
-              <div className="space-y-4 p-6">
+              <div className="h-40 animate-pulse bg-slate-200" />
+              <div className="space-y-4 p-4">
                 <div className="h-4 w-24 animate-pulse rounded-full bg-slate-200" />
                 <div className="h-6 w-4/5 animate-pulse rounded-full bg-slate-200" />
                 <div className="h-4 w-full animate-pulse rounded-full bg-slate-200" />
@@ -397,15 +397,15 @@ export default function App() {
         </div>
 
         {/* Load More */}
-        <div className="mt-16 text-center">
+        <div className="mt-10 text-center">
           <button
             type="button"
             onClick={() => setVisibleCount((current) => current + 3)}
             disabled={!hasMoreCampaigns}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-7 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {hasMoreCampaigns ? 'View More Campaigns' : 'No More Campaigns'}
-            <ChevronDown className="w-5 h-5" />
+            <ChevronDown className="h-4 w-4" />
           </button>
         </div>
       </main>

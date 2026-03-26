@@ -522,6 +522,11 @@ function CampaignDetailPage({ campaignId }) {
   const daysToGo = Math.max(5, 45 - Math.floor(raisedAmount / 5000) || 0);
   const pledgedItems = Math.max(recentDonors.length, 0);
   const materialProgressPercent = Math.min(100, Math.round((pledgedItems / requestedItemTarget) * 100));
+  const progressPercent = isMaterialCampaign ? materialProgressPercent : progressWidth;
+  const supportTimelineLabel = `${daysToGo} ${daysToGo === 1 ? 'day' : 'days'} left`;
+  const progressStatusLabel = isMaterialCampaign ? `${materialProgressPercent}% pledged` : `${percentRaised}% funded`;
+  const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
+  const showUrgentBadge = daysToGo <= 7 || String(campaign?.status || '').toLowerCase().includes('urgent');
   const organizationName = String(campaign?.organization || 'Organization');
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
@@ -1406,25 +1411,32 @@ function CampaignDetailPage({ campaignId }) {
                 </button>
               </div>
 
-              <label className="material-field" htmlFor="pickup-address-input">
-                <span>{materialAddressLabel}</span>
-                <input
-                  id="pickup-address-input"
-                  className="material-donation-input"
-                  type="text"
-                  placeholder={materialAddressPlaceholder}
-                  value={pickupAddress}
-                  onChange={(event) => setPickupAddress(event.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                className="material-location-button"
-                onClick={handleUseCurrentLocation}
-                disabled={locationLoading}
-              >
-                <MapPin size={15} /> {locationLoading ? 'Getting current location...' : 'Use Current Location'}
-              </button>
+              <div className="material-address-block">
+                <label className="material-field" htmlFor="pickup-address-input">
+                  <span>{materialAddressLabel}</span>
+                  <input
+                    id="pickup-address-input"
+                    className="material-donation-input"
+                    type="text"
+                    placeholder={materialAddressPlaceholder}
+                    value={pickupAddress}
+                    onChange={(event) => setPickupAddress(event.target.value)}
+                  />
+                </label>
+                <div className="material-address-actions">
+                  <button
+                    type="button"
+                    className="material-location-button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={locationLoading}
+                  >
+                    <MapPin size={15} /> {locationLoading ? 'Getting current location...' : 'Use Current Location'}
+                  </button>
+                  <p className="material-address-hint">
+                    Add a precise landmark or gate number so pickup is easier to coordinate.
+                  </p>
+                </div>
+              </div>
 
               <label className="material-field" htmlFor="pickup-date-input">
                 <span>Preferred Date and Time</span>
@@ -1747,13 +1759,62 @@ function CampaignDetailPage({ campaignId }) {
       <section className="campaign-detail-layout campaign-detail-v2-layout" aria-label="Campaign detail">
         <div className="campaign-main-column">
           <article className="campaign-hero-panel campaign-hero-v2">
-            <img src={safeImage} alt={safeTitle} className="campaign-detail-image" referrerPolicy="no-referrer" />
-            <div className="campaign-hero-overlay">
-              <span className="campaign-category">{safeCategory}</span>
-              <h1>{safeTitle}</h1>
-              <p className="campaign-hero-location">
-                <MapPin size={14} /> {safeLocation}
-              </p>
+            <div className="campaign-hero-media">
+              <img src={safeImage} alt={safeTitle} className="campaign-detail-image" referrerPolicy="no-referrer" />
+              <div className="campaign-hero-badges">
+                {showUrgentBadge ? (
+                  <span className="campaign-hero-flag">
+                    <Clock3 size={14} /> Urgent
+                  </span>
+                ) : null}
+                <span className="campaign-category">{safeCategory}</span>
+              </div>
+            </div>
+            <div className="campaign-hero-body">
+              <div className="campaign-hero-copy">
+                <p className="campaign-hero-eyebrow">{campaignTypeLabel}</p>
+                <h1>{safeTitle}</h1>
+                <p className="campaign-hero-summary">{safeSummary}</p>
+              </div>
+
+              <div className="campaign-hero-progress-card">
+                <div className="campaign-hero-progress-header">
+                  <div>
+                    <span>Raised</span>
+                    <strong>{isMaterialCampaign ? pledgedItems : formatCurrency(raisedAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Goal</span>
+                    <strong>{isMaterialCampaign ? requestedItemTarget : formatCurrency(goalAmount)}</strong>
+                  </div>
+                </div>
+                <div className="campaign-hero-progress-meta">
+                  <span>{progressStatusLabel}</span>
+                  <span>{campaignTypeLabel}</span>
+                </div>
+                <div className="campaign-progress campaign-progress-v2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressPercent}>
+                  <span style={{ width: `${progressPercent}%` }} />
+                </div>
+              </div>
+
+              <div className="campaign-hero-footer">
+                <div className="campaign-hero-timeline">
+                  <span className="campaign-hero-timeline-icon">
+                    <Clock3 size={16} />
+                  </span>
+                  <div>
+                    <strong>{supportTimelineLabel}</strong>
+                    <span>{organizationName}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="campaign-hero-support"
+                  onClick={handleDonateNow}
+                >
+                  {isMaterialCampaign ? 'Pledge Support' : 'Support'}
+                </button>
+              </div>
             </div>
           </article>
 
@@ -1800,7 +1861,7 @@ function CampaignDetailPage({ campaignId }) {
 
                     return (
                       <div className="donor-item-v2" key={donor.id}>
-                        <span className="donor-avatar donor-avatar-more">{initials}</span>
+                        <span className="donor-avatar donor-avatar-more" data-initial={initials}>{initials}</span>
                         <div>
                           <strong>{donorNameValue}</strong>
                           <p>
@@ -1814,7 +1875,7 @@ function CampaignDetailPage({ campaignId }) {
                     );
                   }) : (
                     <div className="donor-item-v2">
-                      <span className="donor-avatar donor-avatar-more">--</span>
+                      <span className="donor-avatar donor-avatar-more" data-initial="--">--</span>
                       <div>
                         <strong>{isMaterialCampaign ? 'No supporters yet' : 'No donors yet'}</strong>
                         <p>{isMaterialCampaign ? 'The first material pledge will appear here.' : 'The first completed donation will appear here.'}</p>
