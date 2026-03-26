@@ -87,17 +87,18 @@ function mapCachedCampaign(item) {
   } else if (item.materialItem && typeof item.materialItem === 'object') {
     parsedMaterialItem = item.materialItem;
   }
+  const inferredCampaignType = item.campaignType || item.campaign_type || (parsedMaterialItem ? 'material' : 'monetary');
   return {
     id: item.id,
     organizationId: Number(item.organizationId ?? item.organization_id ?? 0) || null,
-    campaignType: item.campaignType || item.campaign_type || 'monetary',
+    campaignType: inferredCampaignType,
     title: item.title || 'Untitled campaign',
     category: item.category || item.normalizedCategory || 'General',
     organization: item.organization || 'Verified Organization',
     summary: item.summary || item.description || 'No description available yet.',
-    location: item.location || 'Kampong Speu, Cambodia',
-    latitude: Number(item.latitude ?? 0) || null,
-    longitude: Number(item.longitude ?? 0) || null,
+    location: item.organizationLocation || item.organization_location || item.location || 'Kampong Speu, Cambodia',
+    latitude: Number(item.organizationLatitude ?? item.organization_latitude ?? item.latitude ?? 0) || null,
+    longitude: Number(item.organizationLongitude ?? item.organization_longitude ?? item.longitude ?? 0) || null,
     receiptMessage: item.receipt_message || '',
     donationTiers: parsedTiers,
     materialItem: parsedMaterialItem,
@@ -205,6 +206,8 @@ function CampaignDetailPage({ campaignId }) {
   const [showDonationSuccess, setShowDonationSuccess] = useState(false);
   const [receiptDetails, setReceiptDetails] = useState(null);
   const [materialQuantity, setMaterialQuantity] = useState(1);
+  const [materialDescription, setMaterialDescription] = useState('');
+  const [materialDeliveryMode, setMaterialDeliveryMode] = useState('pickup');
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupDate, setPickupDate] = useState('');
   const [recentDonors, setRecentDonors] = useState([]);
@@ -232,16 +235,11 @@ function CampaignDetailPage({ campaignId }) {
 
   useEffect(() => {
     let mounted = true;
-    const hasFullCampaignType = (value) => Boolean(
-      value?.campaignType ||
-      value?.campaign_type ||
-      value?.materialItem ||
-      value?.material_item
-    );
+    const isNumericCampaignId = /^\d+$/.test(String(resolvedCampaignId));
 
     if (routeCampaign && String(routeCampaign.id) === String(resolvedCampaignId)) {
       setCampaignData(mapCachedCampaign(routeCampaign) || routeCampaign);
-      if (hasFullCampaignType(routeCampaign)) {
+      if (!isNumericCampaignId) {
         setCampaignLoading(false);
         return () => {
           mounted = false;
@@ -252,7 +250,7 @@ function CampaignDetailPage({ campaignId }) {
     const local = getCampaignById(resolvedCampaignId);
     if (local) {
       setCampaignData(mapCachedCampaign(local) || local);
-      if (hasFullCampaignType(local)) {
+      if (!isNumericCampaignId) {
         setCampaignLoading(false);
         return () => {
           mounted = false;
@@ -263,7 +261,7 @@ function CampaignDetailPage({ campaignId }) {
     const cached = getCachedCampaignById(resolvedCampaignId);
     if (cached) {
       setCampaignData(cached);
-      if (hasFullCampaignType(cached)) {
+      if (!isNumericCampaignId) {
         setCampaignLoading(false);
         return () => {
           mounted = false;
@@ -271,7 +269,7 @@ function CampaignDetailPage({ campaignId }) {
       }
     }
 
-    if (!/^\d+$/.test(String(resolvedCampaignId))) {
+    if (!isNumericCampaignId) {
       setCampaignData(null);
       return () => {
         mounted = false;
@@ -291,10 +289,21 @@ function CampaignDetailPage({ campaignId }) {
       })
       .then((data) => {
         if (!mounted) return;
+        const parsedMaterialItem = (() => {
+          if (data?.material_item && typeof data.material_item === 'object') return data.material_item;
+          if (typeof data?.material_item === 'string') {
+            try {
+              return JSON.parse(data.material_item);
+            } catch {
+              return null;
+            }
+          }
+          return null;
+        })();
         const mapped = {
           id: data?.id,
           organizationId: Number(data?.organization_id ?? 0) || null,
-          campaignType: data?.campaign_type || 'monetary',
+          campaignType: data?.campaign_type || (parsedMaterialItem ? 'material' : 'monetary'),
           title: data?.title || 'Untitled campaign',
           category: data?.category || 'General',
           organization:
@@ -302,9 +311,9 @@ function CampaignDetailPage({ campaignId }) {
               data?.organization ||
               (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
           summary: data?.description || data?.summary || 'No description available yet.',
-          location: data?.location || 'Kampong Speu, Cambodia',
-          latitude: Number(data?.latitude ?? 0) || null,
-          longitude: Number(data?.longitude ?? 0) || null,
+          location: data?.organization_location || data?.location || 'Kampong Speu, Cambodia',
+          latitude: Number(data?.organization_latitude ?? data?.latitude ?? 0) || null,
+          longitude: Number(data?.organization_longitude ?? data?.longitude ?? 0) || null,
           receiptMessage: data?.receipt_message || '',
           donationTiers: (() => {
             if (Array.isArray(data?.donation_tiers)) return data.donation_tiers;
@@ -317,17 +326,7 @@ function CampaignDetailPage({ campaignId }) {
             }
             return null;
           })(),
-          materialItem: (() => {
-            if (data?.material_item && typeof data.material_item === 'object') return data.material_item;
-            if (typeof data?.material_item === 'string') {
-              try {
-                return JSON.parse(data.material_item);
-              } catch {
-                return null;
-              }
-            }
-            return null;
-          })(),
+          materialItem: parsedMaterialItem,
           goalAmount: Number(data?.goal_amount ?? data?.goal ?? 0),
           raisedAmount: Number(data?.current_amount ?? data?.raised_amount ?? data?.raised ?? 0),
           image:
@@ -400,7 +399,9 @@ function CampaignDetailPage({ campaignId }) {
   const postedMapsQuery = hasPostedCoordinates
     ? `${postedLatitude},${postedLongitude}`
     : encodeURIComponent(safeLocation);
-  const campaignType = String(campaign?.campaignType || 'monetary').toLowerCase();
+  const campaignType = String(
+    campaign?.campaignType || (campaign?.materialItem ? 'material' : 'monetary')
+  ).toLowerCase();
   const isMaterialCampaign = campaignType.includes('material');
   const materialItem = campaign?.materialItem && typeof campaign.materialItem === 'object'
     ? campaign.materialItem
@@ -408,6 +409,11 @@ function CampaignDetailPage({ campaignId }) {
   const requestedItemName = materialItem?.name || materialItem?.item_name || 'Requested items';
   const requestedItemDescription = materialItem?.description || 'Coordinate a pickup to deliver physical support directly to this campaign.';
   const requestedItemTarget = Math.max(1, Number(materialItem?.quantity || 1));
+  const materialDeliveryLabel = materialDeliveryMode === 'dropoff' ? 'Self Drop-off' : 'Schedule Pickup';
+  const materialAddressLabel = materialDeliveryMode === 'dropoff' ? 'Drop-off details' : 'Pickup address';
+  const materialAddressPlaceholder = materialDeliveryMode === 'dropoff'
+    ? 'Add the note or place where you will drop off the items.'
+    : 'Enter your street name, building, apartment, or meeting point.';
   const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
     ? campaign.donationTiers
         .map((item) => Number(item?.amount ?? item))
@@ -615,7 +621,7 @@ function CampaignDetailPage({ campaignId }) {
       return;
     }
 
-    if (!pickupAddress.trim()) {
+    if (materialDeliveryMode === 'pickup' && !pickupAddress.trim()) {
       setDonationMessage('Please enter a pickup address for the material donation.');
       return;
     }
@@ -673,7 +679,7 @@ function CampaignDetailPage({ campaignId }) {
           donation_id: donationId,
           item_name: requestedItemName,
           quantity,
-          description: requestedItemDescription,
+          description: materialDescription.trim() || requestedItemDescription,
         }),
       });
 
@@ -686,7 +692,9 @@ function CampaignDetailPage({ campaignId }) {
         headers,
         body: JSON.stringify({
           donation_id: donationId,
-          pickup_address: pickupAddress.trim(),
+          pickup_address: materialDeliveryMode === 'dropoff'
+            ? (pickupAddress.trim() || `Self drop-off to ${safeLocation}`)
+            : pickupAddress.trim(),
           schedule_date: pickupDate || null,
           status: 'pending',
         }),
@@ -706,7 +714,7 @@ function CampaignDetailPage({ campaignId }) {
         }),
         donationId,
         transactionId: `#MAT-${donationId}`,
-        paymentMethod: 'Material pickup',
+        paymentMethod: materialDeliveryMode === 'dropoff' ? 'Material drop-off' : 'Material pickup',
         campaignTitle: safeTitle,
         campaignImage: safeImage,
         campaignLocation: safeLocation,
@@ -846,9 +854,9 @@ function CampaignDetailPage({ campaignId }) {
             previous?.organization ||
             campaign.organization,
           summary: updatedCampaign.description || previous?.summary || campaign.summary,
-          location: updatedCampaign.location || previous?.location || campaign.location,
-          latitude: Number(updatedCampaign.latitude ?? previous?.latitude ?? campaign.latitude ?? 0) || null,
-          longitude: Number(updatedCampaign.longitude ?? previous?.longitude ?? campaign.longitude ?? 0) || null,
+          location: updatedCampaign.organization_location || updatedCampaign.location || previous?.location || campaign.location,
+          latitude: Number(updatedCampaign.organization_latitude ?? updatedCampaign.latitude ?? previous?.latitude ?? campaign.latitude ?? 0) || null,
+          longitude: Number(updatedCampaign.organization_longitude ?? updatedCampaign.longitude ?? previous?.longitude ?? campaign.longitude ?? 0) || null,
           receiptMessage: updatedCampaign.receipt_message || previous?.receiptMessage || campaign.receiptMessage,
           donationTiers: previous?.donationTiers || campaign.donationTiers || null,
           materialItem: previous?.materialItem || campaign.materialItem || null,
@@ -1196,6 +1204,186 @@ function CampaignDetailPage({ campaignId }) {
               <span>Total to Donate</span>
               <strong>${totalDonation.toFixed(2)}</strong>
             </div>
+          </aside>
+        </section>
+      </main>
+    );
+  }
+
+  if (isMaterialCampaign) {
+    return (
+      <main className="campaign-detail-page donation-checkout-page material-campaign-page">
+        <button
+          type="button"
+          className="detail-back-link donation-checkout-back"
+          onClick={() => navigate(backTarget)}
+        >
+          <ArrowLeft size={16} /> Back to Campaign
+        </button>
+
+        <section className="donation-checkout-header material-checkout-header">
+          <div>
+            <h1>Material Donation</h1>
+            <p>Review the item request, choose the logistics method, and schedule your support separately from money donations.</p>
+          </div>
+          <div className="donation-checkout-secure material-checkout-secure">
+            <ShieldCheck size={16} />
+            <span>Secure Request</span>
+          </div>
+        </section>
+
+        <section className="material-donation-layout" aria-label="Material donation scheduling">
+          <div className="material-donation-main">
+            <article className="donation-checkout-card material-form-section">
+              <h2><Building2 size={18} /> Item Details</h2>
+              <div className="material-top-grid">
+                <label className="material-field">
+                  <span>Category</span>
+                  <div className="material-readonly-field">{safeCategory}</div>
+                </label>
+                <label className="material-field">
+                  <span>Quantity</span>
+                  <div className="material-quantity-picker material-quantity-picker-wide">
+                    <button type="button" onClick={() => setMaterialQuantity((current) => Math.max(1, current - 1))}>-</button>
+                    <input
+                      id="material-quantity-input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={materialQuantity}
+                      onChange={(event) => setMaterialQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    />
+                    <button type="button" onClick={() => setMaterialQuantity((current) => current + 1)}>+</button>
+                  </div>
+                </label>
+              </div>
+
+              <div className="material-request-highlight">
+                <strong>{requestedItemName}</strong>
+                <p>{requestedItemDescription}</p>
+              </div>
+
+              <label className="material-field" htmlFor="material-description-input">
+                <span>Description (Optional)</span>
+                <textarea
+                  id="material-description-input"
+                  className="material-donation-textarea"
+                  rows={4}
+                  placeholder="Briefly describe the items and their condition."
+                  value={materialDescription}
+                  onChange={(event) => setMaterialDescription(event.target.value)}
+                />
+              </label>
+            </article>
+
+            <article className="donation-checkout-card material-form-section">
+              <h2><MapPin size={18} /> Logistics</h2>
+              <div className="material-logistics-toggle">
+                <button
+                  type="button"
+                  className={materialDeliveryMode === 'pickup' ? 'is-selected' : ''}
+                  onClick={() => setMaterialDeliveryMode('pickup')}
+                >
+                  Schedule Pickup
+                </button>
+                <button
+                  type="button"
+                  className={materialDeliveryMode === 'dropoff' ? 'is-selected' : ''}
+                  onClick={() => setMaterialDeliveryMode('dropoff')}
+                >
+                  Self Drop-off
+                </button>
+              </div>
+
+              <label className="material-field" htmlFor="pickup-address-input">
+                <span>{materialAddressLabel}</span>
+                <input
+                  id="pickup-address-input"
+                  className="material-donation-input"
+                  type="text"
+                  placeholder={materialAddressPlaceholder}
+                  value={pickupAddress}
+                  onChange={(event) => setPickupAddress(event.target.value)}
+                />
+              </label>
+
+              <label className="material-field" htmlFor="pickup-date-input">
+                <span>Preferred Date and Time</span>
+                <input
+                  id="pickup-date-input"
+                  className="material-donation-input"
+                  type="datetime-local"
+                  value={pickupDate}
+                  onChange={(event) => setPickupDate(event.target.value)}
+                />
+              </label>
+            </article>
+
+            <article className="donation-checkout-card material-story-section">
+              <h2>Request Overview</h2>
+              <p>{safeSummary}</p>
+              <div className="campaign-pillars campaign-pillars-v2">
+                <article>
+                  <h3><Users size={16} /> {requestedItemTarget} Items Target</h3>
+                  <p>Requested directly by the organization for this campaign.</p>
+                </article>
+                <article>
+                  <h3><MapPin size={16} /> {safeLocation}</h3>
+                  <p>Using the organization&apos;s saved public location.</p>
+                </article>
+              </div>
+            </article>
+          </div>
+
+          <aside className="donation-summary-card material-summary-card">
+            <h2>Donation Summary</h2>
+            <div className="donation-summary-campaign">
+              <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+              <div>
+                <p>TYPE</p>
+                <strong>{requestedItemName}</strong>
+                <span><Clock3 size={13} /> Estimated organizer review within 48 hours</span>
+              </div>
+            </div>
+
+            <div className="donation-summary-lines">
+              <div>
+                <span>Selected Items</span>
+                <strong>{requestedItemName} ({materialQuantity})</strong>
+              </div>
+              <div>
+                <span>Logistics</span>
+                <strong>{materialDeliveryLabel}</strong>
+              </div>
+              <div>
+                <span>Organization</span>
+                <strong>{organizationName}</strong>
+              </div>
+              <div>
+                <span>Location</span>
+                <strong>{safeLocation}</strong>
+              </div>
+            </div>
+
+            <div className="material-impact-box">
+              <strong>Impact Message</strong>
+              <p>Your items will be reviewed by the organization and matched to the campaign needs before delivery is confirmed.</p>
+            </div>
+
+            <button
+              type="button"
+              className="donation-complete-button"
+              onClick={handleMaterialDonation}
+              disabled={donationSubmitting}
+            >
+              <HandHeart size={16} /> {donationSubmitting ? 'Scheduling...' : 'Schedule Donation'}
+            </button>
+
+            <p className="donation-summary-terms">
+              By scheduling, you confirm these items are available and ready for handover at the selected time.
+            </p>
+
+            {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
           </aside>
         </section>
       </main>

@@ -165,26 +165,45 @@ function CampaignsPage() {
         const items = Array.isArray(data) ? data : [];
         const mapped = items
           .filter((item) => isPublicCampaignStatus(item.status))
-          .map((item) => ({
-            id: item.id,
-            organizationId: Number(item.organization_id ?? 0) || null,
-            title: item.title || 'Untitled Campaign',
-            summary: item.summary || item.description || 'No description available.',
-            category: item.category || 'Environment',
-            organization:
-              item.organization_name ||
-              item.organization ||
-              item.organizationTitle ||
-              (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
-            raisedAmount: Number(item.current_amount || 0),
-            goalAmount: Math.max(1, Number(item.goal_amount || 0)),
-            image:
+          .map((item) => {
+            const constMaterialItem = (() => {
+              if (item.material_item && typeof item.material_item === 'object') return item.material_item;
+              if (typeof item.material_item === 'string') {
+                try {
+                  return JSON.parse(item.material_item);
+                } catch {
+                  return null;
+                }
+              }
+              return null;
+            })();
+            return {
+              id: item.id,
+              organizationId: Number(item.organization_id ?? 0) || null,
+              campaignType: item.campaign_type || (constMaterialItem ? 'material' : 'monetary'),
+              title: item.title || 'Untitled Campaign',
+              summary: item.summary || item.description || 'No description available.',
+              category: item.category || 'Environment',
+              organization:
+                item.organization_name ||
+                item.organization ||
+                item.organizationTitle ||
+                (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
+              location: item.organization_location || item.location || '',
+              organizationLocation: item.organization_location || '',
+              latitude: Number(item.organization_latitude ?? item.latitude ?? 0) || null,
+              longitude: Number(item.organization_longitude ?? item.longitude ?? 0) || null,
+              materialItem: constMaterialItem,
+              raisedAmount: Number(item.current_amount || 0),
+              goalAmount: Math.max(1, Number(item.goal_amount || 0)),
+              image:
               getStorageFileUrl(item.image_path) ||
               item.image_url ||
               item.image ||
-              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-            createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
-          }));
+                'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+              createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
+            };
+          });
         setCampaigns(mapped);
         setCurrentPage(1);
       })

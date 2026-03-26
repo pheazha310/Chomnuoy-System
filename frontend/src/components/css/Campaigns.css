@@ -1196,6 +1196,138 @@
   resize: vertical;
 }
 
+.material-campaign-page {
+  background:
+    radial-gradient(circle at top left, rgba(128, 199, 255, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(101, 196, 138, 0.16), transparent 24%),
+    linear-gradient(180deg, #fbfdff 0%, #f3f8fd 48%, #edf3f9 100%);
+}
+
+.material-checkout-header {
+  align-items: center;
+}
+
+.material-checkout-secure {
+  background: #ecfbf1;
+  color: #21844b;
+}
+
+.material-donation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.95fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.material-donation-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.material-form-section,
+.material-story-section,
+.material-summary-card {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.material-top-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.material-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.material-field > span {
+  color: #5e7288;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.material-readonly-field {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #d4e0ec;
+  border-radius: 12px;
+  background: #f8fbff;
+  color: #17324d;
+  padding: 0 0.95rem;
+  font-weight: 600;
+}
+
+.material-quantity-picker-wide {
+  gap: 0.65rem;
+}
+
+.material-request-highlight {
+  margin-top: 1rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid #dbe7f4;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f7fbff 0%, #eff6ff 100%);
+}
+
+.material-request-highlight strong {
+  display: block;
+  color: #17324d;
+  font-size: 1rem;
+}
+
+.material-request-highlight p {
+  margin: 0.35rem 0 0;
+  color: #62788d;
+  line-height: 1.6;
+}
+
+.material-logistics-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.material-logistics-toggle button {
+  min-height: 76px;
+  border: 1px solid #d8e5f2;
+  border-radius: 14px;
+  background: #f8fbff;
+  color: #23415f;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.material-logistics-toggle button.is-selected {
+  border-color: #1f7de2;
+  background: #edf5ff;
+  color: #165ca7;
+  box-shadow: inset 0 0 0 1px rgba(31, 125, 226, 0.16);
+}
+
+.material-story-section p {
+  color: #62788d;
+  line-height: 1.7;
+}
+
+.material-impact-box {
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  background: #ecf5ff;
+  color: #204e7c;
+}
+
+.material-impact-box strong {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.material-impact-box p {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .donation-checkout-page {
   width: min(1240px, calc(100% - 2rem));
   margin: 2rem auto 3.5rem;
@@ -1928,7 +2060,9 @@
   .donation-checkout-layout,
   .donation-checkout-grid,
   .checkout-payment-methods,
-  .donation-summary-campaign {
+  .donation-summary-campaign,
+  .material-donation-layout,
+  .material-top-grid {
     grid-template-columns: 1fr;
   }
 

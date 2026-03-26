@@ -249,6 +249,24 @@ function Navbar() {
   }, [isDonorLoggedIn]);
 
   useEffect(() => {
+    if (!isDonorLoggedIn) return undefined;
+
+    const timer = window.setInterval(() => {
+      loadNotifications();
+    }, 15000);
+
+    const handleFocus = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
     if (!isNotificationsOpen) return;
     loadNotifications();
   }, [isNotificationsOpen]);
