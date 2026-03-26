@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 
 function getOrganizationSession() {
   try {
@@ -103,14 +104,6 @@ export default function OrganizationProfilePage() {
   const [shareMessage, setShareMessage] = useState('');
 
   const organizationName = storedProfile?.name || orgData?.name || session?.name || 'Organization';
-  const initials = organizationName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'OR';
-  const logoUrl = storedProfile?.logo || orgData?.logo || orgData?.logo_url || '';
-
   const storedSocials = storedProfile?.socials;
   const normalizedSocials = (Array.isArray(storedSocials)
     ? storedSocials
@@ -258,20 +251,7 @@ export default function OrganizationProfilePage() {
       <main className="org-main">
         <section className="org-profile-header">
           <div className="org-profile-header-left">
-            <div className="org-profile-pill" aria-label="Organization profile">
-              <span className="org-profile-pill-avatar" aria-hidden="true">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" className="org-profile-pill-logo" />
-                ) : (
-                  initials
-                )}
-                <span className="org-profile-pill-status" />
-              </span>
-              <div className="org-profile-pill-meta">
-                <p className="org-profile-pill-name">{profile.name}</p>
-                <p className="org-profile-pill-role">Organization</p>
-              </div>
-            </div>
+            <OrganizationIdentityPill />
           </div>
           <div className="org-profile-header-actions">
             <Link to="/organization/profile/edit" className="org-profile-edit-btn">

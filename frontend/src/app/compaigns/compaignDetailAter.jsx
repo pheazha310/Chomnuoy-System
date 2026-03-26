@@ -108,6 +108,17 @@ const mapCampaigns = (items) => {
   });
 
   return activeOnly.map((item) => {
+    const materialItem = (() => {
+      if (item.material_item && typeof item.material_item === 'object') return item.material_item;
+      if (typeof item.material_item === 'string') {
+        try {
+          return JSON.parse(item.material_item);
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    })();
     const goal = Number(item.goal_amount || 0);
     const raised = Number(item.current_amount || 0);
     const timeLeft = getTimeLeft(item.end_date);
@@ -126,6 +137,14 @@ const mapCampaigns = (items) => {
         placeholderImage,
       category: categoryLabel,
       normalizedCategory: categoryLabel,
+      campaignType: item.campaign_type || (materialItem ? 'material' : 'monetary'),
+      materialItem,
+      organizationId: Number(item.organization_id ?? 0) || null,
+      organization:
+        item.organization_name ||
+        item.organization ||
+        (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
+      location: item.organization_location || item.location || '',
       raised,
       goal,
       timeLeft,

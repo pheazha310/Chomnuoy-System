@@ -316,6 +316,12 @@
   margin-left: 260px;
 }
 
+.org-main-identity {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .org-topbar {
   background: var(--org-panel);
   border: 1px solid var(--org-border);
@@ -351,6 +357,11 @@
   align-items: center;
   gap: 9px;
   text-align: right;
+}
+
+.org-topbar-pill {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .org-topbar-search {
@@ -849,6 +860,11 @@
   color: #a17207;
 }
 
+.org-status.confirmed {
+  background: #e8f1ff;
+  color: #1d63b5;
+}
+
 .org-right-column {
   display: grid;
   gap: 10px;
@@ -867,9 +883,10 @@
 
 .org-alert-item {
   margin-top: 8px;
-  border: 1px dashed #d9deea;
-  border-radius: 12px;
-  padding: 10px;
+  border: 1px solid #d8e3f0;
+  border-radius: 16px;
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .org-alert-head {
@@ -977,6 +994,10 @@
     margin-left: 0;
   }
 
+  .org-main-identity {
+    justify-content: flex-start;
+  }
+
   .org-summary-grid,
   .org-content-grid,
   .org-campaign-grid {
@@ -995,6 +1016,11 @@
     flex-wrap: wrap;
   }
 
+  .org-topbar-pill {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .org-topbar-search {
     min-width: 180px;
     flex: 1 1 180px;
@@ -1006,6 +1032,20 @@
 
   .org-notify-modal-head h2 {
     font-size: 20px;
+  }
+
+  .org-pickup-modal {
+    width: min(100%, 560px);
+  }
+
+  .org-pickup-modal-details div {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .org-pickup-modal-details strong {
+    max-width: 100%;
+    text-align: left;
   }
 }
 
@@ -1371,6 +1411,22 @@
   gap: 8px;
 }
 
+.org-donations-donor-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.org-donations-donor-meta strong {
+  color: #0f172a;
+}
+
+.org-donations-donor-meta small {
+  color: #7b879d;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .org-donations-donor-cell span {
   width: 26px;
   height: 26px;
@@ -1420,8 +1476,16 @@
   color: #0e9f6e;
 }
 
+.org-donations-status.confirmed {
+  color: #2563eb;
+}
+
 .org-donations-status.pending {
   color: #d97706;
+}
+
+.org-donations-status.cancelled {
+  color: #dc2626;
 }
 
 .org-donations-row-actions {
@@ -2037,40 +2101,70 @@
 }
 
 .org-pickup-modal {
-  width: min(460px, 100%);
-  border-radius: 14px;
-  border: 1px solid #dbe3ee;
-  background: #ffffff;
-  padding: 14px;
-  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.24);
+  width: min(620px, 100%);
+  border-radius: 24px;
+  border: 1px solid #dbe6f2;
+  background:
+    radial-gradient(circle at top right, rgba(92, 159, 245, 0.12), transparent 25%),
+    linear-gradient(180deg, #ffffff, #f7fbff);
+  padding: 20px;
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.24);
 }
 
 .org-pickup-modal h3 {
-  margin: 0;
+  margin: 10px 0 0;
   color: #0f172a;
-  font-size: 20px;
+  font-size: 28px;
+}
+
+.org-pickup-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.org-pickup-modal-badge.pending {
+  background: #fff4d9;
+  color: #9a6a00;
+}
+
+.org-pickup-modal-badge.confirmed {
+  background: #eaf5ff;
+  color: #1d63b5;
 }
 
 .org-pickup-modal-copy {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   color: #64748b;
-  font-size: 14px;
+  font-size: 17px;
 }
 
 .org-pickup-modal-details {
-  margin-top: 10px;
+  margin-top: 16px;
   border: 1px solid #e6edf7;
-  border-radius: 10px;
+  border-radius: 18px;
   background: #f8fbff;
-  padding: 10px;
+  padding: 14px;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .org-pickup-modal-details div {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e3edf8;
+}
+
+.org-pickup-modal-details div:last-child {
+  border-bottom: 0;
 }
 
 .org-pickup-modal-details span {
@@ -2083,24 +2177,46 @@
 
 .org-pickup-modal-details strong {
   color: #0f172a;
-  font-size: 14px;
+  font-size: 16px;
   text-align: right;
+  max-width: 58%;
 }
 
 .org-pickup-modal-actions {
-  margin-top: 12px;
+  margin-top: 18px;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .org-pickup-modal-btn {
-  border-radius: 9px;
-  padding: 8px 12px;
-  font-size: 13px;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 15px;
   font-weight: 700;
   border: 1px solid transparent;
   cursor: pointer;
+}
+
+.org-pickup-modal-note {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #dbe7f4;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
+}
+
+.org-pickup-modal-note strong {
+  display: block;
+  color: #14324f;
+  font-size: 15px;
+}
+
+.org-pickup-modal-note p {
+  margin: 6px 0 0;
+  color: #60758c;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .org-cm-user {
@@ -2197,6 +2313,12 @@
   border: 1px solid #1f6fe6;
   background: linear-gradient(145deg, #2a7ff1, #1f6fe6);
   color: #fff;
+}
+
+.org-pickup-modal-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .org-cm-tabs button.is-active {
   background: #edf4ff;

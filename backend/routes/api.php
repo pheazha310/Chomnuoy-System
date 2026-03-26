@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuditLogController;
-use App\Http\Controllers\Api\AbaPayWayController;
+use App\Http\Controllers\Api\BakongTransactionController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CampaignImageController;
@@ -70,3 +70,5 @@ Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donati
 Route::get('campaigns/{campaign}/velocity', [CampaignController::class, 'velocity']);
 Route::apiResource('campaign_image', CampaignImageController::class);
 Route::apiResource('campaign_update', CampaignUpdateController::class);
+Route::post('bakong/transactions', [BakongTransactionController::class, 'store']);
+Route::post('bakong/transactions/{tranId}/verify', [BakongTransactionController::class, 'verify']);

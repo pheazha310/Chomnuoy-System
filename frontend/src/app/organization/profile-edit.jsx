@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 
 function getOrganizationSession() {
   try {
@@ -120,6 +121,10 @@ export default function OrganizationProfileEditPage() {
     <div className="org-page">
       <OrganizationSidebar />
       <main className="org-main">
+        <div className="org-main-identity">
+          <OrganizationIdentityPill />
+        </div>
+
         <form className="org-profile-edit" onSubmit={handleSave}>
           <div className="org-profile-edit-head">
             <div className="org-profile-edit-title">

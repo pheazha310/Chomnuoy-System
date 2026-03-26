@@ -1,5 +1,6 @@
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 import { Download, FileText, Filter, MoreVertical, Package, Users, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -25,6 +26,29 @@ function toDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function normalizeDonationType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'material' || key === 'materials') return 'material';
+  if (key === 'money' || key === 'cash' || key === 'monetary') return 'money';
+  return 'money';
+}
+
+function normalizeDonationStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'completed' || key === 'success') return 'completed';
+  if (key === 'confirmed') return 'confirmed';
+  if (key === 'cancelled' || key === 'canceled') return 'cancelled';
+  return 'pending';
+}
+
+function formatStatusLabel(value) {
+  const key = normalizeDonationStatus(value);
+  if (key === 'confirmed') return 'Confirmed';
+  if (key === 'completed') return 'Completed';
+  if (key === 'cancelled') return 'Cancelled';
+  return 'Pending';
+}
+
 export default function OrganizationDonationsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [showAllRows, setShowAllRows] = useState(false);
@@ -36,6 +60,8 @@ export default function OrganizationDonationsPage() {
   const [error, setError] = useState('');
   const [donations, setDonations] = useState([]);
   const [materialItems, setMaterialItems] = useState([]);
+  const [pickups, setPickups] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [users, setUsers] = useState([]);
   const session = getOrganizationSession();
   const organizationId = Number(session?.userId ?? 0);
@@ -49,12 +75,16 @@ export default function OrganizationDonationsPage() {
       Promise.all([
         fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
         fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
+        fetch(`${apiBase}/material_pickups`).then((r) => (r.ok ? r.json() : [])),
+        fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
         fetch(`${apiBase}/users`).then((r) => (r.ok ? r.json() : [])),
       ])
-        .then(([donationData, materialData, userData]) => {
+        .then(([donationData, materialData, pickupData, campaignData, userData]) => {
           if (!alive) return;
           const donationList = Array.isArray(donationData) ? donationData : [];
           const materialList = Array.isArray(materialData) ? materialData : [];
+          const pickupList = Array.isArray(pickupData) ? pickupData : [];
+          const campaignList = Array.isArray(campaignData) ? campaignData : [];
           const userList = Array.isArray(userData) ? userData : [];
 
           const filteredDonations = organizationId
@@ -63,6 +93,8 @@ export default function OrganizationDonationsPage() {
 
           setDonations(filteredDonations);
           setMaterialItems(materialList);
+          setPickups(pickupList);
+          setCampaigns(campaignList);
           setUsers(userList);
         })
         .catch((err) => {
@@ -70,6 +102,8 @@ export default function OrganizationDonationsPage() {
           setError(err instanceof Error ? err.message : 'Failed to load donations.');
           setDonations([]);
           setMaterialItems([]);
+          setPickups([]);
+          setCampaigns([]);
           setUsers([]);
         })
         .finally(() => {
@@ -88,38 +122,54 @@ export default function OrganizationDonationsPage() {
 
   const donationRows = useMemo(() => {
     const userMap = new Map(users.map((user) => [Number(user.id), user.name]));
+    const campaignMap = new Map(campaigns.map((campaign) => [Number(campaign.id), campaign]));
     return donations.map((row) => {
+      const donationTypeKey = normalizeDonationType(row.donation_type);
       const donorName = userMap.get(Number(row.user_id)) || `Donor #${row.user_id || 'N/A'}`;
-      const materialItem = materialItems.find((item) => Number(item.donation_id) === Number(row.id));
-      const amountText = row.donation_type === 'material'
-        ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
+      const linkedItems = materialItems.filter((item) => Number(item.donation_id) === Number(row.id));
+      const primaryItem = linkedItems[0];
+      const totalQuantity = linkedItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0);
+      const amountText = donationTypeKey === 'material'
+        ? `${totalQuantity || 1}x ${primaryItem?.item_name || 'Items'}`
         : `$${Number(row.amount || 0).toLocaleString()}`;
+      const pickup = pickups.find((item) => Number(item.donation_id) === Number(row.id));
+      const statusKey = donationTypeKey === 'material' && pickup?.status
+        ? normalizeDonationStatus(pickup.status)
+        : normalizeDonationStatus(row.status);
       const dateValue = toDate(row.created_at);
+      const campaign = campaignMap.get(Number(row.campaign_id));
       return {
         id: row.id,
         donor: donorName,
         initials: getInitials(donorName),
-        donationType: row.donation_type === 'material' ? 'Material' : 'Money',
+        donationType: donationTypeKey === 'material' ? 'Material' : 'Money',
+        donationTypeKey,
         amount: amountText,
-        status: row.status || 'Pending',
+        project: campaign?.title || row.project_name || row.title || 'Campaign',
+        itemSummary:
+          donationTypeKey === 'material'
+            ? linkedItems.map((item) => item.item_name).filter(Boolean).join(', ') || 'Material request'
+            : row.payment_method || row.method || 'Online donation',
+        status: formatStatusLabel(statusKey),
+        statusKey,
         date: dateValue ? dateValue.toLocaleDateString() : '-',
         dateValue: dateValue ? dateValue.getTime() : 0,
       };
     });
-  }, [donations, materialItems, users]);
+  }, [campaigns, donations, materialItems, pickups, users]);
 
   const filteredRows = useMemo(() => {
     let nextRows = donationRows;
 
     if (activeTab === 'money') {
-      nextRows = nextRows.filter((row) => row.donationType.toLowerCase() === 'money');
+      nextRows = nextRows.filter((row) => row.donationTypeKey === 'money');
     }
     if (activeTab === 'materials') {
-      nextRows = nextRows.filter((row) => row.donationType.toLowerCase() === 'material');
+      nextRows = nextRows.filter((row) => row.donationTypeKey === 'material');
     }
 
     if (statusFilter !== 'all') {
-      nextRows = nextRows.filter((row) => row.status.toLowerCase() === statusFilter);
+      nextRows = nextRows.filter((row) => row.statusKey === statusFilter);
     }
 
     const query = searchTerm.trim().toLowerCase();
@@ -127,8 +177,10 @@ export default function OrganizationDonationsPage() {
       nextRows = nextRows.filter((row) => {
         const haystack = [
           row.donor,
+          row.project,
           row.donationType,
           row.amount,
+          row.itemSummary,
           row.status,
           row.date,
         ]
@@ -149,8 +201,8 @@ export default function OrganizationDonationsPage() {
   const visibleRows = showAllRows ? filteredRows : filteredRows.slice(0, 7);
 
   const handleCsvExport = () => {
-    const headers = ['Donor Name', 'Type', 'Amount / Items', 'Status', 'Date'];
-    const lines = filteredRows.map((row) => [row.donor, row.donationType, row.amount, row.status, row.date]);
+    const headers = ['Donor Name', 'Project', 'Type', 'Amount / Items', 'Status', 'Date'];
+    const lines = filteredRows.map((row) => [row.donor, row.project, row.donationType, row.amount, row.status, row.date]);
     const csv = [headers, ...lines]
       .map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
       .join('\n');
@@ -169,6 +221,7 @@ export default function OrganizationDonationsPage() {
       .map(
         (row) => `<tr>
           <td>${row.donor}</td>
+          <td>${row.project}</td>
           <td>${row.donationType}</td>
           <td>${row.amount}</td>
           <td>${row.status}</td>
@@ -199,6 +252,7 @@ export default function OrganizationDonationsPage() {
           <thead>
             <tr>
               <th>Donor Name</th>
+              <th>Project</th>
               <th>Type</th>
               <th>Amount / Items</th>
               <th>Status</th>
@@ -236,6 +290,7 @@ export default function OrganizationDonationsPage() {
         <h1>Donation Record</h1>
         <div class="card">
           <div class="row"><span class="label">Donor</span><span class="value">${row.donor}</span></div>
+          <div class="row"><span class="label">Project</span><span class="value">${row.project}</span></div>
           <div class="row"><span class="label">Type</span><span class="value">${row.donationType}</span></div>
           <div class="row"><span class="label">Amount / Items</span><span class="value">${row.amount}</span></div>
           <div class="row"><span class="label">Status</span><span class="value">${row.status}</span></div>
@@ -254,7 +309,7 @@ export default function OrganizationDonationsPage() {
     const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
-    const moneyDonations = donations.filter((row) => row.donation_type !== 'material');
+    const moneyDonations = donations.filter((row) => normalizeDonationType(row.donation_type) === 'money' && normalizeDonationStatus(row.status) === 'completed');
     const totalFunds = moneyDonations.reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const thisMonthFunds = moneyDonations
       .filter((row) => {
@@ -270,7 +325,7 @@ export default function OrganizationDonationsPage() {
       .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
     const materialDonationIds = new Set(
-      donations.filter((row) => row.donation_type === 'material').map((row) => row.id),
+      donations.filter((row) => normalizeDonationType(row.donation_type) === 'material').map((row) => row.id),
     );
     const totalItems = materialItems
       .filter((item) => materialDonationIds.has(item.donation_id))
@@ -324,11 +379,21 @@ export default function OrganizationDonationsPage() {
     ];
   }, [donations, materialItems]);
 
+  const tabCounts = useMemo(() => ({
+    all: donationRows.length,
+    money: donationRows.filter((row) => row.donationTypeKey === 'money').length,
+    materials: donationRows.filter((row) => row.donationTypeKey === 'material').length,
+  }), [donationRows]);
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
 
       <main className="org-main org-donations-main">
+        <div className="org-main-identity">
+          <OrganizationIdentityPill />
+        </div>
+
         <section className="org-donations-summary-grid" aria-label="Donation summary">
           {donationStats.map((item) => (
             <article key={item.label} className="org-donations-summary-card">
@@ -355,7 +420,7 @@ export default function OrganizationDonationsPage() {
                   setShowAllRows(false);
                 }}
               >
-                All Donations
+                All Donations ({tabCounts.all})
               </button>
               <button
                 type="button"
@@ -365,7 +430,7 @@ export default function OrganizationDonationsPage() {
                   setShowAllRows(false);
                 }}
               >
-                Money
+                Money ({tabCounts.money})
               </button>
               <button
                 type="button"
@@ -375,7 +440,7 @@ export default function OrganizationDonationsPage() {
                   setShowAllRows(false);
                 }}
               >
-                Materials
+                Materials ({tabCounts.materials})
               </button>
             </div>
             <div className="org-donations-table-actions">
@@ -402,6 +467,7 @@ export default function OrganizationDonationsPage() {
                       <div className="org-donations-filter-row">
                         <button type="button" className={statusFilter === 'all' ? 'active' : ''} onClick={() => setStatusFilter('all')}>All</button>
                         <button type="button" className={statusFilter === 'completed' ? 'active' : ''} onClick={() => setStatusFilter('completed')}>Completed</button>
+                        <button type="button" className={statusFilter === 'confirmed' ? 'active' : ''} onClick={() => setStatusFilter('confirmed')}>Confirmed</button>
                         <button type="button" className={statusFilter === 'pending' ? 'active' : ''} onClick={() => setStatusFilter('pending')}>Pending</button>
                       </div>
                     </div>
@@ -441,6 +507,7 @@ export default function OrganizationDonationsPage() {
               <thead>
                 <tr>
                   <th>Donor Name</th>
+                  <th>Project</th>
                   <th>Type</th>
                   <th>Amount / Items</th>
                   <th>Status</th>
@@ -451,34 +518,38 @@ export default function OrganizationDonationsPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6}>Loading donations...</td>
+                    <td colSpan={7}>Loading donations...</td>
                   </tr>
                 ) : null}
                 {error ? (
                   <tr>
-                    <td colSpan={6}>{error}</td>
+                    <td colSpan={7}>{error}</td>
                   </tr>
                 ) : null}
                 {!loading && !error && visibleRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>No donations match your filters.</td>
+                    <td colSpan={7}>No donations match your filters.</td>
                   </tr>
                 ) : null}
                 {!loading && !error
                   ? visibleRows.map((row) => (
-                      <tr key={`${row.donor}-${row.date}`}>
+                      <tr key={row.id}>
                         <td>
                           <div className="org-donations-donor-cell">
                             <span>{row.initials}</span>
-                            <strong>{row.donor}</strong>
+                            <div className="org-donations-donor-meta">
+                              <strong>{row.donor}</strong>
+                              <small>{row.itemSummary}</small>
+                            </div>
                           </div>
                         </td>
+                        <td>{row.project}</td>
                         <td>
                           <span className={`org-donations-type-chip ${row.donationType.toLowerCase()}`}>{row.donationType}</span>
                         </td>
                         <td>{row.amount}</td>
                         <td>
-                          <span className={`org-donations-status ${row.status.toLowerCase()}`}>
+                          <span className={`org-donations-status ${row.statusKey}`}>
                             <span className="org-donations-dot" aria-hidden="true" />
                             {row.status}
                           </span>

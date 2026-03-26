@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
+import OrganizationIdentityPill from "./OrganizationIdentityPill.jsx";
 import "./organization.css";
 
 const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
@@ -372,16 +373,7 @@ export default function OrganizationCampaignsPage() {
               <Bell className="mx-auto h-4 w-4" />
               {unreadCount > 0 ? <span className="org-notify-dot" /> : null}
             </button>
-            <div className="org-cpg-user-card" aria-label="Organization profile">
-              <span className="org-cpg-user-avatar" aria-hidden="true">
-                DC
-                <span className="org-cpg-user-status" />
-              </span>
-              <div className="org-cpg-user-meta">
-                <p className="org-cpg-user-name">Dr. Chomnuoy</p>
-                <p className="org-cpg-user-role">Organization</p>
-              </div>
-            </div>
+            <OrganizationIdentityPill className="org-cpg-user-card" />
           </div>
         </header>
 

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Download, Pencil, Plus } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
+import OrganizationIdentityPill from "./OrganizationIdentityPill.jsx";
 import "./organization.css";
 
 const formatDate = (value) => {
@@ -234,6 +235,7 @@ export default function OrganizationCampaignDetailPage() {
               <p className="org-cpd-subtitle">Detailed performance analytics and real-time donation tracking.</p>
             </div>
             <div className="org-cpd-actions">
+              <OrganizationIdentityPill />
               <button
                 type="button"
                 className="org-cpd-btn"

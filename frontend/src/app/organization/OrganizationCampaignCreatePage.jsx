@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 import './organization.css';
 
 const DEFAULT_COORDINATE_CENTER = [11.5564, 104.9282];
@@ -1040,6 +1041,7 @@ export default function OrganizationCampaignCreatePage() {
             <p className="mt-1 text-sm text-[#64748B]">Fill in the details to start your fundraising initiative.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <OrganizationIdentityPill />
             <button
               type="button"
               className="rounded-full border border-[#E2E8F0] bg-white px-6 py-2.5 text-sm font-semibold text-[#475569] shadow-[0_10px_22px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
