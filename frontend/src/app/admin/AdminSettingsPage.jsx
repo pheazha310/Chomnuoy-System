@@ -58,6 +58,7 @@ export default function AdminSettingsPage() {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [isHooksOpen, setIsHooksOpen] = useState(false);
   const [newWebhookEndpoint, setNewWebhookEndpoint] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const autoSaveTimeoutRef = useRef(null);
 
   const session = getSession();
@@ -65,6 +66,39 @@ export default function AdminSettingsPage() {
   const adminRole = session?.role || session?.accountType || 'Admin';
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
+  const getStorageFileUrl = (path) => {
+    if (!path) return '';
+    const cleaned = String(path).trim();
+    if (!cleaned) return '';
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+      return cleaned;
+    }
+    const appBase = apiBase.replace(/\/api\/?$/, '');
+    const normalized = cleaned.replace(/^\/+/, '');
+    if (normalized.startsWith('storage/')) {
+      return `${appBase}/${normalized}`;
+    }
+    return `${appBase}/storage/${normalized}`;
+  };
+
+  const updateField = (field, value) => {
+    if (field === 'language') {
+      setLanguage(normalizeLanguageValue(value));
+    }
+
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (!isLoading && AUTO_SAVE_FIELDS.has(field)) {
+        if (autoSaveTimeoutRef.current) {
+          window.clearTimeout(autoSaveTimeoutRef.current);
+        }
+        autoSaveTimeoutRef.current = window.setTimeout(() => {
+          handleSave(null, { sourceForm: next, withLoading: false, showSuccess: false });
+        }, 650);
+      }
+      return next;
+    });
+  };
   const getAuthHeaders = () => {
     const token = window.localStorage.getItem('authToken');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -86,6 +120,84 @@ export default function AdminSettingsPage() {
     return fallback;
   };
 
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const headers = getAuthHeaders();
+        const [settingsResponse, userResponse] = await Promise.all([
+          fetch(`${apiBase}/admin/settings`, { headers }),
+          session?.userId
+            ? fetch(`${apiBase}/users/${session.userId}`, { headers })
+            : Promise.resolve(null),
+        ]);
+
+        let nextValues = {};
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json();
+          const map = settingsData?.map || {};
+          nextValues = SETTING_DEFINITIONS.reduce((acc, item) => {
+            if (map[item.key] !== undefined && map[item.key] !== null) {
+              acc[item.field] = map[item.key];
+            }
+            return acc;
+          }, {});
+        }
+
+        let profileValues = {};
+        if (userResponse?.ok) {
+          const user = await userResponse.json();
+          const nextAvatarUrl =
+            user?.avatar_url ||
+            user?.profile_image ||
+            user?.avatar ||
+            user?.image_url ||
+            user?.photo ||
+            user?.picture ||
+            getStorageFileUrl(user?.avatar_path);
+          profileValues = {
+            fullName: user?.name || undefined,
+            email: user?.email || undefined,
+          };
+          setAvatarUrl(nextAvatarUrl || session?.avatar || '');
+        }
+
+        if (!active) return;
+        const nextForm = {
+          ...DEFAULT_FORM,
+          ...nextValues,
+          ...profileValues,
+          webhookEndpoints: Array.isArray(nextValues.webhookEndpoints)
+            ? nextValues.webhookEndpoints
+            : [],
+          currentPassword: '',
+          newPassword: '',
+        };
+        setForm(nextForm);
+        setLanguage(normalizeLanguageValue(nextForm.language));
+      } catch {
+        if (!active) return;
+        setMessage('Unable to load saved settings from server.');
+        setMessageType('error');
+        setAvatarUrl(session?.avatar || '');
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [apiBase, session?.userId, setLanguage]);
+
+  useEffect(() => () => {
+    if (autoSaveTimeoutRef.current) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+    }
+  }, []);
   const handleSave = async (event, options = {}) => {
     const {
       sourceForm = form,
@@ -165,97 +277,6 @@ export default function AdminSettingsPage() {
   };
 
   const updateField = (field, value) => {
-    if (field === 'language') {
-      setLanguage(normalizeLanguageValue(value));
-    }
-
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
-
-      if (!isLoading && AUTO_SAVE_FIELDS.has(field)) {
-        if (autoSaveTimeoutRef.current) {
-          window.clearTimeout(autoSaveTimeoutRef.current);
-        }
-        autoSaveTimeoutRef.current = window.setTimeout(() => {
-          handleSave(null, { sourceForm: next, withLoading: false, showSuccess: false });
-        }, 650);
-      }
-
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    let active = true;
-
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const headers = getAuthHeaders();
-        const [settingsResponse, userResponse] = await Promise.all([
-          fetch(`${apiBase}/admin/settings`, { headers }),
-          session?.userId
-            ? fetch(`${apiBase}/users/${session.userId}`, { headers })
-            : Promise.resolve(null),
-        ]);
-
-        let nextValues = {};
-        if (settingsResponse.ok) {
-          const settingsData = await settingsResponse.json();
-          const map = settingsData?.map || {};
-          nextValues = SETTING_DEFINITIONS.reduce((acc, item) => {
-            if (map[item.key] !== undefined && map[item.key] !== null) {
-              acc[item.field] = map[item.key];
-            }
-            return acc;
-          }, {});
-        }
-
-        let profileValues = {};
-        if (userResponse?.ok) {
-          const user = await userResponse.json();
-          profileValues = {
-            fullName: user?.name || undefined,
-            email: user?.email || undefined,
-          };
-        }
-
-        if (!active) return;
-        const nextForm = {
-          ...DEFAULT_FORM,
-          ...nextValues,
-          ...profileValues,
-          webhookEndpoints: Array.isArray(nextValues.webhookEndpoints)
-            ? nextValues.webhookEndpoints
-            : [],
-          currentPassword: '',
-          newPassword: '',
-        };
-        setForm(nextForm);
-        setLanguage(normalizeLanguageValue(nextForm.language));
-      } catch {
-        if (!active) return;
-        setMessage('Unable to load saved settings from server.');
-        setMessageType('error');
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    load();
-    return () => {
-      active = false;
-    };
-  }, [apiBase, session?.userId, setLanguage]);
-
-  useEffect(() => () => {
-    if (autoSaveTimeoutRef.current) {
-      window.clearTimeout(autoSaveTimeoutRef.current);
-    }
-  }, []);
-
   const handlePasswordUpdate = async () => {
     if (!form.currentPassword || !form.newPassword) {
       setMessage('Please provide current and new password.');
@@ -389,11 +410,22 @@ export default function AdminSettingsPage() {
               <div className="apsettings-card-title">{t('admin.settings.profile')}</div>
               <div className="apsettings-profile-grid">
                 <div className="apsettings-avatar-block">
-                  <img
-                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=160&q=80"
-                    alt="Admin profile"
-                    className="apsettings-avatar"
-                  />
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={form.fullName || 'Admin profile'}
+                      className="apsettings-avatar"
+                    />
+                  ) : (
+                    <div className="apsettings-avatar" aria-hidden="true">
+                      {(form.fullName || adminName || 'Admin')
+                        .split(' ')
+                        .map((part) => part[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()}
+                    </div>
+                  )}
                 </div>
                 <div className="apsettings-input-grid two-col">
                   <label className="apsettings-field">

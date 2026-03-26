@@ -21,6 +21,19 @@
   font-size: 14px;
 }
 
+.admin-report-message {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.admin-report-message-error {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
 .admin-report-actions {
   display: inline-flex;
   gap: 10px;
@@ -31,11 +44,18 @@
   border: 1px solid var(--admin-border);
   background: #fff;
   color: var(--admin-text);
-  padding: 9px 14px;
-  border-radius: 10px;
+  padding: 10px 16px;
+  border-radius: 12px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 17px;
   cursor: pointer;
+}
+
+.admin-report-ghost:disabled,
+.admin-primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .admin-report-kpis {
@@ -299,6 +319,13 @@
   gap: 10px;
 }
 
+.admin-report-placeholder-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .admin-report-map-row {
   display: grid;
   grid-template-columns: 1fr 2fr 0.5fr;
@@ -381,6 +408,14 @@
   display: flex;
   justify-content: space-between;
   gap: 12px;
+}
+
+.admin-report-filter-actions .admin-report-ghost,
+.admin-report-filter-actions .admin-primary-btn {
+  padding: 8px 14px;
+  font-size: 16px;
+  border-radius: 10px;
+  height: 40px;
 }
 
 .admin-report-bars {

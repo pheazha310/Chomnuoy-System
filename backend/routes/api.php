@@ -56,6 +56,7 @@ Route::post('/admin/profile/{user}', [AdminProfileController::class, 'update']);
 Route::post('/admin/profile/{user}/password', [AdminProfileController::class, 'updatePassword']);
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
+Route::get('/auth/providers/status', [SocialAuthController::class, 'status']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',
@@ -103,6 +104,7 @@ Route::apiResource('regional_map_markers', RegionalMapMarkerController::class);
 Route::get('notifications/stream', [NotificationController::class, 'stream']);
 Route::apiResource('notifications', NotificationController::class);
 Route::apiResource('audit_logs', AuditLogController::class);
+Route::get('report/admin-dashboard', [ReportController::class, 'adminDashboard']);
 Route::apiResource('report', ReportController::class);
 Route::apiResource('campaigns', CampaignController::class);
 Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donations']);

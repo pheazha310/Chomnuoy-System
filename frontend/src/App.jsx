@@ -4,8 +4,8 @@ import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
-
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
 const CampaignsPage = lazy(() => import('@/components/pages/CampaignsPage.jsx'));
@@ -18,7 +18,6 @@ const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
 const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
-const OAuthCallback = lazy(() => import('@/auth/OAuthCallback.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
 const MyDonation = lazy(() => import('@/app/donate/myDonation.jsx'));
 const ViewDetail = lazy(() => import('@/app/donate/viewDetail.jsx'));
@@ -40,6 +39,7 @@ const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
 const AdminProfilePage = lazy(() => import('@/app/admin/profile.jsx'));
 const AdminSettingsPage = lazy(() => import('@/app/admin/AdminSettingsPage.jsx'));
 const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboard.jsx'));
+const AdminOrganizationProfilePage = lazy(() => import('@/app/admin/organizationProfile.jsx'));
 const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdmin.jsx'));
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
@@ -344,6 +344,7 @@ export default function App() {
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
+    location.pathname === '/oauth/callback' ||
     location.pathname.startsWith('/organization/') ||
     location.pathname.startsWith('/admin');
   const session = getSession();
@@ -478,6 +479,38 @@ export default function App() {
             element={(
               <RequireAdminAuth>
                 <OrganizationDashboard />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/organizations/:id"
+            element={(
+              <RequireAdminAuth>
+                <AdminOrganizationProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/profile"
+            element={(
+              <RequireAdminAuth>
+                <AdminProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/reports"
+            element={(
+              <RequireAdminAuth>
+                <ReportsAdmin />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/settings"
+            element={(
+              <RequireAdminAuth>
+                <AdminSettingsPage />
               </RequireAdminAuth>
             )}
           />

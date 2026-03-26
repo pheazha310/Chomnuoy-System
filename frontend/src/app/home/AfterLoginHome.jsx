@@ -1,6 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import ROUTES from '@/constants/routes.js';
 import {
   Users,
   FileText,
@@ -199,8 +198,15 @@ function mapDonationMetrics(donationsData, userId) {
 function mapActivity(notificationsData, userId) {
   const notifications = Array.isArray(notificationsData) ? notificationsData : [];
   const filtered = userId
-    ? notifications.filter((item) => Number(item.user_id) === userId)
-    : notifications;
+    ? notifications.filter((item) => {
+        const recipientType = String(item.recipient_type || '').toLowerCase();
+        const recipientId = Number(item.recipient_id || 0);
+        if (recipientType) {
+          return recipientType === 'user' && recipientId === userId;
+        }
+        return Number(item.user_id) === userId;
+      })
+    : [];
 
   return filtered.slice(0, 4).map((item) => {
     const type = String(item.type || '').toLowerCase();
@@ -215,7 +221,6 @@ function mapActivity(notificationsData, userId) {
 }
 
 function AfterLoginHome() {
-  const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
   const cachedDashboard = useMemo(() => readDashboardCache(), []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
@@ -397,7 +402,9 @@ function AfterLoginHome() {
                       <span>{item.progressLabel}</span>
                     </div>
 
-                    <button type="button">Donate Now</button>
+                    <Link to="/donations" className="campaign-donate-link">
+                      Donate Now
+                    </Link>
                   </div>
                 </article>
               ))}
@@ -474,13 +481,9 @@ function AfterLoginHome() {
                 Start your own fundraising campaign for a cause
                 you care about.
               </p>
-              <button
-                type="button"
-                className=""
-                onClick={() => navigate(ROUTES.CAMPAIGNS)}
-              >
+              <Link to="/campaigns/donor" className="cta-start-link">
                 Start Campaign
-              </button>
+              </Link>
             </section>
           </aside>
         </section>
