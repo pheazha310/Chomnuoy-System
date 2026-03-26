@@ -19,6 +19,7 @@ import OrganizationSidebar from './OrganizationSidebar.jsx';
 import './organization.css';
 import './organization-reports.css';
 import apiClient from '@/services/api-client';
+import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -575,6 +576,7 @@ function SourceBreakdown({ items, orgId }) {
 
 
 export default function OrganizationReports() {
+  const { displayPrefs } = useGlobalTheme();
   const reportOrgId = getOrganizationId(getOrganizationSession());
   const [activeTab, setActiveTab] = useState('overview');
   const [trendData, setTrendData] = useState(defaultTrendData);
@@ -1478,9 +1480,14 @@ export default function OrganizationReports() {
       },
     ]
     : fallbackMaterialSummaryCards;
+  const themeClass = displayPrefs.highContrast
+    ? 'theme-contrast'
+    : displayPrefs.darkMode
+      ? 'theme-dark'
+      : '';
 
   return (
-    <div className="org-page report-page">
+    <div className={`org-page report-page ${themeClass}`}>
       <OrganizationSidebar />
 
       <div className="report-main-shell">

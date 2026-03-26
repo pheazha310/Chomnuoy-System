@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
 
 function getOrganizationSession() {
   try {
@@ -41,6 +42,7 @@ function formatMoney(value) {
 }
 
 export default function OrganizationProfilePage() {
+  const { displayPrefs } = useGlobalTheme();
   const session = useMemo(() => getOrganizationSession(), []);
   const storedProfile = useMemo(() => getStoredProfile(), []);
   const [orgData, setOrgData] = useState(null);
@@ -76,6 +78,11 @@ export default function OrganizationProfilePage() {
   const mapQuery = encodeURIComponent(
     storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
   );
+  const themeClass = displayPrefs.highContrast
+    ? 'theme-contrast'
+    : displayPrefs.darkMode
+      ? 'theme-dark'
+      : '';
 
   useEffect(() => {
     const sessionData = getOrganizationSession();
@@ -156,7 +163,7 @@ export default function OrganizationProfilePage() {
   };
 
   return (
-    <div className="org-page">
+    <div className={`org-page org-profile-page ${themeClass}`}>
       <OrganizationSidebar />
       <main className="org-main">
         <section className="org-profile-header">
@@ -184,7 +191,7 @@ export default function OrganizationProfilePage() {
         </section>
 
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="org-profile-error">
             {error}
           </div>
         ) : null}
