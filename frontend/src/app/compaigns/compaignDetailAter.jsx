@@ -164,6 +164,7 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(Boolean(cachedCampaigns));
   const [error, setError] = useState('');
   const [donorName, setDonorName] = useState('Donor');
+  const [donorAvatar, setDonorAvatar] = useState('');
   const [totalDonated, setTotalDonated] = useState(Number(cachedMetrics?.totalDonated || 0));
   const [impactScore, setImpactScore] = useState(Number(cachedMetrics?.impactScore || 0));
 
@@ -194,6 +195,7 @@ export default function App() {
     const userId = Number(session?.userId ?? 0);
     const name = typeof session?.name === 'string' ? session.name.trim() : '';
     setDonorName(name || 'Donor');
+    setDonorAvatar(typeof session?.avatar === 'string' ? session.avatar.trim() : '');
     fetch(`${apiBase}/campaigns`)
       .then((response) => {
         if (!response.ok) {
@@ -262,6 +264,16 @@ export default function App() {
     setVisibleCount(6);
   }, [selectedFilter]);
 
+  const donorInitials = useMemo(() => {
+    return (donorName || 'Donor')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'D';
+  }, [donorName]);
+
   const filterButtons = [
     {
       key: 'All Campaigns',
@@ -312,9 +324,26 @@ export default function App() {
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {/* Welcome & Stats Summary */}
         <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-          <div>
-            <h1 className="text-[2.35rem] font-black tracking-tight text-slate-950">Active Fundraising Campaigns</h1>
-            <p className="mt-1 text-sm text-slate-500">Hello, {donorName}. You&apos;ve helped 12 causes this year. Keep the momentum going!</p>
+          <div className="flex items-center gap-4 rounded-[28px] border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+              {donorAvatar ? (
+                <img
+                  src={donorAvatar}
+                  alt={donorName}
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(180deg,#e8f1ff_0%,#dbe9ff_100%)] text-xl font-black text-[#1f7de2]">
+                  {donorInitials}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-500">Welcome back,</p>
+              <h1 className="text-[2.35rem] font-black leading-none tracking-tight text-slate-950">{donorName}</h1>
+              <p className="mt-1 text-sm text-slate-500">Explore active campaigns and continue supporting community needs.</p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-4">
             <StatsCard 

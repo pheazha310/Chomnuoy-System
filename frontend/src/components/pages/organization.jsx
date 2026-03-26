@@ -191,6 +191,20 @@ function Organization() {
   const { organizationId } = useParams();
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+  const donorDisplayName = useMemo(() => {
+    const rawName = typeof donorSession?.name === 'string' ? donorSession.name.trim() : '';
+    return rawName || 'Donor';
+  }, [donorSession?.name]);
+  const donorAvatar = typeof donorSession?.avatar === 'string' ? donorSession.avatar.trim() : '';
+  const donorInitials = useMemo(() => (
+    donorDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'D'
+  ), [donorDisplayName]);
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -592,13 +606,17 @@ function Organization() {
           <aside className="donor-org-sidebar donor-animate-sidebar">
             <section className="donor-org-panel donor-user-panel donor-animate-panel" style={{ animationDelay: '80ms' }}>
               <div className="donor-user-head">
-                <img
-                  src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                  alt={donorSession.name || 'Donor'}
-                />
+                {donorAvatar ? (
+                  <img
+                    src={donorAvatar}
+                    alt={donorDisplayName}
+                  />
+                ) : (
+                  <span className="donor-user-avatar-fallback" aria-hidden="true">{donorInitials}</span>
+                )}
                 <div>
                   <p>Welcome back,</p>
-                  <strong>{donorSession.name || 'Alex Rivera'}</strong>
+                  <strong>{donorDisplayName}</strong>
                 </div>
               </div>
               <div className="donor-user-stat">

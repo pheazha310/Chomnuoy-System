@@ -332,11 +332,17 @@ export default function MyProfilePage() {
             <div className="px-6 py-8">
               <div className="flex flex-col items-center">
                 <div className="relative h-36 w-36">
-                  <img
-                    src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80'}
-                    alt="Profile preview"
-                    className="h-36 w-36 rounded-full border border-[#E2E8F0] object-cover shadow-[0_8px_24px_rgba(15,23,42,0.15)]"
-                  />
+                  {formData.avatar ? (
+                    <img
+                      src={formData.avatar}
+                      alt="Profile preview"
+                      className="h-36 w-36 rounded-full border border-[#E2E8F0] object-cover shadow-[0_8px_24px_rgba(15,23,42,0.15)]"
+                    />
+                  ) : (
+                    <div className="flex h-36 w-36 items-center justify-center rounded-full border border-[#E2E8F0] bg-[linear-gradient(180deg,#EAF3FF_0%,#DDEBFF_100%)] text-4xl font-black text-[#1D4ED8] shadow-[0_8px_24px_rgba(15,23,42,0.15)]">
+                      {avatarInitials}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
