@@ -13,7 +13,9 @@ function getOrganizationSession() {
 function getStoredProfile() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_org_profile');
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return JSON.parse(raw);
+    const fallbackRaw = window.localStorage.getItem('chomnuoy_org_info');
+    return fallbackRaw ? JSON.parse(fallbackRaw) : null;
   } catch {
     return null;
   }
@@ -31,8 +33,8 @@ function getInitials(name) {
 function Topbar({ notifications, setNotifications }) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [activeNotificationTab, setActiveNotificationTab] = useState('all');
+  const [storedProfile, setStoredProfile] = useState(() => getStoredProfile());
   const session = getOrganizationSession();
-  const storedProfile = getStoredProfile();
   const organizationName = storedProfile?.name || session?.name || 'Organization';
   const organizationLogo = storedProfile?.logo || '';
   const roleLabel = session?.role === 'Organization' ? 'Administrator' : (session?.role || 'Administrator');
@@ -55,6 +57,19 @@ function Topbar({ notifications, setNotifications }) {
       }).catch(() => null);
     });
   };
+
+  useEffect(() => {
+    const syncProfile = () => {
+      setStoredProfile(getStoredProfile());
+    };
+
+    window.addEventListener('storage', syncProfile);
+    window.addEventListener('chomnuoy-org-profile-updated', syncProfile);
+    return () => {
+      window.removeEventListener('storage', syncProfile);
+      window.removeEventListener('chomnuoy-org-profile-updated', syncProfile);
+    };
+  }, []);
 
   return (
     <>
