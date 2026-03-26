@@ -108,7 +108,6 @@ Route::apiResource('campaigns', CampaignController::class);
 Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donations']);
 Route::get('campaigns/{campaign}/velocity', [CampaignController::class, 'velocity']);
 Route::apiResource('campaign_image', CampaignImageController::class);
-<<<<<<< HEAD
 Route::apiResource('campaign_update', CampaignUpdateController::class);
 
 // Admin Settings Routes
@@ -118,7 +117,3 @@ Route::get('admin/settings/{key}', [AdminSettingsController::class, 'show']);
 Route::post('admin/settings', [AdminSettingsController::class, 'store']);
 Route::put('admin/settings/{key}', [AdminSettingsController::class, 'update']);
 Route::delete('admin/settings/{key}', [AdminSettingsController::class, 'destroy']);
-
-=======
-Route::apiResource('campaign_update', CampaignUpdateController::class);
->>>>>>> f0498fc17eec8e3dc0fc43d07599212388f35d86
