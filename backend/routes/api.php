@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserCredentialController;
 use App\Http\Controllers\Api\UserHistoryController;
 use App\Http\Controllers\Api\UserRoleController;
+use App\Http\Controllers\Api\ProfileController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -48,14 +49,18 @@ Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
 Route::get('/files/{path}', function (string $path) {
-    abort_unless(Storage::disk('public')->exists($path), 404);
-    return Storage::disk('public')->response($path);
+    $disk = Storage::disk('public');
+
+    abort_unless($disk->exists($path), 404);
+
+    return response()->file($disk->path($path));
 })->where('path', '.*');
 Route::get('/admin/profile/{user}', [AdminProfileController::class, 'show']);
 Route::post('/admin/profile/{user}', [AdminProfileController::class, 'update']);
 Route::post('/admin/profile/{user}/password', [AdminProfileController::class, 'updatePassword']);
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
+Route::get('/auth/providers/status', [SocialAuthController::class, 'status']);
 Route::get('/health', function (): JsonResponse {
     return response()->json([
         'status' => 'ok',
@@ -112,6 +117,18 @@ Route::apiResource('campaign_image', CampaignImageController::class);
 Route::apiResource('campaign_update', CampaignUpdateController::class);
 Route::post('bakong/transactions', [BakongTransactionController::class, 'store']);
 Route::post('bakong/transactions/{tranId}/verify', [BakongTransactionController::class, 'verify']);
+
+// Profile Routes
+Route::get('/profile/me', [ProfileController::class, 'me']);
+Route::put('/profile/me', [ProfileController::class, 'updateMe']);
+Route::post('/profile/me/password', [ProfileController::class, 'updatePassword']);
+Route::post('/profile/me/avatar', [ProfileController::class, 'uploadAvatar']);
+Route::get('/profile/{user}', [ProfileController::class, 'show']);
+Route::put('/profile/{user}', [ProfileController::class, 'update']);
+Route::post('/profile/{user}/password', [ProfileController::class, 'updatePassword']);
+Route::post('/profile/{user}/avatar', [ProfileController::class, 'uploadAvatar']);
+Route::post('/profile/{user}/activities', [ProfileController::class, 'addActivity']);
+Route::delete('/profile/{user}/activities/{activity}', [ProfileController::class, 'deleteActivity']);
 
 // Admin Settings Routes
 Route::get('admin/settings', [AdminSettingsController::class, 'index']);

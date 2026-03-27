@@ -35,7 +35,17 @@ const SETTING_DEFINITIONS = [
   { key: 'integration.api_key', section: 'integration', field: 'apiKey' },
   { key: 'integration.webhook_endpoints', section: 'integration', field: 'webhookEndpoints' },
 ];
+
 const AUTO_SAVE_FIELDS = new Set(SETTING_DEFINITIONS.map((item) => item.field));
+
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function AdminSettingsPage() {
   const { t, setLanguage } = useLanguage();
@@ -51,8 +61,7 @@ export default function AdminSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const autoSaveTimeoutRef = useRef(null);
 
-  const sessionRaw = window.localStorage.getItem('chomnuoy_session');
-  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const session = getSession();
   const adminName = session?.name || 'Admin';
   const adminRole = session?.role || session?.accountType || 'Admin';
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -90,7 +99,6 @@ export default function AdminSettingsPage() {
       return next;
     });
   };
-
   const getAuthHeaders = () => {
     const token = window.localStorage.getItem('authToken');
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -107,7 +115,7 @@ export default function AdminSettingsPage() {
         return firstError[0];
       }
     } catch {
-      // ignore parse error and use fallback
+      // Fall back to the default message.
     }
     return fallback;
   };
@@ -190,7 +198,6 @@ export default function AdminSettingsPage() {
       window.clearTimeout(autoSaveTimeoutRef.current);
     }
   }, []);
-
   const handleSave = async (event, options = {}) => {
     const {
       sourceForm = form,
@@ -247,19 +254,13 @@ export default function AdminSettingsPage() {
         }
       }
 
-      if (sessionRaw) {
-        try {
-          const parsed = JSON.parse(sessionRaw);
-          const updatedSession = {
-            ...parsed,
-            name: sourceForm.fullName,
-            email: sourceForm.email,
-          };
-          window.localStorage.setItem('chomnuoy_session', JSON.stringify(updatedSession));
-        } catch {
-          // ignore session parse issue
-        }
-      }
+      const nextSession = {
+        ...(getSession() || {}),
+        name: sourceForm.fullName,
+        email: sourceForm.email,
+      };
+      window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+      window.dispatchEvent(new Event('chomnuoy-session-updated'));
 
       if (showSuccess) {
         setMessage('Settings saved successfully.');
@@ -363,6 +364,17 @@ export default function AdminSettingsPage() {
     window.location.href = '/login';
   };
 
+  if (isLoading) {
+    return (
+      <div className="admin-shell">
+        <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
+        <main className="admin-main">
+          <div className="admin-panel">Loading settings...</div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-shell">
       <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
@@ -373,9 +385,7 @@ export default function AdminSettingsPage() {
             <div>
               <p className="apsettings-kicker">Admin Platform Settings & Configuration</p>
               <h1>{t('admin.settings.title')}</h1>
-              <p className="apsettings-subtitle">
-                {t('admin.settings.subtitle')}
-              </p>
+              <p className="apsettings-subtitle">{t('admin.settings.subtitle')}</p>
             </div>
             <button
               type="button"

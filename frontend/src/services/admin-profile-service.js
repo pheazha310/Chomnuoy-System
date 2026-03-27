@@ -8,8 +8,14 @@ export async function fetchAdminProfile(userId) {
 export async function updateAdminProfile(userId, payload) {
   const formData = new FormData();
   formData.append('name', payload.name);
+  formData.append('title', payload.title || '');
   formData.append('email', payload.email);
   formData.append('phone', payload.phone || '');
+  formData.append('bio', payload.bio || '');
+  formData.append('location', payload.location || '');
+  formData.append('website', payload.website || '');
+  formData.append('linkedin_url', payload.linkedin_url || '');
+  formData.append('skills', JSON.stringify(payload.skills || []));
   formData.append('two_factor_enabled', payload.twoFactorEnabled ? '1' : '0');
 
   if (payload.avatar) {

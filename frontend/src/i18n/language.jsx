@@ -12,6 +12,7 @@ const MESSAGES = {
     'admin.nav.donations': 'Donations',
     'admin.nav.transactions': 'Transactions',
     'admin.nav.notifications': 'Notifications',
+    'admin.nav.profile': 'Profile Admin',
     'admin.nav.settings': 'Settings',
     'admin.nav.logout': 'Logout',
     'admin.settings.title': 'Platform Settings',
@@ -56,6 +57,7 @@ const MESSAGES = {
     'currency.khr': 'KHR - Khmer Riel',
   },
   km: {
+    'admin.nav.profile': 'Profile Admin',
     'admin.nav.dashboard': 'ផ្ទាំងគ្រប់គ្រង',
     'admin.nav.users': 'អ្នកប្រើប្រាស់',
     'admin.nav.organizations': 'អង្គការ',

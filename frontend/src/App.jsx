@@ -4,6 +4,7 @@ import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
 import { OrganizationSettingsProvider } from '@/contexts/OrganizationSettingsContext';
 import { getAuthToken, getSession, isDonorSession, setAuthToken, setSession } from '@/services/session-service.js';
@@ -18,14 +19,15 @@ const OrganizationAfterLogin = lazy(() => import('@/components/pages/Organizatio
 const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
 const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
+const ProfilePage = lazy(() => import('@/components/pages/ProfilePage.jsx'));
 const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
-const OAuthCallback = lazy(() => import('@/auth/OAuthCallback.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
 const MyDonation = lazy(() => import('@/app/donate/myDonation.jsx'));
 const ViewDetail = lazy(() => import('@/app/donate/viewDetail.jsx'));
 const AccountSettings = lazy(() => import('@/app/setting/AccountSettings.jsx'));
 const OrganizationDashboardPage = lazy(() => import('@/app/organization/page.jsx'));
+const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
 const OrganizationDonationsPage = lazy(() => import('@/app/organization/donations.jsx'));
 const OrganizationCampaignsPage = lazy(() => import('@/app/organization/OrganizationCampaignsPage.jsx'));
 const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/OrganizationCampaignCreatePage.jsx'));
@@ -39,27 +41,51 @@ const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickup
 const AdminPage = lazy(() => import('@/app/admin/page.jsx'));
 const UserDashboard = lazy(() => import('@/app/admin/userDashboard.jsx'));
 const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
+const AdminProfilePage = lazy(() => import('@/app/admin/profile.jsx'));
+const AdminSettingsPage = lazy(() => import('@/app/admin/AdminSettingsPage.jsx'));
 const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboard.jsx'));
 const AdminOrganizationProfilePage = lazy(() => import('@/app/admin/organizationProfile.jsx'));
 const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdmin.jsx'));
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
 const TransactionAdminPage = lazy(() => import('@/app/admin/transactionAdmin.jsx'));
-const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
 const ReportsAdmin = lazy(() => import('@/components/pages/reports/ReportsAdmin.jsx'));
-const AdminSettingsPage = lazy(() => import('@/app/admin/AdminSettingsPage.jsx'));
-const AdminProfilePage = lazy(() => import('@/app/admin/profile.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
 const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
+
+function PageLoader() {
+  useEffect(() => {
+    const bar = document.getElementById('nprogress-bar');
+    if (!bar) return;
+    bar.style.width = '30%';
+    const t1 = setTimeout(() => { bar.style.width = '70%'; }, 150);
+    const t2 = setTimeout(() => { bar.style.width = '90%'; }, 400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.width = '0%'; }, 300);
+    };
+  }, []);
+
+  return (
+    <div className="page-skeleton">
+      <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="skeleton-pulse" style={{ height: 18, width: '60%' }} />
+        <div className="skeleton-pulse" style={{ height: 14, width: '100%' }} />
+        <div className="skeleton-pulse" style={{ height: 14, width: '80%' }} />
+      </div>
+    </div>
+  );
+}
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
     return ROUTES.HOME;
   }
-
   return redirectParam;
 }
 
@@ -76,7 +102,7 @@ function getStorageFileUrl(path) {
   }
 
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
   if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
@@ -118,11 +144,9 @@ function normalizeAccountId(value) {
   if (value === null || value === undefined || value === '') {
     return null;
   }
-
   if (!/^\d+$/.test(String(value))) {
     return null;
   }
-
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     return null;
@@ -330,18 +354,11 @@ export default function App() {
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
+    location.pathname === '/oauth/callback' ||
     location.pathname.startsWith('/organization/') ||
     location.pathname.startsWith('/admin');
   const session = getSession();
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-
-  useEffect(() => {
-    const isPublicTheme = !session?.isLoggedIn;
-    document.body.classList.toggle('public-theme', isPublicTheme);
-    return () => {
-      document.body.classList.remove('public-theme');
-    };
-  }, [location.pathname, session?.isLoggedIn]);
 
   useEffect(() => {
     if (!session?.isLoggedIn || !session?.userId) return;
@@ -363,13 +380,8 @@ export default function App() {
   return (
     <>
       {!hideShell && <Navbar />}
-      <Suspense fallback={<div style={{ padding: '2rem', opacity: 0.5 }}>Loading...</div>}>
-        <div
-          key={location.pathname}
-          className="page-enter page-enter-active"
-          style={{ animation: `slide-up var(--duration-slow, 380ms) var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both` }}
-        >
-          <Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
           <Route path={ROUTES.HOME} element={<HomeRoute />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
@@ -499,6 +511,22 @@ export default function App() {
             )}
           />
           <Route
+            path="/admin/profile"
+            element={(
+              <RequireAdminAuth>
+                <AdminProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/settings"
+            element={(
+              <RequireAdminAuth>
+                <AdminSettingsPage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
             path="/admin/organizations"
             element={(
               <RequireAdminAuth>
@@ -515,26 +543,10 @@ export default function App() {
             )}
           />
           <Route
-            path="/admin/profile"
-            element={(
-              <RequireAdminAuth>
-                <AdminProfilePage />
-              </RequireAdminAuth>
-            )}
-          />
-          <Route
             path="/admin/reports"
             element={(
               <RequireAdminAuth>
                 <ReportsAdmin />
-              </RequireAdminAuth>
-            )}
-          />
-          <Route
-            path="/admin/settings"
-            element={(
-              <RequireAdminAuth>
-                <AdminSettingsPage />
               </RequireAdminAuth>
             )}
           />
@@ -601,13 +613,20 @@ export default function App() {
             path="/profile"
             element={(
               <RequireAuth>
+                <ProfilePage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/my-profile"
+            element={(
+              <RequireAuth>
                 <MyProfilePage />
               </RequireAuth>
             )}
           />
           <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
-          </Routes>
-        </div>
+        </Routes>
       </Suspense>
       {!hideShell && <Footer />}
     </>

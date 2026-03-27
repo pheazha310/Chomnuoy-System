@@ -118,6 +118,41 @@ export default function OrganizationProfilePage() {
       : []
   ).filter(Boolean);
 
+  const [latitude, setLatitude] = useState(storedProfile?.latitude || '');
+  const [longitude, setLongitude] = useState(storedProfile?.longitude || '');
+  const hasCoordinates = Boolean(latitude && longitude);
+
+  const updateStoredProfile = (coords) => {
+    try {
+      const existing = getStoredProfile() || {};
+      const updated = { ...existing, ...coords };
+      window.localStorage.setItem('chomnuoy_org_profile', JSON.stringify(updated));
+    } catch {
+      // ignore localStorage errors
+    }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        setLatitude(lat);
+        setLongitude(lng);
+        updateStoredProfile({ latitude: lat, longitude: lng });
+        setError('');
+      },
+      (err) => {
+        setError(err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  };
   const mapValue = storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia';
   const mapQuery = encodeURIComponent(mapValue);
   const websiteHref = sanitizeWebsite(storedProfile?.website || orgData?.website || '');
@@ -149,6 +184,14 @@ export default function OrganizationProfilePage() {
       .then(([organization, campaignsData, donationsData]) => {
         if (!active) return;
         setOrgData(organization);
+        if (!storedProfile?.latitude && organization?.latitude) {
+          setLatitude(organization.latitude);
+          updateStoredProfile({ latitude: organization.latitude });
+        }
+        if (!storedProfile?.longitude && organization?.longitude) {
+          setLongitude(organization.longitude);
+          updateStoredProfile({ longitude: organization.longitude });
+        }
 
         const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
         const donations = Array.isArray(donationsData) ? donationsData : [];
@@ -241,6 +284,7 @@ export default function OrganizationProfilePage() {
       email: storedProfile?.email || orgData?.email || session?.email || 'contact@chomnuoy.org',
       phone: storedProfile?.phone || orgData?.phone || 'N/A',
       location: storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
+      coordinates: hasCoordinates ? `${latitude}, ${longitude}` : 'Not set yet',
       website: storedProfile?.website || orgData?.website || 'N/A',
     },
     stats: [
@@ -295,8 +339,19 @@ export default function OrganizationProfilePage() {
             <article className="org-profile-card org-profile-map">
               <div className="org-profile-card-head">
                 <h2>Headquarters</h2>
-                <span className="org-profile-meta">{profile.contact.location}</span>
+                <span className="org-profile-meta">{hasCoordinates ? `${latitude}, ${longitude}` : profile.contact.location}</span>
               </div>
+              <p className="org-profile-location-caption">
+                {hasCoordinates ? `Saved coordinates: ${latitude} | ${longitude}` : 'No location set yet. Click below to detect current coordinates.'}
+              </p>
+              <button
+                type="button"
+                className="org-profile-btn"
+                onClick={detectLocation}
+                style={{ marginBottom: '0.6rem' }}
+              >
+                Detect My Location (Lat/Lng)
+              </button>
               <div className="org-profile-map-actions">
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
@@ -337,8 +392,8 @@ export default function OrganizationProfilePage() {
                   <p>{profile.contact.phone}</p>
                 </div>
                 <div>
-                  <small>Location</small>
-                  <p>{profile.contact.location}</p>
+                  <small>Coordinates</small>
+                  <p>{profile.contact.coordinates}</p>
                 </div>
                 <div>
                   <small>Website</small>

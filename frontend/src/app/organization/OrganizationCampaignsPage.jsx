@@ -114,16 +114,6 @@ export default function OrganizationCampaignsPage() {
     for (const candidate of candidates) {
       const rawValue = String(candidate || "").trim();
       if (!rawValue) continue;
-
-      if (
-        rawValue.startsWith("http://") ||
-        rawValue.startsWith("https://") ||
-        rawValue.startsWith("blob:") ||
-        rawValue.startsWith("data:")
-      ) {
-        return rawValue;
-      }
-
       return getStorageFileUrl(rawValue);
     }
 
