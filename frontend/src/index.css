@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 :root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 380ms;
   --font-sans: 'Source Sans 3', 'Noto Sans Khmer', sans-serif;
   --public-bg-1: #f7f2e8;
   --public-bg-2: #eef4ee;
@@ -27,8 +32,48 @@
   --line: #d3e1eb;
 }
 
+/* ── Smooth scroll ── */
+html {
+  scroll-behavior: smooth;
+}
+
 * {
   box-sizing: border-box;
+  font-family: inherit;
+}
+
+input, button, textarea, select {
+  font-family: var(--font-sans);
+}
+
+/* ── Global focus ring ── */
+:focus-visible {
+  outline: 2px solid #1f7de2;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Global link transitions ── */
+a {
+  transition: color var(--duration-fast) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out);
+}
+
+/* ── Global button transitions ── */
+button {
+  transition: transform var(--duration-fast) var(--ease-out),
+              box-shadow var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out);
+}
+
+/* ── Global image smoothing ── */
+img {
+  display: block;
+  max-width: 100%;
+  image-rendering: auto;
 }
 
 body {
@@ -37,6 +82,9 @@ body {
   font-family: var(--font-sans);
   color: var(--text-strong);
   background: #f4f8fc;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body.public-theme {
@@ -63,6 +111,59 @@ body.public-theme {
 
 #root {
   min-height: 100vh;
+}
+
+/* ── Page transition wrapper ── */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
+}
+
+/* ── Scroll-reveal utility ── */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Skeleton loading shimmer ── */
+.skeleton {
+  background: linear-gradient(90deg, #e8edf3 25%, #f4f7fb 50%, #e8edf3 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Smooth card hover (global) ── */
+.card-hover {
+  transition: transform var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+  will-change: transform;
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px rgba(15, 40, 65, 0.12);
 }
 
 .page {
@@ -223,11 +324,53 @@ body.public-theme {
   }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 @media (max-width: 1024px) {
   .hero,
   .stats,
   .highlights {
     animation: none;
+  }
+}
+
+/* ── Reduced motion: disable all animations & transitions ── */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 

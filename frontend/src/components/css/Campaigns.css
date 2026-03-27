@@ -214,7 +214,7 @@
 
 .campaigns-toolbar h1 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #16253b;
   font-size: 2rem;
 }
@@ -856,7 +856,7 @@
 
 .campaign-category {
   display: inline-block;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -869,7 +869,7 @@
 .campaign-hero-overlay h1 {
   margin: 0.45rem 0 0;
   color: #ffffff;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.4rem, 3vw, 2rem);
 }
 
@@ -939,7 +939,7 @@
 
 .campaign-updates h2 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .update-item + .update-item {
@@ -968,7 +968,7 @@
 
 .stat-amount {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 2rem;
 }
 
@@ -1187,7 +1187,7 @@
 .campaign-updates-v2 h2,
 .campaign-donors-v2 h2 {
   margin: 0 0 0.55rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #10294a;
   font-size: 1.55rem;
 }
@@ -1306,7 +1306,7 @@
 .campaign-hero-v2 h1 {
   margin: 0;
   color: #0f2847;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 3vw, 3rem);
   line-height: 1.05;
   max-width: 14ch;
@@ -1892,7 +1892,7 @@
 .donation-checkout-header h1 {
   margin: 0;
   color: #0e2740;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1.05;
 }
@@ -1951,7 +1951,7 @@
   align-items: center;
   gap: 0.55rem;
   color: #12304e;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.28rem;
 }
 
@@ -2070,7 +2070,7 @@
 .donation-qr-panel strong {
   color: #102b47;
   font-size: 1.55rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .donation-qr-panel p {
@@ -2347,7 +2347,7 @@
 
 .donation-summary-total strong {
   color: #0f2b47;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.6rem, 3vw, 2.2rem);
   line-height: 1;
 }
@@ -2596,7 +2596,7 @@
 .donation-success-card h1 {
   margin: 0;
   color: #112c46;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(2rem, 4vw, 3.25rem);
   line-height: 1.05;
 }
@@ -2832,7 +2832,7 @@
 .donation-success-next h2 {
   margin: 0 0 1rem;
   color: #112d47;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.45rem;
 }
 

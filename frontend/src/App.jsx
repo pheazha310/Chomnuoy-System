@@ -363,8 +363,13 @@ export default function App() {
   return (
     <>
       {!hideShell && <Navbar />}
-      <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
-        <Routes>
+      <Suspense fallback={<div style={{ padding: '2rem', opacity: 0.5 }}>Loading...</div>}>
+        <div
+          key={location.pathname}
+          className="page-enter page-enter-active"
+          style={{ animation: `slide-up var(--duration-slow, 380ms) var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both` }}
+        >
+          <Routes>
           <Route path={ROUTES.HOME} element={<HomeRoute />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
@@ -601,7 +606,8 @@ export default function App() {
             )}
           />
           <Route path="/settings" element={<div style={{ padding: '2rem' }}>Settings Page</div>} />
-        </Routes>
+          </Routes>
+        </div>
       </Suspense>
       {!hideShell && <Footer />}
     </>
