@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useLanguage } from '@/i18n/language.jsx';
 import './style.css';
 
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
@@ -105,6 +106,20 @@ const NAV_ITEMS = [
 const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const { t } = useLanguage();
+
+  const navLabels = {
+    Dashboard: t('admin.nav.dashboard'),
+    Users: t('admin.nav.users'),
+    Organizations: t('admin.nav.organizations'),
+    'Material Pickups': t('admin.nav.materialPickups'),
+    Reports: t('admin.nav.reports'),
+    Donations: t('admin.nav.donations'),
+    Transactions: t('admin.nav.transactions'),
+    Notifications: t('admin.nav.notifications'),
+    Profile: t('admin.nav.profile'),
+    Settings: t('admin.nav.settings'),
+  };
 
   const readSessionAvatar = () => {
     try {
@@ -196,37 +211,24 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
       </div>
 
       <nav className="admin-nav">
-        {NAV_ITEMS.map((item) => {
-          if (item.path) {
-            return (
-              <NavLink
-                key={item.label}
-                to={item.path}
-                className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
-                end={item.path === '/admin'}
-              >
-                <span className="admin-nav-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span className="admin-nav-label">{item.label}</span>
-                {item.showBadge && unreadCount > 0 ? (
-                  <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
-                    {unreadCount}
-                  </span>
-                ) : null}
-              </NavLink>
-            );
-          }
-
-          return (
-            <button key={item.label} type="button" className="admin-nav-item">
-              <span className="admin-nav-icon" aria-hidden="true">
-                {item.icon}
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path}
+            className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
+            end={item.path === '/admin'}
+          >
+            <span className="admin-nav-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span className="admin-nav-label">{navLabels[item.label] || item.label}</span>
+            {item.showBadge && unreadCount > 0 ? (
+              <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount}
               </span>
-              <span className="admin-nav-label">{item.label}</span>
-            </button>
-          );
-        })}
+            ) : null}
+          </NavLink>
+        ))}
       </nav>
 
       <div className="admin-sidebar-footer">
@@ -254,7 +256,7 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
             <path d="M15 12H3" />
             <path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
           </svg>
-          <span>Logout</span>
+          <span>{t('admin.nav.logout') || 'Logout'}</span>
         </button>
       </div>
     </aside>

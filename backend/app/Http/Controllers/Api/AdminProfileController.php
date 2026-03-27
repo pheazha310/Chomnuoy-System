@@ -25,8 +25,14 @@ class AdminProfileController extends Controller
             'basic_information' => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'title' => $user->title,
                 'email' => $user->email,
                 'phone' => $user->phone,
+                'bio' => $user->bio,
+                'location' => $user->location,
+                'website' => $user->website,
+                'linkedin_url' => $user->linkedin_url,
+                'skills' => json_decode($user->skills ?? '[]', true),
                 'profile_picture' => $user->avatar_url,
                 'avatar_path' => $user->avatar_path,
                 'role' => $roleName,
@@ -44,6 +50,16 @@ class AdminProfileController extends Controller
                 'access_levels' => $this->accessLevelsForRole($roleName),
             ],
             'activity_log' => $this->activityLogForUser($user),
+            'network_stats' => [
+                'rank' => $user->network_rank ?? 'Top 10%',
+                'connections_count' => $user->connections_count ?? 0,
+                'project_reviews_count' => $user->project_reviews_count ?? 0,
+            ],
+            'platform_stats' => [
+                'users_managed' => User::count(),
+                'organizations_count' => \App\Models\Organization::count(),
+                'total_donations' => \App\Models\Donation::where('status', 'completed')->sum('amount'),
+            ],
         ]);
     }
 
@@ -51,11 +67,24 @@ class AdminProfileController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:30'],
+            'bio' => ['nullable', 'string', 'max:5000'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255'],
+            'linkedin_url' => ['nullable', 'string', 'max:255'],
+            'skills' => ['nullable'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'two_factor_enabled' => ['nullable', 'boolean'],
         ]);
+
+        // Handle skills as JSON
+        if (isset($data['skills']) && is_array($data['skills'])) {
+            $data['skills'] = json_encode($data['skills']);
+        } elseif (isset($data['skills']) && is_string($data['skills'])) {
+            $data['skills'] = json_encode(explode(',', $data['skills']));
+        }
 
         if ($request->hasFile('avatar')) {
             if ($user->avatar_path) {

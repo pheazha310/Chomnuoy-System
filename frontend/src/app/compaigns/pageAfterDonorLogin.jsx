@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+
 const fallbackCampaignImage =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(

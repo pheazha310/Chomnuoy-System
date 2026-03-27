@@ -12,5 +12,5 @@ function HeroSection({ content, backendStatus }) {
     </header>
   );
 }
-
 export default HeroSection;
+

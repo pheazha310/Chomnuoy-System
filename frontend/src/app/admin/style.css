@@ -185,6 +185,7 @@
   place-items: center;
   flex-shrink: 0;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .admin-avatar img {
@@ -241,6 +242,51 @@
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.admin-settings-page {
+  display: grid;
+  gap: 24px;
+}
+
+.admin-settings-card {
+  max-width: 860px;
+}
+
+.admin-settings-form {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-settings-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-settings-form label span {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-settings-form input,
+.admin-settings-form select {
+  width: 100%;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--admin-text);
+  background: #fff;
+}
+
+.admin-settings-form input:focus,
+.admin-settings-form select:focus {
+  outline: none;
+  border-color: rgba(46, 92, 255, 0.5);
+  box-shadow: 0 0 0 4px rgba(46, 92, 255, 0.1);
 }
 
 .admin-icon-btn {
@@ -1204,7 +1250,6 @@
     font-size: 24px;
   }
 }
-
 .admin-profile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1498,4 +1543,3 @@
     font-size: 24px;
   }
 }
-

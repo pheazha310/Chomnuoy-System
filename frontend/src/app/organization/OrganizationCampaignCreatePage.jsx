@@ -891,8 +891,8 @@ export default function OrganizationCampaignCreatePage() {
               : 'Campaign published.',
         );
       }
-      if (imageUploadWarning) {
-        setError(`Image upload failed. The campaign was saved, but no campaign image was attached yet. ${imageUploadWarning}`);
+      if (imageUploadFailures.length > 0) {
+        setError(`Image upload failed. The campaign was saved, but no campaign image was attached yet. ${imageUploadFailures.join(' ')}`);
         return;
       }
 

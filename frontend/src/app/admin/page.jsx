@@ -164,8 +164,8 @@ const AdminDashboard = () => {
     { id: 'tasks', label: 'Urgent Tasks', value: '0', change: 'Loading...', tone: 'warning' },
   ]);
   const [urgentTasks, setUrgentTasks] = useState([]);
-  const [urgentTaskTotal, setUrgentTaskTotal] = useState(0);
   const [allUrgentTasks, setAllUrgentTasks] = useState([]);
+  const [urgentTaskTotal, setUrgentTaskTotal] = useState(0);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
@@ -241,81 +241,11 @@ const AdminDashboard = () => {
         safeUsers.forEach((user) => addIfInRange(user?.created_at));
         safeOrgs.forEach((org) => addIfInRange(org?.created_at));
 
-        const customersToday = safeUsers.filter((user) => {
-          if (!user?.created_at) return false;
-          const createdAt = new Date(user.created_at);
-          if (Number.isNaN(createdAt.getTime())) return false;
-          return isSameDay(createdAt, now);
-        }).length;
-
-        const pendingOrganizations = safeOrgs
-          .filter((org) => isUrgentOrganization(org))
-          .sort((left, right) => new Date(left?.created_at || 0).getTime() - new Date(right?.created_at || 0).getTime());
-
-        const pendingUsers = safeUsers
-          .filter((user) => isUrgentUser(user))
-          .sort((left, right) => new Date(left?.created_at || 0).getTime() - new Date(right?.created_at || 0).getTime());
-
-        const combinedUrgentTasks = [
-          ...pendingUsers.map((user) => ({
-            title: `Review User ${user?.name || 'Unknown'}`,
-            description: 'User account is waiting for approval.',
-            due: formatTaskDue(user?.created_at),
-            tone: 'warning',
-            createdAt: user?.created_at ? new Date(user.created_at).getTime() : 0,
-          })),
-          ...pendingOrganizations.map((org) => ({
-            title: `Review Organization ${org?.name || 'Organization'}`,
-            description: 'Organization registration is waiting for verification.',
-            due: formatTaskDue(org?.created_at),
-            tone: 'warning',
-            createdAt: org?.created_at ? new Date(org.created_at).getTime() : 0,
-          })),
-        ].sort((left, right) => left.createdAt - right.createdAt);
-
-        setOverviewStats([
-          {
-            id: 'customers-today',
-            label: 'Customers Today',
-            value: customersToday.toLocaleString(),
-            change: `${rangeDays}-day live data`,
-            tone: 'success',
-          },
-          {
-            id: 'total-customers',
-            label: 'Total Customers',
-            value: (safeUsers.length + safeOrgs.length).toLocaleString(),
-            change: `${safeUsers.length.toLocaleString()} users + ${safeOrgs.length.toLocaleString()} orgs`,
-            tone: 'info',
-          },
-          {
-            id: 'tasks',
-            label: 'Urgent Tasks',
-            value: combinedUrgentTasks.length.toLocaleString(),
-            change: combinedUrgentTasks.length > 0 ? 'Users and orgs need review' : 'All caught up',
-            tone: 'warning',
-          },
-        ]);
-
-        const mappedUrgentTasks = combinedUrgentTasks.map(({ createdAt, ...task }) => task);
-
-        setAllUrgentTasks(mappedUrgentTasks);
-        setUrgentTasks(
-          mappedUrgentTasks.slice(0, 3)
-        );
-
         setJoinCounts(counts);
       })
       .catch(() => {
         if (!active) return;
         setJoinCounts(Array.from({ length: rangeDays }, () => 0));
-        setOverviewStats([
-          { id: 'customers-today', label: 'Customers Today', value: '0', change: 'Unable to load', tone: 'success' },
-          { id: 'total-customers', label: 'Total Customers', value: '0', change: 'Unable to load', tone: 'info' },
-          { id: 'tasks', label: 'Urgent Tasks', value: '0', change: 'Unable to load', tone: 'warning' },
-        ]);
-        setUrgentTasks([]);
-        setAllUrgentTasks([]);
       })
       .finally(() => {
         if (active) setJoinLoading(false);
@@ -436,7 +366,8 @@ const AdminDashboard = () => {
             tone: 'warning',
           },
         ]);
-        setUrgentTasks(dynamicTasks);
+        setUrgentTasks(dynamicTasks.slice(0, 3));
+        setAllUrgentTasks(dynamicTasks);
         setUrgentTaskTotal(urgentCount);
       })
       .catch((err) => {
@@ -465,6 +396,7 @@ const AdminDashboard = () => {
           },
         ]);
         setUrgentTasks([]);
+        setAllUrgentTasks([]);
         setUrgentTaskTotal(0);
         setOverviewError(err instanceof Error ? err.message : 'Unable to load overview data.');
       })

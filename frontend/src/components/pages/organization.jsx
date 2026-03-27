@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import ROUTES from '@/constants/routes.js';
 import '../css/organization.css';
 
 const organizations = [
@@ -134,6 +135,7 @@ const donorOrganizations = [
 
 const PAGE_SIZE = 3;
 const DONOR_PAGE_SIZE = 4;
+
 const RATING_OPTIONS = [
   { value: 'all', label: 'All Ratings' },
   { value: '4plus', label: 'Rating: 4+ Stars' },
@@ -182,6 +184,8 @@ function getDonorSession() {
 
 function Organization() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { organizationId } = useParams();
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const donorDisplayName = useMemo(() => {
