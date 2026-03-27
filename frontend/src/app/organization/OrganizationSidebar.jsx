@@ -139,11 +139,6 @@ export default function OrganizationSidebar({ compact = false }) {
           </NavLink>
         </nav>
 
-        <div className="org-plan-card">
-          <p>Support Tier</p>
-          <strong>Pro Plan</strong>
-        </div>
-
         {/* Theme Controls */}
         <div className="org-theme-controls">
           <p>Display Settings</p>
