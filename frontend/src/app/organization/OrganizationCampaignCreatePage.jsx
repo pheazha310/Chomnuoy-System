@@ -1,9 +1,75 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bold, Image, Italic, List, UploadCloud } from 'lucide-react';
+import { ArrowLeft, Bold, Crosshair, Italic, List, MapPinned, Plus, Search, Trash2, UploadCloud } from 'lucide-react';
+import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 import './organization.css';
+
+const DEFAULT_COORDINATE_CENTER = [11.5564, 104.9282];
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+const MATERIAL_CATEGORY_OPTIONS = [
+  {
+    id: 'clothing',
+    label: 'Clothing',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9.5 5.5 12 7l2.5-1.5 2 2.5L20 9.5l-2 3V19a1 1 0 0 1-1 1h-3v-6h-4v6H7a1 1 0 0 1-1-1v-6.5l-2-3L7.5 8l2-2.5Z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'books',
+    label: 'Books',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 5.5A2.5 2.5 0 0 1 8.5 3H18v15H8.5A2.5 2.5 0 0 0 6 20.5V5.5Z" />
+        <path d="M6 5.5V20.5" />
+        <path d="M10 7h4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'electronics',
+    label: 'Electronics',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="5" width="16" height="10" rx="2" />
+        <path d="M8 19h8" />
+        <path d="M10 15v4" />
+        <path d="M14 15v4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3.5 19 7v10l-7 3.5L5 17V7l7-3.5Z" />
+        <path d="M5 7 12 11l7-4" />
+        <path d="M12 11v9.5" />
+      </svg>
+    ),
+  },
+];
+
+const createBudgetRow = (id, label = '', percentage = '', detail = '') => ({
+  id,
+  label,
+  percentage,
+  detail,
+});
 
 export default function OrganizationCampaignCreatePage() {
   const navigate = useNavigate();
@@ -12,10 +78,13 @@ export default function OrganizationCampaignCreatePage() {
   const imageInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const materialPhotoInputRef = useRef(null);
+  const locationSearchAbortRef = useRef(null);
   const [form, setForm] = useState({
     title: '',
     category: '',
     location: '',
+    latitude: '',
+    longitude: '',
     summary: '',
     goal: '',
     startDate: '',
@@ -40,12 +109,18 @@ export default function OrganizationCampaignCreatePage() {
   });
   const [imagePreviews, setImagePreviews] = useState([]);
   const [materialPhotos, setMaterialPhotos] = useState([]);
+  const [supportRequested, setSupportRequested] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingCampaign, setLoadingCampaign] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationSearchLoading, setLocationSearchLoading] = useState(false);
+  const [locationSearchResults, setLocationSearchResults] = useState([]);
+  const [locationError, setLocationError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [campaignType, setCampaignType] = useState('');
+  const [reviewAccepted, setReviewAccepted] = useState(false);
   const [typeError, setTypeError] = useState('');
   const [materialItem, setMaterialItem] = useState({
     category: 'clothing',
@@ -57,6 +132,18 @@ export default function OrganizationCampaignCreatePage() {
     { id: 'item-1', name: 'School Bags', quantity: 100, category: 'Education' },
     { id: 'item-2', name: 'Notebooks', quantity: 500, category: 'Education' },
   ]);
+  const [budgetRowsByType, setBudgetRowsByType] = useState({
+    monetary: [
+      createBudgetRow('budget-money-1', 'Direct Aid', '70', ''),
+      createBudgetRow('budget-money-2', 'Operations', '20', ''),
+      createBudgetRow('budget-money-3', 'Platform Fees', '10', ''),
+    ],
+    hybrid: [
+      createBudgetRow('budget-hybrid-1', 'Direct Aid & Supplies', '70', ''),
+      createBudgetRow('budget-hybrid-2', 'Logistics', '20', ''),
+      createBudgetRow('budget-hybrid-3', 'Operations', '10', ''),
+    ],
+  });
 
   const steps = [
     { id: 'type', label: 'Campaign Type' },
@@ -83,13 +170,70 @@ export default function OrganizationCampaignCreatePage() {
     return Math.round((filled / fields.length) * 100);
   }, [form]);
 
+  const previewImage = imagePreviews[0]?.src || materialPhotos[0]?.src || '';
+  const previewCategory = form.category?.trim() || (campaignType === 'materials' ? 'Materials' : campaignType === 'monetary' ? 'Fundraising' : 'Impact');
+  const previewTitle = form.title?.trim() || (campaignType === 'materials' ? 'Item collection campaign' : campaignType === 'monetary' ? 'Fundraising campaign' : 'Hybrid impact campaign');
+  const previewMetric = campaignType === 'monetary'
+    ? `${form.goal ? `$${Number(form.goal).toLocaleString()}` : '$0'} target`
+    : campaignType === 'materials'
+      ? `${materialItem.quantity || 0} items requested`
+      : `Progress: ${completion}%`;
+  const reviewRaisedText = campaignType === 'materials'
+    ? `${materialItem.quantity || 0} items requested`
+    : `$0 raised of ${form.goal ? `$${Number(form.goal).toLocaleString()}` : '$0'}`;
+  const mediaTips = useMemo(() => {
+    const tips = [];
+    if (!previewImage) tips.push('Upload a cover image so donors immediately see your campaign.');
+    if (!form.title.trim()) tips.push('Add a clear campaign title before publishing.');
+    if (!form.category.trim()) tips.push('Choose a category so the preview feels complete.');
+    if (tips.length === 0) {
+      return [
+        'Your preview is live and updating with the current form values.',
+        'Use a sharp cover image and short title for better engagement.',
+        'Review the card on mobile before publishing.',
+      ];
+    }
+    return tips;
+  }, [form.category, form.title, previewImage]);
+
   const statusLabel = completion >= 90 ? 'Ready to Publish' : completion >= 50 ? 'In Progress' : 'Drafting';
+  const hasPickupCoordinates = form.latitude !== '' && form.longitude !== '' && Number.isFinite(Number(form.latitude)) && Number.isFinite(Number(form.longitude));
   const editId = useMemo(() => {
     const raw = searchParams.get('edit');
     if (!raw || !/^\d+$/.test(raw)) return null;
     return Number(raw);
   }, [searchParams]);
   const isEditing = Boolean(editId);
+
+  useEffect(() => () => {
+    if (locationSearchAbortRef.current) {
+      locationSearchAbortRef.current.abort();
+    }
+  }, []);
+
+  const getStorageFileUrl = (path) => {
+    if (!path) return '';
+    const rawPath = String(path).trim();
+    if (
+      rawPath.startsWith('http://') ||
+      rawPath.startsWith('https://') ||
+      rawPath.startsWith('blob:') ||
+      rawPath.startsWith('data:')
+    ) {
+      return rawPath;
+    }
+
+    const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const appBase = apiBase.replace(/\/api\/?$/, '');
+    if (normalizedPath.startsWith('uploads/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith('storage/')) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    return `${appBase}/storage/${normalizedPath}`;
+  };
 
   const getOrganizationSession = () => {
     try {
@@ -102,6 +246,303 @@ export default function OrganizationCampaignCreatePage() {
 
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const applyLocationSelection = (result) => {
+    const latitude = Number(result?.lat);
+    const longitude = Number(result?.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setLocationError('Selected location does not contain valid coordinates.');
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      location: result.display_name || prev.location,
+      latitude: latitude.toFixed(6),
+      longitude: longitude.toFixed(6),
+    }));
+    setLocationError('');
+    setLocationSearchResults([]);
+  };
+
+  const searchPickupLocation = async () => {
+    const query = form.location.trim();
+    if (!query) {
+      setLocationError('Enter an address or pickup area to search.');
+      setLocationSearchResults([]);
+      return;
+    }
+
+    if (locationSearchAbortRef.current) {
+      locationSearchAbortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    locationSearchAbortRef.current = controller;
+    setLocationSearchLoading(true);
+    setLocationError('');
+
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/search');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('limit', '5');
+      url.searchParams.set('countrycodes', 'kh');
+      url.searchParams.set('addressdetails', '1');
+      url.searchParams.set('q', query);
+
+      const response = await fetch(url.toString(), {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Location search failed (${response.status})`);
+      }
+
+      const results = await response.json();
+      if (!Array.isArray(results) || results.length === 0) {
+        setLocationSearchResults([]);
+        setLocationError('No matching locations were found. Try a more specific address.');
+        return;
+      }
+
+      setLocationSearchResults(results);
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      setLocationSearchResults([]);
+      setLocationError(err instanceof Error ? err.message : 'Unable to search locations right now.');
+    } finally {
+      if (locationSearchAbortRef.current === controller) {
+        locationSearchAbortRef.current = null;
+      }
+      setLocationSearchLoading(false);
+    }
+  };
+
+  const reverseLookupPickupLocation = async (latitude, longitude) => {
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('lat', String(latitude));
+      url.searchParams.set('lon', String(longitude));
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) return;
+      const result = await response.json();
+      if (typeof result?.display_name !== 'string' || !result.display_name.trim()) return;
+
+      setForm((prev) => ({
+        ...prev,
+        location: result.display_name,
+      }));
+    } catch {
+      // keep detected coordinates even if reverse lookup fails
+    }
+  };
+
+  const handleDetectPickupLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported on this device.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude.toFixed(6);
+        const longitude = position.coords.longitude.toFixed(6);
+        setForm((prev) => ({
+          ...prev,
+          latitude,
+          longitude,
+        }));
+        setLocationSearchResults([]);
+        setLocationLoading(false);
+        reverseLookupPickupLocation(latitude, longitude);
+      },
+      (geoError) => {
+        setLocationError(geoError?.message || 'Unable to detect your location.');
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+    );
+  };
+
+  const renderCoordinateTracker = ({
+    title = 'Map Coordinates',
+    description = 'Store latitude and longitude for a precise campaign location.',
+    mapTitle = 'Campaign location map preview',
+    emptyMessage = 'Add coordinates manually or use current location to preview the location on the map.',
+    inputClassName = 'mt-1.5 h-11 w-full rounded-xl border border-[#CFE0F6] bg-white px-4 text-base font-semibold normal-case tracking-normal text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]',
+    containerClassName = 'mt-3 overflow-hidden rounded-[26px] border border-[#D9E6F6] bg-[linear-gradient(180deg,#FBFDFF_0%,#F4F8FF_100%)] shadow-[0_16px_34px_rgba(15,23,42,0.06)]',
+    fieldsClassName = 'grid gap-3 lg:grid-cols-2',
+    statusLabel = hasPickupCoordinates ? 'Pinned' : 'Awaiting pin',
+  } = {}) => {
+    const previewCenter = hasPickupCoordinates
+      ? [Number(form.latitude), Number(form.longitude)]
+      : DEFAULT_COORDINATE_CENTER;
+
+    return (
+      <div className={containerClassName}>
+        <div className="border-b border-[#DDE8F5] px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#2563EB] shadow-[0_8px_20px_rgba(37,99,235,0.10)]">
+                  <MapPinned size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-base font-extrabold tracking-tight text-[#0F172A]">{title}</p>
+                    <span className="inline-flex rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#2563EB]">
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <p className="mt-1 max-w-lg text-sm leading-6 text-[#64748B]">{description}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDetectPickupLocation}
+              className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 self-start whitespace-nowrap rounded-xl border border-[#BFD6FF] bg-white px-4 text-sm font-bold text-[#2563EB] shadow-[0_8px_20px_rgba(37,99,235,0.08)] transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:text-[#1D4ED8] lg:w-auto"
+            >
+              <Crosshair size={16} />
+              {locationLoading ? 'Detecting...' : 'Use Current'}
+            </button>
+          </div>
+        </div>
+        <div className="px-4 py-4 sm:px-5">
+          <div className={fieldsClassName}>
+            <label className="rounded-[20px] border border-[#E6EEF8] bg-white/90 p-3.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#5F7595] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+              Latitude
+              <input
+                type="number"
+                step="0.000001"
+                min="-90"
+                max="90"
+                placeholder="11.5564"
+                value={form.latitude}
+                onChange={handleChange('latitude')}
+                className={inputClassName}
+              />
+            </label>
+            <label className="rounded-[20px] border border-[#E6EEF8] bg-white/90 p-3.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#5F7595] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+              Longitude
+              <input
+                type="number"
+                step="0.000001"
+                min="-180"
+                max="180"
+                placeholder="104.9282"
+                value={form.longitude}
+                onChange={handleChange('longitude')}
+                className={inputClassName}
+              />
+            </label>
+          </div>
+        </div>
+        <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+          {hasPickupCoordinates ? (
+            <div className="overflow-hidden rounded-[28px] border border-[#D7E3F4] bg-white shadow-[0_14px_28px_rgba(15,23,42,0.06)]">
+              <div className="h-[240px] w-full sm:h-[260px]">
+                <MapContainer
+                  key={`${previewCenter[0]}-${previewCenter[1]}`}
+                  center={previewCenter}
+                  zoom={13}
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution="&copy; OpenStreetMap contributors"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <Marker position={previewCenter}>
+                    <Popup>
+                      <strong>{mapTitle}</strong>
+                      <br />
+                      Lat: {Number(form.latitude).toFixed(5)}, Lng: {Number(form.longitude).toFixed(5)}
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </div>
+              <div className="flex flex-col gap-3 border-t border-[#E2E8F0] bg-[#FCFDFF] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#2563EB]">
+                    Coordinates saved
+                  </span>
+                  <p className="mt-1 text-sm font-medium text-[#64748B] sm:text-base">
+                    Lat {Number(form.latitude).toFixed(5)}, Lng {Number(form.longitude).toFixed(5)}
+                  </p>
+                </div>
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${form.latitude}&mlon=${form.longitude}#map=12/${form.latitude}/${form.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#2563EB] px-5 text-base font-bold text-white transition hover:bg-[#1D4ED8]"
+                >
+                  Open Map
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-[#CFE0F6] bg-white/80 px-6 py-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAF2FF] text-[#2563EB]">
+                <MapPinned size={20} />
+              </div>
+              <p className="mt-4 text-xl font-bold tracking-tight text-[#0F172A]">Map preview</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#64748B]">{emptyMessage}</p>
+            </div>
+          )}
+        </div>
+        {locationError ? (
+          <div className="border-t border-[#F3D2D2] bg-[#FFF7F7] px-5 py-3 text-sm font-medium text-[#DC2626] sm:px-6">
+            {locationError}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  const appendImageFiles = (files, replaceExisting = false) => {
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    imageFiles.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const src = reader.result;
+        if (typeof src !== 'string') return;
+        setImagePreviews((prev) => {
+          const nextItem = {
+            id: `${file.name}-${file.lastModified}-${index}`,
+            name: file.name,
+            src,
+            file,
+            isExisting: false,
+          };
+          if (replaceExisting) {
+            return [nextItem, ...prev.slice(1)];
+          }
+          return [...prev, nextItem];
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImagePreview = (id) => {
+    setImagePreviews((prev) => prev.filter((item) => item.id !== id));
   };
 
   const applyEditorChange = (nextValue, selectionStart, selectionEnd) => {
@@ -165,43 +606,15 @@ export default function OrganizationCampaignCreatePage() {
   const handleImagePick = (event) => {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const src = reader.result;
-      if (typeof src !== 'string') return;
-      setImagePreviews((prev) => [
-        ...prev,
-        {
-          id: `${file.name}-${file.lastModified}-${prev.length}`,
-          name: file.name,
-          src,
-        },
-      ]);
-    };
-    reader.readAsDataURL(file);
+    appendImageFiles([file], true);
+    event.target.value = '';
   };
 
   const handleGalleryPick = (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
-    files.forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const src = reader.result;
-        if (typeof src !== 'string') return;
-        setImagePreviews((prev) => [
-          ...prev,
-          {
-            id: `${file.name}-${file.lastModified}-${prev.length}`,
-            name: file.name,
-            src,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+    appendImageFiles(files);
+    event.target.value = '';
   };
 
   const handleHybridItemChange = (id, field, value) => {
@@ -219,6 +632,111 @@ export default function OrganizationCampaignCreatePage() {
 
   const handleRemoveHybridItem = (id) => {
     setHybridItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleBudgetRowChange = (budgetType, rowId, field, value) => {
+    setBudgetRowsByType((prev) => ({
+      ...prev,
+      [budgetType]: prev[budgetType].map((row) => (
+        row.id === rowId ? { ...row, [field]: value } : row
+      )),
+    }));
+  };
+
+  const handleAddBudgetRow = (budgetType) => {
+    setBudgetRowsByType((prev) => ({
+      ...prev,
+      [budgetType]: [
+        ...prev[budgetType],
+        createBudgetRow(`budget-${budgetType}-${Date.now()}`, '', '', ''),
+      ],
+    }));
+  };
+
+  const handleRemoveBudgetRow = (budgetType, rowId) => {
+    setBudgetRowsByType((prev) => {
+      const nextRows = prev[budgetType].filter((row) => row.id !== rowId);
+      return {
+        ...prev,
+        [budgetType]: nextRows.length > 0 ? nextRows : [createBudgetRow(`budget-${budgetType}-${Date.now()}`, '', '', '')],
+      };
+    });
+  };
+
+  const renderBudgetBreakdown = (budgetType) => {
+    const rows = budgetRowsByType[budgetType] || [];
+    const totalPercentage = rows.reduce((sum, row) => {
+      const value = Number(row.percentage);
+      return Number.isFinite(value) ? sum + value : sum;
+    }, 0);
+    const isBalanced = totalPercentage === 100;
+
+    return (
+      <section className="org-cpg-panel">
+        <div className="org-cpg-panel-head">
+          <div>
+            <h2>Budget Breakdown</h2>
+            <span>{rows.length} active rows</span>
+          </div>
+          <button type="button" className="org-cpg-add-btn" onClick={() => handleAddBudgetRow(budgetType)}>
+            <Plus size={14} />
+            Add Row
+          </button>
+        </div>
+        <div className="org-cpg-budget-head">
+          <div>
+            <strong>{totalPercentage}% allocated</strong>
+            <span>{isBalanced ? 'Budget total is balanced.' : 'Adjust rows until the total reaches 100%.'}</span>
+          </div>
+          <span className={`org-cpg-budget-total ${isBalanced ? 'is-balanced' : 'is-warning'}`}>
+            {isBalanced ? 'Ready' : `${100 - totalPercentage}% left`}
+          </span>
+        </div>
+        <div className="org-cpg-budget">
+          {rows.map((row) => (
+            <div key={row.id} className="org-cpg-budget-row is-editable">
+              <label>
+                Category
+                <input
+                  type="text"
+                  placeholder="Direct Aid"
+                  value={row.label}
+                  onChange={(event) => handleBudgetRowChange(budgetType, row.id, 'label', event.target.value)}
+                />
+              </label>
+              <label>
+                Percent
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="25"
+                  value={row.percentage}
+                  onChange={(event) => handleBudgetRowChange(budgetType, row.id, 'percentage', event.target.value)}
+                />
+              </label>
+              <label>
+                Detail
+                <input
+                  type="text"
+                  placeholder="Optional detail"
+                  value={row.detail}
+                  onChange={(event) => handleBudgetRowChange(budgetType, row.id, 'detail', event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="org-cpg-budget-remove"
+                onClick={() => handleRemoveBudgetRow(budgetType, row.id)}
+                aria-label="Remove budget row"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
   };
 
   const handleMaterialPhotoPick = (event) => {
@@ -241,6 +759,10 @@ export default function OrganizationCampaignCreatePage() {
     reader.readAsDataURL(file);
   };
 
+  const handleRequestSupport = () => {
+    setSupportRequested(true);
+  };
+
   const validateForm = () => {
     if (!form.title.trim()) return 'Campaign title is required.';
     if (!form.category.trim()) return 'Category is required.';
@@ -251,6 +773,32 @@ export default function OrganizationCampaignCreatePage() {
     if (!form.endDate) return 'End date is required.';
     if (!form.description.trim()) return 'Campaign description is required.';
     return '';
+  };
+
+  const uploadCampaignImages = async (campaignId) => {
+    const newImages = imagePreviews.filter((item) => item.file instanceof File);
+    if (newImages.length === 0) return [];
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const failures = [];
+
+    await Promise.all(newImages.map(async (item) => {
+      const body = new FormData();
+      body.append('campaign_id', String(campaignId));
+      body.append('image', item.file);
+
+      const response = await fetch(`${apiBase}/campaign_image`, {
+        method: 'POST',
+        body,
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        failures.push(message || `Failed to upload image (${response.status})`);
+      }
+    }));
+
+    return failures;
   };
 
   const handleSubmit = async (status) => {
@@ -280,6 +828,9 @@ export default function OrganizationCampaignCreatePage() {
           organization_id: organizationId,
           title: form.title.trim(),
           category: form.category.trim(),
+          location: form.location.trim(),
+          latitude: form.latitude ? Number(form.latitude) : null,
+          longitude: form.longitude ? Number(form.longitude) : null,
           goal_amount: Number(form.goal),
           start_date: form.startDate,
           end_date: form.endDate,
@@ -310,10 +861,27 @@ export default function OrganizationCampaignCreatePage() {
         throw new Error(message || `Failed to save campaign (${response.status})`);
       }
 
+      const savedCampaign = await response.json();
+      const savedCampaignId = Number(savedCampaign?.id ?? editId);
+      let imageUploadFailures = [];
+      if (savedCampaignId) {
+        imageUploadFailures = await uploadCampaignImages(savedCampaignId);
+      }
+
       if (isEditing) {
-        setSuccess('Campaign updated.');
+        setSuccess(
+          imageUploadFailures.length > 0
+            ? 'Campaign updated, but campaign images could not be uploaded.'
+            : 'Campaign updated.'
+        );
       } else {
-        setSuccess(status === 'draft' ? 'Draft saved.' : 'Campaign published.');
+        setSuccess(
+          imageUploadFailures.length > 0
+            ? (status === 'draft'
+              ? 'Draft saved, but campaign images could not be uploaded.'
+              : 'Campaign published, but campaign images could not be uploaded.')
+            : (status === 'draft' ? 'Draft saved.' : 'Campaign published.')
+        );
       }
       if (status === 'active') {
         try {
@@ -348,25 +916,62 @@ export default function OrganizationCampaignCreatePage() {
     setLoadingCampaign(true);
     setError('');
     setSuccess('');
-    fetch(`${apiBase}/campaigns/${editId}`)
-      .then((response) => {
+    Promise.all([
+      fetch(`${apiBase}/campaigns/${editId}`).then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to load campaign (${response.status})`);
         }
         return response.json();
-      })
-      .then((data) => {
+      }),
+      fetch(`${apiBase}/campaign_image?campaign_id=${editId}`).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load campaign images (${response.status})`);
+        }
+        return response.json();
+      }),
+    ])
+      .then(([data, images]) => {
         if (!mounted) return;
-        setForm({
+        setForm((prev) => ({
+          ...prev,
           title: data?.title || '',
           category: data?.category || '',
           location: data?.location || '',
+          latitude: data?.latitude ?? '',
+          longitude: data?.longitude ?? '',
           summary: data?.summary || '',
           goal: data?.goal_amount ?? '',
           startDate: data?.start_date || '',
           endDate: data?.end_date || '',
           description: data?.description || '',
-        });
+          payoutMethod: data?.payout_method || '',
+          accountName: data?.account_name || '',
+          currency: data?.currency || 'USD',
+          materialPriority: data?.material_priority || '',
+          pickupInstructions: data?.pickup_instructions || '',
+          payoutSchedule: data?.payout_schedule || '',
+          receiptMessage: data?.receipt_message || '',
+          donationTiers: data?.donation_tiers || '',
+          contactName: data?.contact_name || '',
+          contactPhone: data?.contact_phone || '',
+          storageCapacity: data?.storage_capacity || '',
+          pickupWindow: data?.pickup_window || '',
+          donorUpdates: data?.donor_updates || '',
+          distributionPlan: data?.distribution_plan || '',
+          volunteerNeeds: data?.volunteer_needs || '',
+          enableRecurring: Boolean(data?.enable_recurring),
+        }));
+        setCampaignType(data?.campaign_type || '');
+        setImagePreviews(
+          Array.isArray(images)
+            ? images.map((image) => ({
+              id: `existing-${image.id}`,
+              name: image.image_path || `Campaign image ${image.id}`,
+              src: getStorageFileUrl(image.image_path),
+              isExisting: true,
+            }))
+            : [],
+        );
       })
       .catch((err) => {
         if (!mounted) return;
@@ -436,6 +1041,7 @@ export default function OrganizationCampaignCreatePage() {
             <p className="mt-1 text-sm text-[#64748B]">Fill in the details to start your fundraising initiative.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <OrganizationIdentityPill />
             <button
               type="button"
               className="rounded-full border border-[#E2E8F0] bg-white px-6 py-2.5 text-sm font-semibold text-[#475569] shadow-[0_10px_22px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
@@ -669,12 +1275,7 @@ export default function OrganizationCampaignCreatePage() {
                         Item Category
                       </h3>
                       <div className="org-cpg-material-grid">
-                        {[
-                          { id: 'clothing', label: 'Clothing' },
-                          { id: 'books', label: 'Books' },
-                          { id: 'electronics', label: 'Electronics' },
-                          { id: 'other', label: 'Other' },
-                        ].map((item) => (
+                        {MATERIAL_CATEGORY_OPTIONS.map((item) => (
                           <button
                             key={item.id}
                             type="button"
@@ -682,7 +1283,9 @@ export default function OrganizationCampaignCreatePage() {
                             onClick={() => setMaterialItem((prev) => ({ ...prev, category: item.id }))}
                             aria-pressed={materialItem.category === item.id}
                           >
-                            <span className="org-cpg-material-icon" />
+                            <span className={`org-cpg-material-icon org-cpg-material-icon-${item.id}`} aria-hidden="true">
+                              {item.icon}
+                            </span>
                             <span>{item.label}</span>
                           </button>
                         ))}
@@ -690,6 +1293,29 @@ export default function OrganizationCampaignCreatePage() {
                     </div>
 
                     <div className="org-cpg-material-form">
+                      <label className="org-cpg-material-label">
+                        Campaign Title
+                        <input
+                          type="text"
+                          placeholder="e.g., School Supply Drive for Rural Students"
+                          value={form.title}
+                          onChange={handleChange('title')}
+                        />
+                      </label>
+                      <label className="org-cpg-material-label">
+                        Campaign Category
+                        <select
+                          value={form.category}
+                          onChange={handleChange('category')}
+                        >
+                          <option value="">Select Category</option>
+                          <option value="Education">Education</option>
+                          <option value="Healthcare">Healthcare</option>
+                          <option value="Environment">Environment</option>
+                          <option value="Community">Community</option>
+                          <option value="Infrastructure">Infrastructure</option>
+                        </select>
+                      </label>
                       <label className="org-cpg-material-label">
                         Item Name
                         <input
@@ -825,15 +1451,45 @@ export default function OrganizationCampaignCreatePage() {
                           <option value="Infrastructure">Infrastructure</option>
                         </select>
                       </label>
-                      <label className="text-sm font-semibold text-[#334155]">
+                      <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Campaign Location
-                        <input
-                          type="text"
-                          placeholder="City, Region"
-                          value={form.location}
-                          onChange={handleChange('location')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
+                        <div className="mt-2 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] xl:items-start">
+                          <div className="rounded-[26px] border border-[#E2E8F0] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)] p-5 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex rounded-full bg-[#E8F0FF] px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#1D4ED8]">
+                                Public location
+                              </span>
+                              <span className="inline-flex rounded-full bg-[#F8FAFC] px-3 py-1 text-[11px] font-semibold text-[#64748B]">
+                                Shown to donors
+                              </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-6 text-[#475569]">
+                              Use a place name donors immediately understand. Keep it short and recognizable.
+                            </p>
+                            <input
+                              type="text"
+                              placeholder="Address, commune, district, or landmark"
+                              value={form.location}
+                              onChange={handleChange('location')}
+                              className="mt-4 h-12 w-full rounded-2xl border border-[#D7E3F4] bg-white px-4 text-sm text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]"
+                            />
+                            <div className="mt-4 rounded-2xl border border-[#E5EDF8] bg-white px-4 py-3 text-sm text-[#475569]">
+                              <span className="font-extrabold uppercase tracking-[0.14em] text-[#5F7595]">Tip</span>
+                              <p className="mt-1 leading-6">
+                                Example: <span className="font-semibold text-[#0F172A]">Prek Pnov, Phnom Penh</span> or a full street address when needed.
+                              </p>
+                            </div>
+                          </div>
+                          {renderCoordinateTracker({
+                            title: 'Precise Map Pin',
+                            description: 'Use GPS or enter latitude and longitude to place the campaign exactly on the map.',
+                            mapTitle: 'Campaign location map preview',
+                            emptyMessage: 'Add coordinates or use current location to preview the map.',
+                            containerClassName: 'mt-0 overflow-hidden rounded-[26px] border border-[#DBE7F5] bg-[#F8FBFF] shadow-[0_10px_24px_rgba(15,23,42,0.04)]',
+                            fieldsClassName: 'grid gap-3 sm:grid-cols-2',
+                            statusLabel: hasPickupCoordinates ? 'Ready' : 'Pending',
+                          })}
+                        </div>
                       </label>
                       <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Short Summary
@@ -1014,13 +1670,66 @@ export default function OrganizationCampaignCreatePage() {
                       </label>
                       <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Drop-off / Pickup Location
-                        <input
-                          type="text"
-                          placeholder="Warehouse address or pickup area"
-                          value={form.location}
-                          onChange={handleChange('location')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
+                        <div className="mt-2 grid gap-3">
+                          <div className="space-y-2">
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <input
+                                type="text"
+                                placeholder="Warehouse address or pickup area"
+                                value={form.location}
+                                onChange={(event) => {
+                                  setForm((prev) => ({ ...prev, location: event.target.value }));
+                                  setLocationSearchResults([]);
+                                  setLocationError('');
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    searchPickupLocation();
+                                  }
+                                }}
+                                className="h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                              />
+                              <button
+                                type="button"
+                                onClick={searchPickupLocation}
+                                disabled={locationSearchLoading}
+                                className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#BFD6FF] bg-white px-4 text-sm font-bold text-[#2563EB] transition hover:border-[#93C5FD] hover:text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <Search size={16} />
+                                {locationSearchLoading ? 'Searching...' : 'Search'}
+                              </button>
+                            </div>
+                            {locationSearchResults.length > 0 ? (
+                              <div className="overflow-hidden rounded-2xl border border-[#D9E6F6] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+                                {locationSearchResults.map((result) => (
+                                  <button
+                                    type="button"
+                                    key={`${result.place_id}-${result.lat}-${result.lon}`}
+                                    onClick={() => applyLocationSelection(result)}
+                                    className="flex w-full items-start justify-between gap-3 border-b border-[#EEF3F9] px-4 py-3 text-left transition hover:bg-[#F8FBFF] last:border-b-0"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-[#0F172A]">{result.display_name}</p>
+                                      <p className="mt-1 text-xs text-[#64748B]">
+                                        Lat {Number(result.lat).toFixed(5)}, Lng {Number(result.lon).toFixed(5)}
+                                      </p>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-[#EAF2FF] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#2563EB]">
+                                      Pick
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                          {renderCoordinateTracker({
+                            title: 'Map Coordinates',
+                            description: 'Detect the pickup point and store its latitude and longitude with this campaign.',
+                            mapTitle: 'Pickup location map preview',
+                            emptyMessage: 'Add coordinates manually or use current location to preview the pickup point on the map.',
+                          })}
+                        </div>
                       </label>
                       <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
                         Handling Notes
@@ -1173,166 +1882,180 @@ export default function OrganizationCampaignCreatePage() {
                 )
               ) : null}
               {activeStep === 3 ? (
-                campaignType === 'materials' ? (
+                <>
                   <section className="org-cpg-panel">
                     <div className="org-cpg-panel-head">
-                      <h2>Logistics & Storage</h2>
-                      <span>Materials Ops</span>
+                      <h2>Media Assets</h2>
+                      <span>Campaign Gallery</span>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Storage Capacity
-                        <input
-                          type="text"
-                          placeholder="e.g., 200 boxes / 1 room"
-                          value={form.storageCapacity}
-                          onChange={handleChange('storageCapacity')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Preferred Pickup Window
-                        <input
-                          type="text"
-                          placeholder="Weekdays 9:00 - 16:00"
-                          value={form.pickupWindow}
-                          onChange={handleChange('pickupWindow')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Contact Person
-                        <input
-                          type="text"
-                          placeholder="Full name"
-                          value={form.contactName}
-                          onChange={handleChange('contactName')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Contact Phone
-                        <input
-                          type="tel"
-                          placeholder="+855 12 345 678"
-                          value={form.contactPhone}
-                          onChange={handleChange('contactPhone')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
-                        Handling Notes
-                        <textarea
-                          rows={3}
-                          placeholder="Special handling instructions, storage limits, or staff availability."
-                          value={form.pickupInstructions}
-                          onChange={handleChange('pickupInstructions')}
-                          className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                    </div>
-                  </section>
-                ) : campaignType === 'monetary' ? (
-                  <section className="org-cpg-panel">
-                    <div className="org-cpg-panel-head">
-                      <h2>Payment & Receipts</h2>
-                      <span>Funds Flow</span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Payout Schedule
-                        <select
-                          value={form.payoutSchedule}
-                          onChange={handleChange('payoutSchedule')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        >
-                          <option value="">Select schedule</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="biweekly">Bi-weekly</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                      </label>
-                      <label className="text-sm font-semibold text-[#334155]">
-                        Receipt Message
-                        <input
-                          type="text"
-                          placeholder="Short thank-you note on donor receipt"
-                          value={form.receiptMessage}
-                          onChange={handleChange('receiptMessage')}
-                          className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                      <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
-                        Suggested Donation Tiers
-                        <textarea
-                          rows={3}
-                          placeholder="$10 - Provides a hygiene kit&#10;$50 - Covers school supplies for 1 child"
-                          value={form.donationTiers}
-                          onChange={handleChange('donationTiers')}
-                          className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
-                        />
-                      </label>
-                    </div>
-                  </section>
-                ) : (
-                  <>
-                    <section className="org-cpg-panel">
-                      <div className="org-cpg-panel-head">
-                        <h2>Media Assets</h2>
-                        <span>Campaign Gallery</span>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <p className="text-sm font-semibold text-[#0F172A]">Campaign Cover Image</p>
-                          <p className="text-xs text-[#64748B]">High quality images increase donations by up to 30%.</p>
-                          <label className="mt-2 flex h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-center text-sm text-[#64748B]">
-                            <input
-                              ref={imageInputRef}
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImagePick}
-                              className="hidden"
-                            />
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E0EAFF] text-[#2563EB]">
-                              <UploadCloud className="h-5 w-5" />
-                            </div>
-                            <p className="mt-3 font-semibold text-[#0F172A]">Click to upload or drag and drop</p>
-                            <p className="text-xs text-[#94A3B8]">Recommended size: 1200 x 600px (PNG, JPG up to 5MB)</p>
-                          </label>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-semibold text-[#0F172A]">Gallery Photos</p>
-                          <p className="text-xs text-[#64748B]">Additional photos help donors visualize the impact.</p>
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F172A]">Campaign Cover Image</p>
+                        <p className="text-xs text-[#64748B]">High quality images increase donations by up to 30%.</p>
+                        <label className="mt-2 flex h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-center text-sm text-[#64748B]">
                           <input
-                            ref={galleryInputRef}
+                            ref={imageInputRef}
                             type="file"
                             accept="image/*"
-                            multiple
-                            onChange={handleGalleryPick}
+                            onChange={handleImagePick}
                             className="hidden"
                           />
-                          <button
-                            type="button"
-                            onClick={() => galleryInputRef.current?.click()}
-                            className="mt-2 inline-flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-2xl font-semibold text-[#94A3B8] hover:border-[#93C5FD]"
-                          >
-                            +
-                          </button>
-                        </div>
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E0EAFF] text-[#2563EB]">
+                            <UploadCloud className="h-5 w-5" />
+                          </div>
+                          <p className="mt-3 font-semibold text-[#0F172A]">Click to upload a cover image</p>
+                          <p className="text-xs text-[#94A3B8]">Recommended size: 1200 x 600px (PNG, JPG up to 5MB)</p>
+                        </label>
                       </div>
 
-                      {imagePreviews.length > 0 ? (
-                        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          {imagePreviews.map((image) => (
-                            <div className="overflow-hidden rounded-xl border border-[#E2E8F0]" key={image.id}>
-                              <img src={image.src} alt={image.name} className="h-24 w-full object-cover" />
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </section>
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F172A]">Gallery Photos</p>
+                        <p className="text-xs text-[#64748B]">Additional photos help donors visualize the impact.</p>
+                        <input
+                          ref={galleryInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleGalleryPick}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => galleryInputRef.current?.click()}
+                          className="mt-2 inline-flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-[#D7E3F5] bg-[#F8FAFF] text-2xl font-semibold text-[#94A3B8] hover:border-[#93C5FD]"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
 
+                    {imagePreviews.length > 0 ? (
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {imagePreviews.map((image, index) => (
+                          <div className="overflow-hidden rounded-xl border border-[#E2E8F0]" key={image.id}>
+                            <img src={image.src} alt={image.name} className="h-24 w-full object-cover" />
+                            <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-[#475569]">
+                              <span className="truncate font-medium">
+                                {index === 0 ? `Cover: ${image.name}` : image.name}
+                              </span>
+                              {!image.isExisting ? (
+                                <button
+                                  type="button"
+                                  className="font-semibold text-[#DC2626]"
+                                  onClick={() => removeImagePreview(image.id)}
+                                >
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {campaignType === 'materials' ? (
+                    <section className="org-cpg-panel">
+                      <div className="org-cpg-panel-head">
+                        <h2>Logistics & Storage</h2>
+                        <span>Materials Ops</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Storage Capacity
+                          <input
+                            type="text"
+                            placeholder="e.g., 200 boxes / 1 room"
+                            value={form.storageCapacity}
+                            onChange={handleChange('storageCapacity')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Preferred Pickup Window
+                          <input
+                            type="text"
+                            placeholder="Weekdays 9:00 - 16:00"
+                            value={form.pickupWindow}
+                            onChange={handleChange('pickupWindow')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Contact Person
+                          <input
+                            type="text"
+                            placeholder="Full name"
+                            value={form.contactName}
+                            onChange={handleChange('contactName')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Contact Phone
+                          <input
+                            type="tel"
+                            placeholder="+855 12 345 678"
+                            value={form.contactPhone}
+                            onChange={handleChange('contactPhone')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
+                          Handling Notes
+                          <textarea
+                            rows={3}
+                            placeholder="Special handling instructions, storage limits, or staff availability."
+                            value={form.pickupInstructions}
+                            onChange={handleChange('pickupInstructions')}
+                            className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                  ) : campaignType === 'monetary' ? (
+                    <section className="org-cpg-panel">
+                      <div className="org-cpg-panel-head">
+                        <h2>Payment & Receipts</h2>
+                        <span>Funds Flow</span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Payout Schedule
+                          <select
+                            value={form.payoutSchedule}
+                            onChange={handleChange('payoutSchedule')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          >
+                            <option value="">Select schedule</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="biweekly">Bi-weekly</option>
+                            <option value="monthly">Monthly</option>
+                          </select>
+                        </label>
+                        <label className="text-sm font-semibold text-[#334155]">
+                          Receipt Message
+                          <input
+                            type="text"
+                            placeholder="Short thank-you note on donor receipt"
+                            value={form.receiptMessage}
+                            onChange={handleChange('receiptMessage')}
+                            className="mt-2 h-11 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                        <label className="sm:col-span-2 text-sm font-semibold text-[#334155]">
+                          Suggested Donation Tiers
+                          <textarea
+                            rows={3}
+                            placeholder="$10 - Provides a hygiene kit&#10;$50 - Covers school supplies for 1 child"
+                            value={form.donationTiers}
+                            onChange={handleChange('donationTiers')}
+                            className="mt-2 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                          />
+                        </label>
+                      </div>
+                    </section>
+                  ) : (
                     <section className="org-cpg-panel">
                       <div className="org-cpg-panel-head">
                         <h2>Logistics Snapshot</h2>
@@ -1361,8 +2084,8 @@ export default function OrganizationCampaignCreatePage() {
                         </label>
                       </div>
                     </section>
-                  </>
-                )
+                  )}
+                </>
               ) : null}
 
               {activeStep === 4 ? (
@@ -1457,29 +2180,7 @@ export default function OrganizationCampaignCreatePage() {
                       />
                     </section>
 
-                    <section className="org-cpg-panel">
-                      <div className="org-cpg-panel-head">
-                        <h2>Budget Breakdown</h2>
-                        <button type="button" className="org-cpg-add-btn">Add Row</button>
-                      </div>
-                      <div className="org-cpg-budget">
-                        <div className="org-cpg-budget-row">
-                          <span>Direct Aid</span>
-                          <span>70%</span>
-                          <span>Optional detail</span>
-                        </div>
-                        <div className="org-cpg-budget-row">
-                          <span>Operations</span>
-                          <span>20%</span>
-                          <span>Optional detail</span>
-                        </div>
-                        <div className="org-cpg-budget-row">
-                          <span>Platform Fees</span>
-                          <span>10%</span>
-                          <span>Optional detail</span>
-                        </div>
-                      </div>
-                    </section>
+                    {renderBudgetBreakdown('monetary')}
                   </>
                 ) : (
                   <>
@@ -1554,29 +2255,7 @@ export default function OrganizationCampaignCreatePage() {
                       />
                     </section>
 
-                    <section className="org-cpg-panel">
-                      <div className="org-cpg-panel-head">
-                        <h2>Budget Breakdown</h2>
-                        <button type="button" className="org-cpg-add-btn">Add Row</button>
-                      </div>
-                      <div className="org-cpg-budget">
-                        <div className="org-cpg-budget-row">
-                          <span>Direct Aid & Supplies</span>
-                          <span>70%</span>
-                          <span>Optional detail</span>
-                        </div>
-                        <div className="org-cpg-budget-row">
-                          <span>Logistics</span>
-                          <span>20%</span>
-                          <span>Optional detail</span>
-                        </div>
-                        <div className="org-cpg-budget-row">
-                          <span>Operations</span>
-                          <span>10%</span>
-                          <span>Optional detail</span>
-                        </div>
-                      </div>
-                    </section>
+                    {renderBudgetBreakdown('hybrid')}
                   </>
                 )
               ) : null}
@@ -1863,11 +2542,19 @@ export default function OrganizationCampaignCreatePage() {
                       <span className="org-cpg-chip">Live</span>
                     </div>
                     <div className="org-cpg-live-preview">
-                      <div className="org-cpg-live-image" />
+                      <div className="org-cpg-live-image">
+                        {previewImage ? (
+                          <img src={previewImage} alt={previewTitle} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-center text-sm font-medium text-[#64748B]">
+                            Upload a cover image to see the live campaign card.
+                          </div>
+                        )}
+                      </div>
                       <div className="org-cpg-live-meta">
-                        <span className="org-cpg-live-tag">Education</span>
-                        <h4>School supplies for every child</h4>
-                        <p>$1,200 raised</p>
+                        <span className="org-cpg-live-tag">{previewCategory}</span>
+                        <h4>{previewTitle}</h4>
+                        <p>{previewMetric}</p>
                       </div>
                     </div>
                   </section>
@@ -1875,16 +2562,23 @@ export default function OrganizationCampaignCreatePage() {
                   <section className="org-cpg-tips is-media">
                     <h4>Tips for Success</h4>
                     <ul>
-                      <li>Use high-resolution photos.</li>
-                      <li>Show the beneficiaries.</li>
-                      <li>Natural lighting wins.</li>
+                      {mediaTips.map((tip) => (
+                        <li key={tip}>{tip}</li>
+                      ))}
                     </ul>
                   </section>
 
                   <section className="org-cpg-support">
                     <h4>Need a photographer?</h4>
                     <p>Our Chomnuoy partners can connect you with local volunteer photographers.</p>
-                    <button type="button">Request Support</button>
+                    <button type="button" onClick={handleRequestSupport} disabled={supportRequested}>
+                      {supportRequested ? 'Support Requested' : 'Request Support'}
+                    </button>
+                    {supportRequested ? (
+                      <p className="mt-3 text-xs font-semibold text-[#93C5FD]">
+                        Request saved. Our team can follow up with photo support details.
+                      </p>
+                    ) : null}
                   </section>
                 </>
               ) : null}
@@ -1897,11 +2591,19 @@ export default function OrganizationCampaignCreatePage() {
                       <span className="org-cpg-status-tag">{statusLabel}</span>
                     </div>
                     <div className="org-cpg-live-preview">
-                      <div className="org-cpg-live-image" />
+                      <div className="org-cpg-live-image">
+                        {previewImage ? (
+                          <img src={previewImage} alt={previewTitle} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-center text-sm font-medium text-[#64748B]">
+                            Upload a cover image to preview the campaign card.
+                          </div>
+                        )}
+                      </div>
                       <div className="org-cpg-live-meta">
-                        <span className="org-cpg-live-tag">Impact</span>
-                        <h4>Digital Literacy Project</h4>
-                        <p>Progress: {completion}%</p>
+                        <span className="org-cpg-live-tag">{previewCategory}</span>
+                        <h4>{previewTitle}</h4>
+                        <p>{previewMetric}</p>
                       </div>
                     </div>
                   </section>
@@ -1936,19 +2638,39 @@ export default function OrganizationCampaignCreatePage() {
                     <span className="org-cpg-chip">Review</span>
                   </div>
                   <div className="org-cpg-live-preview">
-                    <div className="org-cpg-live-image" />
+                    <div className="org-cpg-live-image">
+                      {previewImage ? (
+                        <img src={previewImage} alt={previewTitle} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-center text-sm font-medium text-[#64748B]">
+                          Upload a cover image to display the real campaign card.
+                        </div>
+                      )}
+                    </div>
                     <div className="org-cpg-live-meta">
-                      <span className="org-cpg-live-tag">Water</span>
-                      <h4>Clean Water for Sub-Saharan Communities</h4>
-                      <p>$0 raised</p>
+                      <span className="org-cpg-live-tag">{previewCategory}</span>
+                      <h4>{previewTitle}</h4>
+                      <p>{reviewRaisedText}</p>
                     </div>
                   </div>
                   <label className="mt-4 flex items-start gap-2 text-xs text-[#64748B]">
-                    <input type="checkbox" className="mt-1" />
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={reviewAccepted}
+                      onChange={(event) => setReviewAccepted(event.target.checked)}
+                    />
                     I agree to the Terms of Service and confirm that all information is accurate.
                   </label>
-                  <button type="button" className="org-cpg-launch-btn">Launch Campaign</button>
-                  <button type="button" className="org-cpg-back-link" onClick={() => setActiveStep(3)}>
+                  <button
+                    type="button"
+                    className="org-cpg-launch-btn"
+                    onClick={() => handleSubmit('active')}
+                    disabled={!reviewAccepted || submitting}
+                  >
+                    {submitting ? 'Publishing...' : (isEditing ? 'Update Campaign' : 'Launch Campaign')}
+                  </button>
+                  <button type="button" className="org-cpg-back-link" onClick={() => setActiveStep(4)}>
                     Back to Story & Impact
                   </button>
                 </section>

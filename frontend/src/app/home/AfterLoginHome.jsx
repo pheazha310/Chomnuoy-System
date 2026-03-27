@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
@@ -12,10 +12,14 @@ import {
 } from 'lucide-react';
 import './afterLoginHome.css';
 
+const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
+const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+
 const placeholderImage =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#fef3c7"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="28" font-family="Arial" text-anchor="middle" fill="#334155">Campaign</text></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#fef3c7"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="28" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign</text></svg>'
   );
 
 function getLoggedInUserName() {
@@ -82,13 +86,143 @@ function getImpactLevel(totalDonated) {
   return 'Level 1 Donor';
 }
 
+function readDashboardCache() {
+  try {
+    const raw = window.sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp) return null;
+    if (Date.now() - parsed.timestamp > DASHBOARD_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+      return null;
+    }
+    return parsed.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashboardCache(data) {
+  try {
+    window.sessionStorage.setItem(
+      DASHBOARD_CACHE_KEY,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data,
+      })
+    );
+  } catch {
+    // Ignore cache write failures.
+  }
+}
+
+function getActivityIcon(iconType) {
+  switch (String(iconType || '').toLowerCase()) {
+    case 'campaign':
+      return Building2;
+    case 'pickup':
+      return Truck;
+    case 'badge':
+      return Star;
+    default:
+      return FileText;
+  }
+}
+
+function normalizeCachedActivity(activityData) {
+  if (!Array.isArray(activityData)) return [];
+
+  return activityData.map((item, index) => ({
+    id: item?.id ?? `cached-activity-${index}`,
+    iconType:
+      typeof item?.iconType === 'string'
+        ? item.iconType
+        : typeof item?.type === 'string'
+          ? item.type
+          : 'notification',
+    text: item?.text || 'Notification:',
+    note: item?.note || 'New update available.',
+    time: item?.time || '',
+  }));
+}
+
+function mapUrgentCampaigns(campaignsData) {
+  const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
+  const activeCampaigns = campaignItems.filter(
+    (item) => String(item.status || '').toLowerCase() === 'active'
+  );
+
+  return activeCampaigns
+    .map((item) => {
+      const goal = Number(item.goal_amount || 0);
+      const raised = Number(item.current_amount || 0);
+      const progress = goal ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
+      const daysLeft = getDaysLeft(item.end_date);
+      const isEndingSoon = typeof daysLeft === 'number' ? daysLeft > 0 && daysLeft <= 5 : false;
+      return {
+        id: item.id,
+        image: getStorageFileUrl(item.image_path) || placeholderImage,
+        badge: isEndingSoon ? 'ENDING SOON' : 'URGENT',
+        badgeTone: isEndingSoon ? 'ending' : 'urgent',
+        title: item.title || 'Untitled Campaign',
+        description: item.description || 'No description provided.',
+        raised: formatMoney(raised) + ' raised',
+        progressLabel: `${progress}%`,
+        progress,
+      };
+    })
+    .slice(0, 2);
+}
+
+function mapDonationMetrics(donationsData, userId) {
+  const donations = Array.isArray(donationsData) ? donationsData : [];
+  const myDonations = userId
+    ? donations.filter((item) => Number(item.user_id) === userId)
+    : [];
+  const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthTotal = myDonations.reduce((sum, item) => {
+    const created = new Date(item.created_at || 0).getTime();
+    if (!Number.isNaN(created) && created >= monthStart) {
+      return sum + Number(item.amount || 0);
+    }
+    return sum;
+  }, 0);
+
+  return {
+    totalDonated: total,
+    monthlyTotal: monthTotal,
+  };
+}
+
+function mapActivity(notificationsData, userId) {
+  const notifications = Array.isArray(notificationsData) ? notificationsData : [];
+  const filtered = userId
+    ? notifications.filter((item) => Number(item.user_id) === userId)
+    : notifications;
+
+  return filtered.slice(0, 4).map((item) => {
+    const type = String(item.type || '').toLowerCase();
+    return {
+      id: item.id,
+      iconType: type,
+      text: type === 'campaign' ? 'Campaign update:' : 'Notification:',
+      note: item.message || 'New update available.',
+      time: new Date(item.created_at || Date.now()).toLocaleString(),
+    };
+  });
+}
+
 function AfterLoginHome() {
+  const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
-  const [campaigns, setCampaigns] = useState([]);
-  const [activity, setActivity] = useState([]);
-  const [totalDonated, setTotalDonated] = useState(0);
-  const [monthlyTotal, setMonthlyTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cachedDashboard = useMemo(() => readDashboardCache(), []);
+  const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
+  const [activity, setActivity] = useState(normalizeCachedActivity(cachedDashboard?.activity));
+  const [totalDonated, setTotalDonated] = useState(Number(cachedDashboard?.totalDonated || 0));
+  const [monthlyTotal, setMonthlyTotal] = useState(Number(cachedDashboard?.monthlyTotal || 0));
+  const [loading, setLoading] = useState(!cachedDashboard);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -96,91 +230,72 @@ function AfterLoginHome() {
     const userId = Number(session?.userId ?? 0);
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let active = true;
-    setLoading(true);
     setError('');
+    if (!cachedDashboard) {
+      setLoading(true);
+    }
 
-    Promise.all([
-      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/notifications`).then((r) => (r.ok ? r.json() : [])),
-    ])
-      .then(([campaignsData, donationsData, notificationsData]) => {
+    const nextCache = {
+      campaigns: Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : [],
+      activity: normalizeCachedActivity(cachedDashboard?.activity),
+      totalDonated: Number(cachedDashboard?.totalDonated || 0),
+      monthlyTotal: Number(cachedDashboard?.monthlyTotal || 0),
+    };
+    let pendingRequests = 3;
+
+    const finishRequest = () => {
+      pendingRequests -= 1;
+      if (pendingRequests <= 0 && active) {
+        setLoading(false);
+      }
+    };
+
+    fetch(`${apiBase}/campaigns`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((campaignsData) => {
         if (!active) return;
-        const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
-        const activeCampaigns = campaignItems.filter(
-          (item) => String(item.status || '').toLowerCase() === 'active'
-        );
-        const urgent = activeCampaigns
-          .map((item) => {
-            const goal = Number(item.goal_amount || 0);
-            const raised = Number(item.current_amount || 0);
-            const progress = goal ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
-            const daysLeft = getDaysLeft(item.end_date);
-            const isEndingSoon = typeof daysLeft === 'number' ? daysLeft > 0 && daysLeft <= 5 : false;
-            return {
-              id: item.id,
-              image: getStorageFileUrl(item.image_path) || placeholderImage,
-              badge: isEndingSoon ? 'ENDING SOON' : 'URGENT',
-              badgeTone: isEndingSoon ? 'ending' : 'urgent',
-              title: item.title || 'Untitled Campaign',
-              description: item.description || 'No description provided.',
-              raised: formatMoney(raised) + ' raised',
-              progressLabel: `${progress}%`,
-              progress,
-            };
-          })
-          .slice(0, 2);
+        const urgent = mapUrgentCampaigns(campaignsData);
         setCampaigns(urgent);
-
-        const donations = Array.isArray(donationsData) ? donationsData : [];
-        const myDonations = userId
-          ? donations.filter((item) => Number(item.user_id) === userId)
-          : [];
-        const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        setTotalDonated(total);
-
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        const monthTotal = myDonations.reduce((sum, item) => {
-          const created = new Date(item.created_at || 0).getTime();
-          if (!Number.isNaN(created) && created >= monthStart) {
-            return sum + Number(item.amount || 0);
-          }
-          return sum;
-        }, 0);
-        setMonthlyTotal(monthTotal);
-
-        const notifications = Array.isArray(notificationsData) ? notificationsData : [];
-        const filtered = userId
-          ? notifications.filter((item) => Number(item.user_id) === userId)
-          : notifications;
-        const mapped = filtered.slice(0, 4).map((item) => {
-          const type = String(item.type || '').toLowerCase();
-          const icon = type === 'campaign'
-            ? Building2
-            : type === 'pickup'
-              ? Truck
-              : type === 'badge'
-                ? Star
-                : FileText;
-          return {
-            id: item.id,
-            icon,
-            text: type === 'campaign' ? 'Campaign update:' : 'Notification:',
-            note: item.message || 'New update available.',
-            time: new Date(item.created_at || Date.now()).toLocaleString(),
-          };
-        });
-        setActivity(mapped);
+        nextCache.campaigns = urgent;
+        writeDashboardCache(nextCache);
       })
       .catch(() => {
         if (!active) return;
-        setError('Failed to load dashboard data.');
+        setError('Failed to load some dashboard data.');
       })
-      .finally(() => {
+      .finally(finishRequest);
+
+    fetch(`${apiBase}/donations`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((donationsData) => {
         if (!active) return;
-        setLoading(false);
-      });
+        const metrics = mapDonationMetrics(donationsData, userId);
+        setTotalDonated(metrics.totalDonated);
+        setMonthlyTotal(metrics.monthlyTotal);
+        nextCache.totalDonated = metrics.totalDonated;
+        nextCache.monthlyTotal = metrics.monthlyTotal;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
+
+    fetch(`${apiBase}/notifications`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((notificationsData) => {
+        if (!active) return;
+        const mapped = mapActivity(notificationsData, userId);
+        setActivity(mapped);
+        nextCache.activity = mapped;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
 
     return () => {
       active = false;
@@ -190,6 +305,26 @@ function AfterLoginHome() {
   const monthlyGoal = 250;
   const monthlyPercent = monthlyGoal ? Math.min(100, Math.round((monthlyTotal / monthlyGoal) * 100)) : 0;
   const impactLevel = getImpactLevel(totalDonated);
+
+  const openCampaignDetail = (campaign) => {
+    const persistedCampaign = {
+      id: campaign.id,
+      title: campaign.title,
+      summary: campaign.description,
+      image: campaign.image,
+      category: campaign.badgeTone === 'ending' ? 'Environment' : 'General',
+      raisedAmount: Number(String(campaign.raised).replace(/[^0-9.]/g, '')) || 0,
+      goalAmount: 0,
+      organization: 'Verified Organization',
+    };
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(persistedCampaign));
+    navigate(`/campaigns/${campaign.id}`, {
+      state: {
+        from: '/AfterLoginHome',
+        campaign: persistedCampaign,
+      },
+    });
+  };
 
   return (
     <div className="dashboard-home">
@@ -282,7 +417,7 @@ function AfterLoginHome() {
                       <span>{item.progressLabel}</span>
                     </div>
 
-                    <button type="button">Donate Now</button>
+                    <button type="button" onClick={() => openCampaignDetail(item)}>Donate Now</button>
                   </div>
                 </article>
               ))}
@@ -325,18 +460,21 @@ function AfterLoginHome() {
               </h2>
 
               <ul>
-                {activity.map((item) => (
-                  <li key={item.id}>
-                    <span className="activity-icon">
-                      <item.icon size={16} />
-                    </span>
-                    <div>
-                      <p>{item.text}</p>
-                      <strong>{item.note}</strong>
-                      <span>{item.time}</span>
-                    </div>
-                  </li>
-                ))}
+                {activity.map((item) => {
+                  const ActivityIcon = getActivityIcon(item.iconType);
+                  return (
+                    <li key={item.id}>
+                      <span className="activity-icon">
+                        <ActivityIcon size={16} />
+                      </span>
+                      <div>
+                        <p>{item.text}</p>
+                        <strong>{item.note}</strong>
+                        <span>{item.time}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
               {!loading && activity.length === 0 ? (
                 <p className="text-sm text-[#64748B]">No recent activity yet.</p>

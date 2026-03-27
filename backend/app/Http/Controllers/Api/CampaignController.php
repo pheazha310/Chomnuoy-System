@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Campaign;
 use App\Models\CampaignImage;
+use App\Models\Notification;
+use App\Models\Role;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +16,40 @@ use Illuminate\Support\Facades\DB;
 
 class CampaignController extends Controller
 {
+    private function notifyDonorsAboutCampaign(Campaign $campaign, string $action = 'published'): void
+    {
+        $status = strtolower((string) ($campaign->status ?? ''));
+        if ($status !== 'active') {
+            return;
+        }
+
+        $donorRoleId = Role::query()->where('role_name', 'Donor')->value('id');
+        if (!$donorRoleId) {
+            return;
+        }
+
+        $organizationName = DB::table('organizations')
+            ->where('id', $campaign->organization_id)
+            ->value('name') ?? 'An organization';
+
+        $message = $action === 'updated'
+            ? sprintf('%s updated the campaign "%s".', $organizationName, $campaign->title)
+            : sprintf('%s posted a new campaign: "%s".', $organizationName, $campaign->title);
+
+        $donorIds = User::query()
+            ->where('role_id', $donorRoleId)
+            ->pluck('id');
+
+        foreach ($donorIds as $donorId) {
+            Notification::create([
+                'user_id' => (int) $donorId,
+                'message' => $message,
+                'type' => 'campaign',
+                'is_read' => false,
+            ]);
+        }
+    }
+
     private function preparePayload(Request $request): array
     {
         $columns = Schema::getColumnListing('campaigns');
@@ -40,7 +77,14 @@ class CampaignController extends Controller
     public function index(): JsonResponse
     {
         $records = Campaign::query()
-            ->select('campaigns.*')
+            ->leftJoin('organizations', 'organizations.id', '=', 'campaigns.organization_id')
+            ->select(
+                'campaigns.*',
+                'organizations.name as organization_name',
+                'organizations.location as organization_location',
+                'organizations.latitude as organization_latitude',
+                'organizations.longitude as organization_longitude'
+            )
             ->addSelect([
                 'image_path' => CampaignImage::select('image_path')
                     ->whereColumn('campaign_id', 'campaigns.id')
@@ -57,6 +101,7 @@ class CampaignController extends Controller
     {
         $payload = $this->preparePayload($request);
         $record = Campaign::create($payload);
+        $this->notifyDonorsAboutCampaign($record, 'published');
 
         return response()->json($record, 201);
     }
@@ -64,7 +109,14 @@ class CampaignController extends Controller
     public function show(int $id): JsonResponse
     {
         $record = Campaign::query()
-            ->select('campaigns.*')
+            ->leftJoin('organizations', 'organizations.id', '=', 'campaigns.organization_id')
+            ->select(
+                'campaigns.*',
+                'organizations.name as organization_name',
+                'organizations.location as organization_location',
+                'organizations.latitude as organization_latitude',
+                'organizations.longitude as organization_longitude'
+            )
             ->addSelect([
                 'image_path' => CampaignImage::select('image_path')
                     ->whereColumn('campaign_id', 'campaigns.id')
@@ -78,8 +130,14 @@ class CampaignController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $record = Campaign::findOrFail($id);
+        $wasActive = strtolower((string) ($record->status ?? '')) === 'active';
         $payload = $this->preparePayload($request);
         $record->update($payload);
+        $record->refresh();
+
+        if (!$wasActive && strtolower((string) ($record->status ?? '')) === 'active') {
+            $this->notifyDonorsAboutCampaign($record, 'published');
+        }
 
         return response()->json($record);
     }

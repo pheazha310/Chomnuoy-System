@@ -53,7 +53,7 @@ export default function MyProfilePage() {
   const syncTimersRef = useRef([]);
   const session = useMemo(() => getSession(), []);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState('');
@@ -64,13 +64,27 @@ export default function MyProfilePage() {
   const [showIllustrations, setShowIllustrations] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+    name: session?.name || '',
+    email: session?.email || '',
     phone: '',
-    avatar: '',
+    avatar: session?.avatar || '',
   });
 
   const isOrganization = session?.role === 'Organization' || session?.accountType === 'Organization';
+  const displayName = (formData.name || session?.name || 'Your Name').trim() || 'Your Name';
+  const accountLabel = isOrganization ? 'Organization account' : 'Donor account';
+  const profileHint = loading
+    ? 'Loading your profile information...'
+    : saving
+      ? 'Saving your latest profile changes...'
+      : 'Click camera icon to change profile picture';
+  const avatarInitials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'U';
   const accountId =
     session?.userId ?? session?.accountId ?? session?.id ?? session?.user_id ?? null;
   const [resolvedAccountId, setResolvedAccountId] = useState(accountId);
@@ -95,9 +109,14 @@ export default function MyProfilePage() {
       let effectiveAccountId = accountId;
       if (!effectiveAccountId && session?.email) {
         try {
-          const matched = isOrganization
+          let matched = isOrganization
             ? await findOrganizationByEmail(session.email)
             : await findUserByEmail(session.email);
+          if (!matched?.id) {
+            matched = isOrganization
+              ? await findUserByEmail(session.email)
+              : await findOrganizationByEmail(session.email);
+          }
           if (matched?.id) {
             effectiveAccountId = matched.id;
             setResolvedAccountId(matched.id);
@@ -111,14 +130,7 @@ export default function MyProfilePage() {
       }
 
       if (!effectiveAccountId) {
-        setFormData({
-          name: session?.name || '',
-          email: session?.email || '',
-          phone: '',
-          avatar: session?.avatar || '',
-        });
         setError('Your session is missing an account id. Please sign in again.');
-        setLoading(false);
         return;
       }
 
@@ -147,6 +159,7 @@ export default function MyProfilePage() {
     };
 
     setResolvedAccountId(accountId);
+    setLoading(true);
     loadProfile();
   }, [accountId, isOrganization, navigate, session]);
 
@@ -189,14 +202,36 @@ export default function MyProfilePage() {
     setError('');
     setSuccess('');
 
-    if (!resolvedAccountId) {
-      setError('Your session is missing an account id. Please sign in again.');
-      return;
-    }
-
     setSaving(true);
 
     try {
+      let effectiveAccountId = resolvedAccountId;
+      if (!effectiveAccountId) {
+        const emailToUse = formData.email || session?.email || '';
+        if (emailToUse) {
+          let matched = isOrganization
+            ? await findOrganizationByEmail(emailToUse)
+            : await findUserByEmail(emailToUse);
+          if (!matched?.id) {
+            matched = isOrganization
+              ? await findUserByEmail(emailToUse)
+              : await findOrganizationByEmail(emailToUse);
+          }
+          if (matched?.id) {
+            effectiveAccountId = matched.id;
+            setResolvedAccountId(matched.id);
+            const nextSession = { ...(getSession() || {}), userId: matched.id };
+            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+            window.dispatchEvent(new Event('chomnuoy-session-updated'));
+          }
+        }
+      }
+
+      if (!effectiveAccountId) {
+        setError('Your session is missing an account id. Please sign in again.');
+        return;
+      }
+
       const payload = new FormData();
       payload.append('name', formData.name);
       payload.append('email', formData.email);
@@ -208,8 +243,8 @@ export default function MyProfilePage() {
       }
 
       const updated = isOrganization
-        ? await updateOrganizationProfile(resolvedAccountId, payload)
-        : await updateUserProfile(resolvedAccountId, payload);
+        ? await updateOrganizationProfile(effectiveAccountId, payload)
+        : await updateUserProfile(effectiveAccountId, payload);
 
       const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';
@@ -251,14 +286,6 @@ export default function MyProfilePage() {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <main className="mx-auto w-full max-w-5xl px-4 py-8">
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 text-[#64748B]">Loading profile...</div>
-      </main>
-    );
-  }
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
@@ -305,11 +332,17 @@ export default function MyProfilePage() {
             <div className="px-6 py-8">
               <div className="flex flex-col items-center">
                 <div className="relative h-36 w-36">
-                  <img
-                    src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=320&q=80'}
-                    alt="Profile preview"
-                    className="h-36 w-36 rounded-full border border-[#E2E8F0] object-cover shadow-[0_8px_24px_rgba(15,23,42,0.15)]"
-                  />
+                  {formData.avatar ? (
+                    <img
+                      src={formData.avatar}
+                      alt="Profile preview"
+                      className="h-36 w-36 rounded-full border border-[#E2E8F0] object-cover shadow-[0_8px_24px_rgba(15,23,42,0.15)]"
+                    />
+                  ) : (
+                    <div className="flex h-36 w-36 items-center justify-center rounded-full border border-[#E2E8F0] bg-[linear-gradient(180deg,#EAF3FF_0%,#DDEBFF_100%)] text-4xl font-black text-[#1D4ED8] shadow-[0_8px_24px_rgba(15,23,42,0.15)]">
+                      {avatarInitials}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -395,17 +428,23 @@ export default function MyProfilePage() {
 
         <form onSubmit={handleSave} className="space-y-6">
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-5">
-            <div className="flex items-center gap-4">
-              <div className="relative h-20 w-20">
-                <img
-                  src={formData.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                  alt="Profile avatar"
-                  className="h-20 w-20 rounded-full border border-[#CBD5E1] object-cover"
-                />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="relative h-24 w-24 shrink-0">
+                {formData.avatar ? (
+                  <img
+                    src={formData.avatar}
+                    alt="Profile avatar"
+                    className="h-24 w-24 rounded-full border border-[#CBD5E1] object-cover shadow-[0_10px_24px_rgba(15,23,42,0.08)]"
+                  />
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full border border-[#CBD5E1] bg-[linear-gradient(180deg,#EAF3FF_0%,#DDEBFF_100%)] text-2xl font-black text-[#1D4ED8] shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+                    {avatarInitials}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsCameraModalOpen(true)}
-                  className="absolute bottom-0 right-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+                  className="absolute bottom-0 right-0 inline-flex h-10 w-10 items-center justify-center rounded-full border-4 border-[#F8FAFC] bg-[#2563EB] text-white shadow-[0_8px_18px_rgba(37,99,235,0.25)] transition hover:scale-[1.03] hover:bg-[#1D4ED8]"
                   aria-label="Upload avatar"
                 >
                   <Camera className="h-4 w-4" />
@@ -426,10 +465,10 @@ export default function MyProfilePage() {
                   onChange={handleAvatarChange}
                 />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-[#0F172A]">{formData.name || 'Your Name'}</p>
-                <p className="text-sm text-[#64748B]">{isOrganization ? 'Organization account' : 'Donor account'}</p>
-                <p className="mt-1 text-xs text-[#64748B]">Click camera icon to change profile picture</p>
+              <div className="min-w-0">
+                <p className="text-[2rem] font-black leading-none tracking-tight text-[#0F172A]">{displayName}</p>
+                <p className="mt-2 text-lg font-medium text-[#476581]">{accountLabel}</p>
+                <p className="mt-1 text-sm text-[#64748B]">{profileHint}</p>
               </div>
             </div>
           </div>

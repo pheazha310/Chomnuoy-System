@@ -2,13 +2,13 @@ import React from 'react';
 
 export default function StatsCard({ label, value, icon, iconBg, iconColor }) {
   return (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4 shadow-sm min-w-[180px]">
-      <div className={`${iconBg} ${iconColor} p-2 rounded-lg`}>
+    <div className="flex min-w-[168px] items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className={`${iconBg} ${iconColor} rounded-lg p-2`}>
         {icon}
       </div>
       <div>
-        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">{label}</p>
-        <p className="text-xl font-bold text-slate-900">{value}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+        <p className="text-[1.05rem] font-black text-slate-900">{value}</p>
       </div>
     </div>
   );
