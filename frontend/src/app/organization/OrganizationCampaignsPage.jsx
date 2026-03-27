@@ -464,7 +464,6 @@ export default function OrganizationCampaignsPage() {
               {unreadCount > 0 ? <span className="org-notify-dot" /> : null}
             </button>
             <OrganizationIdentityPill className="org-cpg-user-card" />
-            <OrganizationIdentityPill className="org-cpg-user-card" />
           </div>
         </header>
 

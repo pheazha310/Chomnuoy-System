@@ -1045,9 +1045,31 @@
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--org-border);
-    height: auto;
-    position: static;
-    width: auto;
+    gap: 12px;
+    padding: 18px 10px 16px;
+  }
+
+  .org-nav {
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .org-nav-item {
+    padding: 10px 12px;
+  }
+
+  .org-plan-card {
+    margin-top: 8px;
+    padding: 12px;
+  }
+
+  .org-theme-controls {
+    margin-top: 0;
+    padding: 0.9rem;
+  }
+
+  .org-logout-button {
+    margin-top: 0;
   }
 
   .org-main {
