@@ -1,12 +1,11 @@
-﻿﻿﻿/**
-* @license
-* SPDX-License-Identifier: Apache-2.0
-*/
+﻿/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 import { loginUser } from "../services/user-service";
 import React, { useCallback, useState } from "react";
 import { motion } from "motion/react";
-import { useLocation } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { GoogleLogin } from "@react-oauth/google";
@@ -47,33 +46,32 @@ function FacebookIcon(props) {
 }
 
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
-  const location = useLocation();
-  const showLogoutMessage = new URLSearchParams(location.search).get('loggedOut') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
   const [socialLoading, setSocialLoading] = useState(null);
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
     rememberMe: false,
   });
   const socialAuthUrls = {
     google:
       import.meta.env.VITE_GOOGLE_AUTH_URL ??
-      `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/google/redirect`,
+      `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/google/redirect`,
     facebook:
       import.meta.env.VITE_FACEBOOK_AUTH_URL ??
-      `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
+      `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/facebook/redirect`,
   };
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
   const isGoogleSignInConfigured = Boolean(googleClientId);
 
+  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
-    setFieldErrors({ email: '', password: '' });
+    setFieldErrors({ email: "", password: "" });
     setIsSubmitting(true);
 
     try {
@@ -81,19 +79,23 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
-      const token = data?.token || data?.access_token || data?.data?.token;
-      if (token) {
-        localStorage.setItem('authToken', token);
-      }
 
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
+      const firstErrorMessage =
+        errors.email?.[0] ||
+        errors.password?.[0] ||
+        err.response?.data?.message ||
+        (err.request
+          ? "Unable to connect to the server. Please check that backend is running."
+          : "Login failed");
+
       setFieldErrors({
-        email: errors.email?.[0] || '',
-        password: errors.password?.[0] || '',
+        email: errors.email?.[0] || "",
+        password: errors.password?.[0] || "",
       });
-      setError(err.response?.data?.message || 'Login failed');
+      setError(firstErrorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -151,21 +153,20 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   }, []);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
       <div className="text-center lg:pt-4">
-        <h1 className="text-4xl font-bold tracking-tight text-[#101828]">Welcome back</h1>
-        <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
+        <h1 className="text-4xl font-bold tracking-tight text-[#101828]">
+          Welcome back
+        </h1>
+        <p className="mt-2.5 text-base font-medium text-[#4B617A]">
+          Login to your Chomnuoy account to continue
+        </p>
       </div>
-
-      {showLogoutMessage && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700"
-        >
-          You have been logged out successfully.
-        </motion.div>
-      )}
 
       {error && (
         <motion.div
@@ -182,7 +183,9 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
 
       <form onSubmit={handleLogin} className="mt-6 space-y-4">
         <div>
-          <label className="text-lg font-bold text-[#101828]">Email Address</label>
+          <label className="text-lg font-bold text-[#101828]">
+            Email Address
+          </label>
           <div className="relative mt-2">
             <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
             <input
@@ -191,8 +194,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               placeholder="Email"
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-4 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
             />
+
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -202,30 +208,42 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <div>
           <div className="flex items-center justify-between">
             <label className="text-lg font-bold text-[#101828]">Password</label>
-            <a href="#" className="text-sm font-bold text-[#2563EB] hover:text-[#1D4ED8]">
+            <a
+              href="#"
+              className="text-sm font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+            >
               Forgot Password?
             </a>
           </div>
           <div className="relative mt-2">
             <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#98A2B3]" />
             <input
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               required
               placeholder="********"
               className="block h-12 w-full rounded-2xl border border-[#D0D5DD] bg-white pl-12 pr-12 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
             />
+
             {fieldErrors.password && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {fieldErrors.password}
+              </p>
             )}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-[#98A2B3] hover:text-[#667085]"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+              {showPassword ? (
+                <Eye className="h-5 w-5" />
+              ) : (
+                <EyeOff className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -236,15 +254,22 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
             id="rememberMe"
             className="h-4 w-4 rounded-md border-[#98A2B3] text-[#2563EB] focus:ring-[#2563EB]/20"
             checked={formData.rememberMe}
-            onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+            onChange={(e) =>
+              setFormData({ ...formData, rememberMe: e.target.checked })
+            }
           />
-          <label htmlFor="rememberMe" className="text-lg font-bold text-[#101828]">
+          <label
+            htmlFor="rememberMe"
+            className="text-lg font-bold text-[#101828]"
+          >
             Remember Me
           </label>
         </div>
         <div className="mt-5 flex items-center gap-3">
           <span className="h-px flex-1 bg-[#E4E7EC]" />
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">or login with email</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
+            or login with email
+          </span>
           <span className="h-px flex-1 bg-[#E4E7EC]" />
         </div>
 
@@ -278,7 +303,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
           )}
           <button
             type="button"
-            onClick={() => handleSocialLogin('facebook')}
+            onClick={() => handleSocialLogin("facebook")}
             disabled={socialLoading !== null}
             className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -288,8 +313,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         </div>
         <button
           type="submit"
-          disabled={isSubmitting}
           className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] text-xl font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] transition hover:bg-[#1D4ED8]"
+          disabled={isSubmitting}
         >
           {isSubmitting ? (
             <>
@@ -306,8 +331,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       </form>
 
       <p className="mt-6 text-center text-base font-medium text-[#4B617A]">
-        Don&apos;t have an account?{' '}
-        <button onClick={onToggleMode} className="font-bold text-[#2563EB] hover:text-[#1D4ED8]">
+        Don&apos;t have an account?{" "}
+        <button
+          onClick={onToggleMode}
+          className="font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+        >
           Register now
         </button>
       </p>

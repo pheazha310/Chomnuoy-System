@@ -53,6 +53,10 @@ export default function ContactForm() {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const payload = {
       user_id: Number.isFinite(userId) ? userId : 0,
+      sender_type: 'user',
+      sender_name: form.name.trim(),
+      sender_email: form.email.trim(),
+      recipient_type: 'admin',
       message: `From: ${form.name.trim()} <${form.email.trim()}>\nSubject: ${form.subject.trim()}\nMessage: ${form.message.trim()}`,
       type: 'message',
       is_read: false,

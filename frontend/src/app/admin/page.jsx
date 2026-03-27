@@ -112,9 +112,42 @@ const formatDeltaPercent = (current, previous) => {
   return `${percent >= 0 ? '+' : '-'}${rounded}%`;
 };
 
+const isSameDay = (left, right) => (
+  left.getFullYear() === right.getFullYear()
+  && left.getMonth() === right.getMonth()
+  && left.getDate() === right.getDate()
+);
+
+const isUrgentOrganization = (organization) => {
+  const status = String(organization?.verified_status || organization?.status || '').toLowerCase();
+  if (!status) return true;
+  if (status.includes('verify') || status.includes('approved') || status.includes('active')) return false;
+  if (status.includes('reject') || status.includes('inactive')) return false;
+  return status.includes('pending') || status.includes('review') || status.includes('await');
+};
+
+const isUrgentUser = (user) => {
+  const role = String(user?.role || user?.role_name || '').toLowerCase();
+  if (role.includes('admin')) return false;
+  const status = String(user?.status || '').toLowerCase();
+  if (!status) return false;
+  if (status.includes('active') || status.includes('verified') || status.includes('approve')) return false;
+  if (status.includes('reject') || status.includes('inactive')) return false;
+  return status.includes('pending') || status.includes('review') || status.includes('await');
+};
+
+const formatTaskDue = (value) => {
+  if (!value) return 'Awaiting review';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Awaiting review';
+  const today = new Date();
+  if (isSameDay(date, today)) return 'Submitted today';
+  return `Submitted ${date.toLocaleDateString(undefined, { month: 'short', day: '2-digit' })}`;
+};
 
 const AdminDashboard = () => {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
+  const [isAllTasksOpen, setIsAllTasksOpen] = useState(false);
   const [joinCounts, setJoinCounts] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [joinLoading, setJoinLoading] = useState(true);
   const [rangeDays, setRangeDays] = useState(7);
@@ -132,6 +165,7 @@ const AdminDashboard = () => {
   ]);
   const [urgentTasks, setUrgentTasks] = useState([]);
   const [urgentTaskTotal, setUrgentTaskTotal] = useState(0);
+  const [allUrgentTasks, setAllUrgentTasks] = useState([]);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
@@ -181,6 +215,8 @@ const AdminDashboard = () => {
     Promise.all([fetchUsers, fetchOrgs])
       .then(([users, orgs]) => {
         if (!active) return;
+        const safeUsers = Array.isArray(users) ? users : [];
+        const safeOrgs = Array.isArray(orgs) ? orgs : [];
         const counts = Array.from({ length: rangeDays }, () => 0);
         const now = new Date();
         const last7 = new Date(now);
@@ -202,14 +238,84 @@ const AdminDashboard = () => {
           }
         };
 
-        (Array.isArray(users) ? users : []).forEach((user) => addIfInRange(user?.created_at));
-        (Array.isArray(orgs) ? orgs : []).forEach((org) => addIfInRange(org?.created_at));
+        safeUsers.forEach((user) => addIfInRange(user?.created_at));
+        safeOrgs.forEach((org) => addIfInRange(org?.created_at));
+
+        const customersToday = safeUsers.filter((user) => {
+          if (!user?.created_at) return false;
+          const createdAt = new Date(user.created_at);
+          if (Number.isNaN(createdAt.getTime())) return false;
+          return isSameDay(createdAt, now);
+        }).length;
+
+        const pendingOrganizations = safeOrgs
+          .filter((org) => isUrgentOrganization(org))
+          .sort((left, right) => new Date(left?.created_at || 0).getTime() - new Date(right?.created_at || 0).getTime());
+
+        const pendingUsers = safeUsers
+          .filter((user) => isUrgentUser(user))
+          .sort((left, right) => new Date(left?.created_at || 0).getTime() - new Date(right?.created_at || 0).getTime());
+
+        const combinedUrgentTasks = [
+          ...pendingUsers.map((user) => ({
+            title: `Review User ${user?.name || 'Unknown'}`,
+            description: 'User account is waiting for approval.',
+            due: formatTaskDue(user?.created_at),
+            tone: 'warning',
+            createdAt: user?.created_at ? new Date(user.created_at).getTime() : 0,
+          })),
+          ...pendingOrganizations.map((org) => ({
+            title: `Review Organization ${org?.name || 'Organization'}`,
+            description: 'Organization registration is waiting for verification.',
+            due: formatTaskDue(org?.created_at),
+            tone: 'warning',
+            createdAt: org?.created_at ? new Date(org.created_at).getTime() : 0,
+          })),
+        ].sort((left, right) => left.createdAt - right.createdAt);
+
+        setOverviewStats([
+          {
+            id: 'customers-today',
+            label: 'Customers Today',
+            value: customersToday.toLocaleString(),
+            change: `${rangeDays}-day live data`,
+            tone: 'success',
+          },
+          {
+            id: 'total-customers',
+            label: 'Total Customers',
+            value: (safeUsers.length + safeOrgs.length).toLocaleString(),
+            change: `${safeUsers.length.toLocaleString()} users + ${safeOrgs.length.toLocaleString()} orgs`,
+            tone: 'info',
+          },
+          {
+            id: 'tasks',
+            label: 'Urgent Tasks',
+            value: combinedUrgentTasks.length.toLocaleString(),
+            change: combinedUrgentTasks.length > 0 ? 'Users and orgs need review' : 'All caught up',
+            tone: 'warning',
+          },
+        ]);
+
+        const mappedUrgentTasks = combinedUrgentTasks.map(({ createdAt, ...task }) => task);
+
+        setAllUrgentTasks(mappedUrgentTasks);
+        setUrgentTasks(
+          mappedUrgentTasks.slice(0, 3)
+        );
 
         setJoinCounts(counts);
       })
       .catch(() => {
         if (!active) return;
         setJoinCounts(Array.from({ length: rangeDays }, () => 0));
+        setOverviewStats([
+          { id: 'customers-today', label: 'Customers Today', value: '0', change: 'Unable to load', tone: 'success' },
+          { id: 'total-customers', label: 'Total Customers', value: '0', change: 'Unable to load', tone: 'info' },
+          { id: 'tasks', label: 'Urgent Tasks', value: '0', change: 'Unable to load', tone: 'warning' },
+        ]);
+        setUrgentTasks([]);
+        setAllUrgentTasks([]);
       })
       .finally(() => {
         if (active) setJoinLoading(false);
@@ -575,11 +681,11 @@ const AdminDashboard = () => {
         <div className="admin-panel admin-tasks">
           <div className="admin-panel-header">
             <h2>Urgent Tasks</h2>
-            <span className="admin-pill">{formatCount(urgentTaskTotal)} open</span>
+            <span className="admin-pill">{formatCount(urgentTaskTotal || allUrgentTasks.length)} open</span>
           </div>
           <div className="admin-task-list">
-            {urgentTasks.length > 0 ? urgentTasks.map((task) => (
-              <div key={task.title} className={`admin-task admin-tone-${task.tone}`}>
+            {urgentTasks.length > 0 ? urgentTasks.map((task, index) => (
+              <div key={`${task.title}-${index}`} className={`admin-task admin-tone-${task.tone}`}>
                 <div className="admin-task-icon" aria-hidden="true">
                   {TASK_ICONS[task.tone] ?? TASK_ICONS.info}
                 </div>
@@ -602,7 +708,13 @@ const AdminDashboard = () => {
               </div>
             )}
           </div>
-          <button className="admin-ghost-btn admin-full-btn" type="button">View All Tasks</button>
+          <button
+            className="admin-ghost-btn admin-full-btn"
+            type="button"
+            onClick={() => setIsAllTasksOpen(true)}
+          >
+            View All Tasks
+          </button>
         </div>
 
         <div className="admin-panel admin-table">
@@ -668,6 +780,55 @@ const AdminDashboard = () => {
           </div>
         </div>
       ) : null}
+
+      {isAllTasksOpen ? (
+        <div className="admin-modal-overlay" role="presentation" onClick={() => setIsAllTasksOpen(false)}>
+          <div
+            className="admin-modal admin-modal-large"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-all-tasks-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="admin-all-tasks-title">All Urgent Tasks</h3>
+            <p>
+              {allUrgentTasks.length > 0
+                ? `${allUrgentTasks.length} urgent task${allUrgentTasks.length === 1 ? '' : 's'} need attention.`
+                : 'There are no urgent tasks right now.'}
+            </p>
+            <div className="admin-task-list">
+              {allUrgentTasks.length > 0 ? allUrgentTasks.map((task, index) => (
+                <div key={`modal-${task.title}-${index}`} className={`admin-task admin-tone-${task.tone}`}>
+                  <div className="admin-task-icon" aria-hidden="true">
+                    {TASK_ICONS[task.tone] ?? TASK_ICONS.info}
+                  </div>
+                  <div className="admin-task-body">
+                    <h3>{task.title}</h3>
+                    <p>{task.description}</p>
+                    <span>{task.due}</span>
+                  </div>
+                </div>
+              )) : (
+                <div className="admin-task admin-tone-info">
+                  <div className="admin-task-icon" aria-hidden="true">
+                    {TASK_ICONS.info}
+                  </div>
+                  <div className="admin-task-body">
+                    <h3>No urgent tasks</h3>
+                    <p>There are no organizations waiting for review right now.</p>
+                    <span>Up to date</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="admin-modal-actions">
+              <button type="button" className="admin-modal-cancel" onClick={() => setIsAllTasksOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -675,3 +836,4 @@ const AdminDashboard = () => {
 export default function AdminPage() {
   return <AdminDashboard />;
 }
+

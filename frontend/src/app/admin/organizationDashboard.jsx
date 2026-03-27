@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './adminsidebar';
 import './organization.css';
 
@@ -59,7 +60,17 @@ function normalizeType(raw) {
   return raw ? String(raw) : 'Organization';
 }
 
+function getInitials(name) {
+  return String(name || 'Organization')
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
 export default function OrganizationDashboard() {
+  const navigate = useNavigate();
   const cachedOrganizations = readCache(ORGANIZATIONS_CACHE_KEY);
   const cachedCategories = readCache(CATEGORIES_CACHE_KEY);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
@@ -100,6 +111,11 @@ export default function OrganizationDashboard() {
 
   const closeActionModal = () => {
     setActionModal(null);
+  };
+
+  const openOrganizationDetails = (organizationId) => {
+    setOpenMenuId(null);
+    navigate(`/admin/organizations/${organizationId}`);
   };
 
   useEffect(() => {
@@ -327,15 +343,23 @@ export default function OrganizationDashboard() {
             ) : null}
             {!loading && !error && filteredOrgs.length > 0 ? (
               filteredOrgs.map((org, index) => {
-                const initials = org.name
-                  .split(' ')
-                  .map((part) => part[0])
-                  .slice(0, 2)
-                  .join('')
-                  .toUpperCase();
+                const initials = getInitials(org.name);
                 const typeClass = org.type.toLowerCase().replace(/\s+/g, '-');
                 return (
-                  <div key={`${org.name}-${index}`} className="admin-org-row">
+                  <div
+                    key={`${org.name}-${index}`}
+                    className="admin-org-row admin-org-row-clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openOrganizationDetails(org.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openOrganizationDetails(org.id);
+                      }
+                    }}
+                    aria-label={`View details for ${org.name}`}
+                  >
                     <div className="admin-org-cell">
                       <span className="admin-org-avatar">{initials}</span>
                       <div>
@@ -361,7 +385,7 @@ export default function OrganizationDashboard() {
                         </button>
                         {openMenuId === org.id ? (
                           <div className="admin-org-menu">
-                            <button type="button" onClick={() => openActionModal('view', org)}>View Profile</button>
+                            <button type="button" onClick={() => openOrganizationDetails(org.id)}>View Profile</button>
                             <button type="button" onClick={() => openActionModal('edit', org)}>Edit</button>
                             <button type="button" className="danger" onClick={() => openActionModal('deactivate', org)}>
                               Deactivate
@@ -393,12 +417,7 @@ export default function OrganizationDashboard() {
                 <div className="admin-org-modal-card">
                   <div className="admin-org-modal-header">
                     <span className="admin-org-modal-avatar" aria-hidden="true">
-                      {actionModal.org.name
-                        .split(' ')
-                        .map((part) => part[0])
-                        .slice(0, 2)
-                        .join('')
-                        .toUpperCase()}
+                      {getInitials(actionModal.org.name)}
                     </span>
                     <div>
                       <p>{actionModal.org.name}</p>
@@ -421,6 +440,20 @@ export default function OrganizationDashboard() {
                     <div>
                       <span>Registered</span>
                       <p>{actionModal.org.joined}</p>
+                    </div>
+                    <div>
+                      <span>Profile ID</span>
+                      <p>ORG-{String(actionModal.org.id).padStart(4, '0')}</p>
+                    </div>
+                    <div>
+                      <span>Quick Note</span>
+                      <p>
+                        {actionModal.org.status === 'Pending'
+                          ? 'Awaiting verification review.'
+                          : actionModal.org.status === 'Verified'
+                            ? 'Approved and active on the platform.'
+                            : 'Currently inactive.'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -528,3 +561,4 @@ export default function OrganizationDashboard() {
     </div>
   );
 }
+

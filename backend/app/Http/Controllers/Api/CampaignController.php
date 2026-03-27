@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Campaign;
 use App\Models\CampaignImage;
 use App\Models\Notification;
+use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
@@ -43,6 +44,69 @@ class CampaignController extends Controller
         foreach ($donorIds as $donorId) {
             Notification::create([
                 'user_id' => (int) $donorId,
+                'sender_type' => 'organization',
+                'sender_name' => $organizationName,
+                'recipient_type' => 'user',
+                'recipient_id' => $donorId,
+                'message' => $message,
+                'type' => 'campaign',
+                'is_read' => false,
+            ]);
+        }
+    }
+
+    private function notifyCampaignPublished(Campaign $campaign): void
+    {
+        $title = trim((string) ($campaign->title ?? 'Untitled Campaign'));
+        $organizationId = (int) ($campaign->organization_id ?? 0);
+        $organizationName = 'Organization';
+
+        if ($organizationId > 0) {
+            $organizationName = Organization::query()
+                ->where('id', $organizationId)
+                ->value('name') ?? 'Organization';
+        }
+
+        $message = sprintf('New campaign published: %s', $title);
+
+        if ($organizationId > 0) {
+            Notification::create([
+                'user_id' => $organizationId,
+                'sender_type' => 'organization',
+                'sender_name' => $organizationName,
+                'recipient_type' => 'organization',
+                'recipient_id' => $organizationId,
+                'message' => $message,
+                'type' => 'campaign',
+                'is_read' => false,
+            ]);
+        }
+
+        Notification::create([
+            'user_id' => $organizationId > 0 ? $organizationId : 1,
+            'sender_type' => 'organization',
+            'sender_name' => $organizationName,
+            'recipient_type' => 'admin',
+            'message' => $message,
+            'type' => 'campaign',
+            'is_read' => false,
+        ]);
+
+        $donorIds = User::query()
+            ->join('roles', 'roles.id', '=', 'users.role_id')
+            ->whereRaw('LOWER(roles.role_name) = ?', ['donor'])
+            ->pluck('users.id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        foreach ($donorIds as $donorId) {
+            Notification::create([
+                'user_id' => $donorId,
+                'sender_type' => 'organization',
+                'sender_name' => $organizationName,
+                'recipient_type' => 'user',
+                'recipient_id' => $donorId,
                 'message' => $message,
                 'type' => 'campaign',
                 'is_read' => false,
@@ -103,6 +167,10 @@ class CampaignController extends Controller
         $record = Campaign::create($payload);
         $this->notifyDonorsAboutCampaign($record, 'published');
 
+        if (strtolower((string) ($record->status ?? '')) === 'active') {
+            $this->notifyCampaignPublished($record);
+        }
+
         return response()->json($record, 201);
     }
 
@@ -137,6 +205,11 @@ class CampaignController extends Controller
 
         if (!$wasActive && strtolower((string) ($record->status ?? '')) === 'active') {
             $this->notifyDonorsAboutCampaign($record, 'published');
+        }
+
+        $isActive = strtolower((string) ($record->status ?? '')) === 'active';
+        if (!$wasActive && $isActive) {
+            $this->notifyCampaignPublished($record);
         }
 
         return response()->json($record);

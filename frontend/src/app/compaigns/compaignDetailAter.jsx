@@ -24,6 +24,18 @@ const placeholderImage =
     '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#fef3c7"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="28" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign</text></svg>'
   );
 
+const resolveCampaignImage = (item) => {
+  const candidates = [item?.image_url, item?.image, item?.image_path];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return '';
+};
+
 const getStorageFileUrl = (path) => {
   if (!path) return '';
   const rawPath = String(path).trim();
@@ -38,11 +50,16 @@ const getStorageFileUrl = (path) => {
 
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
-    return `${appBase}/${normalizedPath}`;
-  }
-  return `${appBase}/storage/${normalizedPath}`;
+  const relativePath = normalizedPath.startsWith('storage/')
+    ? normalizedPath.replace(/^storage\//, '')
+    : normalizedPath;
+  const encodedPath = relativePath
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  return `${apiBase}/files/${encodedPath}`;
 };
 
 const getTimeLeft = (endDate) => {
@@ -130,11 +147,7 @@ const mapCampaigns = (items) => {
       id: item.id,
       title: item.title || "Untitled Campaign",
       description: item.description || "No description provided.",
-      image:
-        getStorageFileUrl(item.image_path) ||
-        item.image_url ||
-        item.image ||
-        placeholderImage,
+      image: getStorageFileUrl(resolveCampaignImage(item)) || placeholderImage,
       category: categoryLabel,
       normalizedCategory: categoryLabel,
       campaignType: item.campaign_type || (materialItem ? 'material' : 'monetary'),

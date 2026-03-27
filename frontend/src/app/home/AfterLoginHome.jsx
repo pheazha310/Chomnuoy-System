@@ -199,8 +199,15 @@ function mapDonationMetrics(donationsData, userId) {
 function mapActivity(notificationsData, userId) {
   const notifications = Array.isArray(notificationsData) ? notificationsData : [];
   const filtered = userId
-    ? notifications.filter((item) => Number(item.user_id) === userId)
-    : notifications;
+    ? notifications.filter((item) => {
+        const recipientType = String(item.recipient_type || '').toLowerCase();
+        const recipientId = Number(item.recipient_id || 0);
+        if (recipientType) {
+          return recipientType === 'user' && recipientId === userId;
+        }
+        return Number(item.user_id) === userId;
+      })
+    : [];
 
   return filtered.slice(0, 4).map((item) => {
     const type = String(item.type || '').toLowerCase();
@@ -494,9 +501,9 @@ function AfterLoginHome() {
                 Start your own fundraising campaign for a cause
                 you care about.
               </p>
-              <button type="button">
+              <Link to="/campaigns/donor" className="cta-start-link">
                 Start Campaign
-              </button>
+              </Link>
             </section>
           </aside>
         </section>

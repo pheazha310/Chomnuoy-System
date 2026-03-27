@@ -12,7 +12,18 @@ class NotificationController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(Notification::query()->orderByDesc('id')->get());
+        $query = Notification::query()->orderByDesc('id');
+        $recipientType = trim((string) request()->query('recipient_type', ''));
+        $recipientId = (int) request()->query('recipient_id', 0);
+
+        if ($recipientType !== '') {
+            $query->where('recipient_type', $recipientType);
+            if ($recipientId > 0) {
+                $query->where('recipient_id', $recipientId);
+            }
+        }
+
+        return response()->json($query->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -48,11 +59,13 @@ class NotificationController extends Controller
     public function stream(Request $request): StreamedResponse
     {
         $userId = (int) $request->query('user_id', 0);
+        $recipientType = trim((string) $request->query('recipient_type', ''));
+        $recipientId = (int) $request->query('recipient_id', 0);
         $lastId = (int) $request->query('last_id', 0);
         $sleepSeconds = max(1, min(10, (int) $request->query('sleep', 2)));
         $maxSeconds = max(10, min(120, (int) $request->query('max_seconds', 55)));
 
-        return response()->stream(function () use ($userId, $lastId, $sleepSeconds, $maxSeconds) {
+        return response()->stream(function () use ($userId, $recipientType, $recipientId, $lastId, $sleepSeconds, $maxSeconds) {
             @set_time_limit(0);
             $lastSent = $lastId;
             $startedAt = time();
@@ -66,7 +79,12 @@ class NotificationController extends Controller
                 if ($lastSent > 0) {
                     $query->where('id', '>', $lastSent);
                 }
-                if ($userId > 0) {
+                if ($recipientType !== '') {
+                    $query->where('recipient_type', $recipientType);
+                    if ($recipientId > 0) {
+                        $query->where('recipient_id', $recipientId);
+                    }
+                } elseif ($userId > 0) {
                     $query->where('user_id', $userId);
                 }
 

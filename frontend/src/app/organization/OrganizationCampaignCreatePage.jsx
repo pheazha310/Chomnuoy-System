@@ -812,6 +812,7 @@ export default function OrganizationCampaignCreatePage() {
 
     const session = getOrganizationSession();
     const organizationId = Number(session?.userId ?? 0);
+    const organizationName = String(session?.name || 'Organization').trim() || 'Organization';
     if (!organizationId) {
       setError('Organization session not found. Please log in again.');
       return;
@@ -863,42 +864,38 @@ export default function OrganizationCampaignCreatePage() {
 
       const savedCampaign = await response.json();
       const savedCampaignId = Number(savedCampaign?.id ?? editId);
-      let imageUploadFailures = [];
+      let imageUploadWarning = '';
       if (savedCampaignId) {
-        imageUploadFailures = await uploadCampaignImages(savedCampaignId);
+        try {
+          await uploadCampaignImages(savedCampaignId);
+        } catch (uploadError) {
+          imageUploadWarning =
+            uploadError instanceof Error
+              ? uploadError.message
+              : 'Campaign saved, but campaign image upload failed.';
+        }
       }
 
       if (isEditing) {
         setSuccess(
-          imageUploadFailures.length > 0
-            ? 'Campaign updated, but campaign images could not be uploaded.'
-            : 'Campaign updated.'
+          imageUploadWarning
+            ? `Campaign updated, but image upload failed: ${imageUploadWarning}`
+            : 'Campaign updated.',
         );
       } else {
         setSuccess(
-          imageUploadFailures.length > 0
-            ? (status === 'draft'
-              ? 'Draft saved, but campaign images could not be uploaded.'
-              : 'Campaign published, but campaign images could not be uploaded.')
-            : (status === 'draft' ? 'Draft saved.' : 'Campaign published.')
+          imageUploadWarning
+            ? `${status === 'draft' ? 'Draft saved' : 'Campaign published'}, but image upload failed: ${imageUploadWarning}`
+            : status === 'draft'
+              ? 'Draft saved.'
+              : 'Campaign published.',
         );
       }
-      if (status === 'active') {
-        try {
-          await fetch(`${apiBase}/notifications`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: organizationId,
-              message: `New campaign published: ${form.title.trim() || 'Untitled Campaign'}`,
-              type: 'campaign',
-              is_read: false,
-            }),
-          });
-        } catch {
-          // non-blocking notification failure
-        }
+      if (imageUploadWarning) {
+        setError(`Image upload failed. The campaign was saved, but no campaign image was attached yet. ${imageUploadWarning}`);
+        return;
       }
+
       window.setTimeout(() => {
         navigate(ROUTES.ORGANIZATION_CAMPAIGNS);
       }, 600);

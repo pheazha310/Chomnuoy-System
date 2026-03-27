@@ -4,6 +4,9 @@ import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
+import { OrganizationSettingsProvider } from '@/contexts/OrganizationSettingsContext';
+
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
 const CampaignsPage = lazy(() => import('@/components/pages/CampaignsPage.jsx'));
@@ -28,6 +31,7 @@ const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/Org
 const OrganizationCampaignDetailPage = lazy(() => import('@/app/organization/OrganizationCampaignDetailPage.jsx'));
 const OrganizationProfilePage = lazy(() => import('@/app/organization/profile.jsx'));
 const OrganizationProfileEditPage = lazy(() => import('@/app/organization/profile-edit.jsx'));
+const OrganizationSettings = lazy(() => import('@/app/organization/OrganizationSettings.jsx'));
 const MaterialPickupPage = lazy(() => import('@/app/material-pickup.jsx/materialPickup.jsx'));
 const PickupViewDetailPage = lazy(() => import('@/app/material-pickup.jsx/pickupViewDetail.jsx'));
 const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickupReschedule.jsx'));
@@ -35,10 +39,15 @@ const AdminPage = lazy(() => import('@/app/admin/page.jsx'));
 const UserDashboard = lazy(() => import('@/app/admin/userDashboard.jsx'));
 const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
 const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboard.jsx'));
+const AdminOrganizationProfilePage = lazy(() => import('@/app/admin/organizationProfile.jsx'));
 const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdmin.jsx'));
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
 const TransactionAdminPage = lazy(() => import('@/app/admin/transactionAdmin.jsx'));
+const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
+const ReportsAdmin = lazy(() => import('@/components/pages/reports/ReportsAdmin.jsx'));
+const AdminSettingsPage = lazy(() => import('@/app/admin/AdminSettingsPage.jsx'));
+const AdminProfilePage = lazy(() => import('@/app/admin/profile.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
@@ -84,10 +93,13 @@ function getStorageFileUrl(path) {
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
+  if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
-  return `${appBase}/storage/${normalizedPath}`;
+  if (normalizedPath.startsWith('files/')) {
+    return `${apiBase}/${normalizedPath}`;
+  }
+  return `${apiBase}/files/${normalizedPath}`;
 }
 
 function getProfileAvatarOverrides() {
@@ -165,6 +177,7 @@ function RequireOrganizationAuth({ children }) {
 }
 
 function RequireAdminAuth({ children }) {
+  useAdminAutoTranslate();
   const location = useLocation();
   const session = getSession();
   const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
@@ -391,7 +404,19 @@ export default function App() {
             path={ROUTES.ORGANIZATION_DASHBOARD}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationDashboardPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationDashboardPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_REPORTS}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationReports />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -399,7 +424,9 @@ export default function App() {
             path="/organization/donations"
             element={(
               <RequireOrganizationAuth>
-                <OrganizationDonationsPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationDonationsPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -407,15 +434,9 @@ export default function App() {
             path={ROUTES.ORGANIZATION_CAMPAIGNS}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationCampaignsPage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
-            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationCampaignDetailPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignsPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -423,7 +444,49 @@ export default function App() {
             path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationCampaignCreatePage />
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignCreatePage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignDetailPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationProfilePage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile/edit"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationProfileEditPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/settings"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationSettings />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -460,6 +523,38 @@ export default function App() {
             )}
           />
           <Route
+            path="/admin/organizations/:id"
+            element={(
+              <RequireAdminAuth>
+                <AdminOrganizationProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/profile"
+            element={(
+              <RequireAdminAuth>
+                <AdminProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/reports"
+            element={(
+              <RequireAdminAuth>
+                <ReportsAdmin />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/settings"
+            element={(
+              <RequireAdminAuth>
+                <AdminSettingsPage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
             path="/admin/donations"
             element={(
               <RequireAdminAuth>
@@ -489,22 +584,6 @@ export default function App() {
               <RequireAdminAuth>
                 <MaterialPickupAdminPage />
               </RequireAdminAuth>
-            )}
-          />
-          <Route
-            path="/organization/profile"
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationProfilePage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
-            path="/organization/profile/edit"
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationProfileEditPage />
-              </RequireOrganizationAuth>
             )}
           />
           <Route

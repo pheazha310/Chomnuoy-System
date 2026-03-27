@@ -12,6 +12,7 @@ const ROUTES = {
   LOGOUT: '/logout',
   DASHBOARD: '/dashboard',
   ORGANIZATION_DASHBOARD: '/organization/dashboard',
+  ORGANIZATION_REPORTS: '/organization/reports',
   ORGANIZATION_CAMPAIGNS: '/organization/campaigns',
   ORGANIZATION_CAMPAIGN_CREATE: '/organization/campaigns/create',
   ORGANIZATION_CAMPAIGN_DETAIL: (id = ':id') => `/organization/campaigns/${id}`,

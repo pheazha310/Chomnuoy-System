@@ -4,6 +4,11 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const fallbackCampaignImage =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="50%" y="50%" font-size="36" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
+  );
 
 export default function CampaignCard({
   id,
@@ -82,6 +87,11 @@ export default function CampaignCard({
           alt={title}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           referrerPolicy="no-referrer"
+          onError={(event) => {
+            if (event.currentTarget.src !== fallbackCampaignImage) {
+              event.currentTarget.src = fallbackCampaignImage;
+            }
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a]/12 via-transparent to-transparent" />
         {isUrgent && (

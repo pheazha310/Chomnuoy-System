@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import '../css/Campaigns.css';
 
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const fallbackCampaignImage =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
+  );
 
 function getSession() {
   try {
@@ -48,6 +53,18 @@ function campaignCategoryToSidebarCategory(category) {
   return category;
 }
 
+function resolveCampaignImage(item) {
+  const candidates = [item?.image_url, item?.image, item?.image_path];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return '';
+}
+
 function CampaignsPage() {
   const session = getSession();
   const isLoggedIn = Boolean(session?.isLoggedIn);
@@ -83,7 +100,18 @@ function CampaignsPage() {
     if (normalizedPath.startsWith('storage/')) {
       return `${appBase}/${normalizedPath}`;
     }
-    return `${appBase}/storage/${normalizedPath}`;
+    if (normalizedPath.startsWith('files/')) {
+      return `${apiBase}/${normalizedPath}`;
+    }
+    const relativePath = normalizedPath.startsWith('storage/')
+      ? normalizedPath.replace(/^storage\//, '')
+      : normalizedPath;
+    const encodedPath = relativePath
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    return `${apiBase}/files/${encodedPath}`;
   };
 
   useEffect(() => {
@@ -347,12 +375,20 @@ function CampaignsPage() {
                   aria-label={`Open ${campaign.title} details`}
                   onClick={persistCampaign}
                 >
-                  <img src={campaign.image} alt={campaign.title} className="campaign-image campaign-dashboard-image" loading="lazy" />
-                  {isUrgent ? (
-                    <div className="campaign-card-badges">
-                      <span className="campaign-badge campaign-badge-urgent">Urgent</span>
-                    </div>
-                  ) : null}
+                  <img
+                    src={campaign.image}
+                    alt={campaign.title}
+                    className="campaign-image campaign-dashboard-image"
+                    loading="lazy"
+                    onError={(event) => {
+                      if (event.currentTarget.src !== fallbackCampaignImage) {
+                        event.currentTarget.src = fallbackCampaignImage;
+                      }
+                    }}
+                  />
+                  <div className="campaign-card-badges">
+                    {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
+                  </div>
                   <div className="campaign-card-category">
                     <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
                   </div>

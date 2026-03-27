@@ -4,6 +4,7 @@ import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
 import OrganizationIdentityPill from "./OrganizationIdentityPill.jsx";
+import { useGlobalTheme } from "@/hooks/useOrganizationSettings";
 import "./organization.css";
 
 const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
@@ -21,8 +22,42 @@ function escapeCsvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
+function resolveCampaignImage(item) {
+  const candidates = [item?.image_url, item?.image, item?.image_path];
+
+  return candidates.find((value) => typeof value === "string" && value.trim())
+    ? candidates
+    : [];
+}
+
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem("chomnuoy_session");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredProfile() {
+  try {
+    const raw = window.localStorage.getItem("chomnuoy_org_profile");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getInitials(name) {
+  const parts = String(name || "Organization").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "OR";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
+  const { displayPrefs } = useGlobalTheme();
   const [activeTab, setActiveTab] = useState("All Campaigns");
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -36,15 +71,6 @@ export default function OrganizationCampaignsPage() {
   const [activeNotificationTab, setActiveNotificationTab] = useState("all");
   const [globalSearch, setGlobalSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-
-  const getOrganizationSession = () => {
-    try {
-      const raw = window.localStorage.getItem("chomnuoy_session");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
 
   const getStorageFileUrl = (path) => {
     if (!path) return "";
@@ -67,7 +93,41 @@ export default function OrganizationCampaignsPage() {
     if (normalizedPath.startsWith("storage/")) {
       return `${appBase}/${normalizedPath}`;
     }
-    return `${appBase}/storage/${normalizedPath}`;
+    if (normalizedPath.startsWith("files/")) {
+      return `${apiBase}/${normalizedPath}`;
+    }
+    const relativePath = normalizedPath.startsWith("storage/")
+      ? normalizedPath.replace(/^storage\//, "")
+      : normalizedPath;
+    const encodedPath = relativePath
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    return `${apiBase}/files/${encodedPath}`;
+  };
+
+  const getCampaignImageUrl = (item) => {
+    const candidates = resolveCampaignImage(item);
+
+    for (const candidate of candidates) {
+      const rawValue = String(candidate || "").trim();
+      if (!rawValue) continue;
+
+      if (
+        rawValue.startsWith("http://") ||
+        rawValue.startsWith("https://") ||
+        rawValue.startsWith("blob:") ||
+        rawValue.startsWith("data:")
+      ) {
+        return rawValue;
+      }
+
+      return getStorageFileUrl(rawValue);
+    }
+
+    return placeholderImage;
   };
 
   const normalizeStatus = (status) => {
@@ -95,6 +155,17 @@ export default function OrganizationCampaignsPage() {
     Completed: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#F1F5F9]",
     Draft: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
   };
+
+  const session = getOrganizationSession();
+  const storedProfile = getStoredProfile();
+  const organizationName = storedProfile?.name || session?.name || "Organization";
+  const organizationLogo = storedProfile?.logo || "";
+  const organizationInitials = getInitials(organizationName);
+  const themeClass = displayPrefs.highContrast
+    ? "theme-contrast"
+    : displayPrefs.darkMode
+      ? "theme-dark"
+      : "";
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -141,11 +212,7 @@ export default function OrganizationCampaignsPage() {
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
             action: actionLabelMap[status],
             actionTone: actionToneMap[status],
-            image:
-              getStorageFileUrl(item.image_path) ||
-              item.image_url ||
-              item.image ||
-              placeholderImage,
+            image: getCampaignImageUrl(item),
           };
         });
         setCampaigns(mapped);
@@ -332,8 +399,18 @@ export default function OrganizationCampaignsPage() {
           if (!alive) return;
           const items = Array.isArray(data) ? data : [];
           const filtered = userId
-            ? items.filter((item) => Number(item.user_id) === userId)
-            : items;
+            ? items.filter((item) => {
+                const recipientType = String(item.recipient_type || "").toLowerCase();
+                const recipientId = Number(item.recipient_id || 0);
+                if (recipientType) {
+                  if (recipientType !== "organization" || recipientId !== userId) return false;
+                } else if (Number(item.user_id) !== userId) {
+                  return false;
+                }
+                const type = String(item.type || "").toLowerCase();
+                return type !== "message" && type !== "reply";
+              })
+            : [];
           const mapped = filtered.map((item) => ({
             id: item.id,
             title: item.type === "campaign" ? "Campaign Update" : "Notification",
@@ -359,15 +436,15 @@ export default function OrganizationCampaignsPage() {
   }, []);
 
   return (
-    <div className="org-page">
+    <div className={`org-page ${themeClass}`}>
       <OrganizationSidebar />
       <main className="org-main org-cpg-main">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E8F0] bg-white/90 px-6 py-4 backdrop-blur">
-          <h2 className="text-lg font-semibold text-[#0F172A]">
+        <header className="org-cpg-toolbar flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E8F0] bg-white/90 px-6 py-4 backdrop-blur">
+          <h2 className="org-cpg-toolbar-title text-lg font-semibold text-[#0F172A]">
             Campaign Management
           </h2>
           <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
-            <label className="relative flex w-full max-w-xs items-center">
+            <label className="org-cpg-toolbar-search relative flex w-full max-w-xs items-center">
               <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
               <input
                 type="search"
@@ -386,6 +463,7 @@ export default function OrganizationCampaignsPage() {
               <Bell className="mx-auto h-4 w-4" />
               {unreadCount > 0 ? <span className="org-notify-dot" /> : null}
             </button>
+            <OrganizationIdentityPill className="org-cpg-user-card" />
             <OrganizationIdentityPill className="org-cpg-user-card" />
           </div>
         </header>
@@ -467,19 +545,19 @@ export default function OrganizationCampaignsPage() {
           </div>
         ) : null}
 
-        <section className=" w-full max-w-8xl px-3 pb-12 pt-8">
-          <div className="relative overflow-hidden rounded-[28px] border border-[#E2E8F0] bg-white/95 p-6 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
+        <section className="w-full max-w-8xl px-3 pb-12 pt-8">
+          <div className="org-cpg-hero relative overflow-hidden rounded-[28px] border border-[#E2E8F0] bg-white/95 p-6 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(31,111,230,0.12),_transparent_55%)]" />
             <div className="relative flex flex-col gap-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#94A3B8]">
+                  <p className="org-cpg-hero-kicker text-xs font-semibold uppercase tracking-[0.35em] text-[#94A3B8]">
                     Campaign Management
                   </p>
-                  <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#0F172A] md:text-4xl">
+                  <h1 className="org-cpg-hero-title mt-2 text-3xl font-semibold tracking-tight text-[#0F172A] md:text-4xl">
                     Campaigns
                   </h1>
-                  <p className="mt-2 max-w-xl text-sm font-medium text-[#64748B]">
+                  <p className="org-cpg-hero-copy mt-2 max-w-xl text-sm font-medium text-[#64748B]">
                     Monitor performance, keep teams aligned, and surface the
                     campaigns that need attention.
                   </p>
@@ -504,36 +582,36 @@ export default function OrganizationCampaignsPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                <div className="org-cpg-overview-card rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="org-cpg-overview-label text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
                     Total Campaigns
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                  <p className="org-cpg-overview-value mt-3 text-3xl font-semibold text-[#0F172A]">
                     {overview.total}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                  <p className="org-cpg-overview-meta mt-2 text-xs font-medium text-[#64748B]">
                     Active: {overview.Active} • Drafts: {overview.Draft}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                <div className="org-cpg-overview-card rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="org-cpg-overview-label text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
                     Total Raised
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                  <p className="org-cpg-overview-value mt-3 text-3xl font-semibold text-[#0F172A]">
                     {formatMoney(overview.raised)}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                  <p className="org-cpg-overview-meta mt-2 text-xs font-medium text-[#64748B]">
                     Goal: {formatMoney(overview.goal)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                <div className="org-cpg-overview-card rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="org-cpg-overview-label text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
                     Completion Rate
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                  <p className="org-cpg-overview-value mt-3 text-3xl font-semibold text-[#0F172A]">
                     {overview.completionRate}%
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                  <p className="org-cpg-overview-meta mt-2 text-xs font-medium text-[#64748B]">
                     Past campaigns: {overview.Completed}
                   </p>
                 </div>
@@ -541,7 +619,7 @@ export default function OrganizationCampaignsPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-[28px] border border-[#E2E8F0] bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <div className="org-cpg-filter-panel mt-6 rounded-[28px] border border-[#E2E8F0] bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
             <div className="flex flex-wrap items-center gap-2 border-b border-[#E2E8F0] pb-4">
               {tabs.map((tab) => (
                 <button
@@ -574,11 +652,11 @@ export default function OrganizationCampaignsPage() {
               <div className="relative flex min-w-[240px] flex-1 items-center">
                 <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
                 <input
+                  className="org-cpg-search-input h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                   type="text"
                   placeholder="Search campaigns by title, owner, or ID..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                 />
               </div>
               <div className="org-cpg-filter">
@@ -684,6 +762,11 @@ export default function OrganizationCampaignsPage() {
                       className="h-full w-full object-cover"
                       loading="lazy"
                       referrerPolicy="no-referrer"
+                      onError={(event) => {
+                        if (event.currentTarget.src !== placeholderImage) {
+                          event.currentTarget.src = placeholderImage;
+                        }
+                      }}
                     />
                     <span
                       className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${item.statusTone}`}
@@ -738,7 +821,7 @@ export default function OrganizationCampaignsPage() {
             })}
           </div>
           {!loading && !error && filteredCampaigns.length === 0 ? (
-            <div className="mt-8 rounded-2xl border border-dashed border-[#CBD5F5] bg-white/90 px-6 py-8 text-center text-sm font-semibold text-[#64748B]">
+            <div className="org-cpg-empty-state mt-8 rounded-2xl border border-dashed border-[#CBD5F5] bg-white/90 px-6 py-8 text-center text-sm font-semibold text-[#64748B]">
               No campaigns match your current filters.
             </div>
           ) : null}
