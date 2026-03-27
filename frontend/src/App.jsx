@@ -55,6 +55,32 @@ const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
 const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
 
+function PageLoader() {
+  useEffect(() => {
+    const bar = document.getElementById('nprogress-bar');
+    if (!bar) return;
+    bar.style.width = '30%';
+    const t1 = setTimeout(() => { bar.style.width = '70%'; }, 150);
+    const t2 = setTimeout(() => { bar.style.width = '90%'; }, 400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.width = '0%'; }, 300);
+    };
+  }, []);
+
+  return (
+    <div className="page-skeleton">
+      <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="skeleton-pulse" style={{ height: 18, width: '60%' }} />
+        <div className="skeleton-pulse" style={{ height: 14, width: '100%' }} />
+        <div className="skeleton-pulse" style={{ height: 14, width: '80%' }} />
+      </div>
+    </div>
+  );
+}
+
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
@@ -357,7 +383,7 @@ export default function App() {
   return (
     <>
       {!hideShell && <Navbar />}
-      <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path={ROUTES.HOME} element={<HomeRoute />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
