@@ -44,13 +44,10 @@ class CampaignController extends Controller
         foreach ($donorIds as $donorId) {
             Notification::create([
                 'user_id' => (int) $donorId,
-<<<<<<< HEAD
                 'sender_type' => 'organization',
                 'sender_name' => $organizationName,
                 'recipient_type' => 'user',
                 'recipient_id' => $donorId,
-=======
->>>>>>> 36c39fcafebe10a7fc85f2f3337e9b8fdff7aac3
                 'message' => $message,
                 'type' => 'campaign',
                 'is_read' => false,

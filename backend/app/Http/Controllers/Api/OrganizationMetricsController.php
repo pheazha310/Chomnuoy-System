@@ -39,7 +39,7 @@ class OrganizationMetricsController extends Controller
             ->first();
 
         if (!$cache) {
-            return response()->json(['message' => 'No cached metrics available.'], 404);
+            return response()->json(null, 200);
         }
 
         return response()->json($cache);

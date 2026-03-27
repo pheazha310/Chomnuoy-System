@@ -2,10 +2,7 @@
 
 use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AuditLogController;
-<<<<<<< HEAD
 use App\Http\Controllers\Api\BakongTransactionController;
-=======
->>>>>>> 36c39fcafebe10a7fc85f2f3337e9b8fdff7aac3
 use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
