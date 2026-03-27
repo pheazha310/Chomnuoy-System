@@ -1,8 +1,10 @@
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
-import { Download, FileText, Filter, MoreVertical, Package, Users, Wallet } from 'lucide-react';
+import { Download, Eye, FileText, Filter, Package, Truck, Users, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ROUTES from '@/constants/routes.js';
 
 function getOrganizationSession() {
   try {
@@ -50,6 +52,7 @@ function formatStatusLabel(value) {
 }
 
 export default function OrganizationDonationsPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [showAllRows, setShowAllRows] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -63,6 +66,8 @@ export default function OrganizationDonationsPage() {
   const [pickups, setPickups] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [users, setUsers] = useState([]);
+  const [selectedPickupRequest, setSelectedPickupRequest] = useState(null);
+  const [confirmingPickup, setConfirmingPickup] = useState(false);
   const session = getOrganizationSession();
   const organizationId = Number(session?.userId ?? 0);
 
@@ -140,6 +145,8 @@ export default function OrganizationDonationsPage() {
       const campaign = campaignMap.get(Number(row.campaign_id));
       return {
         id: row.id,
+        campaignId: Number(row.campaign_id || 0) || null,
+        donorUserId: Number(row.user_id || 0) || null,
         donor: donorName,
         initials: getInitials(donorName),
         donationType: donationTypeKey === 'material' ? 'Material' : 'Money',
@@ -154,6 +161,13 @@ export default function OrganizationDonationsPage() {
         statusKey,
         date: dateValue ? dateValue.toLocaleDateString() : '-',
         dateValue: dateValue ? dateValue.getTime() : 0,
+        pickupId: Number(pickup?.id || 0) || null,
+        pickupAddress: pickup?.pickup_address || 'Pickup address pending',
+        pickupSchedule: pickup?.schedule_date ? toDate(pickup.schedule_date)?.toLocaleDateString() || 'Schedule pending' : 'Schedule pending',
+        pickupScheduleRaw: pickup?.schedule_date || null,
+        pickupStatus: pickup?.status || 'pending',
+        primaryItemName: primaryItem?.item_name || 'Requested items',
+        totalQuantity: totalQuantity || 1,
       };
     });
   }, [campaigns, donations, materialItems, pickups, users]);
@@ -301,6 +315,89 @@ export default function OrganizationDonationsPage() {
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => printWindow.print(), 200);
+  };
+
+  const handleOpenRowAction = (row) => {
+    if (row.donationTypeKey === 'material' && row.pickupId) {
+      setSelectedPickupRequest(row);
+      return;
+    }
+
+    if (row.campaignId) {
+      navigate(ROUTES.ORGANIZATION_CAMPAIGN_DETAIL(row.campaignId));
+      return;
+    }
+
+    window.alert(
+      row.donationTypeKey === 'material'
+        ? `Pickup details are not available yet for ${row.donor}'s material donation.`
+        : `This donation is not linked to a campaign detail yet.`,
+    );
+  };
+
+  const handleConfirmPickup = async () => {
+    if (!selectedPickupRequest?.pickupId) {
+      setSelectedPickupRequest(null);
+      return;
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    setConfirmingPickup(true);
+
+    try {
+      const pickupResponse = await fetch(`${apiBase}/material_pickups/${selectedPickupRequest.pickupId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'confirmed',
+          pickup_address: selectedPickupRequest.pickupAddress,
+          schedule_date: selectedPickupRequest.pickupScheduleRaw,
+        }),
+      });
+
+      if (!pickupResponse.ok) {
+        throw new Error(`Failed to confirm pickup (${pickupResponse.status})`);
+      }
+
+      const donationResponse = await fetch(`${apiBase}/donations/${selectedPickupRequest.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'confirmed' }),
+      });
+
+      if (!donationResponse.ok) {
+        throw new Error(`Failed to update donation (${donationResponse.status})`);
+      }
+
+      if (selectedPickupRequest.donorUserId) {
+        await fetch(`${apiBase}/notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: selectedPickupRequest.donorUserId,
+            message: `Your material donation for "${selectedPickupRequest.project}" has been confirmed by the organization for pickup.`,
+            type: 'pickup-confirmed',
+            is_read: false,
+          }),
+        }).catch(() => null);
+      }
+
+      setPickups((prev) => prev.map((item) => (
+        Number(item.id) === Number(selectedPickupRequest.pickupId)
+          ? { ...item, status: 'confirmed' }
+          : item
+      )));
+      setDonations((prev) => prev.map((item) => (
+        Number(item.id) === Number(selectedPickupRequest.id)
+          ? { ...item, status: 'confirmed' }
+          : item
+      )));
+      setSelectedPickupRequest(null);
+    } catch {
+      // Keep the modal open so the organization can retry.
+    } finally {
+      setConfirmingPickup(false);
+    }
   };
 
   const donationStats = useMemo(() => {
@@ -557,11 +654,18 @@ export default function OrganizationDonationsPage() {
                         <td>{row.date}</td>
                         <td>
                           <div className="org-donations-row-actions">
-                            <button type="button" aria-label="Save this donation record" onClick={() => handleSaveSingleRow(row)}>
+                            <button type="button" aria-label={`Export ${row.donor} donation record`} onClick={() => handleSaveSingleRow(row)}>
                               <FileText />
+                              <span>Receipt</span>
                             </button>
-                            <button type="button" aria-label="More options">
-                              <MoreVertical />
+                            <button
+                              type="button"
+                              className={row.donationTypeKey === 'material' ? 'is-material' : 'is-money'}
+                              aria-label={row.donationTypeKey === 'material' ? `Open ${row.donor} material donation workflow` : `View ${row.project} campaign`}
+                              onClick={() => handleOpenRowAction(row)}
+                            >
+                              {row.donationTypeKey === 'material' ? <Truck /> : <Eye />}
+                              <span>{row.donationTypeKey === 'material' ? 'Manage Pickup' : 'View Campaign'}</span>
                             </button>
                           </div>
                         </td>
@@ -577,6 +681,77 @@ export default function OrganizationDonationsPage() {
           </footer>
         </section>
       </main>
+      {selectedPickupRequest ? (
+        <div className="org-pickup-modal-overlay" role="presentation" onClick={() => setSelectedPickupRequest(null)}>
+          <div
+            className="org-pickup-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="org-donation-pickup-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className={`org-pickup-modal-badge ${selectedPickupRequest.statusKey}`}>
+              {selectedPickupRequest.statusKey === 'confirmed' ? 'Pickup Confirmed' : 'Awaiting Confirmation'}
+            </span>
+            <h3 id="org-donation-pickup-modal-title">Coordinate Pickup</h3>
+            <p className="org-pickup-modal-copy">Review this material donation with real donor, campaign, and pickup data from the project.</p>
+
+            <div className="org-pickup-modal-details">
+              <div>
+                <span>Campaign</span>
+                <strong>{selectedPickupRequest.project}</strong>
+              </div>
+              <div>
+                <span>Donor</span>
+                <strong>{selectedPickupRequest.donor}</strong>
+              </div>
+              <div>
+                <span>Items</span>
+                <strong>{selectedPickupRequest.totalQuantity}x {selectedPickupRequest.primaryItemName}</strong>
+              </div>
+              <div>
+                <span>Pickup Address</span>
+                <strong>{selectedPickupRequest.pickupAddress}</strong>
+              </div>
+              <div>
+                <span>Schedule</span>
+                <strong>{selectedPickupRequest.pickupSchedule}</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{selectedPickupRequest.status}</strong>
+              </div>
+            </div>
+
+            <div className="org-pickup-modal-note">
+              <strong>Next step</strong>
+              <p>
+                {selectedPickupRequest.statusKey === 'confirmed'
+                  ? 'This pickup is already confirmed and synced with the donation record.'
+                  : 'Confirm pickup to update the donation status and notify the donor.'}
+              </p>
+            </div>
+
+            <div className="org-pickup-modal-actions">
+              <button type="button" className="org-pickup-modal-btn secondary" onClick={() => setSelectedPickupRequest(null)}>
+                Close
+              </button>
+              <button
+                type="button"
+                className="org-pickup-modal-btn primary"
+                onClick={handleConfirmPickup}
+                disabled={confirmingPickup || selectedPickupRequest.statusKey === 'confirmed'}
+              >
+                {selectedPickupRequest.statusKey === 'confirmed'
+                  ? 'Pickup Confirmed'
+                  : confirmingPickup
+                    ? 'Confirming...'
+                    : 'Confirm Pickup'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isFilterOpen ? <button type="button" className="org-donations-filter-backdrop" onClick={() => setIsFilterOpen(false)} aria-label="Close filter menu" /> : null}
     </div>
   );

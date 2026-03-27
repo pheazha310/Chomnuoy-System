@@ -1490,21 +1490,52 @@
 
 .org-donations-row-actions {
   display: inline-flex;
-  gap: 5px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .org-donations-row-actions button {
-  border: 0;
-  background: transparent;
-  color: #6b7b93;
+  border: 1px solid #d6e2f3;
+  background: #f8fbff;
+  color: #4c6485;
   cursor: pointer;
-  padding: 0;
+  padding: 7px 10px;
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.org-donations-row-actions button:hover {
+  background: #eef5ff;
+  border-color: #bcd2f2;
+  color: #1f6fe6;
+  transform: translateY(-1px);
+}
+
+.org-donations-row-actions button.is-material {
+  background: #edf7ff;
+  border-color: #c7e1fb;
+  color: #1262c7;
+}
+
+.org-donations-row-actions button.is-money {
+  background: #f5f8fd;
+  border-color: #dbe4f1;
+  color: #32527c;
+}
+
+.org-donations-row-actions button span {
+  line-height: 1;
 }
 
 .org-donations-row-actions svg {
   width: 16px;
   height: 16px;
+  flex: 0 0 auto;
 }
 
 .org-donations-table-footer {
