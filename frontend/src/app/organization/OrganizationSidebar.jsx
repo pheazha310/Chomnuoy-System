@@ -139,8 +139,9 @@ export default function OrganizationSidebar({ compact = false }) {
           </NavLink>
         </nav>
 
-        {/* Theme Controls */}
-        <div className="org-theme-controls">
+        <div className="org-sidebar-footer">
+          {/* Theme Controls */}
+          <div className="org-theme-controls">
           <p>Display Settings</p>
           <div className="org-theme-buttons">
             <button 
@@ -167,9 +168,10 @@ export default function OrganizationSidebar({ compact = false }) {
           </div>
         </div>
 
-        <button className="org-logout-button" type="button" onClick={() => setIsLogoutPopupOpen(true)}>
-          Logout
-        </button>
+          <button className="org-logout-button" type="button" onClick={() => setIsLogoutPopupOpen(true)}>
+            Logout
+          </button>
+        </div>
       </aside>
 
       {isLogoutPopupOpen ? (

@@ -229,6 +229,15 @@
   display: grid;
   gap: 8px;
   margin-top: 8px;
+  flex: 1 0 auto;
+  align-content: start;
+}
+
+.org-sidebar-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
 }
 
 .org-nav-item {
@@ -6116,7 +6125,6 @@
   background: rgba(255, 255, 255, 0.9);
   border-radius: 12px;
   padding: 1rem;
-  margin-top: 1rem;
   border: 1px solid rgba(167, 196, 223, 0.2);
 }
 
