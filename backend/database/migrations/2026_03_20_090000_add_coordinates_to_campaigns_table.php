@@ -8,12 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('organizations', function (Blueprint $table) {
-            if (!Schema::hasColumn('organizations', 'latitude')) {
+        Schema::table('campaigns', function (Blueprint $table) {
+            if (!Schema::hasColumn('campaigns', 'location')) {
+                $table->string('location')->nullable()->after('end_date');
+            }
+
+            if (!Schema::hasColumn('campaigns', 'latitude')) {
                 $table->decimal('latitude', 10, 7)->nullable()->after('location');
             }
 
-            if (!Schema::hasColumn('organizations', 'longitude')) {
+            if (!Schema::hasColumn('campaigns', 'longitude')) {
                 $table->decimal('longitude', 10, 7)->nullable()->after('latitude');
             }
         });
@@ -21,15 +25,19 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('organizations', function (Blueprint $table) {
+        Schema::table('campaigns', function (Blueprint $table) {
             $drops = [];
 
-            if (Schema::hasColumn('organizations', 'latitude')) {
+            if (Schema::hasColumn('campaigns', 'latitude')) {
                 $drops[] = 'latitude';
             }
 
-            if (Schema::hasColumn('organizations', 'longitude')) {
+            if (Schema::hasColumn('campaigns', 'longitude')) {
                 $drops[] = 'longitude';
+            }
+
+            if (Schema::hasColumn('campaigns', 'location')) {
+                $drops[] = 'location';
             }
 
             if ($drops !== []) {

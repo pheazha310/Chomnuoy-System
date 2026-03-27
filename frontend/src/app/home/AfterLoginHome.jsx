@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
@@ -14,6 +14,7 @@ import './afterLoginHome.css';
 
 const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
 const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 const placeholderImage =
   "data:image/svg+xml;utf8," +
@@ -221,6 +222,7 @@ function mapActivity(notificationsData, userId) {
 }
 
 function AfterLoginHome() {
+  const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
   const cachedDashboard = useMemo(() => readDashboardCache(), []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
@@ -310,6 +312,26 @@ function AfterLoginHome() {
   const monthlyGoal = 250;
   const monthlyPercent = monthlyGoal ? Math.min(100, Math.round((monthlyTotal / monthlyGoal) * 100)) : 0;
   const impactLevel = getImpactLevel(totalDonated);
+
+  const openCampaignDetail = (campaign) => {
+    const persistedCampaign = {
+      id: campaign.id,
+      title: campaign.title,
+      summary: campaign.description,
+      image: campaign.image,
+      category: campaign.badgeTone === 'ending' ? 'Environment' : 'General',
+      raisedAmount: Number(String(campaign.raised).replace(/[^0-9.]/g, '')) || 0,
+      goalAmount: 0,
+      organization: 'Verified Organization',
+    };
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(persistedCampaign));
+    navigate(`/campaigns/${campaign.id}`, {
+      state: {
+        from: '/AfterLoginHome',
+        campaign: persistedCampaign,
+      },
+    });
+  };
 
   return (
     <div className="dashboard-home">
@@ -402,9 +424,13 @@ function AfterLoginHome() {
                       <span>{item.progressLabel}</span>
                     </div>
 
-                    <Link to="/donations" className="campaign-donate-link">
+                    <button
+                      type="button"
+                      className="campaign-donate-link"
+                      onClick={() => openCampaignDetail(item)}
+                    >
                       Donate Now
-                    </Link>
+                    </button>
                   </div>
                 </article>
               ))}

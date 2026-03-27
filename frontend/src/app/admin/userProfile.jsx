@@ -122,7 +122,7 @@ export default function AdminUserProfilePage() {
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   return (
@@ -235,7 +235,7 @@ export default function AdminUserProfilePage() {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="admin-logout-title">Are you sure you want to logout?</h3>
-            <p>You will be returned to the login page.</p>
+            <p>You will be returned to the public home page.</p>
             <div className="admin-modal-actions">
               <button type="button" className="admin-modal-cancel" onClick={() => setIsLogoutOpen(false)}>
                 Cancel

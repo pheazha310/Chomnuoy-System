@@ -276,7 +276,6 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const updateField = (field, value) => {
   const handlePasswordUpdate = async () => {
     if (!form.currentPassword || !form.newPassword) {
       setMessage('Please provide current and new password.');

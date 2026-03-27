@@ -16,6 +16,7 @@ const OrganizationAfterLogin = lazy(() => import('@/components/pages/Organizatio
 const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
 const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
+const ProfilePage = lazy(() => import('@/components/pages/ProfilePage.jsx'));
 const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
@@ -91,6 +92,10 @@ function getStorageFileUrl(path) {
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   if (normalizedPath.startsWith('files/')) {
     return `${apiBase}/${normalizedPath}`;
+  }
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
   }
   return `${apiBase}/files/${normalizedPath}`;
 }
@@ -599,6 +604,14 @@ export default function App() {
           <Route path="/pickup/reschedule" element={<PickupReschedulePage />} />
           <Route
             path="/profile"
+            element={(
+              <RequireAuth>
+                <ProfilePage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/my-profile"
             element={(
               <RequireAuth>
                 <MyProfilePage />

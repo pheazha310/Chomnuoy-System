@@ -50,13 +50,16 @@ export default function OrganizationProfileEditPage() {
       'Passerelles numeriques Cambodia (PNC), Street 371, Phnom Penh, Cambodia',
     latitude: storedProfile?.latitude || '',
     longitude: storedProfile?.longitude || '',
+    mapQuery: storedProfile?.mapQuery || storedProfile?.location || '',
     website: storedProfile?.website || '',
     socials: {
       facebook: storedProfile?.socials?.facebook || '',
       instagram: storedProfile?.socials?.instagram || '',
       telegram: storedProfile?.socials?.telegram || '',
     },
-    impactAreas: storedProfile?.impactAreas || ['Amazon Basin', 'Southeast Asian Rainforests', 'Arctic Circle'],
+    impactAreas: Array.isArray(storedProfile?.impactAreas)
+      ? storedProfile.impactAreas.join(', ')
+      : (storedProfile?.impactAreas || ''),
   });
 
   useEffect(() => {
@@ -177,12 +180,17 @@ export default function OrganizationProfileEditPage() {
           ...formData,
           name: formData.name,
           logo: formData.logo,
+          mapQuery: formData.mapQuery.trim(),
           socials: {
             facebook: formData.socials.facebook,
             instagram: formData.socials.instagram,
             telegram: formData.socials.telegram,
           },
-        }),
+          impactAreas: formData.impactAreas
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        })
       );
 
       setSavedMessage('Profile saved & published.');
@@ -281,8 +289,20 @@ export default function OrganizationProfileEditPage() {
                 <input value={formData.longitude} onChange={handleChange('longitude')} placeholder="104.942829" />
               </label>
               <label>
+                Map Search
+                <input value={formData.mapQuery} onChange={handleChange('mapQuery')} placeholder="Phnom Penh, Cambodia" />
+              </label>
+              <label>
                 Website
                 <input value={formData.website} onChange={handleChange('website')} placeholder="www.organization.org" />
+              </label>
+              <label className="org-profile-edit-full">
+                Impact Areas
+                <input
+                  value={formData.impactAreas}
+                  onChange={handleChange('impactAreas')}
+                  placeholder="Education, Community, Healthcare"
+                />
               </label>
               <label className="org-profile-edit-full">
                 About Organization
@@ -368,3 +388,5 @@ export default function OrganizationProfileEditPage() {
     </div>
   );
 }
+
+

@@ -367,6 +367,7 @@ export default function OrganizationDashboardPage() {
         ? `${materialItem?.quantity || 1}x Items`
         : `$${Number(row.amount || 0).toLocaleString()}`;
       return {
+        id: row.id ?? `${row.user_id || 'anonymous'}-${row.created_at || 'no-date'}-${row.amount || row.donation_type || 'donation'}`,
         donor: row.user_id ? `Donor #${row.user_id}` : 'Anonymous',
         type: row.donation_type === 'material' ? 'Material' : 'Money',
         amount: amountText,
@@ -450,7 +451,7 @@ export default function OrganizationDashboardPage() {
                 </thead>
                 <tbody>
                   {donationRows.map((row) => (
-                    <tr key={`${row.donor}-${row.date}`}>
+                    <tr key={row.id}>
                       <td>{row.donor}</td>
                       <td>{row.type}</td>
                       <td>{row.amount}</td>

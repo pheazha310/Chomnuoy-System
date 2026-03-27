@@ -7,6 +7,7 @@ use App\Models\Campaign;
 use App\Models\CampaignImage;
 use App\Models\Notification;
 use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,40 @@ use Illuminate\Support\Facades\DB;
 
 class CampaignController extends Controller
 {
+    private function notifyDonorsAboutCampaign(Campaign $campaign, string $action = 'published'): void
+    {
+        $status = strtolower((string) ($campaign->status ?? ''));
+        if ($status !== 'active') {
+            return;
+        }
+
+        $donorRoleId = Role::query()->where('role_name', 'Donor')->value('id');
+        if (!$donorRoleId) {
+            return;
+        }
+
+        $organizationName = DB::table('organizations')
+            ->where('id', $campaign->organization_id)
+            ->value('name') ?? 'An organization';
+
+        $message = $action === 'updated'
+            ? sprintf('%s updated the campaign "%s".', $organizationName, $campaign->title)
+            : sprintf('%s posted a new campaign: "%s".', $organizationName, $campaign->title);
+
+        $donorIds = User::query()
+            ->where('role_id', $donorRoleId)
+            ->pluck('id');
+
+        foreach ($donorIds as $donorId) {
+            Notification::create([
+                'user_id' => (int) $donorId,
+                'message' => $message,
+                'type' => 'campaign',
+                'is_read' => false,
+            ]);
+        }
+    }
+
     private function notifyCampaignPublished(Campaign $campaign): void
     {
         $title = trim((string) ($campaign->title ?? 'Untitled Campaign'));
@@ -102,7 +137,14 @@ class CampaignController extends Controller
     public function index(): JsonResponse
     {
         $records = Campaign::query()
-            ->select('campaigns.*')
+            ->leftJoin('organizations', 'organizations.id', '=', 'campaigns.organization_id')
+            ->select(
+                'campaigns.*',
+                'organizations.name as organization_name',
+                'organizations.location as organization_location',
+                'organizations.latitude as organization_latitude',
+                'organizations.longitude as organization_longitude'
+            )
             ->addSelect([
                 'image_path' => CampaignImage::select('image_path')
                     ->whereColumn('campaign_id', 'campaigns.id')
@@ -119,6 +161,7 @@ class CampaignController extends Controller
     {
         $payload = $this->preparePayload($request);
         $record = Campaign::create($payload);
+        $this->notifyDonorsAboutCampaign($record, 'published');
 
         if (strtolower((string) ($record->status ?? '')) === 'active') {
             $this->notifyCampaignPublished($record);
@@ -130,7 +173,14 @@ class CampaignController extends Controller
     public function show(int $id): JsonResponse
     {
         $record = Campaign::query()
-            ->select('campaigns.*')
+            ->leftJoin('organizations', 'organizations.id', '=', 'campaigns.organization_id')
+            ->select(
+                'campaigns.*',
+                'organizations.name as organization_name',
+                'organizations.location as organization_location',
+                'organizations.latitude as organization_latitude',
+                'organizations.longitude as organization_longitude'
+            )
             ->addSelect([
                 'image_path' => CampaignImage::select('image_path')
                     ->whereColumn('campaign_id', 'campaigns.id')
@@ -147,6 +197,11 @@ class CampaignController extends Controller
         $wasActive = strtolower((string) ($record->status ?? '')) === 'active';
         $payload = $this->preparePayload($request);
         $record->update($payload);
+        $record->refresh();
+
+        if (!$wasActive && strtolower((string) ($record->status ?? '')) === 'active') {
+            $this->notifyDonorsAboutCampaign($record, 'published');
+        }
 
         $isActive = strtolower((string) ($record->status ?? '')) === 'active';
         if (!$wasActive && $isActive) {

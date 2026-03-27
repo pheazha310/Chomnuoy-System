@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import '../css/Campaigns.css';
 
 const fallbackCampaignImage =
@@ -6,6 +7,7 @@ const fallbackCampaignImage =
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
   );
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 function getSession() {
   try {
@@ -181,21 +183,41 @@ function CampaignsPage() {
         const items = Array.isArray(data) ? data : [];
         const mapped = items
           .filter((item) => isPublicCampaignStatus(item.status))
-          .map((item) => ({
-            id: item.id,
-            title: item.title || 'Untitled Campaign',
-            summary: item.summary || item.description || 'No description available.',
-            category: item.category || 'Environment',
-            organization:
-              item.organization_name ||
-              item.organization ||
-              item.organizationTitle ||
-              (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
-            raisedAmount: Number(item.current_amount || 0),
-            goalAmount: Math.max(1, Number(item.goal_amount || 0)),
-            image: getStorageFileUrl(resolveCampaignImage(item)) || fallbackCampaignImage,
-            createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
-          }));
+          .map((item) => {
+            const constMaterialItem = (() => {
+              if (item.material_item && typeof item.material_item === 'object') return item.material_item;
+              if (typeof item.material_item === 'string') {
+                try {
+                  return JSON.parse(item.material_item);
+                } catch {
+                  return null;
+                }
+              }
+              return null;
+            })();
+            return {
+              id: item.id,
+              organizationId: Number(item.organization_id ?? 0) || null,
+              campaignType: item.campaign_type || (constMaterialItem ? 'material' : 'monetary'),
+              title: item.title || 'Untitled Campaign',
+              summary: item.summary || item.description || 'No description available.',
+              category: item.category || 'Environment',
+              organization:
+                item.organization_name ||
+                item.organization ||
+                item.organizationTitle ||
+                (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
+              location: item.organization_location || item.location || '',
+              organizationLocation: item.organization_location || '',
+              latitude: Number(item.organization_latitude ?? item.latitude ?? 0) || null,
+              longitude: Number(item.organization_longitude ?? item.longitude ?? 0) || null,
+              materialItem: constMaterialItem,
+              raisedAmount: Number(item.current_amount || 0),
+              goalAmount: Math.max(1, Number(item.goal_amount || 0)),
+              image: getStorageFileUrl(resolveCampaignImage(item)) || fallbackCampaignImage,
+              createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
+            };
+          });
         setCampaigns(mapped);
         setCurrentPage(1);
       })
@@ -378,14 +400,28 @@ function CampaignsPage() {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
+            const detailState = {
+              from: '/campaigns',
+              campaign,
+            };
             const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
             const isUrgent = percentRaised < 40;
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
             const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
 
+            const persistCampaign = () => {
+              window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaign));
+            };
+
             return (
               <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
-                <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                <Link
+                  to={detailPath}
+                  state={detailState}
+                  className="campaign-media-link"
+                  aria-label={`Open ${campaign.title} details`}
+                  onClick={persistCampaign}
+                >
                   <img
                     src={campaign.image}
                     alt={campaign.title}
@@ -402,13 +438,13 @@ function CampaignsPage() {
                     <span className="campaign-badge campaign-badge-verified">Verified</span>
                     {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
                   </div>
-                </a>
+                </Link>
 
                 <div className="campaign-content campaign-dashboard-content">
                   <h2>
-                    <a href={detailPath} className="campaign-title-link">
+                    <Link to={detailPath} state={detailState} className="campaign-title-link" onClick={persistCampaign}>
                       {campaign.title}
-                    </a>
+                    </Link>
                   </h2>
                   <p className="campaign-organization">Posted by {campaign.organization}</p>
                   <p className="campaign-summary">{campaign.summary}</p>
@@ -434,9 +470,21 @@ function CampaignsPage() {
                       <img className="donor-avatar donor-avatar-image" src={donorProfileImages[1]} alt="" aria-hidden="true" />
                       <span className="donor-avatar donor-avatar-more">+{mockDonorCount}</span>
                     </div>
-                    <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
-                      Donate Now
-                    </a>
+                    {isLoggedIn ? (
+                      <Link
+                        to={detailPath}
+                        state={detailState}
+                        className="donate-button campaign-donate-button"
+                        aria-label={`Donate to ${campaign.title}`}
+                        onClick={persistCampaign}
+                      >
+                        Donate Now
+                      </Link>
+                    ) : (
+                      <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
+                        Donate Now
+                      </a>
+                    )}
                   </div>
                 </div>
               </article>

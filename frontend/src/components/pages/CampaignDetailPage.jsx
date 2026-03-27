@@ -9,12 +9,26 @@ import {
   Building2,
   Droplets,
   HandHeart,
+  ShieldCheck,
+  Lock,
+  ScanQrCode,
+  CircleCheckBig,
+  Download,
+  Circle,
+  Clock3,
 } from 'lucide-react';
+import { createBakongTransaction, verifyBakongTransaction } from '../../services/user-service';
 
 import { getCampaignById } from '../../data/campaigns';
 import '../css/Campaigns.css';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
+const DONOR_CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
+const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v1';
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const DONATION_CACHE_KEY = 'donor_my_donations_v1';
+const LAST_DONATION_DETAIL_KEY = 'chomnuoy_last_donation_detail';
+const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
 
 function getSavedCampaignIds() {
   try {
@@ -37,6 +51,88 @@ function getSession() {
   } catch {
     return null;
   }
+}
+
+function readSessionCache(key) {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function mapCachedCampaign(item) {
+  if (!item?.id) return null;
+  let parsedTiers = null;
+  let parsedMaterialItem = null;
+  if (typeof item.donation_tiers === 'string') {
+    try {
+      parsedTiers = JSON.parse(item.donation_tiers);
+    } catch {
+      parsedTiers = null;
+    }
+  } else if (Array.isArray(item.donation_tiers)) {
+    parsedTiers = item.donation_tiers;
+  }
+  if (typeof item.material_item === 'string') {
+    try {
+      parsedMaterialItem = JSON.parse(item.material_item);
+    } catch {
+      parsedMaterialItem = null;
+    }
+  } else if (item.material_item && typeof item.material_item === 'object') {
+    parsedMaterialItem = item.material_item;
+  } else if (item.materialItem && typeof item.materialItem === 'object') {
+    parsedMaterialItem = item.materialItem;
+  }
+  const inferredCampaignType = item.campaignType || item.campaign_type || (parsedMaterialItem ? 'material' : 'monetary');
+  return {
+    id: item.id,
+    organizationId: Number(item.organizationId ?? item.organization_id ?? 0) || null,
+    campaignType: inferredCampaignType,
+    title: item.title || 'Untitled campaign',
+    category: item.category || item.normalizedCategory || 'General',
+    organization: item.organization || 'Verified Organization',
+    summary: item.summary || item.description || 'No description available yet.',
+    location: item.organizationLocation || item.organization_location || item.location || 'Kampong Speu, Cambodia',
+    latitude: Number(item.organizationLatitude ?? item.organization_latitude ?? item.latitude ?? 0) || null,
+    longitude: Number(item.organizationLongitude ?? item.organization_longitude ?? item.longitude ?? 0) || null,
+    receiptMessage: item.receipt_message || '',
+    donationTiers: parsedTiers,
+    materialItem: parsedMaterialItem,
+    goalAmount: Number(item.goalAmount ?? item.goal ?? 0),
+    raisedAmount: Number(item.raisedAmount ?? item.raised ?? 0),
+    image:
+      item.image ||
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+  };
+}
+
+function getCachedCampaignById(id) {
+  try {
+    const rawLastOpened = window.localStorage.getItem(LAST_OPENED_CAMPAIGN_KEY);
+    const lastOpened = rawLastOpened ? JSON.parse(rawLastOpened) : null;
+    if (lastOpened && String(lastOpened.id) === String(id)) {
+      return mapCachedCampaign(lastOpened);
+    }
+  } catch {
+    // Ignore malformed local cache.
+  }
+
+  const donorCampaigns = readSessionCache(DONOR_CAMPAIGNS_CACHE_KEY);
+  if (Array.isArray(donorCampaigns)) {
+    const match = donorCampaigns.find((item) => String(item?.id) === String(id));
+    if (match) return mapCachedCampaign(match);
+  }
+
+  const donorHome = readSessionCache(DONOR_HOME_CACHE_KEY);
+  const donorHomeCampaigns = Array.isArray(donorHome?.campaigns) ? donorHome.campaigns : [];
+  const homeMatch = donorHomeCampaigns.find((item) => String(item?.id) === String(id));
+  if (homeMatch) return mapCachedCampaign(homeMatch);
+
+  return null;
 }
 
 function formatCurrency(amount) {
@@ -62,10 +158,36 @@ function getStorageFileUrl(path) {
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('uploads/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
   if (normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
   return `${appBase}/storage/${normalizedPath}`;
+}
+
+function clearDonationCaches() {
+  try {
+    window.sessionStorage.removeItem(DONATION_CACHE_KEY);
+    window.sessionStorage.removeItem(DONOR_HOME_CACHE_KEY);
+    window.sessionStorage.removeItem(DONOR_CAMPAIGNS_CACHE_KEY);
+  } catch {
+    // Ignore cache clear failures.
+  }
+}
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const validationErrors = error?.response?.data?.errors;
+  const firstValidationMessage = validationErrors && typeof validationErrors === 'object'
+    ? Object.values(validationErrors).flat().find(Boolean)
+    : null;
+
+  return error?.response?.data?.message
+    || error?.response?.data?.error
+    || firstValidationMessage
+    || error?.message
+    || fallbackMessage;
 }
 
 function CampaignDetailPage({ campaignId }) {
@@ -76,18 +198,27 @@ function CampaignDetailPage({ campaignId }) {
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [shareLabel, setShareLabel] = useState('Share');
   const [isSaved, setIsSaved] = useState(false);
-  const presetAmounts = [10, 25, 50, 100, 250];
   const [selectedAmount, setSelectedAmount] = useState(25);
   const [customAmountInput, setCustomAmountInput] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('QR Payment');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Bakong KHQR');
   const [donationMessage, setDonationMessage] = useState('');
-  const [locationState, setLocationState] = useState({
-    loading: false,
-    error: '',
-    coords: null,
-    lastUpdated: null,
-  });
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [showDonationSuccess, setShowDonationSuccess] = useState(false);
+  const [receiptDetails, setReceiptDetails] = useState(null);
+  const [materialQuantity, setMaterialQuantity] = useState(1);
+  const [materialDescription, setMaterialDescription] = useState('');
+  const [materialDeliveryMode, setMaterialDeliveryMode] = useState('pickup');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [pickupDate, setPickupDate] = useState('');
+  const [recentDonors, setRecentDonors] = useState([]);
+  const [donationSubmitting, setDonationSubmitting] = useState(false);
+  const [abaQrCheckout, setAbaQrCheckout] = useState(null);
+  const [autoStartAbaQr, setAutoStartAbaQr] = useState(false);
+  const [monthlyDonation, setMonthlyDonation] = useState(false);
+  const [donorName, setDonorName] = useState('');
+  const [donorEmail, setDonorEmail] = useState('');
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
+  const routeCampaign = location.state?.campaign;
   const campaign = campaignData ?? getCampaignById(resolvedCampaignId);
   const session = getSession();
   const fallbackCampaignPath = session?.isLoggedIn && session?.role === 'Donor' ? '/campaigns/donor' : '/campaigns';
@@ -97,16 +228,48 @@ function CampaignDetailPage({ campaignId }) {
       : fallbackCampaignPath;
 
   useEffect(() => {
+    setDonorName(session?.name || 'John Doe');
+    setDonorEmail(session?.email || 'john.doe@example.com');
+  }, [session?.name, session?.email]);
+
+
+  useEffect(() => {
     let mounted = true;
-    const local = getCampaignById(resolvedCampaignId);
-    if (local) {
-      setCampaignData(local);
-      return () => {
-        mounted = false;
-      };
+    const isNumericCampaignId = /^\d+$/.test(String(resolvedCampaignId));
+
+    if (routeCampaign && String(routeCampaign.id) === String(resolvedCampaignId)) {
+      setCampaignData(mapCachedCampaign(routeCampaign) || routeCampaign);
+      if (!isNumericCampaignId) {
+        setCampaignLoading(false);
+        return () => {
+          mounted = false;
+        };
+      }
     }
 
-    if (!/^\d+$/.test(String(resolvedCampaignId))) {
+    const local = getCampaignById(resolvedCampaignId);
+    if (local) {
+      setCampaignData(mapCachedCampaign(local) || local);
+      if (!isNumericCampaignId) {
+        setCampaignLoading(false);
+        return () => {
+          mounted = false;
+        };
+      }
+    }
+
+    const cached = getCachedCampaignById(resolvedCampaignId);
+    if (cached) {
+      setCampaignData(cached);
+      if (!isNumericCampaignId) {
+        setCampaignLoading(false);
+        return () => {
+          mounted = false;
+        };
+      }
+    }
+
+    if (!isNumericCampaignId) {
       setCampaignData(null);
       return () => {
         mounted = false;
@@ -114,8 +277,10 @@ function CampaignDetailPage({ campaignId }) {
     }
 
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
     setCampaignLoading(true);
-    fetch(`${apiBase}/campaigns/${resolvedCampaignId}`)
+    fetch(`${apiBase}/campaigns/${resolvedCampaignId}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to load campaign (${response.status})`);
@@ -124,15 +289,44 @@ function CampaignDetailPage({ campaignId }) {
       })
       .then((data) => {
         if (!mounted) return;
+        const parsedMaterialItem = (() => {
+          if (data?.material_item && typeof data.material_item === 'object') return data.material_item;
+          if (typeof data?.material_item === 'string') {
+            try {
+              return JSON.parse(data.material_item);
+            } catch {
+              return null;
+            }
+          }
+          return null;
+        })();
         const mapped = {
           id: data?.id,
+          organizationId: Number(data?.organization_id ?? 0) || null,
+          campaignType: data?.campaign_type || (parsedMaterialItem ? 'material' : 'monetary'),
           title: data?.title || 'Untitled campaign',
           category: data?.category || 'General',
           organization:
-            data?.organization_name ||
-            data?.organization ||
-            (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
+              data?.organization_name ||
+              data?.organization ||
+              (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
           summary: data?.description || data?.summary || 'No description available yet.',
+          location: data?.organization_location || data?.location || 'Kampong Speu, Cambodia',
+          latitude: Number(data?.organization_latitude ?? data?.latitude ?? 0) || null,
+          longitude: Number(data?.organization_longitude ?? data?.longitude ?? 0) || null,
+          receiptMessage: data?.receipt_message || '',
+          donationTiers: (() => {
+            if (Array.isArray(data?.donation_tiers)) return data.donation_tiers;
+            if (typeof data?.donation_tiers === 'string') {
+              try {
+                return JSON.parse(data.donation_tiers);
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          })(),
+          materialItem: parsedMaterialItem,
           goalAmount: Number(data?.goal_amount ?? data?.goal ?? 0),
           raisedAmount: Number(data?.current_amount ?? data?.raised_amount ?? data?.raised ?? 0),
           image:
@@ -149,13 +343,16 @@ function CampaignDetailPage({ campaignId }) {
       })
       .finally(() => {
         if (!mounted) return;
+        window.clearTimeout(timeoutId);
         setCampaignLoading(false);
       });
 
     return () => {
       mounted = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
     };
-  }, [resolvedCampaignId]);
+  }, [resolvedCampaignId, routeCampaign]);
 
   useEffect(() => {
     if (!campaign) {
@@ -167,35 +364,62 @@ function CampaignDetailPage({ campaignId }) {
     setIsSaved(savedIds.includes(campaign.id));
   }, [campaign]);
 
-  if (!campaign && campaignLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">Loading campaign...</h1>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!resolvedCampaignId || !/^\d+$/.test(String(resolvedCampaignId))) {
+      setRecentDonors([]);
+      return;
+    }
 
-  if (!campaign) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">Campaign Not Found</h1>
-          <button
-            onClick={() => navigate(backTarget)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Back to Campaigns
-          </button>
-        </div>
-      </div>
-    );
-  }
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+
+    fetch(`${apiBase}/campaigns/${resolvedCampaignId}/donations`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        if (!alive) return;
+        setRecentDonors(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setRecentDonors([]);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [resolvedCampaignId, showDonationSuccess]);
 
   const safeTitle = campaign?.title || 'Campaign';
   const safeCategory = campaign?.category || 'General';
   const safeSummary = campaign?.summary || 'No description available yet.';
+  const safeLocation = campaign?.location || 'Kampong Speu, Cambodia';
+  const postedLatitude = Number(campaign?.latitude ?? 0) || null;
+  const postedLongitude = Number(campaign?.longitude ?? 0) || null;
+  const hasPostedCoordinates = postedLatitude !== null && postedLongitude !== null;
+  const postedMapsQuery = hasPostedCoordinates
+    ? `${postedLatitude},${postedLongitude}`
+    : encodeURIComponent(safeLocation);
+  const campaignType = String(
+    campaign?.campaignType || (campaign?.materialItem ? 'material' : 'monetary')
+  ).toLowerCase();
+  const isMaterialCampaign = campaignType.includes('material');
+  const materialItem = campaign?.materialItem && typeof campaign.materialItem === 'object'
+    ? campaign.materialItem
+    : null;
+  const requestedItemName = materialItem?.name || materialItem?.item_name || 'Requested items';
+  const requestedItemDescription = materialItem?.description || 'Coordinate a pickup to deliver physical support directly to this campaign.';
+  const requestedItemTarget = Math.max(1, Number(materialItem?.quantity || 1));
+  const materialDeliveryLabel = materialDeliveryMode === 'dropoff' ? 'Self Drop-off' : 'Schedule Pickup';
+  const materialAddressLabel = materialDeliveryMode === 'dropoff' ? 'Drop-off details' : 'Pickup address';
+  const materialAddressPlaceholder = materialDeliveryMode === 'dropoff'
+    ? 'Add the note or place where you will drop off the items.'
+    : 'Enter your street name, building, apartment, or meeting point.';
+  const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
+    ? campaign.donationTiers
+        .map((item) => Number(item?.amount ?? item))
+        .filter((amount) => Number.isFinite(amount) && amount > 0)
+        .slice(0, 5)
+    : [10, 25, 50, 100, 250];
   const safeImage =
     campaign?.image ||
     'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
@@ -205,83 +429,118 @@ function CampaignDetailPage({ campaignId }) {
   const progressWidth = Math.min(percentRaised, 100);
   const backers = Math.max(24, Math.round(raisedAmount / 35) || 0);
   const daysToGo = Math.max(5, 45 - Math.floor(raisedAmount / 5000) || 0);
+  const pledgedItems = Math.max(recentDonors.length, 0);
+  const materialProgressPercent = Math.min(100, Math.round((pledgedItems / requestedItemTarget) * 100));
   const organizationName = String(campaign?.organization || 'Organization');
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  function requestRealLocation() {
-    if (typeof window !== 'undefined' && window.isSecureContext === false) {
-      setLocationState({
-        loading: false,
-        error: 'Location access requires HTTPS or localhost.',
-        coords: null,
-        lastUpdated: null,
-      });
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      setLocationState({
-        loading: false,
-        error: 'Geolocation is not supported by your browser.',
-        coords: null,
-        lastUpdated: null,
-      });
-      return;
-    }
-
-    setLocationState((previous) => ({
-      ...previous,
-      loading: true,
-      error: '',
-    }));
-
-    try {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocationState({
-            loading: false,
-            error: '',
-            coords: {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-            },
-            lastUpdated: new Date(),
-          });
-        },
-        (error) => {
-          const errorMessage =
-            error.code === 1
-              ? 'Location access denied. Enable location permission and try again.'
-              : 'Unable to get your current location.';
-          setLocationState({
-            loading: false,
-            error: errorMessage,
-            coords: null,
-            lastUpdated: null,
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000,
-        },
-      );
-    } catch {
-      setLocationState({
-        loading: false,
-        error: 'Unable to access location services.',
-        coords: null,
-        lastUpdated: null,
-      });
-    }
-  }
+  const processingFee = 0;
+  const totalDonation = selectedAmount + processingFee;
 
   useEffect(() => {
-    requestRealLocation();
-  }, []);
+    if (!abaQrCheckout?.tranId || abaQrCheckout?.status === 'completed' || abaQrCheckout?.status === 'failed') {
+      return undefined;
+    }
+
+    let active = true;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const verification = await verifyBakongTransaction(abaQrCheckout.tranId);
+        if (!active) return;
+
+        const transaction = verification?.transaction;
+        const normalizedStatus = String(transaction?.status || '').toLowerCase();
+        if (!normalizedStatus) return;
+
+        setAbaQrCheckout((previous) => (
+          previous ? { ...previous, status: normalizedStatus } : previous
+        ));
+
+        if (normalizedStatus === 'completed') {
+          const nextReceiptDetails = {
+            amount: Number(transaction?.amount ?? totalDonation).toFixed(2),
+            date: new Date(transaction?.paid_at || Date.now()).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            donationId: transaction?.donation_id ?? null,
+            transactionId: transaction?.tran_id ? `#${transaction.tran_id}` : '',
+            paymentMethod: abaQrCheckout.paymentLabel,
+            campaignTitle: safeTitle,
+            campaignImage: safeImage,
+            campaignLocation: safeLocation,
+            organizationName,
+            receiptMessage: campaign?.receiptMessage || '',
+            status: normalizedStatus,
+          };
+
+          clearDonationCaches();
+          setReceiptDetails(nextReceiptDetails);
+          try {
+            window.sessionStorage.setItem(LAST_DONATION_DETAIL_KEY, JSON.stringify(nextReceiptDetails));
+          } catch {
+            // Ignore persistence failures.
+          }
+          setShowCheckout(false);
+          setShowDonationSuccess(true);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+          return;
+        }
+
+        if (['failed', 'cancelled', 'expired'].includes(normalizedStatus)) {
+          setDonationMessage(`Payment ${normalizedStatus}. Please generate a new KHQR and try again.`);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+        }
+      } catch {
+        // Continue polling quietly while the QR is active.
+      }
+    }, 4000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [abaQrCheckout, totalDonation, safeTitle, safeImage, safeLocation, organizationName, campaign?.receiptMessage]);
+
+  useEffect(() => {
+    if (!showCheckout || !autoStartAbaQr || donationSubmitting || abaQrCheckout) {
+      return;
+    }
+
+    setAutoStartAbaQr(false);
+    handleCompleteDonation();
+  }, [showCheckout, autoStartAbaQr, donationSubmitting, abaQrCheckout]);
+
+  if (!campaign && campaignLoading) {
+    return (
+      <main className="campaign-detail-loading-screen" aria-busy="true">
+        <div className="campaign-detail-loading-copy">
+          <span className="campaign-detail-loading-spinner" aria-hidden="true" />
+          <h1>Loading campaign...</h1>
+          <p>Please wait while we prepare the campaign details.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!campaign) {
+    return (
+      <div className="campaign-detail-loading-screen">
+        <div className="campaign-detail-loading-copy">
+          <h1>Campaign Not Found</h1>
+          <p>We couldn&apos;t find that campaign. Try returning to the campaign list.</p>
+          <button
+            onClick={() => navigate(backTarget)}
+            className="campaign-detail-back-button"
+          >
+            Back to Campaigns
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   async function handleShare() {
     const shareUrl = typeof window !== 'undefined' ? window.location.href : `/campaigns/${campaign.id}`;
@@ -342,8 +601,792 @@ function CampaignDetailPage({ campaignId }) {
   }
 
   function handleDonateNow() {
-    setDonationMessage(
-      `Prepared donation of $${selectedAmount.toLocaleString()} via ${selectedPaymentMethod}. Checkout integration can be connected here.`,
+    setDonationMessage('');
+    setAbaQrCheckout(null);
+    setShowCheckout(true);
+    if (selectedPaymentMethod === 'Bakong KHQR') {
+      setAutoStartAbaQr(true);
+    }
+  }
+
+  async function handleMaterialDonation() {
+    const userId = Number(session?.userId ?? 0);
+    if (!userId) {
+      setDonationMessage('Please log in as a donor before pledging materials.');
+      return;
+    }
+
+    if (!campaign?.id || !campaignData?.id) {
+      setDonationMessage('This campaign is not ready for material pledges yet.');
+      return;
+    }
+
+    if (materialDeliveryMode === 'pickup' && !pickupAddress.trim()) {
+      setDonationMessage('Please enter a pickup address for the material donation.');
+      return;
+    }
+
+    const quantity = Math.max(1, Number(materialQuantity || 1));
+    const organizationId =
+      Number(
+        routeCampaign?.organizationId ??
+        routeCampaign?.organization_id ??
+        campaignData?.organizationId ??
+        campaignData?.organization_id ??
+        campaign?.organizationId ??
+        campaign?.organization_id ??
+        0
+      ) || undefined;
+
+    setDonationSubmitting(true);
+    setDonationMessage('');
+
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      const token = window.localStorage.getItem('authToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      const donationResponse = await fetch(`${apiBase}/donations`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          user_id: userId,
+          organization_id: organizationId,
+          campaign_id: Number(campaign.id),
+          amount: quantity,
+          donation_type: 'material',
+          status: 'pending',
+        }),
+      });
+
+      const donationPayload = await donationResponse.json().catch(() => ({}));
+      if (!donationResponse.ok) {
+        throw new Error(donationPayload?.message || `Failed to create material donation (${donationResponse.status})`);
+      }
+
+      const donationId = Number(donationPayload?.donation?.id ?? donationPayload?.id ?? 0);
+      if (!donationId) {
+        throw new Error('Material donation was created without a valid donation record.');
+      }
+
+      const itemResponse = await fetch(`${apiBase}/material_items`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          donation_id: donationId,
+          item_name: requestedItemName,
+          quantity,
+          description: materialDescription.trim() || requestedItemDescription,
+        }),
+      });
+
+      if (!itemResponse.ok) {
+        throw new Error(`Failed to save material item (${itemResponse.status})`);
+      }
+
+      const pickupResponse = await fetch(`${apiBase}/material_pickups`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          donation_id: donationId,
+          pickup_address: materialDeliveryMode === 'dropoff'
+            ? (pickupAddress.trim() || `Self drop-off to ${safeLocation}`)
+            : pickupAddress.trim(),
+          schedule_date: pickupDate || null,
+          status: 'pending',
+        }),
+      });
+
+      if (!pickupResponse.ok) {
+        throw new Error(`Failed to schedule pickup (${pickupResponse.status})`);
+      }
+
+      clearDonationCaches();
+      const nextReceiptDetails = {
+        amount: `${quantity} item${quantity > 1 ? 's' : ''}`,
+        date: new Date().toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        donationId,
+        transactionId: `#MAT-${donationId}`,
+        paymentMethod: materialDeliveryMode === 'dropoff' ? 'Material drop-off' : 'Material pickup',
+        campaignTitle: safeTitle,
+        campaignImage: safeImage,
+        campaignLocation: safeLocation,
+        organizationName,
+        receiptMessage: campaign?.receiptMessage || '',
+        status: 'pending',
+        isMaterial: true,
+      };
+
+      setReceiptDetails(nextReceiptDetails);
+      setShowDonationSuccess(true);
+    } catch (error) {
+      setDonationMessage(getApiErrorMessage(error, 'Failed to schedule this material donation.'));
+    } finally {
+      setDonationSubmitting(false);
+    }
+  }
+
+  async function handleCompleteDonation() {
+    const userId = Number(session?.userId ?? 0);
+    if (!userId) {
+      setDonationMessage('Please log in as a donor before completing this donation.');
+      return;
+    }
+
+    if (!campaign?.id || !campaignData?.id) {
+      setDonationMessage('This campaign is not ready for live donations yet.');
+      return;
+    }
+
+    setDonationSubmitting(true);
+    setDonationMessage('');
+
+    const organizationId =
+      Number(
+        routeCampaign?.organizationId ??
+        routeCampaign?.organization_id ??
+        campaignData?.organizationId ??
+        campaignData?.organization_id ??
+        campaign?.organizationId ??
+        campaign?.organization_id ??
+        0
+      ) || undefined;
+
+    try {
+      if (selectedPaymentMethod === 'Bakong KHQR') {
+        const bakongTransaction = await createBakongTransaction({
+          user_id: userId,
+          ...(organizationId ? { organization_id: organizationId } : {}),
+          campaign_id: Number(campaign.id),
+          amount: totalDonation,
+          customer_name: donorName,
+          customer_email: donorEmail,
+        });
+
+        const checkoutMeta = bakongTransaction?.checkout?.meta ?? {};
+        const qrData = bakongTransaction?.checkout?.qr;
+        if (!qrData?.image && !qrData?.string) {
+          throw new Error('The Bakong QR payload is incomplete.');
+        }
+
+        window.sessionStorage.setItem(PENDING_BAKONG_TRANSACTION_KEY, JSON.stringify({
+          tranId: bakongTransaction?.transaction?.tran_id || '',
+          donationId: bakongTransaction?.donation?.id || null,
+          campaignId: Number(campaign.id),
+          organizationId,
+          amount: totalDonation,
+          paymentOption: checkoutMeta?.payment_option || '',
+          environment: checkoutMeta?.environment || 'sandbox',
+          createdAt: new Date().toISOString(),
+        }));
+
+        setAbaQrCheckout({
+          tranId: bakongTransaction?.transaction?.tran_id || '',
+          donationId: bakongTransaction?.donation?.id || null,
+          image: qrData?.image || '',
+          qrString: qrData?.string || '',
+          deeplink: qrData?.deeplink || '',
+          checkoutUrl: qrData?.checkout_url || '',
+          appStore: qrData?.app_store || '',
+          playStore: qrData?.play_store || '',
+          amount: Number(qrData?.amount ?? totalDonation).toFixed(2),
+          currency: qrData?.currency || 'USD',
+          environment: checkoutMeta?.environment || 'sandbox',
+          status: 'pending',
+          paymentLabel: checkoutMeta?.payment_label || 'Bakong KHQR',
+        });
+        return;
+      }
+
+      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      const token = window.localStorage.getItem('authToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      const response = await fetch(`${apiBase}/donations`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          user_id: userId,
+          organization_id: organizationId,
+          campaign_id: Number(campaign.id),
+          amount: totalDonation,
+          donation_type: 'money',
+          status: 'completed',
+          payment_method: selectedPaymentMethod,
+          is_monthly: monthlyDonation,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message =
+          payload?.message ||
+          payload?.errors?.organization_id?.[0] ||
+          payload?.errors?.amount?.[0] ||
+          `Failed to complete donation (${response.status})`;
+        throw new Error(message);
+      }
+
+      const donation = payload?.donation ?? null;
+      const payment = payload?.payment ?? null;
+      const updatedCampaign = payload?.campaign ?? null;
+
+      if (updatedCampaign) {
+        setCampaignData((previous) => ({
+          ...(previous || campaign),
+          id: updatedCampaign.id ?? previous?.id ?? campaign.id,
+          organizationId: Number(updatedCampaign.organization_id ?? previous?.organizationId ?? campaign.organizationId ?? 0) || null,
+          campaignType: updatedCampaign.campaign_type || previous?.campaignType || campaign.campaignType || 'monetary',
+          title: updatedCampaign.title || previous?.title || campaign.title,
+          category: updatedCampaign.category || previous?.category || campaign.category,
+          organization:
+            updatedCampaign.organization_name ||
+            previous?.organization ||
+            campaign.organization,
+          summary: updatedCampaign.description || previous?.summary || campaign.summary,
+          location: updatedCampaign.organization_location || updatedCampaign.location || previous?.location || campaign.location,
+          latitude: Number(updatedCampaign.organization_latitude ?? updatedCampaign.latitude ?? previous?.latitude ?? campaign.latitude ?? 0) || null,
+          longitude: Number(updatedCampaign.organization_longitude ?? updatedCampaign.longitude ?? previous?.longitude ?? campaign.longitude ?? 0) || null,
+          receiptMessage: updatedCampaign.receipt_message || previous?.receiptMessage || campaign.receiptMessage,
+          donationTiers: previous?.donationTiers || campaign.donationTiers || null,
+          materialItem: previous?.materialItem || campaign.materialItem || null,
+          goalAmount: Number(updatedCampaign.goal_amount ?? previous?.goalAmount ?? campaign.goalAmount ?? 0),
+          raisedAmount: Number(updatedCampaign.current_amount ?? previous?.raisedAmount ?? campaign.raisedAmount ?? 0),
+          image:
+            getStorageFileUrl(updatedCampaign.image_path) ||
+            previous?.image ||
+            campaign.image,
+        }));
+      }
+
+      clearDonationCaches();
+      const nextReceiptDetails = {
+        amount: Number(donation?.amount ?? totalDonation).toFixed(2),
+        date: new Date(donation?.created_at || Date.now()).toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }),
+        donationId: donation?.id ?? null,
+        transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${donation?.id ?? ''}`,
+        paymentMethod: selectedPaymentMethod,
+        campaignTitle: safeTitle,
+        campaignImage: safeImage,
+        campaignLocation: safeLocation,
+        organizationName,
+        receiptMessage: campaign?.receiptMessage || '',
+        status: donation?.status || 'completed',
+      };
+      setReceiptDetails(nextReceiptDetails);
+      try {
+        window.sessionStorage.setItem(LAST_DONATION_DETAIL_KEY, JSON.stringify(nextReceiptDetails));
+      } catch {
+        // Ignore persistence failures.
+      }
+      setShowDonationSuccess(true);
+    } catch (error) {
+      setDonationMessage(getApiErrorMessage(error, 'Failed to complete donation.'));
+    } finally {
+      setDonationSubmitting(false);
+    }
+  }
+
+  function handleDownloadReceipt() {
+    if (!receiptDetails) return;
+    const amountLabel = receiptDetails?.isMaterial ? 'Items' : 'Amount';
+    const amountValue = receiptDetails?.isMaterial ? receiptDetails.amount : `$${receiptDetails.amount}`;
+    const referenceLabel = receiptDetails?.isMaterial ? 'Reference' : 'Transaction ID';
+
+    const receiptHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Donation Receipt</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; color: #0f172a; }
+    .sheet { max-width: 520px; margin: 0 auto; border: 1px solid #dbe4ef; border-radius: 12px; padding: 24px; }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e5ecf5; }
+    .row:last-child { border-bottom: 0; }
+    .muted { color: #64748b; }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <h1>Donation Receipt</h1>
+    <div class="row"><span class="muted">Campaign</span><strong>${safeTitle}</strong></div>
+    <div class="row"><span class="muted">${amountLabel}</span><strong>${amountValue}</strong></div>
+    <div class="row"><span class="muted">${referenceLabel}</span><strong>${receiptDetails.transactionId}</strong></div>
+    <div class="row"><span class="muted">Payment Method</span><strong>${receiptDetails.paymentMethod || selectedPaymentMethod}</strong></div>
+    <div class="row"><span class="muted">Date</span><strong>${receiptDetails.date}</strong></div>
+  </main>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=680,height=760');
+    if (!printWindow) return;
+    printWindow.document.write(receiptHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => printWindow.print(), 250);
+  }
+
+  if (showDonationSuccess) {
+    return (
+      <main className="campaign-detail-page donation-success-page">
+        <section className="donation-success-card" aria-label="Donation success">
+          <div className="donation-success-icon">
+            <CircleCheckBig size={28} />
+          </div>
+
+          <h1>{receiptDetails?.isMaterial ? 'Material Donation Scheduled!' : 'Thank You for Your Donation!'}</h1>
+          <p className="donation-success-campaign">
+            Campaign: <span>{safeTitle}</span>
+          </p>
+
+          <div className="donation-success-receipt">
+            <div>
+              <span>{receiptDetails?.isMaterial ? 'Items' : 'Amount'}</span>
+              <strong>{receiptDetails?.isMaterial ? receiptDetails?.amount : `$${receiptDetails?.amount ?? totalDonation.toFixed(2)}`}</strong>
+            </div>
+            <div>
+              <span>{receiptDetails?.isMaterial ? 'Reference' : 'Transaction ID'}</span>
+              <strong>{receiptDetails?.transactionId ?? ''}</strong>
+            </div>
+            <div>
+              <span>Date</span>
+              <strong className="is-highlighted">{receiptDetails?.date ?? ''}</strong>
+            </div>
+          </div>
+
+          <div className="donation-success-actions">
+            <button
+              type="button"
+              className="donation-success-primary"
+              onClick={() => navigate('/donations/view-detail', { state: { donation: receiptDetails } })}
+            >
+              <Download size={15} /> {receiptDetails?.isMaterial ? 'View Donation Details' : 'Download Receipt'}
+            </button>
+            <button type="button" className="donation-success-secondary" onClick={handleShare}>
+              <Share2 size={15} /> Share to Social Media
+            </button>
+          </div>
+
+          <div className="donation-success-next">
+            <h2>What Happens Next?</h2>
+            <div className="donation-success-steps">
+              <div className="donation-success-step is-complete">
+                <span className="step-icon"><CircleCheckBig size={14} /></span>
+                <div>
+                  <strong>{receiptDetails?.isMaterial ? 'Donation Recorded' : 'Donation Received'}</strong>
+                  <p>{receiptDetails?.isMaterial ? 'Your pledged items have been recorded for organizer review.' : 'Your contribution has been successfully processed.'}</p>
+                </div>
+              </div>
+              <div className="donation-success-step is-active">
+                <span className="step-icon"><Clock3 size={14} /></span>
+                <div>
+                  <strong>{receiptDetails?.isMaterial ? 'Pickup Scheduled' : 'Funds Transferred'}</strong>
+                  <p>{receiptDetails?.isMaterial ? 'The organization will confirm the pickup window and delivery details.' : 'Allocating funds to the village construction teams.'}</p>
+                </div>
+              </div>
+              <div className="donation-success-step">
+                <span className="step-icon"><Circle size={14} /></span>
+                <div>
+                  <strong>{receiptDetails?.isMaterial ? 'Impact Reported' : 'Impact Reported'}</strong>
+                  <p>{receiptDetails?.isMaterial ? 'You will receive updates once your items are collected and distributed.' : 'You will receive a detailed impact report in 3 months.'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="donation-success-support">
+            Have questions about your donation? <button type="button" onClick={() => setShowDonationSuccess(false)}>Contact Support</button>
+          </p>
+        </section>
+      </main>
+    );
+  }
+
+  if (showCheckout) {
+    if (abaQrCheckout) {
+      return (
+        <main className="campaign-detail-page donation-checkout-page">
+          <button
+            type="button"
+            className="detail-back-link donation-checkout-back"
+            onClick={() => {
+              setAbaQrCheckout(null);
+              setShowCheckout(false);
+            }}
+          >
+            <ArrowLeft size={16} /> Back to Campaign
+          </button>
+
+          <section className="donation-checkout-header">
+            <div>
+              <h1>Scan to Donate</h1>
+              <p>Scan this QR code to complete your donation. We will confirm the payment automatically.</p>
+            </div>
+            <div className="donation-checkout-secure">
+              <ShieldCheck size={16} />
+              <span>{abaQrCheckout.environment === 'production' ? 'Live Bakong KHQR' : 'Sandbox Bakong KHQR'}</span>
+            </div>
+          </section>
+
+          <section className="donation-checkout-layout" aria-label="Bakong QR payment">
+            <div className="donation-checkout-main">
+              <article className="donation-checkout-card">
+                <h2><ScanQrCode size={18} /> {abaQrCheckout.paymentLabel}</h2>
+                <div className="donation-qr-panel">
+                  <div className="donation-qr-frame">
+                    <div className="donation-qr-card">
+                      {abaQrCheckout.image ? (
+                        <img
+                          src={abaQrCheckout.image}
+                          alt={`${abaQrCheckout.paymentLabel} QR code`}
+                          style={{ width: '100%', maxWidth: 280, borderRadius: 16, display: 'block' }}
+                        />
+                      ) : (
+                        <div className="donation-qr-code" aria-hidden="true">
+                          {Array.from({ length: 49 }).map((_, index) => (
+                            <span key={`fallback-qr-cell-${index}`} className={index % 2 === 0 || index % 5 === 0 ? 'is-filled' : ''} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <strong>{abaQrCheckout.paymentLabel} Ready</strong>
+                  <p>
+                    Amount: ${abaQrCheckout.amount} {abaQrCheckout.currency}. Scan with Bakong or any KHQR-supported banking app.
+                  </p>
+                  <div className="donation-qr-badges" aria-label="Supported apps">
+                    <span>{abaQrCheckout.paymentLabel}</span>
+                    <span>{abaQrCheckout.status === 'completed' ? 'Paid' : 'Waiting'}</span>
+                  </div>
+                  {abaQrCheckout.deeplink ? (
+                    <a className="detail-share-btn" href={abaQrCheckout.deeplink}>
+                      Open in banking app
+                    </a>
+                  ) : null}
+                  {!abaQrCheckout.deeplink && abaQrCheckout.checkoutUrl ? (
+                    <a className="detail-share-btn" href={abaQrCheckout.checkoutUrl} target="_blank" rel="noreferrer">
+                      Open checkout page
+                    </a>
+                  ) : null}
+                  {!abaQrCheckout.image && abaQrCheckout.qrString ? (
+                    <p className="donation-inline-message">KHQR string received from gateway. If your app cannot scan here, use the checkout link.</p>
+                  ) : null}
+                  {abaQrCheckout.status !== 'completed' ? (
+                    <p className="donation-inline-message">
+                      Waiting for payment confirmation. Transaction ID: {abaQrCheckout.tranId}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            </div>
+
+            <aside className="donation-summary-card">
+              <h2>Donation Summary</h2>
+              <div className="donation-summary-campaign">
+                <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+                <div>
+                  <p>CAMPAIGN</p>
+                  <strong>{safeTitle}</strong>
+                  <span><MapPin size={13} /> {safeLocation}</span>
+                </div>
+              </div>
+
+              <div className="donation-summary-lines">
+                <div>
+                  <span>Donor</span>
+                  <strong>{donorName || 'Donor'}</strong>
+                </div>
+                <div>
+                  <span>Payment Method</span>
+                  <strong>{abaQrCheckout.paymentLabel}</strong>
+                </div>
+              </div>
+
+              <div className="donation-summary-total">
+                <span>Total to Donate</span>
+                <strong>${abaQrCheckout.amount}</strong>
+              </div>
+
+              {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
+            </aside>
+          </section>
+        </main>
+      );
+    }
+
+    return (
+      <main className="campaign-detail-page donation-checkout-page">
+        <button
+          type="button"
+          className="detail-back-link donation-checkout-back"
+          onClick={() => {
+            setShowCheckout(false);
+            setDonationSubmitting(false);
+          }}
+        >
+          <ArrowLeft size={16} /> Back to Campaign
+        </button>
+
+        <section className="donation-checkout-header">
+          <div>
+            <h1>Preparing QR Code</h1>
+            <p>We are generating your Bakong KHQR payment so you can scan it immediately.</p>
+          </div>
+          <div className="donation-checkout-secure">
+            <ShieldCheck size={16} />
+            <span>Bakong KHQR</span>
+          </div>
+        </section>
+
+        <section className="donation-checkout-layout" aria-label="Donation QR checkout">
+          <div className="donation-checkout-main">
+            <article className="donation-checkout-card">
+              <h2><ScanQrCode size={18} /> Bakong KHQR</h2>
+              <div className="donation-qr-panel">
+                <strong>{donationSubmitting ? 'Generating your QR...' : 'QR unavailable'}</strong>
+                <p>
+                  {donationSubmitting
+                    ? 'Please wait while we connect to the payment gateway and prepare the QR code.'
+                    : 'We could not prepare the QR code yet. You can retry from this page.'}
+                </p>
+                <div className="donation-qr-badges" aria-label="Supported apps">
+                  <span>KHQR</span>
+                  <span>Bakong</span>
+                </div>
+                {!donationSubmitting ? (
+                  <button type="button" className="donation-complete-button" onClick={handleCompleteDonation}>
+                    <Lock size={16} /> Try Again
+                  </button>
+                ) : null}
+                {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
+              </div>
+            </article>
+          </div>
+
+          <aside className="donation-summary-card">
+            <h2>Donation Summary</h2>
+            <div className="donation-summary-campaign">
+              <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+              <div>
+                <p>CAMPAIGN</p>
+                <strong>{safeTitle}</strong>
+                <span><MapPin size={13} /> {safeLocation}</span>
+              </div>
+            </div>
+
+            <div className="donation-summary-lines">
+              <div>
+                <span>Donation Amount</span>
+                <strong>${selectedAmount.toFixed(2)}</strong>
+              </div>
+              <div>
+                <span>Payment Method</span>
+                <strong>Bakong KHQR</strong>
+              </div>
+            </div>
+
+            <div className="donation-summary-total">
+              <span>Total to Donate</span>
+              <strong>${totalDonation.toFixed(2)}</strong>
+            </div>
+          </aside>
+        </section>
+      </main>
+    );
+  }
+
+  if (isMaterialCampaign) {
+    return (
+      <main className="campaign-detail-page donation-checkout-page material-campaign-page">
+        <button
+          type="button"
+          className="detail-back-link donation-checkout-back"
+          onClick={() => navigate(backTarget)}
+        >
+          <ArrowLeft size={16} /> Back to Campaign
+        </button>
+
+        <section className="donation-checkout-header material-checkout-header">
+          <div>
+            <h1>Material Donation</h1>
+            <p>Review the item request, choose the logistics method, and schedule your support separately from money donations.</p>
+          </div>
+          <div className="donation-checkout-secure material-checkout-secure">
+            <ShieldCheck size={16} />
+            <span>Secure Request</span>
+          </div>
+        </section>
+
+        <section className="material-donation-layout" aria-label="Material donation scheduling">
+          <div className="material-donation-main">
+            <article className="donation-checkout-card material-form-section">
+              <h2><Building2 size={18} /> Item Details</h2>
+              <div className="material-top-grid">
+                <label className="material-field">
+                  <span>Category</span>
+                  <div className="material-readonly-field">{safeCategory}</div>
+                </label>
+                <label className="material-field">
+                  <span>Quantity</span>
+                  <div className="material-quantity-picker material-quantity-picker-wide">
+                    <button type="button" onClick={() => setMaterialQuantity((current) => Math.max(1, current - 1))}>-</button>
+                    <input
+                      id="material-quantity-input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={materialQuantity}
+                      onChange={(event) => setMaterialQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    />
+                    <button type="button" onClick={() => setMaterialQuantity((current) => current + 1)}>+</button>
+                  </div>
+                </label>
+              </div>
+
+              <div className="material-request-highlight">
+                <strong>{requestedItemName}</strong>
+                <p>{requestedItemDescription}</p>
+              </div>
+
+              <label className="material-field" htmlFor="material-description-input">
+                <span>Description (Optional)</span>
+                <textarea
+                  id="material-description-input"
+                  className="material-donation-textarea"
+                  rows={4}
+                  placeholder="Briefly describe the items and their condition."
+                  value={materialDescription}
+                  onChange={(event) => setMaterialDescription(event.target.value)}
+                />
+              </label>
+            </article>
+
+            <article className="donation-checkout-card material-form-section">
+              <h2><MapPin size={18} /> Logistics</h2>
+              <div className="material-logistics-toggle">
+                <button
+                  type="button"
+                  className={materialDeliveryMode === 'pickup' ? 'is-selected' : ''}
+                  onClick={() => setMaterialDeliveryMode('pickup')}
+                >
+                  Schedule Pickup
+                </button>
+                <button
+                  type="button"
+                  className={materialDeliveryMode === 'dropoff' ? 'is-selected' : ''}
+                  onClick={() => setMaterialDeliveryMode('dropoff')}
+                >
+                  Self Drop-off
+                </button>
+              </div>
+
+              <label className="material-field" htmlFor="pickup-address-input">
+                <span>{materialAddressLabel}</span>
+                <input
+                  id="pickup-address-input"
+                  className="material-donation-input"
+                  type="text"
+                  placeholder={materialAddressPlaceholder}
+                  value={pickupAddress}
+                  onChange={(event) => setPickupAddress(event.target.value)}
+                />
+              </label>
+
+              <label className="material-field" htmlFor="pickup-date-input">
+                <span>Preferred Date and Time</span>
+                <input
+                  id="pickup-date-input"
+                  className="material-donation-input"
+                  type="datetime-local"
+                  value={pickupDate}
+                  onChange={(event) => setPickupDate(event.target.value)}
+                />
+              </label>
+            </article>
+
+            <article className="donation-checkout-card material-story-section">
+              <h2>Request Overview</h2>
+              <p>{safeSummary}</p>
+              <div className="campaign-pillars campaign-pillars-v2">
+                <article>
+                  <h3><Users size={16} /> {requestedItemTarget} Items Target</h3>
+                  <p>Requested directly by the organization for this campaign.</p>
+                </article>
+                <article>
+                  <h3><MapPin size={16} /> {safeLocation}</h3>
+                  <p>Using the organization&apos;s saved public location.</p>
+                </article>
+              </div>
+            </article>
+          </div>
+
+          <aside className="donation-summary-card material-summary-card">
+            <h2>Donation Summary</h2>
+            <div className="donation-summary-campaign">
+              <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+              <div>
+                <p>TYPE</p>
+                <strong>{requestedItemName}</strong>
+                <span><Clock3 size={13} /> Estimated organizer review within 48 hours</span>
+              </div>
+            </div>
+
+            <div className="donation-summary-lines">
+              <div>
+                <span>Selected Items</span>
+                <strong>{requestedItemName} ({materialQuantity})</strong>
+              </div>
+              <div>
+                <span>Logistics</span>
+                <strong>{materialDeliveryLabel}</strong>
+              </div>
+              <div>
+                <span>Organization</span>
+                <strong>{organizationName}</strong>
+              </div>
+              <div>
+                <span>Location</span>
+                <strong>{safeLocation}</strong>
+              </div>
+            </div>
+
+            <div className="material-impact-box">
+              <strong>Impact Message</strong>
+              <p>Your items will be reviewed by the organization and matched to the campaign needs before delivery is confirmed.</p>
+            </div>
+
+            <button
+              type="button"
+              className="donation-complete-button"
+              onClick={handleMaterialDonation}
+              disabled={donationSubmitting}
+            >
+              <HandHeart size={16} /> {donationSubmitting ? 'Scheduling...' : 'Schedule Donation'}
+            </button>
+
+            <p className="donation-summary-terms">
+              By scheduling, you confirm these items are available and ready for handover at the selected time.
+            </p>
+
+            {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
+          </aside>
+        </section>
+      </main>
     );
   }
 
@@ -361,7 +1404,7 @@ function CampaignDetailPage({ campaignId }) {
               <span className="campaign-category">{safeCategory}</span>
               <h1>{safeTitle}</h1>
               <p className="campaign-hero-location">
-                <MapPin size={14} /> Kampong Speu, Cambodia
+                <MapPin size={14} /> {safeLocation}
               </p>
             </div>
           </article>
@@ -415,102 +1458,165 @@ function CampaignDetailPage({ campaignId }) {
           </article>
 
           <article className="campaign-updates campaign-donors-v2">
-            <h2>Recent Donors</h2>
+            <div className="campaign-section-header">
+              <h2>Recent Donors</h2>
+              <button type="button" className="campaign-section-link">View All</button>
+            </div>
             <div className="donor-list-v2">
-              <div className="donor-item-v2">
-                <span className="donor-avatar donor-avatar-more">JD</span>
-                <div>
-                  <strong>John Doe</strong>
-                  <p>Donated $50 - 2 hours ago</p>
+              {recentDonors.length > 0 ? recentDonors.map((donor) => {
+                const donorNameValue = donor?.donor_name || 'Anonymous Donor';
+                const initials = donorNameValue
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join('')
+                  .toUpperCase() || 'DN';
+
+                return (
+                  <div className="donor-item-v2" key={donor.id}>
+                    <span className="donor-avatar donor-avatar-more">{initials}</span>
+                    <div>
+                      <strong>{donorNameValue}</strong>
+                      <p>Donated ${Number(donor.amount || 0).toFixed(2)} - {new Date(donor.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <Heart size={14} className="liked" />
+                  </div>
+                );
+              }) : (
+                <div className="donor-item-v2">
+                  <span className="donor-avatar donor-avatar-more">--</span>
+                  <div>
+                    <strong>No donors yet</strong>
+                    <p>The first completed donation will appear here.</p>
+                  </div>
+                  <Heart size={14} />
                 </div>
-                <Heart size={14} />
-              </div>
-              <div className="donor-item-v2">
-                <span className="donor-avatar donor-avatar-image">
-                  <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=64&q=80" alt="" />
-                </span>
-                <div>
-                  <strong>Sarah Miller</strong>
-                  <p>Donated $250 - 5 hours ago</p>
-                </div>
-                <Heart size={14} className="liked" />
-              </div>
+              )}
             </div>
           </article>
         </div>
 
         <aside className="campaign-side-column">
           <article className="detail-stat-card detail-stat-v2">
-            <p className="stat-amount">{formatCurrency(raisedAmount)}</p>
-            <p className="stat-goal">raised of {formatCurrency(goalAmount)}</p>
-            <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
-              <span style={{ width: `${progressWidth}%` }} />
-            </div>
-            <div className="detail-mini-stats">
-              <p><strong>{backers}</strong><span>Donors</span></p>
-              <p><strong>{daysToGo}</strong><span>Days Left</span></p>
-              <p><strong>{percentRaised}%</strong><span>Reached</span></p>
-            </div>
-            <div className="quick-amount-grid">
-              {presetAmounts.map((amount) => (
+            {isMaterialCampaign ? (
+              <>
+                <p className="stat-amount">{pledgedItems}</p>
+                <p className="stat-goal">pledges of {requestedItemTarget} item target</p>
+                <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={materialProgressPercent}>
+                  <span style={{ width: `${materialProgressPercent}%` }} />
+                </div>
+                <div className="detail-mini-stats">
+                  <p><strong>{requestedItemTarget}</strong><span>Items Needed</span></p>
+                  <p><strong>{daysToGo}</strong><span>Days Left</span></p>
+                  <p><strong>{materialProgressPercent}%</strong><span>Pledged</span></p>
+                </div>
+                <div className="material-donation-card">
+                  <div className="material-donation-item">
+                    <strong>{requestedItemName}</strong>
+                    <p>{requestedItemDescription}</p>
+                  </div>
+                  <label className="material-donation-label" htmlFor="material-quantity-input">How many items can you give?</label>
+                  <div className="material-quantity-picker">
+                    <button type="button" onClick={() => setMaterialQuantity((current) => Math.max(1, current - 1))}>-</button>
+                    <input
+                      id="material-quantity-input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={materialQuantity}
+                      onChange={(event) => setMaterialQuantity(Math.max(1, Number(event.target.value) || 1))}
+                    />
+                    <button type="button" onClick={() => setMaterialQuantity((current) => current + 1)}>+</button>
+                  </div>
+                  <label className="material-donation-label" htmlFor="pickup-address-input">Pickup address</label>
+                  <textarea
+                    id="pickup-address-input"
+                    className="material-donation-textarea"
+                    rows={3}
+                    placeholder="Enter your address or meeting point for pickup."
+                    value={pickupAddress}
+                    onChange={(event) => setPickupAddress(event.target.value)}
+                  />
+                  <label className="material-donation-label" htmlFor="pickup-date-input">Preferred pickup date</label>
+                  <input
+                    id="pickup-date-input"
+                    className="material-donation-input"
+                    type="datetime-local"
+                    value={pickupDate}
+                    onChange={(event) => setPickupDate(event.target.value)}
+                  />
+                </div>
+                <p className="selected-amount">{materialQuantity} item{materialQuantity > 1 ? 's' : ''} pledged</p>
                 <button
-                  key={amount}
                   type="button"
-                  className={amount === selectedAmount ? 'is-selected' : ''}
-                  onClick={() => {
-                    setSelectedAmount(amount);
-                    setDonationMessage('');
-                  }}
+                  className="donate-button detail-donate-button"
+                  onClick={handleMaterialDonation}
+                  disabled={donationSubmitting}
                 >
-                  ${amount}
+                  <HandHeart size={15} /> {donationSubmitting ? 'Scheduling...' : 'Schedule Material Pickup'}
                 </button>
-              ))}
-              <button
-                type="button"
-                className={!presetAmounts.includes(selectedAmount) ? 'is-selected' : ''}
-                onClick={() => setDonationMessage('Enter a custom amount below, then press Apply.')}
-              >
-                Custom
-              </button>
-            </div>
-            <form className="custom-amount-form" onSubmit={handleCustomAmountApply}>
-              <label htmlFor="custom-amount-input">Custom amount (USD)</label>
-              <div className="custom-amount-controls">
-                <input
-                  id="custom-amount-input"
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputMode="numeric"
-                  placeholder="Enter amount"
-                  value={customAmountInput}
-                  onChange={(event) => setCustomAmountInput(event.target.value)}
-                />
-                <button type="submit">Apply</button>
-              </div>
-            </form>
-            <div className="payment-methods-inline" role="radiogroup" aria-label="Payment method">
-              {['QR Payment', 'ABA Pay', 'Wing Bank'].map((method) => (
+              </>
+            ) : (
+              <>
+                <p className="stat-amount">{formatCurrency(raisedAmount)}</p>
+                <p className="stat-goal">raised of {formatCurrency(goalAmount)}</p>
+                <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
+                  <span style={{ width: `${progressWidth}%` }} />
+                </div>
+                <div className="detail-mini-stats">
+                  <p><strong>{backers}</strong><span>Donors</span></p>
+                  <p><strong>{daysToGo}</strong><span>Days Left</span></p>
+                  <p><strong>{percentRaised}%</strong><span>Reached</span></p>
+                </div>
+                <div className="quick-amount-grid">
+                  {presetAmounts.map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className={amount === selectedAmount ? 'is-selected' : ''}
+                      onClick={() => {
+                        setSelectedAmount(amount);
+                        setDonationMessage('');
+                      }}
+                    >
+                      ${amount}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={!presetAmounts.includes(selectedAmount) ? 'is-selected' : ''}
+                    onClick={() => setDonationMessage('Enter a custom amount below, then press Apply.')}
+                  >
+                    Custom
+                  </button>
+                </div>
+                <form className="custom-amount-form" onSubmit={handleCustomAmountApply}>
+                  <label htmlFor="custom-amount-input">Custom amount (USD)</label>
+                  <div className="custom-amount-controls">
+                    <input
+                      id="custom-amount-input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      placeholder="Enter amount"
+                      value={customAmountInput}
+                      onChange={(event) => setCustomAmountInput(event.target.value)}
+                    />
+                    <button type="submit">Apply</button>
+                  </div>
+                </form>
+                <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
                 <button
-                  key={method}
                   type="button"
-                  role="radio"
-                  aria-checked={selectedPaymentMethod === method}
-                  className={selectedPaymentMethod === method ? 'is-selected' : ''}
-                  onClick={() => setSelectedPaymentMethod(method)}
+                  className="donate-button detail-donate-button"
+                  onClick={handleDonateNow}
                 >
-                  {method}
+                  <HandHeart size={15} /> Donate Now
                 </button>
-              ))}
-            </div>
-            <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
-            <button
-              type="button"
-              className="donate-button detail-donate-button"
-              onClick={handleDonateNow}
-            >
-              <HandHeart size={15} /> Donate Now
-            </button>
+              </>
+            )}
             {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
             <div className="detail-secondary-actions">
               <button type="button" className="detail-save-btn" onClick={handleSaveToggle}>
@@ -531,46 +1637,29 @@ function CampaignDetailPage({ campaignId }) {
 
           <article className="detail-rewards-card detail-location-card">
             <p className="card-label">Location</p>
-            {locationState.coords ? (
-              <iframe
-                title="Current location map"
-                src={`https://maps.google.com/maps?q=${locationState.coords.lat},${locationState.coords.lng}&z=14&output=embed`}
-                className="location-image"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            ) : (
-              <img
-                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=720&q=80"
-                alt="Project location map"
-                className="location-image"
-                referrerPolicy="no-referrer"
-              />
-            )}
+            <iframe
+              title="Campaign location map"
+              src={`https://maps.google.com/maps?q=${postedMapsQuery}&z=${hasPostedCoordinates ? 14 : 12}&output=embed`}
+              className="location-image"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
             <p className="location-caption">
-              {locationState.loading
-                ? 'Detecting your real-time location...'
-                : locationState.coords
-                  ? `Live location: ${locationState.coords.lat.toFixed(5)}, ${locationState.coords.lng.toFixed(5)} (±${Math.round(locationState.coords.accuracy)}m)`
-                  : locationState.error || 'Project sites located across 5 villages in the Thpong district.'}
+              Posted by the organization: {safeLocation}
             </p>
-            {locationState.lastUpdated ? (
-              <p className="location-caption">Updated: {locationState.lastUpdated.toLocaleTimeString()}</p>
+            {hasPostedCoordinates ? (
+              <p className="location-caption">Pinned coordinates: {postedLatitude.toFixed(5)}, {postedLongitude.toFixed(5)}</p>
             ) : null}
             <div className="detail-secondary-actions">
-              <button type="button" className="detail-save-btn" onClick={requestRealLocation}>
-                Refresh Location
-              </button>
-              {locationState.coords ? (
-                <a
-                  className="detail-share-btn"
-                  href={`https://www.google.com/maps?q=${locationState.coords.lat},${locationState.coords.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open Maps
-                </a>
-              ) : null}
+              <span className="detail-save-btn">Organization Posted</span>
+              <a
+                className="detail-share-btn"
+                href={`https://www.google.com/maps?q=${postedMapsQuery}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Maps
+              </a>
             </div>
           </article>
         </aside>

@@ -49,6 +49,10 @@ function getInitials(name) {
   return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
+function escapeCsvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("All Campaigns");
@@ -89,6 +93,19 @@ export default function OrganizationCampaignsPage() {
       .join("/");
 
     return `${apiBase}/files/${encodedPath}`;
+    const appBase = apiBase.replace(/\/api\/?$/, "");
+    if (normalizedPath.startsWith("uploads/")) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith("storage/")) {
+      return `${appBase}/${normalizedPath}`;
+    }
+
+    return `${apiBase}/files/${normalizedPath
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/")}`;
   };
 
   const getCampaignImageUrl = (item) => {
@@ -97,16 +114,6 @@ export default function OrganizationCampaignsPage() {
     for (const candidate of candidates) {
       const rawValue = String(candidate || "").trim();
       if (!rawValue) continue;
-
-      if (
-        rawValue.startsWith("http://") ||
-        rawValue.startsWith("https://") ||
-        rawValue.startsWith("blob:") ||
-        rawValue.startsWith("data:")
-      ) {
-        return rawValue;
-      }
-
       return getStorageFileUrl(rawValue);
     }
 
@@ -287,6 +294,52 @@ export default function OrganizationCampaignsPage() {
     }
     return notifications;
   }, [activeNotificationTab, notifications]);
+
+  const handleExportReport = () => {
+    const summaryRows = [
+      ["Report", "Organization Campaign Report"],
+      ["Generated At", new Date().toLocaleString()],
+      ["Tab", activeTab],
+      ["Category Filter", selectedCategory],
+      ["Sort", selectedSort],
+      ["Search", `${globalSearch} ${searchTerm}`.trim() || "None"],
+      ["Total Campaigns", overview.total],
+      ["Active Campaigns", overview.Active],
+      ["Completed Campaigns", overview.Completed],
+      ["Draft Campaigns", overview.Draft],
+      ["Total Raised", overview.raised],
+      ["Total Goal", overview.goal],
+      ["Completion Rate", `${overview.completionRate}%`],
+      [],
+      ["ID", "Title", "Category", "Status", "Raised USD", "Goal USD", "Progress %"],
+      ...filteredCampaigns.map((item) => {
+        const progress = item.goal > 0 ? Math.min(100, Math.round((item.raised / item.goal) * 100)) : 0;
+        return [
+          item.id,
+          item.title,
+          item.category,
+          item.status,
+          item.raised,
+          item.goal,
+          progress,
+        ];
+      }),
+    ];
+
+    const csv = summaryRows
+      .map((row) => row.map(escapeCsvCell).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `organization-campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const markAllNotificationsRead = () => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -492,6 +545,7 @@ export default function OrganizationCampaignsPage() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
+                    onClick={handleExportReport}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-5 py-3 text-sm font-semibold text-[#475569] shadow-[0_10px_24px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
                   >
                     Export Report

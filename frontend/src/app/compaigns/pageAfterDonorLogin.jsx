@@ -8,6 +8,7 @@ const fallbackCampaignImage =
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="50%" y="50%" font-size="36" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
   );
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 export default function CampaignCard({
   id,
@@ -25,14 +26,29 @@ export default function CampaignCard({
   const safeGoal = goal > 0 ? goal : 1;
   const progress = Math.min((raised / safeGoal) * 100, 100);
   const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
+  const campaignState = {
+    from: '/campaigns/donor',
+    campaign: {
+      id,
+      title,
+      summary: description,
+      image,
+      category,
+      raisedAmount: raised,
+      goalAmount: goal,
+      organization: 'Verified Organization',
+    },
+  };
 
   const handleCardClick = () => {
-    navigate(campaignPath);
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaignState.campaign));
+    navigate(campaignPath, { state: campaignState });
   };
 
   const handleDonateClick = (e) => {
     e.stopPropagation();
-    navigate(campaignPath);
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaignState.campaign));
+    navigate(campaignPath, { state: campaignState });
   };
 
   return (
