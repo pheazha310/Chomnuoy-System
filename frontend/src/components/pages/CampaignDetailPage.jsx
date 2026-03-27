@@ -18,12 +18,16 @@ import {
   Clock3,
 } from 'lucide-react';
 import { createBakongTransaction, verifyBakongTransaction } from '../../services/user-service';
-
 import { getCampaignById } from '../../data/campaigns';
+import {
+  CAMPAIGNS_CACHE_KEY as DONOR_CAMPAIGNS_CACHE_KEY,
+  fetchCampaignById,
+  normalizeCampaign,
+} from '../../services/campaign-service';
+import { getAuthToken, getSession } from '../../services/session-service';
 import '../css/Campaigns.css';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
-const DONOR_CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
 const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v1';
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
@@ -44,15 +48,6 @@ function setSavedCampaignIds(ids) {
   window.localStorage.setItem(SAVED_CAMPAIGNS_STORAGE_KEY, JSON.stringify(ids));
 }
 
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 function readSessionCache(key) {
   try {
     const raw = window.sessionStorage.getItem(key);
@@ -63,67 +58,12 @@ function readSessionCache(key) {
   }
 }
 
-function mapCachedCampaign(item) {
-  if (!item?.id) return null;
-  let parsedTiers = null;
-  let parsedMaterialItem = null;
-  if (typeof item.donation_tiers === 'string') {
-    try {
-      parsedTiers = JSON.parse(item.donation_tiers);
-    } catch {
-      parsedTiers = null;
-    }
-  } else if (Array.isArray(item.donation_tiers)) {
-    parsedTiers = item.donation_tiers;
-  }
-  if (typeof item.material_item === 'string') {
-    try {
-      parsedMaterialItem = JSON.parse(item.material_item);
-    } catch {
-      parsedMaterialItem = null;
-    }
-  } else if (item.material_item && typeof item.material_item === 'object') {
-    parsedMaterialItem = item.material_item;
-  } else if (item.materialItem && typeof item.materialItem === 'object') {
-    parsedMaterialItem = item.materialItem;
-  }
-  const inferredCampaignType = item.campaignType || item.campaign_type || (parsedMaterialItem ? 'material' : 'monetary');
-  return {
-    id: item.id,
-    organizationId: Number(item.organizationId ?? item.organization_id ?? 0) || null,
-    campaignType: inferredCampaignType,
-    title: item.title || 'Untitled campaign',
-    category: item.category || item.normalizedCategory || 'General',
-    organization: item.organization || 'Verified Organization',
-    summary: item.summary || item.description || 'No description available yet.',
-    location: item.organizationLocation || item.organization_location || item.location || 'Kampong Speu, Cambodia',
-    latitude: Number(item.organizationLatitude ?? item.organization_latitude ?? item.latitude ?? 0) || null,
-    longitude: Number(item.organizationLongitude ?? item.organization_longitude ?? item.longitude ?? 0) || null,
-    status: item.status || '',
-    startDate: item.startDate || item.start_date || '',
-    endDate: item.endDate || item.end_date || '',
-    createdAt: item.createdAt || item.created_at || '',
-    receiptMessage: item.receipt_message || '',
-    donorUpdates: item.donorUpdates || item.donor_updates || '',
-    distributionPlan: item.distributionPlan || item.distribution_plan || '',
-    materialPriority: item.materialPriority || item.material_priority || '',
-    pickupInstructions: item.pickupInstructions || item.pickup_instructions || '',
-    donationTiers: parsedTiers,
-    materialItem: parsedMaterialItem,
-    goalAmount: Number(item.goalAmount ?? item.goal ?? 0),
-    raisedAmount: Number(item.raisedAmount ?? item.raised ?? 0),
-    image:
-      item.image ||
-      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-  };
-}
-
 function getCachedCampaignById(id) {
   try {
     const rawLastOpened = window.localStorage.getItem(LAST_OPENED_CAMPAIGN_KEY);
     const lastOpened = rawLastOpened ? JSON.parse(rawLastOpened) : null;
     if (lastOpened && String(lastOpened.id) === String(id)) {
-      return mapCachedCampaign(lastOpened);
+      return normalizeCampaign(lastOpened);
     }
   } catch {
     // Ignore malformed local cache.
@@ -132,13 +72,13 @@ function getCachedCampaignById(id) {
   const donorCampaigns = readSessionCache(DONOR_CAMPAIGNS_CACHE_KEY);
   if (Array.isArray(donorCampaigns)) {
     const match = donorCampaigns.find((item) => String(item?.id) === String(id));
-    if (match) return mapCachedCampaign(match);
+    if (match) return normalizeCampaign(match);
   }
 
   const donorHome = readSessionCache(DONOR_HOME_CACHE_KEY);
   const donorHomeCampaigns = Array.isArray(donorHome?.campaigns) ? donorHome.campaigns : [];
   const homeMatch = donorHomeCampaigns.find((item) => String(item?.id) === String(id));
-  if (homeMatch) return mapCachedCampaign(homeMatch);
+  if (homeMatch) return normalizeCampaign(homeMatch);
 
   return null;
 }
@@ -149,30 +89,6 @@ function formatCurrency(amount) {
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function getStorageFileUrl(path) {
-  if (!path) return '';
-  const rawPath = String(path).trim();
-  if (
-    rawPath.startsWith('http://') ||
-    rawPath.startsWith('https://') ||
-    rawPath.startsWith('blob:') ||
-    rawPath.startsWith('data:')
-  ) {
-    return rawPath;
-  }
-
-  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('uploads/')) {
-    return `${appBase}/${normalizedPath}`;
-  }
-  if (normalizedPath.startsWith('storage/')) {
-    return `${appBase}/${normalizedPath}`;
-  }
-  return `${appBase}/storage/${normalizedPath}`;
 }
 
 function clearDonationCaches() {
@@ -232,7 +148,7 @@ function CampaignDetailPage({ campaignId }) {
   const [donorEmail, setDonorEmail] = useState('');
   const resolvedCampaignId = campaignId ?? params.campaignSlug ?? params.id;
   const routeCampaign = location.state?.campaign;
-  const campaign = campaignData ?? getCampaignById(resolvedCampaignId);
+  const campaign = campaignData ?? normalizeCampaign(getCampaignById(resolvedCampaignId));
   const session = getSession();
   const fallbackCampaignPath = session?.isLoggedIn && session?.role === 'Donor' ? '/campaigns/donor' : '/campaigns';
   const backTarget =
@@ -249,9 +165,11 @@ function CampaignDetailPage({ campaignId }) {
   useEffect(() => {
     let mounted = true;
     const isNumericCampaignId = /^\d+$/.test(String(resolvedCampaignId));
+    const normalizedRouteCampaign = normalizeCampaign(routeCampaign);
+    const normalizedLocalCampaign = normalizeCampaign(getCampaignById(resolvedCampaignId));
 
-    if (routeCampaign && String(routeCampaign.id) === String(resolvedCampaignId)) {
-      setCampaignData(mapCachedCampaign(routeCampaign) || routeCampaign);
+    if (normalizedRouteCampaign && String(normalizedRouteCampaign.id) === String(resolvedCampaignId)) {
+      setCampaignData(normalizedRouteCampaign);
       if (!isNumericCampaignId) {
         setCampaignLoading(false);
         return () => {
@@ -260,9 +178,8 @@ function CampaignDetailPage({ campaignId }) {
       }
     }
 
-    const local = getCampaignById(resolvedCampaignId);
-    if (local) {
-      setCampaignData(mapCachedCampaign(local) || local);
+    if (normalizedLocalCampaign) {
+      setCampaignData(normalizedLocalCampaign);
       if (!isNumericCampaignId) {
         setCampaignLoading(false);
         return () => {
@@ -289,74 +206,13 @@ function CampaignDetailPage({ campaignId }) {
       };
     }
 
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 8000);
     setCampaignLoading(true);
-    fetch(`${apiBase}/campaigns/${resolvedCampaignId}`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load campaign (${response.status})`);
-        }
-        return response.json();
-      })
+    fetchCampaignById(resolvedCampaignId, { signal: controller.signal })
       .then((data) => {
         if (!mounted) return;
-        const parsedMaterialItem = (() => {
-          if (data?.material_item && typeof data.material_item === 'object') return data.material_item;
-          if (typeof data?.material_item === 'string') {
-            try {
-              return JSON.parse(data.material_item);
-            } catch {
-              return null;
-            }
-          }
-          return null;
-        })();
-        const mapped = {
-          id: data?.id,
-          organizationId: Number(data?.organization_id ?? 0) || null,
-          campaignType: data?.campaign_type || (parsedMaterialItem ? 'material' : 'monetary'),
-          title: data?.title || 'Untitled campaign',
-          category: data?.category || 'General',
-          organization:
-              data?.organization_name ||
-              data?.organization ||
-              (data?.organization_id ? `Organization ${data.organization_id}` : 'Organization'),
-          summary: data?.description || data?.summary || 'No description available yet.',
-          location: data?.organization_location || data?.location || 'Kampong Speu, Cambodia',
-          latitude: Number(data?.organization_latitude ?? data?.latitude ?? 0) || null,
-          longitude: Number(data?.organization_longitude ?? data?.longitude ?? 0) || null,
-          status: data?.status || '',
-          startDate: data?.start_date || '',
-          endDate: data?.end_date || '',
-          createdAt: data?.created_at || '',
-          receiptMessage: data?.receipt_message || '',
-          donorUpdates: data?.donor_updates || '',
-          distributionPlan: data?.distribution_plan || '',
-          materialPriority: data?.material_priority || '',
-          pickupInstructions: data?.pickup_instructions || '',
-          donationTiers: (() => {
-            if (Array.isArray(data?.donation_tiers)) return data.donation_tiers;
-            if (typeof data?.donation_tiers === 'string') {
-              try {
-                return JSON.parse(data.donation_tiers);
-              } catch {
-                return null;
-              }
-            }
-            return null;
-          })(),
-          materialItem: parsedMaterialItem,
-          goalAmount: Number(data?.goal_amount ?? data?.goal ?? 0),
-          raisedAmount: Number(data?.current_amount ?? data?.raised_amount ?? data?.raised ?? 0),
-          image:
-            getStorageFileUrl(data?.image_path) ||
-            data?.image_url ||
-            data?.image ||
-            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-        };
-        setCampaignData(mapped);
+        setCampaignData(data);
       })
       .catch(() => {
         if (!mounted) return;
@@ -834,7 +690,7 @@ function CampaignDetailPage({ campaignId }) {
 
     try {
       const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-      const token = window.localStorage.getItem('authToken');
+      const token = getAuthToken();
       const headers = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1044,7 +900,7 @@ function CampaignDetailPage({ campaignId }) {
       }
 
       const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-      const token = window.localStorage.getItem('authToken');
+      const token = getAuthToken();
       const headers = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

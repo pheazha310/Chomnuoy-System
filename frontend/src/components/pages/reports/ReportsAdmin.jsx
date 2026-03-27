@@ -512,13 +512,13 @@ export default function ReportsAdmin() {
               </div>
               <div className="admin-report-axes">
                 <div className="admin-report-axis admin-report-axis-left">
-                  {tickValues.map((value) => (
-                    <span key={`left-${value}`}>{value}</span>
+                  {tickValues.map((value, index) => (
+                    <span key={`left-${index}`}>{value}</span>
                   ))}
                 </div>
                 <div className="admin-report-axis admin-report-axis-right">
-                  {tickValues.map((value) => (
-                    <span key={`right-${value}`}>{value}</span>
+                  {tickValues.map((value, index) => (
+                    <span key={`right-${index}`}>{value}</span>
                   ))}
                 </div>
               </div>

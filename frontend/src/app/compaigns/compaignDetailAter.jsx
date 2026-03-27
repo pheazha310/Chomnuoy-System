@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   LayoutGrid, 
   AlertCircle, 
@@ -13,84 +14,14 @@ import {
 } from 'lucide-react';
 import CampaignCard from './pageAfterDonorLogin';
 import StatsCard from './StatsCard';
+import {
+  CAMPAIGNS_CACHE_KEY,
+  fetchCampaigns,
+} from '@/services/campaign-service.js';
+import { getSession } from '@/services/session-service.js';
 
-const CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
 const DONOR_METRICS_CACHE_KEY = 'donor_campaign_metrics_cache_v1';
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-
-const placeholderImage =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#fef3c7"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="28" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign</text></svg>'
-  );
-
-const resolveCampaignImage = (item) => {
-  const candidates = [item?.image_url, item?.image, item?.image_path];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return '';
-};
-
-const getStorageFileUrl = (path) => {
-  if (!path) return '';
-  const rawPath = String(path).trim();
-  if (
-    rawPath.startsWith('http://') ||
-    rawPath.startsWith('https://') ||
-    rawPath.startsWith('blob:') ||
-    rawPath.startsWith('data:')
-  ) {
-    return rawPath;
-  }
-
-  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const relativePath = normalizedPath.startsWith('storage/')
-    ? normalizedPath.replace(/^storage\//, '')
-    : normalizedPath;
-  const encodedPath = relativePath
-    .split('/')
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-
-  return `${apiBase}/files/${encodedPath}`;
-};
-
-const getTimeLeft = (endDate) => {
-  if (!endDate) return "Ongoing";
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return "Ongoing";
-  const diffMs = end.getTime() - Date.now();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "Ended";
-  if (diffDays === 1) return "1 day left";
-  if (diffDays < 7) return `${diffDays} days left`;
-  const weeks = Math.ceil(diffDays / 7);
-  return `${weeks} weeks left`;
-};
-
-const getDaysLeft = (endDate) => {
-  if (!endDate) return null;
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return null;
-  const diffMs = end.getTime() - Date.now();
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-};
-
-const normalizeCategory = (value) => {
-  const key = String(value || '').toLowerCase();
-  if (key.includes('education')) return 'Education';
-  if (key.includes('health') || key.includes('medical')) return 'Medical';
-  if (key.includes('environment') || key.includes('water')) return 'Environment';
-  if (key.includes('disaster')) return 'Disaster Relief';
-  return 'General';
-};
 
 const readCache = (key) => {
   try {
@@ -118,56 +49,8 @@ const writeCache = (key, data) => {
   }
 };
 
-const mapCampaigns = (items) => {
-  const activeOnly = items.filter((item) => {
-    const status = String(item.status || '').toLowerCase();
-    return !status || status === 'active';
-  });
-
-  return activeOnly.map((item) => {
-    const materialItem = (() => {
-      if (item.material_item && typeof item.material_item === 'object') return item.material_item;
-      if (typeof item.material_item === 'string') {
-        try {
-          return JSON.parse(item.material_item);
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    })();
-    const goal = Number(item.goal_amount || 0);
-    const raised = Number(item.current_amount || 0);
-    const timeLeft = getTimeLeft(item.end_date);
-    const daysLeft = getDaysLeft(item.end_date);
-    const createdAt = item.created_at ? new Date(item.created_at).getTime() : 0;
-    const categoryLabel = normalizeCategory(item.category);
-    const isNew = createdAt ? Date.now() - createdAt <= 1000 * 60 * 60 * 24 * 14 : false;
-    return {
-      id: item.id,
-      title: item.title || "Untitled Campaign",
-      description: item.description || "No description provided.",
-      image: getStorageFileUrl(resolveCampaignImage(item)) || placeholderImage,
-      category: categoryLabel,
-      normalizedCategory: categoryLabel,
-      campaignType: item.campaign_type || (materialItem ? 'material' : 'monetary'),
-      materialItem,
-      organizationId: Number(item.organization_id ?? 0) || null,
-      organization:
-        item.organization_name ||
-        item.organization ||
-        (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
-      location: item.organization_location || item.location || '',
-      raised,
-      goal,
-      timeLeft,
-      isUrgent: typeof daysLeft === "number" ? daysLeft > 0 && daysLeft <= 3 : false,
-      isNew,
-    };
-  });
-};
-
 export default function App() {
+  const location = useLocation();
   const cachedCampaigns = readCache(CAMPAIGNS_CACHE_KEY);
   const cachedMetrics = readCache(DONOR_METRICS_CACHE_KEY);
   const [selectedFilter, setSelectedFilter] = useState('All Campaigns');
@@ -181,15 +64,6 @@ export default function App() {
   const [totalDonated, setTotalDonated] = useState(Number(cachedMetrics?.totalDonated || 0));
   const [impactScore, setImpactScore] = useState(Number(cachedMetrics?.impactScore || 0));
 
-  const getSession = () => {
-    try {
-      const raw = window.localStorage.getItem('chomnuoy_session');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
-
   const formatMoney = (value) => {
     const number = Number(value || 0);
     if (!Number.isFinite(number)) return '$0.00';
@@ -197,7 +71,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
     if (!cachedCampaigns?.length) {
       setLoading(true);
     } else {
@@ -209,16 +82,12 @@ export default function App() {
     const name = typeof session?.name === 'string' ? session.name.trim() : '';
     setDonorName(name || 'Donor');
     setDonorAvatar(typeof session?.avatar === 'string' ? session.avatar.trim() : '');
-    fetch(`${apiBase}/campaigns`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load campaigns (${response.status})`);
-        }
-        return response.json();
-      })
+    fetchCampaigns()
       .then((data) => {
-        const items = Array.isArray(data) ? data : [];
-        const mapped = mapCampaigns(items);
+        const mapped = data.filter((item) => {
+          const status = String(item.status || '').toLowerCase();
+          return !status || status === 'active';
+        });
         setCampaigns(mapped);
         writeCache(CAMPAIGNS_CACHE_KEY, mapped);
       })
@@ -233,6 +102,7 @@ export default function App() {
         setIsRefreshing(false);
       });
 
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
     fetch(`${apiBase}/donations`)
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
@@ -261,14 +131,30 @@ export default function App() {
   }, []);
   
   const filteredCampaigns = useMemo(
-    () =>
-      campaigns.filter((campaign) => {
+    () => {
+      const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
+      return campaigns.filter((campaign) => {
         if (selectedFilter === 'All Campaigns') return true;
         if (selectedFilter === 'Urgent') return campaign.isUrgent;
         if (selectedFilter === 'Newest') return campaign.isNew;
-        return campaign.normalizedCategory === selectedFilter;
-      }),
-    [campaigns, selectedFilter],
+        const categoryMatch = campaign.normalizedCategory === selectedFilter;
+        if (!categoryMatch) return false;
+        return true;
+      }).filter((campaign) => {
+        if (!searchTerm) return true;
+        const haystack = [
+          campaign.title,
+          campaign.summary,
+          campaign.organization,
+          campaign.category,
+          campaign.location,
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(searchTerm);
+      });
+    },
+    [campaigns, location.search, selectedFilter],
   );
   const visibleCampaigns = filteredCampaigns.slice(0, visibleCount);
   const hasMoreCampaigns = visibleCount < filteredCampaigns.length;

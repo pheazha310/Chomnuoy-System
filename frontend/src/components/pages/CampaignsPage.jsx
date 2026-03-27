@@ -1,22 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import '../css/Campaigns.css';
+import {
+  campaignCategoryToSidebarCategory,
+  CAMPAIGN_FALLBACK_IMAGE,
+  fetchCampaigns,
+} from '@/services/campaign-service.js';
+import { getSession } from '@/services/session-service.js';
 
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
-const fallbackCampaignImage =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
-  );
-
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
@@ -29,43 +21,9 @@ function formatCurrency(amount) {
 const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
 const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
 const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
-const hiddenCampaignStatuses = new Set(['draft', 'completed', 'complete', 'closed', 'archived', 'cancelled']);
-
-function isPublicCampaignStatus(status) {
-  const value = String(status || '').trim().toLowerCase();
-  if (!value) return true;
-  return !hiddenCampaignStatuses.has(value);
-}
-
-function campaignCategoryToSidebarCategory(category) {
-  if (category === 'Technology' || category === 'Social Good') {
-    return 'Education';
-  }
-
-  if (category === 'Health') {
-    return 'Healthcare';
-  }
-
-  if (category === 'Creative') {
-    return 'Disaster Relief';
-  }
-
-  return category;
-}
-
-function resolveCampaignImage(item) {
-  const candidates = [item?.image_url, item?.image, item?.image_path];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return '';
-}
 
 function CampaignsPage() {
+  const location = useLocation();
   const session = getSession();
   const isLoggedIn = Boolean(session?.isLoggedIn);
   const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
@@ -80,40 +38,6 @@ function CampaignsPage() {
   const sortMenuRef = useRef(null);
   const itemsPerPage = 6;
 
-  const getStorageFileUrl = (path) => {
-    if (!path) return '';
-    const rawPath = String(path).trim();
-    if (
-      rawPath.startsWith('http://') ||
-      rawPath.startsWith('https://') ||
-      rawPath.startsWith('blob:') ||
-      rawPath.startsWith('data:')
-    ) {
-      return rawPath;
-    }
-    const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const appBase = apiBase.replace(/\/api\/?$/, '');
-    if (normalizedPath.startsWith('uploads/')) {
-      return `${appBase}/${normalizedPath}`;
-    }
-    if (normalizedPath.startsWith('storage/')) {
-      return `${appBase}/${normalizedPath}`;
-    }
-    if (normalizedPath.startsWith('files/')) {
-      return `${apiBase}/${normalizedPath}`;
-    }
-    const relativePath = normalizedPath.startsWith('storage/')
-      ? normalizedPath.replace(/^storage\//, '')
-      : normalizedPath;
-    const encodedPath = relativePath
-      .split('/')
-      .filter(Boolean)
-      .map((segment) => encodeURIComponent(segment))
-      .join('/');
-    return `${apiBase}/files/${encodedPath}`;
-  };
-
   useEffect(() => {
     function handlePointerDown(event) {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
@@ -126,63 +50,14 @@ function CampaignsPage() {
   }, []);
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let active = true;
     setLoading(true);
     setError('');
 
-    fetch(`${apiBase}/campaigns`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load campaigns (${response.status})`);
-        }
-        return response.json();
-      })
+    fetchCampaigns()
       .then((data) => {
         if (!active) return;
-        const items = Array.isArray(data) ? data : [];
-        const mapped = items
-          .filter((item) => isPublicCampaignStatus(item.status))
-          .map((item) => {
-            const constMaterialItem = (() => {
-              if (item.material_item && typeof item.material_item === 'object') return item.material_item;
-              if (typeof item.material_item === 'string') {
-                try {
-                  return JSON.parse(item.material_item);
-                } catch {
-                  return null;
-                }
-              }
-              return null;
-            })();
-            return {
-              id: item.id,
-              organizationId: Number(item.organization_id ?? 0) || null,
-              campaignType: item.campaign_type || (constMaterialItem ? 'material' : 'monetary'),
-              title: item.title || 'Untitled Campaign',
-              summary: item.summary || item.description || 'No description available.',
-              category: item.category || 'Environment',
-              organization:
-                item.organization_name ||
-                item.organization ||
-                item.organizationTitle ||
-                (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
-              location: item.organization_location || item.location || '',
-              organizationLocation: item.organization_location || '',
-              latitude: Number(item.organization_latitude ?? item.latitude ?? 0) || null,
-              longitude: Number(item.organization_longitude ?? item.longitude ?? 0) || null,
-              materialItem: constMaterialItem,
-              raisedAmount: Number(item.current_amount || 0),
-              goalAmount: Math.max(1, Number(item.goal_amount || 0)),
-              image:
-              getStorageFileUrl(item.image_path) ||
-              item.image_url ||
-              item.image ||
-                'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-              createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
-            };
-          });
-        setCampaigns(mapped);
+        setCampaigns(data);
         setCurrentPage(1);
       })
       .catch((err) => {
@@ -201,6 +76,7 @@ function CampaignsPage() {
   }, []);
 
   const filteredCampaigns = useMemo(() => {
+    const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
     const byCategory = campaigns.filter((campaign) => {
       if (selectedCategory === 'All Campaigns') {
         return true;
@@ -228,12 +104,27 @@ function CampaignsPage() {
       ? urgencySorted.filter((_, index) => index % 2 === 0)
       : urgencySorted;
 
+    const searchedList = searchTerm
+      ? baseList.filter((campaign) => {
+          const haystack = [
+            campaign.title,
+            campaign.summary,
+            campaign.organization,
+            campaign.category,
+            campaign.location,
+          ]
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(searchTerm);
+        })
+      : baseList;
+
     if (selectedSort === 'Most Funded') {
-      return [...baseList].sort((a, b) => b.raisedAmount - a.raisedAmount);
+      return [...searchedList].sort((a, b) => b.raisedAmount - a.raisedAmount);
     }
 
     if (selectedSort === 'Ending Soon') {
-      return [...baseList].sort((a, b) => {
+      return [...searchedList].sort((a, b) => {
         const remainingA = a.goalAmount - a.raisedAmount;
         const remainingB = b.goalAmount - b.raisedAmount;
         return remainingA - remainingB;
@@ -241,11 +132,11 @@ function CampaignsPage() {
     }
 
     if (selectedSort === 'Most Recent') {
-      return [...baseList].sort((a, b) => b.createdAt - a.createdAt);
+      return [...searchedList].sort((a, b) => b.createdAt - a.createdAt);
     }
 
-    return baseList;
-  }, [campaigns, selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
+    return searchedList;
+  }, [campaigns, location.search, selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -381,8 +272,8 @@ function CampaignsPage() {
                     className="campaign-image campaign-dashboard-image"
                     loading="lazy"
                     onError={(event) => {
-                      if (event.currentTarget.src !== fallbackCampaignImage) {
-                        event.currentTarget.src = fallbackCampaignImage;
+                      if (event.currentTarget.src !== CAMPAIGN_FALLBACK_IMAGE) {
+                        event.currentTarget.src = CAMPAIGN_FALLBACK_IMAGE;
                       }
                     }}
                   />

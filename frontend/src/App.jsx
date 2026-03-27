@@ -6,6 +6,7 @@ import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
 import { OrganizationSettingsProvider } from '@/contexts/OrganizationSettingsContext';
+import { getAuthToken, getSession, isDonorSession, setAuthToken, setSession } from '@/services/session-service.js';
 
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
@@ -60,22 +61,6 @@ function getSafeRedirect(search) {
   }
 
   return redirectParam;
-}
-
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (!parsed) return null;
-    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
-      const normalized = { ...parsed, isLoggedIn: true };
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
-      return normalized;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
 }
 
 function getStorageFileUrl(path) {
@@ -231,10 +216,10 @@ function LoginRoute() {
       };
 
       if (data?.token) {
-        window.localStorage.setItem('authToken', data.token);
+        setAuthToken(data.token);
       }
 
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+      setSession(sessionData);
       if (isOrganization) {
         navigate(ROUTES.ORGANIZATION_DASHBOARD);
         return;
@@ -272,10 +257,10 @@ function LoginRoute() {
     };
 
     if (data?.token) {
-      window.localStorage.setItem('authToken', data.token);
+      setAuthToken(data.token);
     }
 
-    window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+    setSession(sessionData);
     if (isOrganization) {
       navigate(ROUTES.ORGANIZATION_DASHBOARD);
       return;
@@ -314,19 +299,13 @@ function RegisterRoute() {
 }
 
 function OrganizationRoute() {
-  try {
-    const rawSession = window.localStorage.getItem('chomnuoy_session');
-    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
-    const isDonorLoggedIn = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
-    return isDonorLoggedIn ? <OrganizationAfterLogin /> : <OrganizationBeforeLogin />;
-  } catch {
-    return <OrganizationBeforeLogin />;
-  }
+  const session = getSession();
+  return isDonorSession(session) ? <OrganizationAfterLogin /> : <OrganizationBeforeLogin />;
 }
 
 function HomeRoute() {
   const session = getSession();
-  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  const isDonorLoggedIn = isDonorSession(session);
 
   if (isDonorLoggedIn) {
     return <AfterLoginHome />;
@@ -337,7 +316,7 @@ function HomeRoute() {
 
 function AfterLoginHomeRoute() {
   const session = getSession();
-  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  const isDonorLoggedIn = isDonorSession(session);
 
   if (!isDonorLoggedIn) {
     return <Navigate to={ROUTES.HOME} replace />;
@@ -369,7 +348,7 @@ export default function App() {
     const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
     if (roleValue === 'admin' || roleValue === 'organization') return;
 
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     const ping = () => {
