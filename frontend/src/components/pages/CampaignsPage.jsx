@@ -22,10 +22,36 @@ const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster
 const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
 const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
 
+function getFundingProgress(campaign) {
+  const isMaterialCampaign = String(campaign?.campaignType || '').toLowerCase().includes('material');
+  const requestedItems = Math.max(1, Number(campaign?.materialItem?.quantity || campaign?.goalAmount || 1));
+  const pledgedItems = Math.max(0, Number(campaign?.raisedAmount || 0));
+  const safeGoal = isMaterialCampaign ? requestedItems : Math.max(Number(campaign?.goalAmount || 0), 1);
+  const currentValue = isMaterialCampaign ? pledgedItems : Math.max(0, Number(campaign?.raisedAmount || 0));
+  return Math.min(100, Math.round((currentValue / safeGoal) * 100));
+}
+
+function isVerifiedOrganizationStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  return ['verified', 'approved', 'active'].some((item) => status.includes(item));
+}
+
+function normalizeDonationType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'material' || key === 'materials') return 'material';
+  return 'money';
+}
+
+function getContributionPercent(value, goal) {
+  const safeGoal = Math.max(Number(goal || 0), 1);
+  return Math.min(100, Math.round((Math.max(0, Number(value || 0)) / safeGoal) * 100));
+}
+
 function CampaignsPage() {
   const location = useLocation();
   const session = getSession();
   const isLoggedIn = Boolean(session?.isLoggedIn);
+  const currentUserId = Number(session?.userId || 0);
   const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
   const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -53,11 +79,95 @@ function CampaignsPage() {
     let active = true;
     setLoading(true);
     setError('');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
-    fetchCampaigns()
-      .then((data) => {
+    Promise.allSettled([
+      fetchCampaigns(),
+      fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([campaignResult, organizationResult, donationResult]) => {
         if (!active) return;
-        setCampaigns(data);
+        if (campaignResult.status !== 'fulfilled') {
+          throw campaignResult.reason instanceof Error ? campaignResult.reason : new Error('Failed to load campaigns.');
+        }
+
+        const organizations =
+          organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value)
+            ? organizationResult.value
+            : [];
+        const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
+        const organizationByUserMap = new Map(
+          organizations
+            .map((item) => [Number(item.user_id), item])
+            .filter(([userId]) => Number.isFinite(userId) && userId > 0),
+        );
+        const donations =
+          donationResult.status === 'fulfilled' && Array.isArray(donationResult.value)
+            ? donationResult.value
+            : [];
+        const campaignDonationTotals = donations.reduce((map, item) => {
+          const campaignId = Number(item.campaign_id || 0);
+          if (!campaignId) return map;
+
+          const current = map.get(campaignId) || {
+            money: 0,
+            material: 0,
+            supporters: new Set(),
+            currentUserMoney: 0,
+            currentUserMaterial: 0,
+          };
+          const amount = Math.max(0, Number(item.amount || 0));
+          const donationType = normalizeDonationType(item.donation_type);
+          if (donationType === 'material') {
+            current.material += amount;
+          } else {
+            current.money += amount;
+          }
+          const donorUserId = Number(item.user_id || 0);
+          if (donorUserId) {
+            current.supporters.add(donorUserId);
+          }
+          if (currentUserId && donorUserId === currentUserId) {
+            if (donationType === 'material') {
+              current.currentUserMaterial += amount;
+            } else {
+              current.currentUserMoney += amount;
+            }
+          }
+          map.set(campaignId, current);
+          return map;
+        }, new Map());
+
+        const mergedCampaigns = campaignResult.value.map((item) => {
+          const organization =
+            organizationMap.get(Number(item.organizationId || 0)) ||
+            organizationByUserMap.get(Number(item.organizationId || 0)) ||
+            null;
+          const donationTotals = campaignDonationTotals.get(Number(item.id || 0));
+          const isMaterialCampaign = String(item.campaignType || '').toLowerCase().includes('material');
+          const campaignGoal = isMaterialCampaign
+            ? Number(item.materialItem?.quantity || item.goalAmount || 1)
+            : Number(item.goalAmount || 0);
+          const liveRaisedAmount = isMaterialCampaign
+            ? Number(donationTotals?.material || 0)
+            : Number(donationTotals?.money ?? item.raisedAmount ?? 0);
+          const currentUserContribution = isMaterialCampaign
+            ? Number(donationTotals?.currentUserMaterial || 0)
+            : Number(donationTotals?.currentUserMoney || 0);
+
+          return {
+            ...item,
+            isVerified: isVerifiedOrganizationStatus(organization?.verified_status || organization?.status),
+            raisedAmount: liveRaisedAmount,
+            raised: liveRaisedAmount,
+            supporterCount: donationTotals?.supporters?.size || 0,
+            currentUserContribution,
+            currentUserContributionPercent: getContributionPercent(currentUserContribution, campaignGoal),
+          };
+        });
+
+        setCampaigns(mergedCampaigns);
         setCurrentPage(1);
       })
       .catch((err) => {
@@ -73,7 +183,7 @@ function CampaignsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentUserId]);
 
   const filteredCampaigns = useMemo(() => {
     const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
@@ -85,24 +195,16 @@ function CampaignsPage() {
       return campaignCategoryToSidebarCategory(campaign.category) === selectedCategory;
     });
 
-    const urgencySorted = [...byCategory].sort((a, b) => {
-      const ratioA = a.goalAmount ? a.raisedAmount / a.goalAmount : 0;
-      const ratioB = b.goalAmount ? b.raisedAmount / b.goalAmount : 0;
-
-      if (selectedUrgency === 'Urgent') {
-        return ratioA - ratioB;
-      }
-
-      if (selectedUrgency === 'Nearly Funded') {
-        return ratioB - ratioA;
-      }
-
-      return b.raisedAmount - a.raisedAmount;
+    const urgencyScoped = byCategory.filter((campaign) => {
+      const progress = getFundingProgress(campaign);
+      if (selectedUrgency === 'Urgent') return Boolean(campaign.isUrgent);
+      if (selectedUrgency === 'Nearly Funded') return progress >= 75;
+      return campaign.timeLeft !== 'Ended';
     });
 
     const baseList = verifiedOnly
-      ? urgencySorted.filter((_, index) => index % 2 === 0)
-      : urgencySorted;
+      ? urgencyScoped.filter((campaign) => campaign.isVerified)
+      : urgencyScoped;
 
     const searchedList = searchTerm
       ? baseList.filter((campaign) => {
@@ -120,14 +222,14 @@ function CampaignsPage() {
       : baseList;
 
     if (selectedSort === 'Most Funded') {
-      return [...searchedList].sort((a, b) => b.raisedAmount - a.raisedAmount);
+      return [...searchedList].sort((a, b) => getFundingProgress(b) - getFundingProgress(a));
     }
 
     if (selectedSort === 'Ending Soon') {
       return [...searchedList].sort((a, b) => {
-        const remainingA = a.goalAmount - a.raisedAmount;
-        const remainingB = b.goalAmount - b.raisedAmount;
-        return remainingA - remainingB;
+        const daysA = typeof a.daysLeft === 'number' ? a.daysLeft : Number.POSITIVE_INFINITY;
+        const daysB = typeof b.daysLeft === 'number' ? b.daysLeft : Number.POSITIVE_INFINITY;
+        return daysA - daysB;
       });
     }
 
@@ -239,9 +341,7 @@ function CampaignsPage() {
             const isMaterialCampaign = String(campaign.campaignType || '').toLowerCase().includes('material');
             const requestedItems = Math.max(1, Number(campaign.materialItem?.quantity || campaign.goalAmount || 1));
             const pledgedItems = Math.max(0, Number(campaign.raisedAmount || 0));
-            const percentRaised = isMaterialCampaign
-              ? Math.round((pledgedItems / requestedItems) * 100)
-              : Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
+            const percentRaised = getFundingProgress(campaign);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
             const detailState = {
@@ -249,9 +349,19 @@ function CampaignsPage() {
               campaign,
             };
             const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
-            const isUrgent = percentRaised < 40;
+            const isUrgent = Boolean(campaign.isUrgent);
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
-            const daysLeft = Math.max(3, 30 - Math.floor(percentRaised / 4));
+            const timelineLabel = campaign.timeLeft || 'Ongoing';
+            const progressLabel = isMaterialCampaign ? `${Math.round(progressWidth)}% pledged` : `${Math.round(progressWidth)}% funded`;
+            const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
+            const donorContribution = Math.max(0, Number(campaign.currentUserContribution || 0));
+            const donorContributionPercent = Math.max(0, Number(campaign.currentUserContributionPercent || 0));
+            const donorContributionLabel = isMaterialCampaign
+              ? `You pledged ${donorContribution.toLocaleString()} of ${requestedItems.toLocaleString()} items`
+              : `You donated ${formatCurrency(donorContribution)} of ${formatCurrency(campaign.goalAmount)}`;
+            const donorPercentLabel = donorContribution > 0
+              ? `Your share ${donorContributionPercent}%`
+              : campaignTypeLabel;
 
             const persistCampaign = () => {
               window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaign));
@@ -306,6 +416,10 @@ function CampaignsPage() {
                   </div>
 
                   <div className="campaign-progress-shell">
+                    <div className="campaign-progress-meta-row">
+                      <span>{progressLabel}</span>
+                      <span>{donorPercentLabel}</span>
+                    </div>
                     <div
                       className="campaign-progress"
                       role="progressbar"
@@ -315,10 +429,16 @@ function CampaignsPage() {
                     >
                       <span style={{ width: `${progressWidth}%` }} />
                     </div>
+                    {isLoggedIn ? (
+                      <div className="campaign-progress-donor-note">
+                        <strong>{donorContribution > 0 ? donorContributionLabel : 'You have not donated to this campaign yet'}</strong>
+                        <span>{donorContribution > 0 ? `${donorContributionPercent}% of this campaign goal came from you` : campaignTypeLabel}</span>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="campaign-actions campaign-dashboard-actions">
-                    <div className="campaign-support-meta" aria-label={`${daysLeft} days left`}>
+                    <div className="campaign-support-meta" aria-label={timelineLabel}>
                       <span className="campaign-support-meta-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" className="campaign-support-meta-svg">
                           <circle cx="12" cy="12" r="8.5" />
@@ -326,7 +446,7 @@ function CampaignsPage() {
                         </svg>
                       </span>
                       <span className="campaign-support-meta-copy">
-                        <strong>{daysLeft} days left</strong>
+                        <strong>{isMaterialCampaign ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items left` : timelineLabel}</strong>
                         <small>Time remaining</small>
                       </span>
                     </div>
@@ -338,11 +458,11 @@ function CampaignsPage() {
                         aria-label={`Support ${campaign.title}`}
                         onClick={persistCampaign}
                       >
-                        Support
+                        {isMaterialCampaign ? 'Pledge Support' : 'Support'}
                       </Link>
                     ) : (
                       <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Support ${campaign.title}`}>
-                        Support
+                        {isMaterialCampaign ? 'Pledge Support' : 'Support'}
                       </a>
                     )}
                   </div>

@@ -191,7 +191,6 @@ export default function MyProfilePage() {
   const cameraInputRef = useRef(null);
   const session = useMemo(() => getSession(), []);
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
@@ -256,7 +255,6 @@ export default function MyProfilePage() {
 
       if (!effectiveAccountId) {
         setError('Your session is missing an account id. Please sign in again.');
-        setLoading(false);
         return;
       }
 
@@ -279,8 +277,6 @@ export default function MyProfilePage() {
           phone: session?.phone || '',
           avatar: session?.avatar || '',
         });
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -442,16 +438,6 @@ export default function MyProfilePage() {
       setIsDeleting(false);
     }
   };
-
-  if (loading) {
-    return (
-      <main className="mx-auto w-full max-w-7xl px-4 py-8">
-        <div className="rounded-3xl border border-[#D7DCE5] bg-white p-6 text-[#64748B] shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
-          Loading profile...
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#EEF4FB_0%,#F8FAFC_34%,#F4F7FB_100%)] py-8">

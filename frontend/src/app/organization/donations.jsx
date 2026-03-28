@@ -1,7 +1,7 @@
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
-import { Download, Eye, FileText, Filter, Package, Truck, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarDays, Download, Eye, FileText, Filter, MapPinned, Package, Truck, Users, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
@@ -51,6 +51,52 @@ function formatStatusLabel(value) {
   return 'Pending';
 }
 
+function normalizePickupStage(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (['completed', 'success', 'delivered'].includes(key)) return 'completed';
+  if (['in transit', 'in_transit', 'transit', 'enroute', 'en route'].includes(key)) return 'in_transit';
+  if (['confirmed', 'assigned', 'driver assigned', 'scheduled'].includes(key)) return 'confirmed';
+  if (['cancelled', 'canceled'].includes(key)) return 'cancelled';
+  return 'pending';
+}
+
+function formatPickupStageLabel(value) {
+  const key = normalizePickupStage(value);
+  if (key === 'completed') return 'Delivered';
+  if (key === 'in_transit') return 'In Transit';
+  if (key === 'confirmed') return 'Confirmed';
+  if (key === 'cancelled') return 'Cancelled';
+  return 'Pending';
+}
+
+function formatPickupSchedule(value) {
+  const date = toDate(value);
+  if (!date) return { dateLabel: 'Pickup scheduled', timeLabel: 'Pending confirmation' };
+  return {
+    dateLabel: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+    timeLabel: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+  };
+}
+
+function getPickupTimeline(stage) {
+  const normalizedStage = normalizePickupStage(stage);
+  const stageOrder = {
+    pending: 1,
+    confirmed: 2,
+    in_transit: 3,
+    completed: 4,
+    cancelled: 0,
+  };
+  const activeStep = stageOrder[normalizedStage] ?? 1;
+
+  return [
+    { key: 'requested', label: 'Pickup requested', done: activeStep >= 1 },
+    { key: 'confirmed', label: 'Driver assigned', done: activeStep >= 2 },
+    { key: 'transit', label: 'In transit', done: activeStep >= 3 },
+    { key: 'completed', label: 'Delivered', done: activeStep >= 4 },
+  ];
+}
+
 export default function OrganizationDonationsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
@@ -70,6 +116,7 @@ export default function OrganizationDonationsPage() {
   const [confirmingPickup, setConfirmingPickup] = useState(false);
   const session = getOrganizationSession();
   const organizationId = Number(session?.userId ?? 0);
+  const organizationName = session?.name || 'Organization';
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -143,6 +190,15 @@ export default function OrganizationDonationsPage() {
         : normalizeDonationStatus(row.status);
       const dateValue = toDate(row.created_at);
       const campaign = campaignMap.get(Number(row.campaign_id));
+      const pickupSchedule = formatPickupSchedule(pickup?.schedule_date);
+      const pickupStage = normalizePickupStage(pickup?.status);
+      const itemNames = linkedItems.map((item) => item.item_name).filter(Boolean);
+      const pickupAddress =
+        pickup?.pickup_address ||
+        row.pickup_address ||
+        campaign?.pickup_location ||
+        campaign?.location ||
+        'Pickup address pending';
       return {
         id: row.id,
         campaignId: Number(row.campaign_id || 0) || null,
@@ -162,15 +218,21 @@ export default function OrganizationDonationsPage() {
         date: dateValue ? dateValue.toLocaleDateString() : '-',
         dateValue: dateValue ? dateValue.getTime() : 0,
         pickupId: Number(pickup?.id || 0) || null,
-        pickupAddress: pickup?.pickup_address || 'Pickup address pending',
-        pickupSchedule: pickup?.schedule_date ? toDate(pickup.schedule_date)?.toLocaleDateString() || 'Schedule pending' : 'Schedule pending',
+        pickupAddress,
+        pickupSchedule: pickupSchedule.dateLabel,
+        pickupScheduleTime: pickupSchedule.timeLabel,
         pickupScheduleRaw: pickup?.schedule_date || null,
         pickupStatus: pickup?.status || 'pending',
+        pickupStage,
+        pickupStageLabel: formatPickupStageLabel(pickup?.status),
         primaryItemName: primaryItem?.item_name || 'Requested items',
         totalQuantity: totalQuantity || 1,
+        itemSummaryFull: itemNames.join(', ') || primaryItem?.description || 'Material request',
+        organizationName: campaign?.organization_name || row.organization_name || organizationName,
+        timeline: getPickupTimeline(pickup?.status),
       };
     });
-  }, [campaigns, donations, materialItems, pickups, users]);
+  }, [campaigns, donations, materialItems, organizationName, pickups, users]);
 
   const filteredRows = useMemo(() => {
     let nextRows = donationRows;
@@ -318,7 +380,7 @@ export default function OrganizationDonationsPage() {
   };
 
   const handleOpenRowAction = (row) => {
-    if (row.donationTypeKey === 'material' && row.pickupId) {
+    if (row.donationTypeKey === 'material') {
       setSelectedPickupRequest(row);
       return;
     }
@@ -690,45 +752,78 @@ export default function OrganizationDonationsPage() {
             aria-labelledby="org-donation-pickup-modal-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <span className={`org-pickup-modal-badge ${selectedPickupRequest.statusKey}`}>
-              {selectedPickupRequest.statusKey === 'confirmed' ? 'Pickup Confirmed' : 'Awaiting Confirmation'}
-            </span>
-            <h3 id="org-donation-pickup-modal-title">Coordinate Pickup</h3>
-            <p className="org-pickup-modal-copy">Review this material donation with real donor, campaign, and pickup data from the project.</p>
+            <button type="button" className="org-pickup-modal-back" onClick={() => setSelectedPickupRequest(null)}>
+              <ArrowLeft />
+              Back to Material Pickup
+            </button>
 
-            <div className="org-pickup-modal-details">
+            <div className="org-pickup-modal-top">
               <div>
-                <span>Campaign</span>
-                <strong>{selectedPickupRequest.project}</strong>
+                <span className={`org-pickup-modal-badge ${selectedPickupRequest.pickupStage}`}>
+                  {selectedPickupRequest.pickupStageLabel}
+                </span>
+                <h3 id="org-donation-pickup-modal-title">Pickup Details</h3>
+                <p className="org-pickup-modal-copy">
+                  Review the donor, item, schedule, and address details before moving this request to the next pickup stage.
+                </p>
               </div>
-              <div>
-                <span>Donor</span>
-                <strong>{selectedPickupRequest.donor}</strong>
+            </div>
+
+            <div className="org-pickup-modal-card">
+              <header className="org-pickup-modal-head">
+                <div>
+                  <p className="org-pickup-modal-eyebrow">Campaign</p>
+                  <strong className="org-pickup-modal-title">{selectedPickupRequest.project}</strong>
+                </div>
+                <div className="org-pickup-modal-head-meta">
+                  <p className="org-pickup-modal-eyebrow">Donor</p>
+                  <strong className="org-pickup-modal-title">{selectedPickupRequest.donor}</strong>
+                </div>
+              </header>
+
+              <div className="org-pickup-modal-grid">
+                <div>
+                  <p><CalendarDays /> Date & Time</p>
+                  <strong>{selectedPickupRequest.pickupSchedule}</strong>
+                  <span>{selectedPickupRequest.pickupScheduleTime}</span>
+                </div>
+                <div>
+                  <p><Building2 /> Organization</p>
+                  <strong>{selectedPickupRequest.organizationName}</strong>
+                  <span>{selectedPickupRequest.project}</span>
+                </div>
+                <div>
+                  <p><Package /> Items</p>
+                  <strong>{selectedPickupRequest.totalQuantity}x {selectedPickupRequest.primaryItemName}</strong>
+                  <span>{selectedPickupRequest.itemSummaryFull}</span>
+                </div>
+                <div>
+                  <p><MapPinned /> Address</p>
+                  <strong>{selectedPickupRequest.pickupAddress}</strong>
+                  <span>{selectedPickupRequest.donor}</span>
+                </div>
               </div>
-              <div>
-                <span>Items</span>
-                <strong>{selectedPickupRequest.totalQuantity}x {selectedPickupRequest.primaryItemName}</strong>
-              </div>
-              <div>
-                <span>Pickup Address</span>
-                <strong>{selectedPickupRequest.pickupAddress}</strong>
-              </div>
-              <div>
-                <span>Schedule</span>
-                <strong>{selectedPickupRequest.pickupSchedule}</strong>
-              </div>
-              <div>
-                <span>Status</span>
-                <strong>{selectedPickupRequest.status}</strong>
+
+              <div className="org-pickup-modal-track">
+                <h4><Truck /> Tracking Timeline</h4>
+                <ul>
+                  {selectedPickupRequest.timeline.map((item) => (
+                    <li key={item.key} className={item.done ? 'done' : ''}>{item.label}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 
             <div className="org-pickup-modal-note">
               <strong>Next step</strong>
               <p>
-                {selectedPickupRequest.statusKey === 'confirmed'
-                  ? 'This pickup is already confirmed and synced with the donation record.'
-                  : 'Confirm pickup to update the donation status and notify the donor.'}
+                {selectedPickupRequest.pickupStage === 'completed'
+                  ? 'This pickup is already delivered and synced with the donation record.'
+                  : selectedPickupRequest.pickupStage === 'confirmed'
+                    ? 'This pickup is confirmed. The next operational update should move it into transit.'
+                    : selectedPickupRequest.pickupStage === 'in_transit'
+                      ? 'This pickup is already in transit. Keep the donor updated until delivery is complete.'
+                      : 'Confirm pickup to update the donation status and notify the donor.'}
               </p>
             </div>
 
@@ -740,10 +835,20 @@ export default function OrganizationDonationsPage() {
                 type="button"
                 className="org-pickup-modal-btn primary"
                 onClick={handleConfirmPickup}
-                disabled={confirmingPickup || selectedPickupRequest.statusKey === 'confirmed'}
+                disabled={
+                  confirmingPickup ||
+                  !selectedPickupRequest.pickupId ||
+                  ['confirmed', 'in_transit', 'completed'].includes(selectedPickupRequest.pickupStage)
+                }
               >
-                {selectedPickupRequest.statusKey === 'confirmed'
+                {selectedPickupRequest.pickupStage === 'confirmed'
                   ? 'Pickup Confirmed'
+                  : selectedPickupRequest.pickupStage === 'in_transit'
+                    ? 'Already In Transit'
+                    : selectedPickupRequest.pickupStage === 'completed'
+                      ? 'Already Delivered'
+                      : !selectedPickupRequest.pickupId
+                        ? 'Pickup Not Created'
                   : confirmingPickup
                     ? 'Confirming...'
                     : 'Confirm Pickup'}

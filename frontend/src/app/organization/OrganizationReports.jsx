@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Download,
   Filter,
@@ -9,7 +9,7 @@ import {
   Box,
   MapPin,
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -26,6 +26,46 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
+
+const CAMBODIA_CENTER = [12.5657, 104.991];
+const CAMBODIA_PROVINCE_COORDINATES = {
+  'Banteay Meanchey': [13.7532, 102.9896],
+  Battambang: [13.1027, 103.1982],
+  KampongCham: [11.9934, 105.4635],
+  'Kampong Cham': [11.9934, 105.4635],
+  'Kampong Chhnang': [12.253, 104.667],
+  'Kampong Speu': [11.4533, 104.52],
+  'Kampong Thom': [12.7118, 104.8887],
+  Kampot: [10.6104, 104.1815],
+  Kandal: [11.2237, 105.1259],
+  KohKong: [11.6155, 102.983],
+  'Koh Kong': [11.6155, 102.983],
+  Kratie: [12.4881, 106.018],
+  Mondulkiri: [12.7879, 107.1012],
+  'Oddar Meanchey': [14.1646, 103.5176],
+  Pailin: [12.8489, 102.6093],
+  PhnomPenh: [11.5564, 104.9282],
+  'Phnom Penh': [11.5564, 104.9282],
+  PreahVihear: [13.791, 104.9805],
+  'Preah Vihear': [13.791, 104.9805],
+  'Preah Sihanouk': [10.6256, 103.5235],
+  Pursat: [12.5388, 103.9192],
+  PreyVeng: [11.4868, 105.3253],
+  'Prey Veng': [11.4868, 105.3253],
+  Ratanakiri: [13.7394, 106.9873],
+  SiemReap: [13.3633, 103.8564],
+  'Siem Reap': [13.3633, 103.8564],
+  StungTreng: [13.5259, 105.9683],
+  'Stung Treng': [13.5259, 105.9683],
+  SvayRieng: [11.0879, 105.7994],
+  'Svay Rieng': [11.0879, 105.7994],
+  Takeo: [10.9908, 104.7849],
+  TboungKhmum: [11.8838, 105.658],
+  'Tboung Khmum': [11.8838, 105.658],
+};
+const CAMBODIA_PROVINCE_NAMES = [...new Set(
+  Object.keys(CAMBODIA_PROVINCE_COORDINATES).map((name) => name.replace(/\s+/g, ' ').trim())
+)];
 
 function getOrganizationSession() {
   try {
@@ -45,6 +85,69 @@ function getOrganizationId(session) {
   ];
   const match = candidates.find((value) => Number(value) > 0);
   return match ? Number(match) : 0;
+}
+
+function toReportDate(value) {
+  if (!value) return null;
+  const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function normalizeDonationType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'material' || key === 'materials') return 'Material';
+  return 'Financial';
+}
+
+function normalizeDonationStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'completed' || key === 'success' || key === 'delivered') return 'Completed';
+  if (key === 'confirmed') return 'Confirmed';
+  if (key === 'cancelled' || key === 'canceled') return 'Cancelled';
+  return 'Pending';
+}
+
+function getProvinceName(...values) {
+  const candidates = values.flatMap((value) => {
+    if (!value) return [];
+    if (typeof value === 'string') return [value];
+    return [
+      value.province,
+      value.province_name,
+      value.location,
+      value.city,
+      value.address,
+      value.pickup_address,
+      value.organization_location,
+    ];
+  }).filter((value) => typeof value === 'string' && value.trim());
+
+  for (const candidate of candidates) {
+    const normalized = candidate.replace(/[_,-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const directMatch = CAMBODIA_PROVINCE_NAMES.find((province) =>
+      normalized.toLowerCase().includes(province.toLowerCase())
+    );
+    if (directMatch) return directMatch;
+  }
+
+  const fallback = candidates.find(Boolean);
+  return fallback ? fallback.trim() : 'Unknown';
+}
+
+function getCampaignOrganizationId(campaign) {
+  if (!campaign) return 0;
+  return Number(
+    campaign.organization_id ??
+    campaign.organizationId ??
+    campaign.user_id ??
+    campaign.userId ??
+    0
+  ) || 0;
+}
+
+function getMonthLabel(date) {
+  return date.toLocaleDateString('en-US', { month: 'short' });
 }
 
 function formatDelta(value) {
@@ -331,6 +434,35 @@ function StatCard({ card }) {
   );
 }
 
+function OverviewMapController({ markers, active }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      map.invalidateSize();
+
+      if (markers.length > 1) {
+        map.fitBounds(markers.map((marker) => marker.position), {
+          padding: [28, 28],
+          maxZoom: 8,
+        });
+        return;
+      }
+
+      if (markers.length === 1) {
+        map.setView(markers[0].position, 8);
+        return;
+      }
+
+      map.setView(CAMBODIA_CENTER, 7);
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [active, map, markers]);
+
+  return null;
+}
+
 function TrendChart({ data }) {
   const hasData = Array.isArray(data) && data.length > 0;
 
@@ -587,7 +719,7 @@ export default function OrganizationReports() {
   const [transactions, setTransactions] = useState(fallbackTransactions);
   const [financialSummaryMetrics, setFinancialSummaryMetrics] = useState(null);
   const [materialSummaryMetrics, setMaterialSummaryMetrics] = useState(null);
-  const [sourceItems, setSourceItems] = useState(fallbackSourceBreakdown);
+  const [sourceItems, setSourceItems] = useState([]);
   const [financialRows, setFinancialRows] = useState(fallbackFinancialTransactions);
   const [materialBreakdownItems, setMaterialBreakdownItems] = useState(fallbackMaterialBreakdown);
   const [materialProvinceRows, setMaterialProvinceRows] = useState(fallbackMaterialProvinceRows);
@@ -596,6 +728,11 @@ export default function OrganizationReports() {
   const [topImpactProvincesData, setTopImpactProvincesData] = useState(fallbackTopImpactProvinces);
   const [regionalProjectRowsData, setRegionalProjectRowsData] = useState(fallbackRegionalProjectRows);
   const [regionalMapMarkers, setRegionalMapMarkers] = useState(fallbackCambodiaMapMarkers);
+  const [projectDonations, setProjectDonations] = useState([]);
+  const [projectMaterialItems, setProjectMaterialItems] = useState([]);
+  const [projectPickups, setProjectPickups] = useState([]);
+  const [projectCampaigns, setProjectCampaigns] = useState([]);
+  const [projectUsers, setProjectUsers] = useState([]);
   const [transactionMeta, setTransactionMeta] = useState({
     total: 0,
     per_page: 10,
@@ -607,6 +744,75 @@ export default function OrganizationReports() {
   const [transactionPage, setTransactionPage] = useState(1);
   const [transactionSearch, setTransactionSearch] = useState('');
   const [transactionType, setTransactionType] = useState('all');
+  const [financialPage, setFinancialPage] = useState(1);
+  const [regionalPage, setRegionalPage] = useState(1);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProjectData = async () => {
+      try {
+        const [
+          donationResponse,
+          materialResponse,
+          pickupResponse,
+          campaignResponse,
+          userResponse,
+        ] = await Promise.all([
+          apiClient.get('/donations'),
+          apiClient.get('/material_items'),
+          apiClient.get('/material_pickups'),
+          apiClient.get('/campaigns'),
+          apiClient.get('/users'),
+        ]);
+
+        if (!isMounted) return;
+
+        const donationsData = Array.isArray(donationResponse?.data) ? donationResponse.data : [];
+        const campaignsData = Array.isArray(campaignResponse?.data) ? campaignResponse.data : [];
+        const scopedCampaigns = reportOrgId
+          ? campaignsData.filter((item) => getCampaignOrganizationId(item) === reportOrgId)
+          : campaignsData;
+        const scopedCampaignIds = new Set(scopedCampaigns.map((item) => Number(item.id)).filter(Boolean));
+        const scopedDonations = reportOrgId
+          ? donationsData.filter((item) => (
+            Number(item.organization_id) === reportOrgId ||
+            scopedCampaignIds.has(Number(item.campaign_id || 0))
+          ))
+          : donationsData;
+        const scopedDonationIds = new Set(scopedDonations.map((item) => Number(item.id)).filter(Boolean));
+        const materialsData = Array.isArray(materialResponse?.data) ? materialResponse.data : [];
+        const pickupsData = Array.isArray(pickupResponse?.data) ? pickupResponse.data : [];
+
+        setProjectDonations(scopedDonations);
+        setProjectMaterialItems(
+          reportOrgId
+            ? materialsData.filter((item) => scopedDonationIds.has(Number(item.donation_id || 0)))
+            : materialsData
+        );
+        setProjectPickups(
+          reportOrgId
+            ? pickupsData.filter((item) => scopedDonationIds.has(Number(item.donation_id || 0)))
+            : pickupsData
+        );
+        setProjectCampaigns(scopedCampaigns);
+        setProjectUsers(Array.isArray(userResponse?.data) ? userResponse.data : []);
+      } catch (error) {
+        if (!isMounted) return;
+        setProjectDonations([]);
+        setProjectMaterialItems([]);
+        setProjectPickups([]);
+        setProjectCampaigns([]);
+        setProjectUsers([]);
+      }
+    };
+
+    loadProjectData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [reportOrgId]);
 
   const handleExportPdf = () => {
     window.print();
@@ -617,7 +823,7 @@ export default function OrganizationReports() {
     const csvConfigs = {
       overview: {
         filename: `donation-reports-overview-${dateStamp}.csv`,
-        rows: transactions,
+        rows: resolvedExportOverviewRows,
         columns: [
           { label: 'Transaction ID', value: 'id' },
           { label: 'Donor Name', value: 'donor' },
@@ -629,7 +835,7 @@ export default function OrganizationReports() {
       },
       financial: {
         filename: `donation-reports-financial-${dateStamp}.csv`,
-        rows: financialRows,
+        rows: resolvedFinancialRows,
         columns: [
           { label: 'Date', value: 'date' },
           { label: 'Donor', value: 'donor' },
@@ -640,7 +846,7 @@ export default function OrganizationReports() {
       },
       material: {
         filename: `donation-reports-material-${dateStamp}.csv`,
-        rows: materialProvinceRows,
+        rows: resolvedMaterialProvinceRows,
         columns: [
           { label: 'Province', value: 'province' },
           { label: 'Total Items', value: 'totalItems' },
@@ -650,7 +856,7 @@ export default function OrganizationReports() {
       },
       regional: {
         filename: `donation-reports-regional-${dateStamp}.csv`,
-        rows: regionalProjectRowsData,
+        rows: resolvedRegionalProjectRowsData,
         columns: [
           { label: 'Province', value: 'province' },
           { label: 'Main Organization', value: 'organization' },
@@ -667,6 +873,391 @@ export default function OrganizationReports() {
     const contentWithBom = `\ufeff${csvContent}`;
     downloadTextFile(config.filename, contentWithBom, 'text/csv;charset=utf-8;');
   };
+
+  const computedProjectReports = useMemo(() => {
+    if (!projectDonations.length) {
+      return {
+        trendData: [],
+        summaryMetrics: null,
+        transactions: [],
+        transactionMeta: null,
+        financialSummary: null,
+        financialRows: [],
+        materialSummary: null,
+        materialBreakdown: [],
+        materialProvinceRows: [],
+        sourceItems: [],
+        provinceRows: [],
+        regionalMetrics: [],
+        topImpactProvinces: [],
+        regionalProjectRows: [],
+        regionalMapMarkers: [],
+      };
+    }
+
+    const usersById = new Map(projectUsers.map((user) => [Number(user.id), user]));
+    const campaignsById = new Map(projectCampaigns.map((campaign) => [Number(campaign.id), campaign]));
+    const pickupsByDonationId = new Map(projectPickups.map((pickup) => [Number(pickup.donation_id), pickup]));
+    const itemsByDonationId = projectMaterialItems.reduce((map, item) => {
+      const donationId = Number(item.donation_id);
+      if (!map.has(donationId)) {
+        map.set(donationId, []);
+      }
+      map.get(donationId).push(item);
+      return map;
+    }, new Map());
+
+    const sortedDonations = [...projectDonations].sort((left, right) => {
+      const leftTime = toReportDate(left.created_at)?.getTime() || 0;
+      const rightTime = toReportDate(right.created_at)?.getTime() || 0;
+      return rightTime - leftTime;
+    });
+
+    const mappedRows = sortedDonations.map((row) => {
+      const type = normalizeDonationType(row.donation_type);
+      const user = usersById.get(Number(row.user_id));
+      const campaign = campaignsById.get(Number(row.campaign_id));
+      const pickup = pickupsByDonationId.get(Number(row.id));
+      const linkedItems = itemsByDonationId.get(Number(row.id)) || [];
+      const createdAt = toReportDate(row.created_at);
+      const totalUnits = linkedItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity) || 1), 0);
+      const province = getProvinceName(
+        campaign,
+        user,
+        pickup,
+        row.province,
+        row.location,
+        row.pickup_address,
+      );
+      const donorName = user?.name || row.donor_name || `Donor #${row.user_id || row.id}`;
+      const status = normalizeDonationStatus(type === 'Material' ? pickup?.status || row.status : row.status);
+      const initials = donorName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') || 'OR';
+
+      return {
+        raw: row,
+        id: `#${row.code ?? row.id ?? 'TXN'}`,
+        donor: donorName,
+        initials,
+        type,
+        province,
+        date: createdAt ? createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A',
+        dateObj: createdAt,
+        amountValue: Number(row.amount) || 0,
+        amount: type === 'Material' ? `${totalUnits.toLocaleString()} Units` : formatCurrency(Number(row.amount) || 0),
+        status,
+        itemCount: totalUnits,
+        itemNames: linkedItems.map((item) => item.item_name).filter(Boolean),
+        source: row.payment_method || row.method || (type === 'Material' ? 'Material Pickup' : 'Online'),
+        organization: campaign?.organization_name || campaign?.title || 'Organization Campaign',
+      };
+    });
+
+    const now = new Date();
+    const sixMonthBuckets = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      return {
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        month: getMonthLabel(date),
+        financialRaw: 0,
+        materialRaw: 0,
+      };
+    });
+    const bucketMap = new Map(sixMonthBuckets.map((bucket) => [bucket.key, bucket]));
+
+    mappedRows.forEach((row) => {
+      if (!row.dateObj || row.status === 'Cancelled') return;
+      const key = `${row.dateObj.getFullYear()}-${row.dateObj.getMonth()}`;
+      const bucket = bucketMap.get(key);
+      if (!bucket) return;
+      if (row.type === 'Material') {
+        bucket.materialRaw += row.itemCount;
+      } else {
+        bucket.financialRaw += row.amountValue;
+      }
+    });
+
+    const maxFinancial = Math.max(1, ...sixMonthBuckets.map((item) => item.financialRaw));
+    const maxMaterial = Math.max(1, ...sixMonthBuckets.map((item) => item.materialRaw));
+    const trendData = sixMonthBuckets.map((item) => ({
+      month: item.month,
+      financial: Math.round((item.financialRaw / maxFinancial) * 100),
+      material: Math.round((item.materialRaw / maxMaterial) * 100),
+      financialValue: item.financialRaw,
+      materialValue: item.materialRaw,
+    }));
+
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const currentMonthRows = mappedRows.filter((row) => row.dateObj && row.dateObj >= currentMonth);
+    const previousMonthRows = mappedRows.filter((row) => row.dateObj && row.dateObj >= previousMonth && row.dateObj < currentMonth);
+    const financialRowsOnly = mappedRows.filter((row) => row.type === 'Financial' && row.status !== 'Cancelled');
+    const previousFinancialRows = previousMonthRows.filter((row) => row.type === 'Financial' && row.status !== 'Cancelled');
+    const materialRowsOnly = mappedRows.filter((row) => row.type === 'Material' && row.status !== 'Cancelled');
+    const previousMaterialRows = previousMonthRows.filter((row) => row.type === 'Material' && row.status !== 'Cancelled');
+    const completedFinancialRows = financialRowsOnly.filter((row) => row.status === 'Completed' || row.status === 'Confirmed');
+    const completedMaterialRows = materialRowsOnly.filter((row) => row.status === 'Completed' || row.status === 'Confirmed');
+
+    const totalRevenue = financialRowsOnly.reduce((sum, row) => sum + row.amountValue, 0);
+    const previousRevenue = previousFinancialRows.reduce((sum, row) => sum + row.amountValue, 0);
+    const activeDonors = new Set(mappedRows.map((row) => row.donor)).size;
+    const previousActiveDonors = new Set(previousMonthRows.map((row) => row.donor)).size;
+    const totalMaterialUnits = materialRowsOnly.reduce((sum, row) => sum + row.itemCount, 0);
+    const previousMaterialUnits = previousMaterialRows.reduce((sum, row) => sum + row.itemCount, 0);
+    const avgDonation = financialRowsOnly.length ? totalRevenue / financialRowsOnly.length : 0;
+    const previousAvgDonation = previousFinancialRows.length ? previousRevenue / previousFinancialRows.length : 0;
+    const conversionRate = mappedRows.length ? (completedFinancialRows.length / mappedRows.length) * 100 : 0;
+    const previousConversionRate = previousMonthRows.length
+      ? (previousFinancialRows.filter((row) => row.status === 'Completed' || row.status === 'Confirmed').length / previousMonthRows.length) * 100
+      : 0;
+
+    const summaryMetrics = {
+      metrics: {
+        total_revenue: {
+          value: totalRevenue,
+          delta_percent: calcDeltaPercent(totalRevenue, previousRevenue),
+          positive: totalRevenue >= previousRevenue,
+        },
+        active_donors: {
+          value: activeDonors,
+          delta_percent: calcDeltaPercent(activeDonors, previousActiveDonors),
+          positive: activeDonors >= previousActiveDonors,
+        },
+        material_units: {
+          value: totalMaterialUnits,
+          delta_percent: calcDeltaPercent(totalMaterialUnits, previousMaterialUnits),
+          positive: totalMaterialUnits >= previousMaterialUnits,
+        },
+        avg_donation: {
+          value: avgDonation,
+          delta_percent: calcDeltaPercent(avgDonation, previousAvgDonation),
+          positive: avgDonation >= previousAvgDonation,
+        },
+      },
+    };
+
+    const financialSummary = {
+      metrics: {
+        total_revenue: summaryMetrics.metrics.total_revenue,
+        active_donors: summaryMetrics.metrics.active_donors,
+        avg_donation: summaryMetrics.metrics.avg_donation,
+        conversion_rate: {
+          value: conversionRate,
+          delta_percent: calcDeltaPercent(conversionRate, previousConversionRate),
+          positive: conversionRate >= previousConversionRate,
+        },
+      },
+    };
+
+    const previousDelivered = previousMaterialRows.filter((row) => row.status === 'Completed' || row.status === 'Confirmed').length;
+    const pendingPickups = materialRowsOnly.filter((row) => row.status === 'Pending').length;
+    const previousPendingPickups = previousMaterialRows.filter((row) => row.status === 'Pending').length;
+    const deliverySuccessRate = materialRowsOnly.length ? (completedMaterialRows.length / materialRowsOnly.length) * 100 : 0;
+    const previousDeliverySuccessRate = previousMaterialRows.length ? (previousDelivered / previousMaterialRows.length) * 100 : 0;
+
+    const materialSummary = {
+      metrics: {
+        total_items_collected: {
+          value: totalMaterialUnits,
+          delta_percent: calcDeltaPercent(totalMaterialUnits, previousMaterialUnits),
+          positive: totalMaterialUnits >= previousMaterialUnits,
+        },
+        successful_deliveries: {
+          value: completedMaterialRows.length,
+          delta_percent: calcDeltaPercent(completedMaterialRows.length, previousDelivered),
+          positive: completedMaterialRows.length >= previousDelivered,
+        },
+        pending_pickups: {
+          value: pendingPickups,
+          delta_percent: calcDeltaPercent(pendingPickups, previousPendingPickups),
+          positive: pendingPickups <= previousPendingPickups,
+        },
+        delivery_success_rate: {
+          value: deliverySuccessRate,
+          delta_percent: calcDeltaPercent(deliverySuccessRate, previousDeliverySuccessRate),
+          positive: deliverySuccessRate >= previousDeliverySuccessRate,
+        },
+      },
+    };
+
+    const sourcePalette = [
+      { color: '#1f7ae8', colorClass: 'corporate' },
+      { color: '#67c2ef', colorClass: 'individual' },
+      { color: '#d5dde7', colorClass: 'government' },
+      { color: '#8fddc0', colorClass: '' },
+      { color: '#7ba7ff', colorClass: '' },
+    ];
+    const sourceMap = mappedRows.reduce((acc, row) => {
+      const key = row.type === 'Material' ? 'Material Donations' : row.source;
+      const increment = row.type === 'Material' ? row.itemCount : row.amountValue;
+      acc.set(key, (acc.get(key) || 0) + increment);
+      return acc;
+    }, new Map());
+    const sourceItems = [...sourceMap.entries()].map(([label, value], index) => ({
+      label,
+      value,
+      ...sourcePalette[index % sourcePalette.length],
+    }));
+
+    const materialNameMap = projectMaterialItems.reduce((acc, item) => {
+      const name = item.item_name || 'Other';
+      acc.set(name, (acc.get(name) || 0) + Math.max(1, Number(item.quantity) || 1));
+      return acc;
+    }, new Map());
+    const totalMaterialItemCount = Math.max(1, [...materialNameMap.values()].reduce((sum, value) => sum + value, 0));
+    const materialBreakdown = [...materialNameMap.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 6)
+      .map(([name, value]) => {
+        const percent = Math.round((value / totalMaterialItemCount) * 100);
+        return { name, percent, tone: toneFromPercent(percent) };
+      });
+
+    const provinceMap = mappedRows.reduce((acc, row) => {
+      const key = row.province;
+      if (!acc.has(key)) {
+        acc.set(key, {
+          province: key,
+          totalFinancial: 0,
+          totalItems: 0,
+          campaigns: new Set(),
+          organization: row.organization,
+          pending: 0,
+          confirmed: 0,
+        });
+      }
+      const entry = acc.get(key);
+      if (row.type === 'Material') {
+        entry.totalItems += row.itemCount;
+      } else {
+        entry.totalFinancial += row.amountValue;
+      }
+      if (row.raw.campaign_id) {
+        entry.campaigns.add(Number(row.raw.campaign_id));
+      }
+      entry.organization = row.organization || entry.organization;
+      if (row.status === 'Pending') entry.pending += 1;
+      if (row.status === 'Completed' || row.status === 'Confirmed') entry.confirmed += 1;
+      return acc;
+    }, new Map());
+
+    const provinceEntries = [...provinceMap.values()]
+      .filter((entry) => entry.province && entry.province !== 'Unknown')
+      .sort((left, right) => (right.totalFinancial + right.totalItems) - (left.totalFinancial + left.totalItems));
+    const provinceRows = provinceEntries
+      .filter((entry) => entry.totalFinancial > 0)
+      .slice(0, 5)
+      .map((entry) => ({
+        name: entry.province,
+        amount: formatCurrency(entry.totalFinancial),
+        totalFinancial: entry.totalFinancial,
+        width: 0,
+      }));
+    const maxProvinceAmount = Math.max(1, ...provinceEntries.map((entry) => entry.totalFinancial));
+    provinceRows.forEach((entry) => {
+      entry.width = Math.max(8, Math.round((entry.totalFinancial / maxProvinceAmount) * 100));
+    });
+
+    const materialProvinceRows = provinceEntries
+      .filter((entry) => entry.totalItems > 0)
+      .slice(0, 10)
+      .map((entry) => {
+        const status = entry.pending > entry.confirmed ? 'Action Needed' : entry.pending > 0 ? 'Delayed' : 'On Track';
+        return {
+          province: entry.province,
+          totalItems: formatWhole(entry.totalItems),
+          organization: entry.organization || 'Organization Campaign',
+          status,
+          statusClass: statusClassFromLabel(status),
+        };
+      });
+
+    const topImpactProvinces = provinceEntries.slice(0, 5).map((entry, index) => ({
+      rank: String(index + 1).padStart(2, '0'),
+      name: entry.province,
+      projects: entry.campaigns.size,
+      amount: formatCurrency(entry.totalFinancial),
+      delta: `${entry.totalItems.toLocaleString()} units`,
+    }));
+
+    const regionalProjectRows = provinceEntries.map((entry) => {
+      const totalImpact = entry.totalFinancial + entry.totalItems;
+      const status = totalImpact > 1000 ? 'High Impact' : totalImpact > 100 ? 'Medium Impact' : 'Low Impact';
+      return {
+        province: entry.province,
+        organization: entry.organization || 'Organization Campaign',
+        campaigns: entry.campaigns.size,
+        impact: entry.totalFinancial > 0 ? formatCurrency(entry.totalFinancial) : `${formatWhole(entry.totalItems)} units`,
+        status,
+        statusClass: regionalStatusClassFromLabel(status),
+      };
+    });
+
+    const regionalMetrics = [
+      {
+        title: 'Provinces Covered',
+        value: formatWhole(provinceEntries.length),
+        delta: `${currentMonthRows.length} this month`,
+        positive: true,
+      },
+      {
+        title: 'Active Community Projects',
+        value: formatWhole(new Set(projectCampaigns.map((campaign) => Number(campaign.id))).size),
+        delta: `${mappedRows.length} donations tracked`,
+        positive: true,
+      },
+      {
+        title: 'Regional Growth %',
+        value: formatPercent(calcDeltaPercent(currentMonthRows.length, previousMonthRows.length)),
+        delta: 'vs previous month',
+        positive: currentMonthRows.length >= previousMonthRows.length,
+      },
+    ];
+
+    const regionalMapMarkers = provinceEntries
+      .filter((entry) => CAMBODIA_PROVINCE_COORDINATES[entry.province])
+      .slice(0, 8)
+      .map((entry) => ({
+        name: entry.province,
+        position: CAMBODIA_PROVINCE_COORDINATES[entry.province],
+        impact: entry.totalFinancial > 1000 || entry.totalItems > 100 ? 'High' : entry.totalFinancial > 0 || entry.totalItems > 0 ? 'Medium' : 'Low',
+      }));
+
+    return {
+      trendData,
+      summaryMetrics,
+      transactions: mappedRows,
+      transactionMeta: {
+        total: mappedRows.length,
+        per_page: 10,
+        current_page: 1,
+        last_page: 1,
+        from: mappedRows.length ? 1 : 0,
+        to: Math.min(mappedRows.length, 10),
+      },
+      financialSummary,
+      financialRows: financialRowsOnly.map((row) => ({
+        date: row.date,
+        donor: row.donor,
+        type: row.source || 'One-time',
+        amount: row.amount,
+        status: row.status,
+      })),
+      materialSummary,
+      materialBreakdown,
+      materialProvinceRows,
+      sourceItems,
+      provinceRows,
+      regionalMetrics,
+      topImpactProvinces,
+      regionalProjectRows,
+      regionalMapMarkers,
+    };
+  }, [projectCampaigns, projectDonations, projectMaterialItems, projectPickups, projectUsers]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1375,14 +1966,135 @@ export default function OrganizationReports() {
     setTransactionPage(1);
   }, [transactionSearch, transactionType]);
 
-  const breakdownTotals = trendData.reduce(
+  const localFilteredTransactionRows = useMemo(() => {
+    const rows = computedProjectReports.transactions || [];
+    const query = transactionSearch.trim().toLowerCase();
+    return rows.filter((row) => {
+      const matchesType = transactionType === 'all' || row.type.toLowerCase() === transactionType;
+      const matchesQuery = !query || [row.id, row.donor, row.type, row.province, row.amount]
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+      return matchesType && matchesQuery;
+    });
+  }, [computedProjectReports.transactions, transactionSearch, transactionType]);
+
+  const localTransactionRows = useMemo(() => {
+    const start = (transactionPage - 1) * 10;
+    return localFilteredTransactionRows.slice(start, start + 10);
+  }, [localFilteredTransactionRows, transactionPage]);
+
+  const localTransactionMeta = useMemo(() => {
+    const total = localFilteredTransactionRows.length;
+    const lastPage = Math.max(1, Math.ceil(total / 10));
+    const start = total === 0 ? 0 : (transactionPage - 1) * 10 + 1;
+    const end = total === 0 ? 0 : Math.min(total, transactionPage * 10);
+    return {
+      total,
+      per_page: 10,
+      current_page: Math.min(transactionPage, lastPage),
+      last_page: lastPage,
+      from: start,
+      to: end,
+    };
+  }, [localFilteredTransactionRows, transactionPage]);
+
+  const projectHasData = computedProjectReports.transactions.length > 0;
+  const resolvedTrendData = projectHasData
+    ? computedProjectReports.trendData
+    : (trendData.length ? trendData : computedProjectReports.trendData);
+  const resolvedRevenueExpenseData = projectHasData
+    ? computedProjectReports.trendData.map((item) => ({
+      month: item.month,
+      revenue: Number(item.financialValue) || Number(item.financial) || 0,
+      expenses: 0,
+    }))
+    : (
+      revenueExpenseData.length
+        ? revenueExpenseData
+        : resolvedTrendData.map((item) => ({
+          month: item.month,
+          revenue: Number(item.financialValue) || Number(item.financial) || 0,
+          expenses: 0,
+        }))
+    );
+  const resolvedSummaryMetrics = projectHasData
+    ? computedProjectReports.summaryMetrics
+    : (summaryMetrics?.metrics ? summaryMetrics : computedProjectReports.summaryMetrics);
+  const resolvedFinancialSummaryMetrics = projectHasData
+    ? computedProjectReports.financialSummary
+    : (
+      financialSummaryMetrics?.metrics
+        ? financialSummaryMetrics
+        : computedProjectReports.financialSummary
+    );
+  const resolvedMaterialSummaryMetrics = projectHasData
+    ? computedProjectReports.materialSummary
+    : (
+      materialSummaryMetrics?.metrics
+        ? materialSummaryMetrics
+        : computedProjectReports.materialSummary
+    );
+  const resolvedSourceItems = projectHasData
+    ? computedProjectReports.sourceItems
+    : (sourceItems.length ? sourceItems : computedProjectReports.sourceItems);
+  const resolvedFinancialRows = projectHasData
+    ? computedProjectReports.financialRows
+    : (financialRows.length ? financialRows : computedProjectReports.financialRows);
+  const resolvedMaterialBreakdownItems = projectHasData
+    ? computedProjectReports.materialBreakdown
+    : (materialBreakdownItems.length ? materialBreakdownItems : computedProjectReports.materialBreakdown);
+  const resolvedMaterialProvinceRows = projectHasData
+    ? computedProjectReports.materialProvinceRows
+    : (materialProvinceRows.length ? materialProvinceRows : computedProjectReports.materialProvinceRows);
+  const resolvedProvinceRows = projectHasData
+    ? computedProjectReports.provinceRows
+    : (provinceRows.length ? provinceRows : computedProjectReports.provinceRows);
+  const resolvedRegionalMetricsData = projectHasData
+    ? computedProjectReports.regionalMetrics
+    : (regionalMetricsData.length ? regionalMetricsData : computedProjectReports.regionalMetrics);
+  const resolvedTopImpactProvincesData = projectHasData
+    ? computedProjectReports.topImpactProvinces
+    : (topImpactProvincesData.length ? topImpactProvincesData : computedProjectReports.topImpactProvinces);
+  const resolvedRegionalProjectRowsData = projectHasData
+    ? computedProjectReports.regionalProjectRows
+    : (regionalProjectRowsData.length ? regionalProjectRowsData : computedProjectReports.regionalProjectRows);
+  const resolvedRegionalMapMarkers = projectHasData
+    ? computedProjectReports.regionalMapMarkers
+    : (regionalMapMarkers.length ? regionalMapMarkers : computedProjectReports.regionalMapMarkers);
+  const resolvedTransactions = projectHasData
+    ? localTransactionRows
+    : (transactions.length ? transactions : localTransactionRows);
+  const resolvedTransactionMeta = projectHasData
+    ? localTransactionMeta
+    : (transactions.length ? transactionMeta : localTransactionMeta);
+  const resolvedExportOverviewRows = projectHasData
+    ? localFilteredTransactionRows
+    : (transactions.length ? transactions : localFilteredTransactionRows);
+  const financialLastPage = Math.max(1, Math.ceil(resolvedFinancialRows.length / 5));
+  const regionalLastPage = Math.max(1, Math.ceil(resolvedRegionalProjectRowsData.length / 5));
+  const paginatedFinancialRows = useMemo(() => {
+    const start = (financialPage - 1) * 5;
+    return resolvedFinancialRows.slice(start, start + 5);
+  }, [financialPage, resolvedFinancialRows]);
+  const paginatedRegionalRows = useMemo(() => {
+    const start = (regionalPage - 1) * 5;
+    return resolvedRegionalProjectRowsData.slice(start, start + 5);
+  }, [regionalPage, resolvedRegionalProjectRowsData]);
+
+  const breakdownTotals = resolvedTrendData.reduce(
     (acc, item) => ({
-      financial: acc.financial + (Number(item.financial) || 0),
-      material: acc.material + (Number(item.material) || 0),
+      financial: acc.financial + (Number(item.financialValue) || Number(item.financial) || 0),
+      material: acc.material + (Number(item.materialValue) || Number(item.material) || 0),
     }),
     { financial: 0, material: 0 }
   );
   const dominantBreakdownType = breakdownTotals.financial >= breakdownTotals.material ? 'financial' : 'material';
+  const overviewImpactLevel = resolvedRegionalMapMarkers.some((marker) => marker.impact === 'High')
+    ? 'High impact'
+    : resolvedRegionalMapMarkers.some((marker) => marker.impact === 'Medium')
+      ? 'Medium impact'
+      : 'Low impact';
 
   useEffect(() => {
     if (!breakdownUserSelectedRef.current) {
@@ -1390,93 +2102,105 @@ export default function OrganizationReports() {
     }
   }, [dominantBreakdownType]);
 
-  const summaryCards = summaryMetrics?.metrics
+  useEffect(() => {
+    if (financialPage > financialLastPage) {
+      setFinancialPage(1);
+    }
+  }, [financialLastPage, financialPage]);
+
+  useEffect(() => {
+    if (regionalPage > regionalLastPage) {
+      setRegionalPage(1);
+    }
+  }, [regionalLastPage, regionalPage]);
+
+  const summaryCards = resolvedSummaryMetrics?.metrics
     ? [
       {
         title: 'Total Revenue',
-        value: formatCurrency(summaryMetrics.metrics.total_revenue?.value),
-        delta: formatDelta(summaryMetrics.metrics.total_revenue?.delta_percent),
-        positive: summaryMetrics.metrics.total_revenue?.positive ?? true,
+        value: formatCurrency(resolvedSummaryMetrics.metrics.total_revenue?.value),
+        delta: formatDelta(resolvedSummaryMetrics.metrics.total_revenue?.delta_percent),
+        positive: resolvedSummaryMetrics.metrics.total_revenue?.positive ?? true,
         icon: Wallet,
       },
       {
         title: 'Active Donors',
-        value: formatWhole(summaryMetrics.metrics.active_donors?.value),
-        delta: formatDelta(summaryMetrics.metrics.active_donors?.delta_percent),
-        positive: summaryMetrics.metrics.active_donors?.positive ?? true,
+        value: formatWhole(resolvedSummaryMetrics.metrics.active_donors?.value),
+        delta: formatDelta(resolvedSummaryMetrics.metrics.active_donors?.delta_percent),
+        positive: resolvedSummaryMetrics.metrics.active_donors?.positive ?? true,
         icon: Users,
       },
       {
         title: 'Material Units',
-        value: formatWhole(summaryMetrics.metrics.material_units?.value),
-        delta: formatDelta(summaryMetrics.metrics.material_units?.delta_percent),
-        positive: summaryMetrics.metrics.material_units?.positive ?? true,
+        value: formatWhole(resolvedSummaryMetrics.metrics.material_units?.value),
+        delta: formatDelta(resolvedSummaryMetrics.metrics.material_units?.delta_percent),
+        positive: resolvedSummaryMetrics.metrics.material_units?.positive ?? true,
         icon: Box,
       },
       {
         title: 'Avg. Donation',
-        value: formatCurrency(summaryMetrics.metrics.avg_donation?.value),
-        delta: formatDelta(summaryMetrics.metrics.avg_donation?.delta_percent),
-        positive: summaryMetrics.metrics.avg_donation?.positive ?? true,
+        value: formatCurrency(resolvedSummaryMetrics.metrics.avg_donation?.value),
+        delta: formatDelta(resolvedSummaryMetrics.metrics.avg_donation?.delta_percent),
+        positive: resolvedSummaryMetrics.metrics.avg_donation?.positive ?? true,
         icon: Tag,
       },
     ]
     : fallbackSummaryCards;
 
-  const financialSummaryCards = financialSummaryMetrics?.metrics
+  const financialSummaryCards = resolvedFinancialSummaryMetrics?.metrics
     ? [
       {
         title: 'Total Revenue',
-        value: formatCurrency(financialSummaryMetrics.metrics.total_revenue?.value),
-        delta: formatDelta(financialSummaryMetrics.metrics.total_revenue?.delta_percent),
-        positive: financialSummaryMetrics.metrics.total_revenue?.positive ?? true,
+        value: formatCurrency(resolvedFinancialSummaryMetrics.metrics.total_revenue?.value),
+        delta: formatDelta(resolvedFinancialSummaryMetrics.metrics.total_revenue?.delta_percent),
+        positive: resolvedFinancialSummaryMetrics.metrics.total_revenue?.positive ?? true,
       },
       {
         title: 'Active Donors',
-        value: formatWhole(financialSummaryMetrics.metrics.active_donors?.value),
-        delta: formatDelta(financialSummaryMetrics.metrics.active_donors?.delta_percent),
-        positive: financialSummaryMetrics.metrics.active_donors?.positive ?? true,
+        value: formatWhole(resolvedFinancialSummaryMetrics.metrics.active_donors?.value),
+        delta: formatDelta(resolvedFinancialSummaryMetrics.metrics.active_donors?.delta_percent),
+        positive: resolvedFinancialSummaryMetrics.metrics.active_donors?.positive ?? true,
       },
       {
         title: 'Avg. Donation',
-        value: formatCurrency(financialSummaryMetrics.metrics.avg_donation?.value),
-        delta: formatDelta(financialSummaryMetrics.metrics.avg_donation?.delta_percent),
-        positive: financialSummaryMetrics.metrics.avg_donation?.positive ?? true,
+        value: formatCurrency(resolvedFinancialSummaryMetrics.metrics.avg_donation?.value),
+        delta: formatDelta(resolvedFinancialSummaryMetrics.metrics.avg_donation?.delta_percent),
+        positive: resolvedFinancialSummaryMetrics.metrics.avg_donation?.positive ?? true,
       },
       {
         title: 'Conversion Rate',
-        value: formatPercent(financialSummaryMetrics.metrics.conversion_rate?.value),
-        delta: formatDelta(financialSummaryMetrics.metrics.conversion_rate?.delta_percent),
-        positive: financialSummaryMetrics.metrics.conversion_rate?.positive ?? true,
+        value: formatPercent(resolvedFinancialSummaryMetrics.metrics.conversion_rate?.value),
+        delta: formatDelta(resolvedFinancialSummaryMetrics.metrics.conversion_rate?.delta_percent),
+        positive: resolvedFinancialSummaryMetrics.metrics.conversion_rate?.positive ?? true,
       },
     ]
     : fallbackFinancialSummaryCards;
 
-  const materialSummaryCards = materialSummaryMetrics?.metrics
+  const materialSummaryCards = resolvedMaterialSummaryMetrics?.metrics
     ? [
       {
         title: 'Total Items Collected',
-        value: formatWhole(materialSummaryMetrics.metrics.total_items_collected?.value),
-        delta: formatDelta(materialSummaryMetrics.metrics.total_items_collected?.delta_percent),
-        positive: materialSummaryMetrics.metrics.total_items_collected?.positive ?? true,
+        value: formatWhole(resolvedMaterialSummaryMetrics.metrics.total_items_collected?.value),
+        delta: formatDelta(resolvedMaterialSummaryMetrics.metrics.total_items_collected?.delta_percent),
+        positive: resolvedMaterialSummaryMetrics.metrics.total_items_collected?.positive ?? true,
       },
       {
         title: 'Successful Deliveries',
-        value: formatWhole(materialSummaryMetrics.metrics.successful_deliveries?.value),
-        delta: formatDelta(materialSummaryMetrics.metrics.successful_deliveries?.delta_percent),
-        positive: materialSummaryMetrics.metrics.successful_deliveries?.positive ?? true,
+        value: formatWhole(resolvedMaterialSummaryMetrics.metrics.successful_deliveries?.value),
+        delta: formatDelta(resolvedMaterialSummaryMetrics.metrics.successful_deliveries?.delta_percent),
+        positive: resolvedMaterialSummaryMetrics.metrics.successful_deliveries?.positive ?? true,
       },
       {
         title: 'Pending Pickups',
-        value: formatWhole(materialSummaryMetrics.metrics.pending_pickups?.value),
-        delta: formatDelta(materialSummaryMetrics.metrics.pending_pickups?.delta_percent),
-        positive: materialSummaryMetrics.metrics.pending_pickups?.positive ?? true,
+        value: formatWhole(resolvedMaterialSummaryMetrics.metrics.pending_pickups?.value),
+        delta: formatDelta(resolvedMaterialSummaryMetrics.metrics.pending_pickups?.delta_percent),
+        positive: resolvedMaterialSummaryMetrics.metrics.pending_pickups?.positive ?? true,
       },
       {
         title: 'Delivery Success Rate',
-        value: formatPercent(materialSummaryMetrics.metrics.delivery_success_rate?.value),
-        delta: formatDelta(materialSummaryMetrics.metrics.delivery_success_rate?.delta_percent),
-        positive: materialSummaryMetrics.metrics.delivery_success_rate?.positive ?? true,
+        value: formatPercent(resolvedMaterialSummaryMetrics.metrics.delivery_success_rate?.value),
+        delta: formatDelta(resolvedMaterialSummaryMetrics.metrics.delivery_success_rate?.delta_percent),
+        positive: resolvedMaterialSummaryMetrics.metrics.delivery_success_rate?.positive ?? true,
       },
     ]
     : fallbackMaterialSummaryCards;
@@ -1518,7 +2242,7 @@ export default function OrganizationReports() {
             </section>
 
             <section className="report-grid-top">
-              <TrendChart data={trendData} />
+              <TrendChart data={resolvedTrendData} />
               <TypeBreakdown
                 financialValue={breakdownTotals.financial}
                 materialValue={breakdownTotals.material}
@@ -1566,7 +2290,7 @@ export default function OrganizationReports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((row) => (
+                    {resolvedTransactions.map((row) => (
                       <tr key={row.id}>
                         <td>{row.id}</td>
                         <td>
@@ -1586,21 +2310,21 @@ export default function OrganizationReports() {
               </div>
               <div className="report-table-footer">
                 <p>
-                  Showing {transactionMeta.from} to {transactionMeta.to} of {transactionMeta.total} transactions
+                  Showing {resolvedTransactionMeta.from} to {resolvedTransactionMeta.to} of {resolvedTransactionMeta.total} transactions
                 </p>
                 <div className="report-pagination">
                   <button
                     type="button"
-                    disabled={transactionMeta.current_page <= 1}
+                    disabled={resolvedTransactionMeta.current_page <= 1}
                     onClick={() => setTransactionPage((prev) => Math.max(1, prev - 1))}
                   >
                     Previous
                   </button>
-                  {getPageRange(transactionMeta.current_page, transactionMeta.last_page).map((pageNumber) => (
+                  {getPageRange(resolvedTransactionMeta.current_page, resolvedTransactionMeta.last_page).map((pageNumber) => (
                     <button
                       type="button"
                       key={pageNumber}
-                      className={pageNumber === transactionMeta.current_page ? 'active' : ''}
+                      className={pageNumber === resolvedTransactionMeta.current_page ? 'active' : ''}
                       onClick={() => setTransactionPage(pageNumber)}
                     >
                       {pageNumber}
@@ -1608,8 +2332,8 @@ export default function OrganizationReports() {
                   ))}
                   <button
                     type="button"
-                    disabled={transactionMeta.current_page >= transactionMeta.last_page}
-                    onClick={() => setTransactionPage((prev) => Math.min(transactionMeta.last_page, prev + 1))}
+                    disabled={resolvedTransactionMeta.current_page >= resolvedTransactionMeta.last_page}
+                    onClick={() => setTransactionPage((prev) => Math.min(resolvedTransactionMeta.last_page, prev + 1))}
                   >
                     Next
                   </button>
@@ -1621,34 +2345,66 @@ export default function OrganizationReports() {
               <article className="report-panel">
                 <h3>Top Contributing Provinces</h3>
                 <div className="province-list">
-                  {provinceRows.map((province) => (
-                    <div key={province.name} className="province-item">
-                      <div className="province-head">
-                        <strong>{province.name}</strong>
-                        <span>{province.amount}</span>
+                  {resolvedProvinceRows.length === 0 ? (
+                    <p className="report-empty-note">No province contribution data available yet.</p>
+                  ) : (
+                    resolvedProvinceRows.map((province) => (
+                      <div key={province.name} className="province-item">
+                        <div className="province-head">
+                          <strong>{province.name}</strong>
+                          <span>{province.amount}</span>
+                        </div>
+                        <div className="province-track"><i style={{ width: `${province.width}%` }} /></div>
                       </div>
-                      <div className="province-track"><i style={{ width: `${province.width}%` }} /></div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </article>
 
               <article className="report-panel">
                 <div className="report-panel-head">
                   <h3>Regional Impact Map</h3>
-                  <span className="report-impact-level"><MapPin size={14} /> High impact</span>
+                  <span className="report-impact-level"><MapPin size={14} /> {overviewImpactLevel}</span>
                 </div>
                 <div className="map-placeholder">
-                  <div className="map-bubble b1">60%</div>
-                  <div className="map-bubble b2">85%</div>
-                  <div className="map-bubble b3">35%</div>
+                  <MapContainer
+                    center={CAMBODIA_CENTER}
+                    zoom={7}
+                    scrollWheelZoom={false}
+                    dragging={false}
+                    zoomControl={false}
+                    doubleClickZoom={false}
+                    touchZoom={false}
+                    boxZoom={false}
+                    keyboard={false}
+                    attributionControl={false}
+                  >
+                    <OverviewMapController markers={resolvedRegionalMapMarkers} active={activeTab === 'overview'} />
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    {resolvedRegionalMapMarkers.map((marker) => (
+                      <Marker key={marker.name} position={marker.position}>
+                        <Popup>
+                          <strong>{marker.name}</strong>
+                          <br />
+                          {marker.impact} impact
+                        </Popup>
+                      </Marker>
+                    ))}
+                  </MapContainer>
                   <div className="map-note">
                     <p>Active Regions</p>
-                    <strong>25 / 25 Provinces</strong>
+                    <strong>{resolvedRegionalMapMarkers.length || resolvedRegionalProjectRowsData.length} Provinces</strong>
                   </div>
                 </div>
-                <p className="map-caption">Our impact reaches across all provinces, with the highest concentration in urban centers and key rural development zones.</p>
-                <button type="button" className="map-btn">Launch Interactive Map Explorer</button>
+                <p className="map-caption">
+                  Live project data highlights the provinces where this organization is currently receiving donations,
+                  distributing material support, and running active campaigns.
+                </p>
+                <button type="button" className="map-btn" onClick={() => setActiveTab('regional')}>
+                  Launch Interactive Map Explorer
+                </button>
               </article>
             </section>
           </section>
@@ -1667,9 +2423,9 @@ export default function OrganizationReports() {
             </section>
 
             <section className="financial-analysis-grid">
-              <FinancialLineChart data={revenueExpenseData} />
+              <FinancialLineChart data={resolvedRevenueExpenseData} />
 
-              <SourceBreakdown items={sourceItems} orgId={reportOrgId} />
+              <SourceBreakdown items={resolvedSourceItems} orgId={reportOrgId} />
             </section>
 
             <section className="financial-table-panel">
@@ -1688,12 +2444,12 @@ export default function OrganizationReports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {financialRows.length === 0 ? (
+                  {paginatedFinancialRows.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="report-empty-note">No financial transactions yet.</td>
                     </tr>
                   ) : (
-                    financialRows.map((row) => (
+                    paginatedFinancialRows.map((row) => (
                       <tr key={`${row.date}-${row.donor}`}>
                         <td>{row.date}</td>
                         <td className="donor">{row.donor}</td>
@@ -1708,10 +2464,32 @@ export default function OrganizationReports() {
                 </tbody>
               </table>
               <div className="financial-table-footer">
-                <p>Showing {financialRows.length} transaction{financialRows.length === 1 ? '' : 's'}</p>
+                <p>Showing {resolvedFinancialRows.length} transaction{resolvedFinancialRows.length === 1 ? '' : 's'}</p>
                 <div className="financial-table-pagination">
-                  <button type="button">Previous</button>
-                  <button type="button">Next</button>
+                  <button
+                    type="button"
+                    disabled={financialPage <= 1}
+                    onClick={() => setFinancialPage((prev) => Math.max(1, prev - 1))}
+                  >
+                    Previous
+                  </button>
+                  {getPageRange(financialPage, financialLastPage).map((pageNumber) => (
+                    <button
+                      type="button"
+                      key={pageNumber}
+                      className={pageNumber === financialPage ? 'active' : ''}
+                      onClick={() => setFinancialPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={financialPage >= financialLastPage}
+                    onClick={() => setFinancialPage((prev) => Math.min(financialLastPage, prev + 1))}
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
             </section>
@@ -1732,7 +2510,7 @@ export default function OrganizationReports() {
               <article className="material-breakdown-panel">
                 <h3>Material Breakdown</h3>
                 <div className="material-breakdown-list">
-                  {materialBreakdownItems.map((item) => (
+                  {resolvedMaterialBreakdownItems.map((item) => (
                     <div key={item.name} className="material-breakdown-item">
                       <div className="material-breakdown-head">
                         <p>{item.name}</p>
@@ -1777,7 +2555,7 @@ export default function OrganizationReports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {materialProvinceRows.map((row) => (
+                  {resolvedMaterialProvinceRows.map((row) => (
                     <tr key={row.province}>
                       <td>{row.province}</td>
                       <td>{row.totalItems}</td>
@@ -1794,7 +2572,7 @@ export default function OrganizationReports() {
 
           <section className={`report-tab-content regional-tab${activeTab === 'regional' ? '' : ' is-hidden'}`}>
             <section className="regional-metrics-grid">
-              {regionalMetricsData.map((item) => (
+              {resolvedRegionalMetricsData.map((item) => (
                 <article key={item.title} className="regional-metric-card">
                   <p>{item.title}</p>
                   <div>
@@ -1816,7 +2594,7 @@ export default function OrganizationReports() {
               <article className="regional-top-panel">
                 <h3>Top Impact Provinces</h3>
                 <ul className="regional-top-list">
-                  {topImpactProvincesData.map((row) => (
+                  {resolvedTopImpactProvincesData.map((row) => (
                     <li key={row.rank}>
                       <span className="rank">{row.rank}</span>
                       <div className="meta">
@@ -1853,7 +2631,7 @@ export default function OrganizationReports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {regionalProjectRowsData.map((row) => (
+                  {paginatedRegionalRows.map((row) => (
                     <tr key={row.province}>
                       <td className="province">{row.province}</td>
                       <td>{row.organization}</td>
@@ -1867,13 +2645,35 @@ export default function OrganizationReports() {
                 </tbody>
               </table>
               <div className="regional-table-footer">
-                <p>Showing 1 to 5 of 25 provinces</p>
+                <p>
+                  Showing {resolvedRegionalProjectRowsData.length === 0 ? 0 : (regionalPage - 1) * 5 + 1}
+                  {' '}to {Math.min(regionalPage * 5, resolvedRegionalProjectRowsData.length)} of {resolvedRegionalProjectRowsData.length} provinces
+                </p>
                 <div className="regional-pagination">
-                  <button type="button">Previous</button>
-                  <button type="button" className="active">1</button>
-                  <button type="button">2</button>
-                  <button type="button">3</button>
-                  <button type="button">Next</button>
+                  <button
+                    type="button"
+                    disabled={regionalPage <= 1}
+                    onClick={() => setRegionalPage((prev) => Math.max(1, prev - 1))}
+                  >
+                    Previous
+                  </button>
+                  {getPageRange(regionalPage, regionalLastPage).map((pageNumber) => (
+                    <button
+                      type="button"
+                      key={pageNumber}
+                      className={pageNumber === regionalPage ? 'active' : ''}
+                      onClick={() => setRegionalPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={regionalPage >= regionalLastPage}
+                    onClick={() => setRegionalPage((prev) => Math.min(regionalLastPage, prev + 1))}
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
             </section>

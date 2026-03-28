@@ -374,15 +374,22 @@ function CampaignDetailPage({ campaignId }) {
   const raisedAmount = Number(campaign?.raisedAmount ?? 0);
   const percentRaised = goalAmount > 0 ? Math.round((raisedAmount / goalAmount) * 100) : 0;
   const progressWidth = Math.min(percentRaised, 100);
-  const backers = Math.max(24, Math.round(raisedAmount / 35) || 0);
-  const daysToGo = Math.max(5, 45 - Math.floor(raisedAmount / 5000) || 0);
-  const pledgedItems = Math.max(recentDonors.length, 0);
+  const supporterCount = Math.max(recentDonors.length, 0);
+  const pledgedItems = recentDonors.reduce(
+    (sum, item) => sum + Math.max(1, Number(item?.quantity || item?.amount || 1)),
+    0,
+  );
   const materialProgressPercent = Math.min(100, Math.round((pledgedItems / requestedItemTarget) * 100));
   const progressPercent = isMaterialCampaign ? materialProgressPercent : progressWidth;
-  const supportTimelineLabel = `${daysToGo} ${daysToGo === 1 ? 'day' : 'days'} left`;
+  const daysToGo = typeof campaign?.daysLeft === 'number' ? Math.max(0, campaign.daysLeft) : null;
+  const supportTimelineLabel = campaign?.timeLeft || 'Ongoing';
   const progressStatusLabel = isMaterialCampaign ? `${materialProgressPercent}% pledged` : `${percentRaised}% funded`;
   const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
-  const showUrgentBadge = daysToGo <= 7 || String(campaign?.status || '').toLowerCase().includes('urgent');
+  const progressPrimaryLabel = isMaterialCampaign ? 'Pledged' : 'Raised';
+  const progressSecondaryLabel = isMaterialCampaign ? 'Needed' : 'Goal';
+  const progressPrimaryValue = isMaterialCampaign ? pledgedItems.toLocaleString() : formatCurrency(raisedAmount);
+  const progressSecondaryValue = isMaterialCampaign ? requestedItemTarget.toLocaleString() : formatCurrency(goalAmount);
+  const showUrgentBadge = Boolean(campaign?.isUrgent) || String(campaign?.status || '').toLowerCase().includes('urgent');
   const organizationName = String(campaign?.organization || 'Organization');
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
@@ -423,7 +430,7 @@ function CampaignDetailPage({ campaignId }) {
         },
         {
           icon: Users,
-          title: `${backers}+ Supporters`,
+          title: `${supporterCount}+ Supporters`,
           body: `Campaign organized by ${organizationName}${safeLocation ? ` in ${safeLocation}` : ''}.`,
         },
       ];
@@ -451,7 +458,7 @@ function CampaignDetailPage({ campaignId }) {
           id: 'deadline',
           date: campaignEndDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
           title: 'Campaign deadline',
-          description: `${daysToGo} day${daysToGo === 1 ? '' : 's'} remaining before this campaign closes.`,
+          description: `${supportTimelineLabel} before this campaign closes.`,
           image: '',
         }
       : null,
@@ -1636,12 +1643,12 @@ function CampaignDetailPage({ campaignId }) {
               <div className="campaign-hero-progress-card">
                 <div className="campaign-hero-progress-header">
                   <div>
-                    <span>Raised</span>
-                    <strong>{isMaterialCampaign ? pledgedItems : formatCurrency(raisedAmount)}</strong>
+                    <span>{progressPrimaryLabel}</span>
+                    <strong>{progressPrimaryValue}</strong>
                   </div>
                   <div>
-                    <span>Goal</span>
-                    <strong>{isMaterialCampaign ? requestedItemTarget : formatCurrency(goalAmount)}</strong>
+                    <span>{progressSecondaryLabel}</span>
+                    <strong>{progressSecondaryValue}</strong>
                   </div>
                 </div>
                 <div className="campaign-hero-progress-meta">
@@ -1818,7 +1825,7 @@ function CampaignDetailPage({ campaignId }) {
                 </div>
                 <div className="detail-mini-stats">
                   <p><strong>{requestedItemTarget}</strong><span>Items Needed</span></p>
-                  <p><strong>{daysToGo}</strong><span>Days Left</span></p>
+                  <p><strong>{daysToGo ?? '-'}</strong><span>Days Left</span></p>
                   <p><strong>{materialProgressPercent}%</strong><span>Pledged</span></p>
                 </div>
                 <div className="material-donation-card">
@@ -1846,8 +1853,8 @@ function CampaignDetailPage({ campaignId }) {
                   <span style={{ width: `${progressWidth}%` }} />
                 </div>
                 <div className="detail-mini-stats">
-                  <p><strong>{backers}</strong><span>Donors</span></p>
-                  <p><strong>{daysToGo}</strong><span>Days Left</span></p>
+                  <p><strong>{supporterCount}</strong><span>Donors</span></p>
+                  <p><strong>{daysToGo ?? '-'}</strong><span>Days Left</span></p>
                   <p><strong>{percentRaised}%</strong><span>Reached</span></p>
                 </div>
                 <div className="quick-amount-grid">

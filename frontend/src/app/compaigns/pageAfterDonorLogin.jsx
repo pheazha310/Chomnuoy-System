@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Sparkles, Zap } from 'lucide-react';
+import { ArrowRight, Clock, Sparkles, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -41,6 +41,8 @@ export default function CampaignCard({
   const primaryMetricValue = isMaterialCampaign ? pledgedItems.toLocaleString() : `$${raised.toLocaleString()}`;
   const secondaryMetricValue = isMaterialCampaign ? requestedItems.toLocaleString() : `$${goal.toLocaleString()}`;
   const progressLabel = isMaterialCampaign ? `${Math.round(progress)}% pledged` : `${Math.round(progress)}% funded`;
+  const footerHeadline = isMaterialCampaign ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items left` : timeLeft;
+  const footerEyebrow = isMaterialCampaign ? 'Items Remaining' : 'Campaign Closes';
   const remainingValue = isMaterialCampaign
     ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items remaining`
     : `$${Math.max(0, goal - raised).toLocaleString()} remaining`;
@@ -140,51 +142,68 @@ export default function CampaignCard({
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-[14px] border border-[#e5ebf2] bg-[#fbfdff] px-3.5 py-3">
+          <div className="rounded-[20px] border border-[#dbe4ee] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
               <div className="flex items-end justify-between gap-3 text-sm">
               <div className="flex flex-col">
-                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">{primaryMetricLabel}</span>
-                <span className="text-[1.15rem] font-black leading-tight text-slate-900">
+                <span className="text-[0.62rem] font-extrabold uppercase tracking-[0.2em] text-[#8a9ab0]">{primaryMetricLabel}</span>
+                <span className="text-[1.25rem] font-black leading-none text-[#0d2546]">
                   {primaryMetricValue}
                 </span>
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">{secondaryMetricLabel}</span>
-                <span className="text-[0.92rem] font-bold text-slate-700">{secondaryMetricValue}</span>
+                <span className="text-[0.62rem] font-extrabold uppercase tracking-[0.2em] text-[#8a9ab0]">{secondaryMetricLabel}</span>
+                <span className="text-[1.25rem] font-black leading-none text-[#0d2546]">{secondaryMetricValue}</span>
               </div>
             </div>
 
-            <div className="mt-2.5 flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">
+            <div className="mt-2.5 flex items-center justify-between text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#8a9ab0]">
               <span>{progressLabel}</span>
               <span>{campaignTypeLabel}</span>
             </div>
 
-            <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="relative mt-2 h-2.5 w-full overflow-hidden rounded-full bg-[#e7edf5]"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress)}
+            >
               <motion.div
                 initial={{ width: 0 }}
                 whileInView={{ width: `${progress}%` }}
                 transition={{ duration: 1, ease: 'easeOut' }}
-                className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#2563eb]"
+                className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#1f7de2]"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-[#e8eef5] pt-2">
-            <div className="flex items-center gap-2 text-[0.78rem] font-semibold text-slate-600">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#d9e5f1] bg-[#f8fbff] text-slate-500">
-                <Clock className="h-3.5 w-3.5" />
-              </span>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">Timeline</span>
-                <span>{isMaterialCampaign ? remainingValue : timeLeft}</span>
+          <div className="relative overflow-hidden rounded-[22px] border border-[#dbe6f3] bg-[linear-gradient(135deg,#ffffff_0%,#f7fbff_52%,#edf5ff_100%)] p-3 shadow-[0_12px_28px_rgba(15,23,42,0.045)]">
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.12),transparent_70%)]" />
+            <div className="relative flex items-center gap-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#c9d9ea] bg-[linear-gradient(180deg,#ffffff_0%,#edf6ff_100%)] text-[#65809d] shadow-[0_6px_14px_rgba(59,130,246,0.08)]">
+                  <Clock className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[0.56rem] font-extrabold uppercase tracking-[0.22em] text-[#8ea0b5]">
+                    {footerEyebrow}
+                  </span>
+                  <p className="mt-0.5 text-[0.9rem] font-black leading-tight text-[#102a4c]">
+                    {footerHeadline}
+                  </p>
+                  <span className="mt-0.5 block text-[0.72rem] font-semibold text-[#6d8097]">
+                    {campaignTypeLabel}
+                  </span>
+                </div>
               </div>
+              <button
+                onClick={handleDonateClick}
+                className="inline-flex min-h-[46px] shrink-0 items-center justify-center gap-1.5 rounded-[18px] bg-[linear-gradient(135deg,#3a97ff_0%,#2180eb_55%,#156fd6_100%)] px-4 py-2.5 text-[0.76rem] font-black text-white shadow-[0_12px_22px_rgba(31,125,226,0.22)] transition hover:translate-y-[-1px] hover:shadow-[0_16px_28px_rgba(31,125,226,0.28)] sm:min-w-[150px]"
+              >
+                <span>{isMaterialCampaign ? 'Pledge Support' : 'Support Now'}</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <button
-              onClick={handleDonateClick}
-              className="rounded-lg bg-gradient-to-r from-[#3294ff] to-[#1f7de2] px-3.5 py-2 text-[0.72rem] font-extrabold text-white shadow-[0_8px_18px_rgba(31,125,226,0.2)] transition hover:translate-y-[-1px] hover:from-[#2589f6] hover:to-[#156fd6]"
-            >
-              {isMaterialCampaign ? 'Pledge Support' : 'Support'}
-            </button>
           </div>
         </div>
       </div>

@@ -619,36 +619,42 @@ export default function OrganizationDashboardPage() {
               aria-labelledby="org-pickup-modal-title"
               onClick={(event) => event.stopPropagation()}
             >
-              <span className={`org-pickup-modal-badge ${selectedPickupAlert.status}`}>
-                {selectedPickupAlert.status === 'confirmed' ? 'Pickup Confirmed' : 'Awaiting Confirmation'}
-              </span>
-              <h3 id="org-pickup-modal-title">Coordinate Pickup</h3>
-              <p className="org-pickup-modal-copy">Review this pickup request and confirm the next step with real campaign and donor data.</p>
+              <div className="org-pickup-modal-top">
+                <div>
+                  <span className={`org-pickup-modal-badge ${selectedPickupAlert.status}`}>
+                    {selectedPickupAlert.status === 'confirmed' ? 'Pickup Confirmed' : 'Awaiting Confirmation'}
+                  </span>
+                  <h3 id="org-pickup-modal-title">Coordinate Pickup</h3>
+                  <p className="org-pickup-modal-copy">Review this pickup request and confirm the next step with real campaign and donor data.</p>
+                </div>
+              </div>
 
-              <div className="org-pickup-modal-details">
-                <div>
-                  <span>Campaign</span>
-                  <strong>{selectedPickupAlert.title}</strong>
-                </div>
-                <div>
-                  <span>Donor</span>
-                  <strong>{selectedPickupAlert.donorName}</strong>
-                </div>
-                <div>
-                  <span>Items</span>
-                  <strong>{selectedPickupAlert.quantity}x {selectedPickupAlert.itemName}</strong>
-                </div>
-                <div>
-                  <span>Pickup Address</span>
-                  <strong>{selectedPickupAlert.location}</strong>
-                </div>
-                <div>
-                  <span>Schedule</span>
-                  <strong>{selectedPickupAlert.when}</strong>
-                </div>
-                <div>
-                  <span>Status</span>
-                  <strong>{selectedPickupAlert.status}</strong>
+              <div className="org-pickup-modal-card">
+                <div className="org-pickup-modal-details">
+                  <div>
+                    <span>Campaign</span>
+                    <strong>{selectedPickupAlert.title}</strong>
+                  </div>
+                  <div>
+                    <span>Donor</span>
+                    <strong>{selectedPickupAlert.donorName}</strong>
+                  </div>
+                  <div>
+                    <span>Items</span>
+                    <strong>{selectedPickupAlert.quantity}x {selectedPickupAlert.itemName}</strong>
+                  </div>
+                  <div>
+                    <span>Pickup Address</span>
+                    <strong>{selectedPickupAlert.location}</strong>
+                  </div>
+                  <div>
+                    <span>Schedule</span>
+                    <strong>{selectedPickupAlert.when}</strong>
+                  </div>
+                  <div>
+                    <span>Status</span>
+                    <strong>{selectedPickupAlert.status}</strong>
+                  </div>
                 </div>
               </div>
 

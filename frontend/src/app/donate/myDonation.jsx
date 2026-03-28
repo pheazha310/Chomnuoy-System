@@ -18,7 +18,8 @@ import {
   Stethoscope,
   Waves,
 } from 'lucide-react';
-import { getPrivacyPreferences } from '@/utils/user-preferences';
+import { getSession } from '@/services/session-service';
+import { getDonationHistoryResources } from '@/services/donation-service';
 import './myDonation.css';
 
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
@@ -44,15 +45,6 @@ const SUMMARY_META = [
     subtitleColor: 'my-donation-summary-subtitle-muted',
   },
 ];
-
-const getUserSession = () => {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
 
 const toDate = (value) => {
   if (!value) return null;
@@ -83,6 +75,29 @@ const getIconByCategory = (category = '') => {
     return { icon: <Stethoscope className="my-donation-cause-icon-svg" />, bg: 'my-donation-cause-icon-green' };
   }
   return { icon: <HandHeart className="my-donation-cause-icon-svg" />, bg: 'my-donation-cause-icon-rose' };
+};
+
+const getStorageFileUrl = (path) => {
+  if (!path) return '';
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
+  }
+
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+
+  if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+
+  return `${appBase}/storage/${normalizedPath}`;
 };
 
 const readDonationCache = () => {
@@ -124,11 +139,11 @@ export default function MyDonation() {
   const [materialItems, setMaterialItems] = useState(Array.isArray(cachedData?.materialItems) ? cachedData.materialItems : []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedData?.campaigns) ? cachedData.campaigns : []);
   const [organizations, setOrganizations] = useState(Array.isArray(cachedData?.organizations) ? cachedData.organizations : []);
+  const [payments, setPayments] = useState(Array.isArray(cachedData?.payments) ? cachedData.payments : []);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!cachedData);
   const [error, setError] = useState('');
-  const { showDonations } = getPrivacyPreferences();
-  const formatAmount = (amount) => (showDonations ? amount : 'Private');
+  const formatAmount = (amount) => amount;
   const [isTimePopupOpen, setIsTimePopupOpen] = useState(false);
   const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
   const [timeFilterLabel, setTimeFilterLabel] = useState('All Time');
@@ -140,15 +155,25 @@ export default function MyDonation() {
   const statusFilterOptions = ['All Status', 'COMPLETED', 'RECURRING', 'PENDING'];
   const sortOptions = ['Newest', 'Oldest'];
 
-  const session = getUserSession();
+  const session = getSession();
   const userId = Number(session?.userId ?? 0);
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
     setError('');
-    if (!cachedData) {
-      setLoading(true);
+    setLoading(!cachedData);
+
+    if (!userId) {
+      setDonations([]);
+      setMaterialItems([]);
+      setCampaigns([]);
+      setOrganizations([]);
+      setPayments([]);
+      setLoading(false);
+      setError('Please log in to view your donation history.');
+      return () => {
+        alive = false;
+      };
     }
 
     const nextCache = {
@@ -156,93 +181,57 @@ export default function MyDonation() {
       materialItems: Array.isArray(cachedData?.materialItems) ? cachedData.materialItems : [],
       campaigns: Array.isArray(cachedData?.campaigns) ? cachedData.campaigns : [],
       organizations: Array.isArray(cachedData?.organizations) ? cachedData.organizations : [],
-    };
-    let pendingRequests = 4;
-
-    const finishRequest = () => {
-      pendingRequests -= 1;
-      if (pendingRequests <= 0 && alive) {
-        setLoading(false);
-      }
+      payments: Array.isArray(cachedData?.payments) ? cachedData.payments : [],
     };
 
-    fetch(`${apiBase}/donations`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((donationData) => {
+    getDonationHistoryResources()
+      .then((data) => {
         if (!alive) return;
-        const donationList = Array.isArray(donationData) ? donationData : [];
-        const filteredDonations = userId
-          ? donationList.filter((item) => Number(item.user_id) === userId)
-          : donationList;
-        setDonations(filteredDonations);
-        nextCache.donations = filteredDonations;
+
+        const donationList = data.donations.filter((item) => Number(item.user_id) === userId);
+        const donationIds = new Set(donationList.map((item) => Number(item.id)));
+        const materialList = data.materialItems.filter((item) => donationIds.has(Number(item.donation_id)));
+        const paymentList = data.payments.filter((item) => donationIds.has(Number(item.donation_id)));
+
+        setDonations(donationList);
+        setMaterialItems(materialList);
+        setCampaigns(data.campaigns);
+        setOrganizations(data.organizations);
+        setPayments(paymentList);
+
+        nextCache.donations = donationList;
+        nextCache.materialItems = materialList;
+        nextCache.campaigns = data.campaigns;
+        nextCache.organizations = data.organizations;
+        nextCache.payments = paymentList;
         writeDonationCache(nextCache);
       })
       .catch((err) => {
         if (!alive) return;
         setError(err instanceof Error ? err.message : 'Failed to load donations.');
       })
-      .finally(finishRequest);
-
-    fetch(`${apiBase}/material_items`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((materialData) => {
-        if (!alive) return;
-        const materialList = Array.isArray(materialData) ? materialData : [];
-        setMaterialItems(materialList);
-        nextCache.materialItems = materialList;
-        writeDonationCache(nextCache);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setError('Failed to load some donation details.');
-      })
-      .finally(finishRequest);
-
-    fetch(`${apiBase}/campaigns`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((campaignData) => {
-        if (!alive) return;
-        const campaignList = Array.isArray(campaignData) ? campaignData : [];
-        setCampaigns(campaignList);
-        nextCache.campaigns = campaignList;
-        writeDonationCache(nextCache);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setError('Failed to load some donation details.');
-      })
-      .finally(finishRequest);
-
-    fetch(`${apiBase}/organizations`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((organizationData) => {
-        if (!alive) return;
-        const organizationList = Array.isArray(organizationData) ? organizationData : [];
-        setOrganizations(organizationList);
-        nextCache.organizations = organizationList;
-        writeDonationCache(nextCache);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setError('Failed to load some donation details.');
-      })
-      .finally(finishRequest);
+      .finally(() => {
+        if (alive) {
+          setLoading(false);
+        }
+      });
 
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [cachedData, userId]);
 
   const donationItems = useMemo(() => {
     const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
     const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
     const materialMap = new Map(materialItems.map((item) => [Number(item.donation_id), item]));
+    const paymentMap = new Map(payments.map((item) => [Number(item.donation_id), item]));
 
     return donations.map((item) => {
       const campaign = campaignMap.get(Number(item.campaign_id));
       const organization = organizationMap.get(Number(item.organization_id));
       const materialItem = materialMap.get(Number(item.id));
+      const payment = paymentMap.get(Number(item.id));
       const status = normalizeStatus(item.status);
       const category = campaign?.category || item.category || campaign?.type || 'General';
       const iconMeta = getIconByCategory(category);
@@ -272,9 +261,32 @@ export default function MyDonation() {
         statusClass: status.className,
         icon: iconMeta.icon,
         iconBg: iconMeta.bg,
+        detailState: {
+          donationId: item.id,
+          amount: Number(item.amount || 0).toFixed(2),
+          date: dateValue
+            ? dateValue.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })
+            : '-',
+          transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${item.id}`,
+          paymentMethod: payment?.payment_method || payment?.payment_status || item.payment_method || 'Bakong KHQR',
+          campaignTitle: campaign?.title || organization?.name || item.recipient || 'Campaign',
+          campaignImage:
+            getStorageFileUrl(campaign?.image_path) ||
+            campaign?.image ||
+            organization?.avatar_url ||
+            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+          campaignLocation: campaign?.location || organization?.location || 'Cambodia',
+          organizationName: organization?.name || campaign?.organization_name || 'Organization',
+          receiptMessage: campaign?.receipt_message || '',
+          status: item.status || 'completed',
+        },
       };
     });
-  }, [donations, materialItems, campaigns, organizations]);
+  }, [campaigns, donations, materialItems, organizations, payments]);
 
   const latestDonationTime = donationItems.reduce((latest, item) => {
     return item.dateValue > latest ? item.dateValue : latest;
@@ -323,7 +335,7 @@ export default function MyDonation() {
     return [
       {
         ...SUMMARY_META[0],
-        value: showDonations ? `$${totalFunds.toLocaleString()}` : 'Private',
+        value: `$${totalFunds.toLocaleString()}`,
         subtitle: percentChange(thisMonthFunds, lastMonthFunds),
       },
       {
@@ -337,7 +349,7 @@ export default function MyDonation() {
         subtitle: 'Across environmental & social sectors',
       },
     ];
-  }, [donations, materialItems, showDonations]);
+  }, [donations, materialItems]);
 
   const isInTimeRange = useCallback((itemDateValue) => {
     if (timeFilterLabel === 'All Time') return true;
@@ -510,9 +522,9 @@ export default function MyDonation() {
 
   const getAllRecordsHtml = () => {
     const issuedOn = escapeHtml(new Date().toLocaleString());
-    const totalRecords = donationItems.length;
+    const totalRecords = filteredDonations.length;
 
-    const rowsHtml = donationItems
+    const rowsHtml = filteredDonations
       .map(
         (item, index) => `
       <tr>
@@ -872,7 +884,11 @@ export default function MyDonation() {
                     >
                       <Share2 className="my-donation-action-icon" strokeWidth={2.7} />
                     </button>
-                    <Link to="/donations/view-detail" className="my-donation-detail-btn">
+                    <Link
+                      to="/donations/view-detail"
+                      state={{ donation: item.detailState }}
+                      className="my-donation-detail-btn"
+                    >
                       View Details
                     </Link>
                   </div>

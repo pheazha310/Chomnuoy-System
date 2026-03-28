@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import './home.css';
 import { Link } from 'react-router-dom';
 import Map from './map';
-import { fetchCampaigns } from '@/services/campaign-service.js';
+import { CAMPAIGN_FALLBACK_IMAGE, fetchCampaigns } from '@/services/campaign-service.js';
 import { getSession } from '@/services/session-service.js';
 
 const howItWorks = {
@@ -32,14 +32,30 @@ function formatCompactCurrency(value) {
   }).format(number);
 }
 
+function getCauseTone(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'education' || key === 'community') return 'green';
+  if (key === 'medical' || key === 'disaster relief') return 'red';
+  return 'blue';
+}
+
+function shortenText(value, maxLength = 140) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) return 'Support a verified cause making a measurable difference in local communities.';
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trimEnd()}...`;
+}
+
 function Home() {
   const session = getSession();
   const donateHref = session?.isLoggedIn ? '/campaigns/donor' : '/login?redirect=%2Fcampaigns';
   const [campaigns, setCampaigns] = useState([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
 
+    setCampaignsLoading(true);
     fetchCampaigns()
       .then((items) => {
         if (!active) return;
@@ -48,6 +64,10 @@ function Home() {
       .catch(() => {
         if (!active) return;
         setCampaigns([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setCampaignsLoading(false);
       });
 
     return () => {
@@ -69,15 +89,6 @@ function Home() {
   }, [campaigns]);
 
   const featuredCauses = useMemo(() => {
-    const toneByCategory = {
-      Environment: 'blue',
-      Education: 'green',
-      Medical: 'red',
-      'Disaster Relief': 'red',
-      Community: 'green',
-      General: 'blue',
-    };
-
     return campaigns
       .slice()
       .sort((a, b) => {
@@ -91,12 +102,15 @@ function Home() {
         return {
           id: item.id,
           title: item.title,
-          summary: item.summary,
+          summary: shortenText(item.summary, 150),
           raised: formatCompactCurrency(item.raisedAmount),
           goal: formatCompactCurrency(item.goalAmount),
           progress,
           tag: item.normalizedCategory,
-          tone: toneByCategory[item.normalizedCategory] || 'blue',
+          tone: getCauseTone(item.normalizedCategory),
+          organization: item.organization,
+          timeLeft: item.timeLeft,
+          image: item.image || CAMPAIGN_FALLBACK_IMAGE,
         };
       });
   }, [campaigns]);
@@ -159,7 +173,7 @@ function Home() {
       heroSection?.removeEventListener('mouseleave', onMouseLeave);
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [campaignsLoading, featuredCauses.length]);
 
   return (
     <main className="home-page-body">
@@ -204,29 +218,82 @@ function Home() {
           <Link to="/campaigns">View All Causes</Link>
         </div>
         <div className="home-cards-grid">
-          {featuredCauses.map((cause, index) => (
-            <article
-              key={cause.id}
-              className="home-cause-card"
-              data-reveal
-              style={{ '--reveal-delay': `${150 + index * 100}ms` }}
-            >
-              <div className={`home-cause-media ${cause.tone}`}>
-                <span>{cause.tag}</span>
-              </div>
-              <div className="home-cause-body">
-                <h3>{cause.title}</h3>
-                <p>{cause.summary}</p>
-                <div className="home-cause-amounts">
-                  <strong>{cause.raised}</strong>
-                  <span>of {cause.goal}</span>
-                </div>
-                <div className="home-progress" role="img" aria-label={`${cause.progress}% funded`}>
-                  <span style={{ width: `${cause.progress}%` }} />
-                </div>
+          {campaignsLoading
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <article
+                  key={`featured-skeleton-${index}`}
+                  className="home-cause-card home-cause-card-skeleton"
+                  aria-hidden="true"
+                  data-reveal
+                  style={{ '--reveal-delay': `${150 + index * 100}ms` }}
+                >
+                  <div className="home-cause-media home-cause-media-skeleton" />
+                  <div className="home-cause-body">
+                    <span className="home-skeleton-line home-skeleton-line-title" />
+                    <span className="home-skeleton-line home-skeleton-line-text" />
+                    <span className="home-skeleton-line home-skeleton-line-text short" />
+                    <div className="home-cause-amounts">
+                      <span className="home-skeleton-line home-skeleton-line-amount" />
+                      <span className="home-skeleton-line home-skeleton-line-goal" />
+                    </div>
+                    <div className="home-progress home-progress-skeleton" />
+                  </div>
+                </article>
+              ))
+            : null}
+
+          {!campaignsLoading && featuredCauses.length === 0 ? (
+            <article className="home-featured-empty" data-reveal>
+              <span className="home-featured-empty-kicker">Featured campaigns</span>
+              <h3>No public causes available yet</h3>
+              <p>
+                Campaigns from verified organizations will appear here once they are published. Explore all campaigns
+                or return later for new causes.
+              </p>
+              <div className="home-featured-empty-actions">
+                <Link to="/campaigns" className="home-btn home-btn-primary">
+                  Browse Campaigns
+                </Link>
+                <Link to="/organizations" className="home-btn home-btn-secondary">
+                  Explore Organizations
+                </Link>
               </div>
             </article>
-          ))}
+          ) : null}
+
+          {!campaignsLoading
+            ? featuredCauses.map((cause, index) => (
+                <article
+                  key={cause.id}
+                  className="home-cause-card"
+                  data-reveal
+                  style={{ '--reveal-delay': `${150 + index * 100}ms` }}
+                >
+                  <div
+                    className={`home-cause-media ${cause.tone}`}
+                    style={{ backgroundImage: `linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.45)), url('${cause.image}')` }}
+                  >
+                    <span>{cause.tag}</span>
+                    <small>{cause.timeLeft}</small>
+                  </div>
+                  <div className="home-cause-body">
+                    <p className="home-cause-org">{cause.organization}</p>
+                    <h3>{cause.title}</h3>
+                    <p>{cause.summary}</p>
+                    <div className="home-cause-amounts">
+                      <strong>{cause.raised}</strong>
+                      <span>of {cause.goal}</span>
+                    </div>
+                    <div className="home-progress" role="img" aria-label={`${cause.progress}% funded`}>
+                      <span style={{ width: `${cause.progress}%` }} />
+                    </div>
+                    <Link to={`/campaigns/${cause.id}`} className="home-cause-link">
+                      View campaign
+                    </Link>
+                  </div>
+                </article>
+              ))
+            : null}
         </div>
       </section>
 

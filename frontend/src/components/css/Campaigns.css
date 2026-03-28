@@ -547,7 +547,8 @@
 
 .campaign-funding-row strong {
   color: #0d2546;
-  font-size: 1.02rem;
+  font-size: 1.45rem;
+  line-height: 1;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -584,6 +585,46 @@
   border-radius: 0 0 18px 18px;
   padding: 0.85rem 0.9rem 0.9rem;
   background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+}
+
+.campaign-progress-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+  color: #8a9ab0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.campaign-progress-meta-row span:last-child {
+  text-align: right;
+}
+
+.campaign-progress-donor-note {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+}
+
+.campaign-progress-donor-note strong {
+  color: #0d2546;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.campaign-progress-donor-note span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: right;
 }
 
 .campaign-actions {
