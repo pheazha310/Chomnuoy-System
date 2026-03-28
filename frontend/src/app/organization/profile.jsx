@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
+import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
 
 function getOrganizationSession() {
   try {
@@ -93,6 +95,7 @@ function sanitizeSocialLink(label, value) {
 }
 
 export default function OrganizationProfilePage() {
+  const { displayPrefs } = useGlobalTheme();
   const session = useMemo(() => getOrganizationSession(), []);
   const storedProfile = useMemo(() => getStoredProfile(), []);
   const [orgData, setOrgData] = useState(null);
@@ -103,14 +106,6 @@ export default function OrganizationProfilePage() {
   const [shareMessage, setShareMessage] = useState('');
 
   const organizationName = storedProfile?.name || orgData?.name || session?.name || 'Organization';
-  const initials = organizationName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'OR';
-  const logoUrl = storedProfile?.logo || orgData?.logo || orgData?.logo_url || '';
-
   const storedSocials = storedProfile?.socials;
   const normalizedSocials = (Array.isArray(storedSocials)
     ? storedSocials
@@ -123,9 +118,49 @@ export default function OrganizationProfilePage() {
       : []
   ).filter(Boolean);
 
+  const [latitude, setLatitude] = useState(storedProfile?.latitude || '');
+  const [longitude, setLongitude] = useState(storedProfile?.longitude || '');
+  const hasCoordinates = Boolean(latitude && longitude);
+
+  const updateStoredProfile = (coords) => {
+    try {
+      const existing = getStoredProfile() || {};
+      const updated = { ...existing, ...coords };
+      window.localStorage.setItem('chomnuoy_org_profile', JSON.stringify(updated));
+    } catch {
+      // ignore localStorage errors
+    }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        setLatitude(lat);
+        setLongitude(lng);
+        updateStoredProfile({ latitude: lat, longitude: lng });
+        setError('');
+      },
+      (err) => {
+        setError(err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  };
   const mapValue = storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia';
   const mapQuery = encodeURIComponent(mapValue);
   const websiteHref = sanitizeWebsite(storedProfile?.website || orgData?.website || '');
+  const themeClass = displayPrefs.highContrast
+    ? 'theme-contrast'
+    : displayPrefs.darkMode
+      ? 'theme-dark'
+      : '';
 
   useEffect(() => {
     const sessionData = getOrganizationSession();
@@ -149,6 +184,14 @@ export default function OrganizationProfilePage() {
       .then(([organization, campaignsData, donationsData]) => {
         if (!active) return;
         setOrgData(organization);
+        if (!storedProfile?.latitude && organization?.latitude) {
+          setLatitude(organization.latitude);
+          updateStoredProfile({ latitude: organization.latitude });
+        }
+        if (!storedProfile?.longitude && organization?.longitude) {
+          setLongitude(organization.longitude);
+          updateStoredProfile({ longitude: organization.longitude });
+        }
 
         const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
         const donations = Array.isArray(donationsData) ? donationsData : [];
@@ -241,6 +284,7 @@ export default function OrganizationProfilePage() {
       email: storedProfile?.email || orgData?.email || session?.email || 'contact@chomnuoy.org',
       phone: storedProfile?.phone || orgData?.phone || 'N/A',
       location: storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
+      coordinates: hasCoordinates ? `${latitude}, ${longitude}` : 'Not set yet',
       website: storedProfile?.website || orgData?.website || 'N/A',
     },
     stats: [
@@ -253,25 +297,12 @@ export default function OrganizationProfilePage() {
   };
 
   return (
-    <div className="org-page">
+    <div className={`org-page org-profile-page ${themeClass}`}>
       <OrganizationSidebar />
       <main className="org-main">
         <section className="org-profile-header">
           <div className="org-profile-header-left">
-            <div className="org-profile-pill" aria-label="Organization profile">
-              <span className="org-profile-pill-avatar" aria-hidden="true">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" className="org-profile-pill-logo" />
-                ) : (
-                  initials
-                )}
-                <span className="org-profile-pill-status" />
-              </span>
-              <div className="org-profile-pill-meta">
-                <p className="org-profile-pill-name">{profile.name}</p>
-                <p className="org-profile-pill-role">Organization</p>
-              </div>
-            </div>
+            <OrganizationIdentityPill />
           </div>
           <div className="org-profile-header-actions">
             <Link to="/organization/profile/edit" className="org-profile-edit-btn">
@@ -281,7 +312,7 @@ export default function OrganizationProfilePage() {
         </section>
 
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="org-profile-error">
             {error}
           </div>
         ) : null}
@@ -308,8 +339,19 @@ export default function OrganizationProfilePage() {
             <article className="org-profile-card org-profile-map">
               <div className="org-profile-card-head">
                 <h2>Headquarters</h2>
-                <span className="org-profile-meta">{profile.contact.location}</span>
+                <span className="org-profile-meta">{hasCoordinates ? `${latitude}, ${longitude}` : profile.contact.location}</span>
               </div>
+              <p className="org-profile-location-caption">
+                {hasCoordinates ? `Saved coordinates: ${latitude} | ${longitude}` : 'No location set yet. Click below to detect current coordinates.'}
+              </p>
+              <button
+                type="button"
+                className="org-profile-btn"
+                onClick={detectLocation}
+                style={{ marginBottom: '0.6rem' }}
+              >
+                Detect My Location (Lat/Lng)
+              </button>
               <div className="org-profile-map-actions">
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
@@ -350,8 +392,8 @@ export default function OrganizationProfilePage() {
                   <p>{profile.contact.phone}</p>
                 </div>
                 <div>
-                  <small>Location</small>
-                  <p>{profile.contact.location}</p>
+                  <small>Coordinates</small>
+                  <p>{profile.contact.coordinates}</p>
                 </div>
                 <div>
                   <small>Website</small>

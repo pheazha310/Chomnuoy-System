@@ -216,7 +216,8 @@ const NOTIFICATION_ICONS = {
   ),
   mention: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 18a6 6 0 1 1 6-6v3a2 2 0 1 1-4 0v-3a2 2 0 1 0-4 0 3 3 0 0 0 3 3"
+      <path
+        d="M12 18a6 6 0 1 1 6-6v3a2 2 0 1 1-4 0v-3a2 2 0 1 0-4 0 3 3 0 0 0 3 3"
         stroke="currentColor"
         strokeWidth="1.6"
         fill="none"
@@ -226,7 +227,8 @@ const NOTIFICATION_ICONS = {
   ),
   verified: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3 15 6l4 .7-2.7 3.5.6 4.2L12 13l-4.9 1.4.6-4.2L5 6.7 9 6l3-3Z"
+      <path
+        d="M12 3 15 6l4 .7-2.7 3.5.6 4.2L12 13l-4.9 1.4.6-4.2L5 6.7 9 6l3-3Z"
         stroke="currentColor"
         strokeWidth="1.6"
         fill="none"
@@ -240,6 +242,7 @@ export default function AdminNotificationPage() {
   const [activeTab, setActiveTab] = useState('Primary');
   const [activeFilter, setActiveFilter] = useState('all');
   const [items, setItems] = useState([]);
+  const [brokenAvatars, setBrokenAvatars] = useState({});
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState(null);
   const [replyDraft, setReplyDraft] = useState('');
@@ -252,11 +255,17 @@ export default function AdminNotificationPage() {
 
   const getStorageFileUrl = (path) => {
     if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return path;
+    const cleaned = String(path).trim();
+    if (!cleaned) return '';
+    if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+      return cleaned;
     }
     const appBase = apiBase.replace(/\/api\/?$/, '');
-    return `${appBase}/storage/${path}`;
+    const normalized = cleaned.replace(/^\/+/, '');
+    if (normalized.startsWith('storage/')) {
+      return `${appBase}/${normalized}`;
+    }
+    return `${appBase}/storage/${normalized}`;
   };
 
   const getInitials = (value) => {
@@ -278,13 +287,13 @@ export default function AdminNotificationPage() {
   const filteredItems = useMemo(() => {
     return items
       .filter((item) => {
-      if (item.category !== activeTab) return false;
-      if (item.type === 'reply' && activeFilter !== 'system') return false;
-      if (activeFilter === 'unread') return item.unread;
-      if (activeFilter === 'critical') return item.tone === 'danger';
-      if (activeFilter === 'system') return item.tone === 'info';
-      if (activeFilter === 'archive') return item.archived;
-      return true;
+        if (item.category !== activeTab) return false;
+        if (item.type === 'reply' && activeFilter !== 'system') return false;
+        if (activeFilter === 'unread') return item.unread;
+        if (activeFilter === 'critical') return item.tone === 'danger';
+        if (activeFilter === 'system') return item.tone === 'info';
+        if (activeFilter === 'archive') return item.archived;
+        return true;
       })
       .sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0));
   }, [items, activeFilter, activeTab]);
@@ -342,24 +351,29 @@ export default function AdminNotificationPage() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     Promise.all([
-      fetch(`${apiBase}/notifications`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/notifications?recipient_type=admin`, { headers }).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/users`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`, { headers }).then((response) => (response.ok ? response.json() : [])),
     ])
-      .then(([data, usersData]) => {
+      .then(([data, usersData, organizationsData]) => {
         if (!active) return;
         const list = Array.isArray(data) ? data : [];
         const usersList = Array.isArray(usersData) ? usersData : [];
+        const organizationsList = Array.isArray(organizationsData) ? organizationsData : [];
         const usersById = new Map();
+        const organizationsById = new Map();
         usersList.forEach((user) => {
           if (user?.id) {
-            const avatarUrl =
+            const avatarRaw =
               user.avatar_url ||
               user.profile_image ||
               user.avatar ||
               user.image_url ||
               user.photo ||
               user.picture ||
-              getStorageFileUrl(user.avatar_path);
+              user.avatar_path ||
+              '';
+            const avatarUrl = getStorageFileUrl(avatarRaw);
             usersById.set(Number(user.id), {
               id: user.id,
               name: user.name || 'User',
@@ -368,46 +382,72 @@ export default function AdminNotificationPage() {
             });
           }
         });
-        const readMap = loadReadMap();
-        const mapped = list.map((item) => {
-          const type = String(item.type || '').toLowerCase();
-          const createdAt = item.created_at ? new Date(item.created_at) : new Date();
-          const minutesAgo = Math.max(1, Math.round((Date.now() - createdAt.getTime()) / 60000));
-          const parsed = parseMessageDetails(item.message || '');
-          const sender = usersById.get(Number(item.user_id)) || null;
-          const senderName = sender?.name || parsed.from || 'User';
-          const senderEmail = sender?.email || parsed.fromEmail || '';
-          const senderAvatarUrl = sender?.avatarUrl || '';
-          const title = type === 'message'
-            ? senderName
-            : parsed.subject
-              ? parsed.subject
-              : type === 'reply'
-                ? 'Admin reply'
-                : `Message from ${senderName}`;
-          const isReadFromServer = Boolean(item.is_read);
-          const isReadLocally = Boolean(readMap[item.id]);
-          const isUnread = !(isReadFromServer || isReadLocally);
-          return {
-            id: item.id,
-            userId: item.user_id,
-            category: type === 'message' || type === 'reply' ? 'Mentions' : 'Primary',
-            title,
-            description: parsed.body || item.message || 'New update available.',
-            time: minutesAgo < 60 ? `${minutesAgo}m ago` : createdAt.toLocaleString(),
-            sortKey: minutesAgo,
-            tone: type === 'message' ? 'mention' : (type === 'reply' ? 'info' : 'primary'),
-            unread: isUnread,
-            actions: type === 'message' ? ['Reply'] : undefined,
-            icon: type === 'message' ? 'mention' : 'analytics',
-            type: type || 'update',
-            sender: type === 'message' ? senderName : (parsed.from || undefined),
-            senderEmail: type === 'message' ? senderEmail : undefined,
-            senderAvatarUrl: type === 'message' ? senderAvatarUrl : '',
-            source: 'api',
-            replied: false,
-          };
+        organizationsList.forEach((organization) => {
+          if (organization?.id) {
+            organizationsById.set(Number(organization.id), {
+              id: organization.id,
+              name: organization.name || 'Organization',
+              email: organization.email || '',
+            });
+          }
         });
+        const readMap = loadReadMap();
+        const mapped = list
+          .filter((item) => {
+            const recipientType = String(item.recipient_type || '').toLowerCase();
+            const type = String(item.type || '').toLowerCase();
+            if (recipientType) {
+              return recipientType === 'admin';
+            }
+            return type === 'message' || type === 'campaign';
+          })
+          .map((item) => {
+            const type = String(item.type || '').toLowerCase();
+            const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+            const minutesAgo = Math.max(1, Math.round((Date.now() - createdAt.getTime()) / 60000));
+            const parsed = parseMessageDetails(item.message || '');
+            const sender = usersById.get(Number(item.user_id)) || null;
+            const organization = organizationsById.get(Number(item.user_id)) || null;
+            const senderType = String(item.sender_type || (type === 'campaign' ? 'organization' : '')).toLowerCase();
+            const senderName = senderType === 'organization'
+              ? (item.sender_name || organization?.name || 'Organization')
+              : (item.sender_name || parsed.from || sender?.name || 'User');
+            const senderEmail = senderType === 'organization'
+              ? (item.sender_email || organization?.email || '')
+              : (item.sender_email || parsed.fromEmail || sender?.email || '');
+            const senderAvatarUrl = senderType === 'user' ? (sender?.avatarUrl || '') : '';
+            const title = type === 'message'
+              ? senderName
+              : parsed.subject
+                ? parsed.subject
+                : type === 'reply'
+                  ? 'Admin reply'
+                  : senderType === 'organization'
+                    ? `Post by ${senderName}`
+                    : `Message from ${senderName}`;
+            const isReadFromServer = Boolean(item.is_read);
+            const isReadLocally = Boolean(readMap[item.id]);
+            const isUnread = !(isReadFromServer || isReadLocally);
+            return {
+              id: item.id,
+              userId: item.user_id,
+              category: type === 'message' || type === 'reply' ? 'Mentions' : 'Primary',
+              title,
+              description: parsed.body || item.message || 'New update available.',
+              time: minutesAgo < 60 ? `${minutesAgo}m ago` : createdAt.toLocaleString(),
+              sortKey: minutesAgo,
+              tone: type === 'message' ? 'mention' : (type === 'reply' ? 'info' : 'primary'),
+              unread: isUnread,
+            actions: type === 'message' ? ['Reply'] : undefined,
+              icon: type === 'message' ? 'mention' : 'analytics',
+              type: type || 'update',
+              sender: senderName,
+              senderEmail,
+              senderAvatarUrl,
+              source: 'api',
+              replied: false,
+            };
+          });
 
         setItems(mapped);
       })
@@ -490,7 +530,11 @@ export default function AdminNotificationPage() {
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: activeNotification.userId,
-          message: replyDraft.trim(),
+          sender_type: 'admin',
+          sender_name: adminName,
+          recipient_type: 'user',
+          recipient_id: activeNotification.userId,
+          message: `From: ${adminName}\nSubject: Reply to ${activeNotification.title}\nMessage: ${replyDraft.trim()}`,
           type: 'reply',
           is_read: false,
         }),
@@ -560,9 +604,11 @@ export default function AdminNotificationPage() {
 
             <div className="admin-notify-list">
               {filteredItems.length === 0 ? (
-                <div className="admin-notify-empty">
-                  <h3>No notifications found</h3>
-                  <p>Try switching tabs or filters to see more updates.</p>
+                <div className="admin-notify-empty admin-notify-empty-card">
+                  <div>
+                    <h3>Nothing here yet</h3>
+                    <p>No notifications match this view. Try another tab or filter.</p>
+                  </div>
                 </div>
               ) : null}
               {filteredItems.map((item) => (
@@ -580,8 +626,14 @@ export default function AdminNotificationPage() {
                 >
                   <div className="admin-notify-icon" aria-hidden="true">
                     {item.type === 'message' ? (
-                      item.senderAvatarUrl ? (
-                        <img src={item.senderAvatarUrl} alt="" />
+                      item.senderAvatarUrl && !brokenAvatars[item.id] ? (
+                        <img
+                          src={item.senderAvatarUrl}
+                          alt=""
+                          onError={() =>
+                            setBrokenAvatars((prev) => ({ ...prev, [item.id]: true }))
+                          }
+                        />
                       ) : (
                         <span className="admin-notify-avatar-fallback">{getInitials(item.sender)}</span>
                       )
@@ -602,22 +654,20 @@ export default function AdminNotificationPage() {
                     <p>{item.description}</p>
                     {item.actions ? (
                       <div className="admin-notify-actions">
-                        {item.actions
-                          .filter((action) => (action === 'Reply' ? item.unread : true))
-                          .map((action) => (
-                          <button
-                            key={action}
-                            type="button"
-                            className={action === 'Dismiss' ? 'ghost' : ''}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (action === 'Reply') {
-                                openDetails(item);
-                              }
-                            }}
-                          >
-                            {action}
-                          </button>
+                        {item.actions.map((action) => (
+                            <button
+                              key={action}
+                              type="button"
+                              className={action === 'Dismiss' ? 'ghost' : ''}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (action === 'Reply') {
+                                  openDetails(item);
+                                }
+                              }}
+                            >
+                              {action}
+                            </button>
                           ))}
                       </div>
                     ) : null}
@@ -640,6 +690,11 @@ export default function AdminNotificationPage() {
                 </div>
                 <span className="admin-notify-pill">{unreadCount} new</span>
               </div>
+              {filteredItems.length === 0 ? (
+                <div className="admin-notify-empty-mini">
+                  No notifications in this view.
+                </div>
+              ) : null}
               <div className="admin-notify-filter-list">
                 {FILTERS.map((filter) => (
                   <button
@@ -721,8 +776,14 @@ export default function AdminNotificationPage() {
             <div className="admin-notify-detail-header">
               <div className={`admin-notify-detail-icon admin-notify-${activeNotification.tone}`}>
                 {activeNotification.type === 'message' ? (
-                  activeNotification.senderAvatarUrl ? (
-                    <img src={activeNotification.senderAvatarUrl} alt="" />
+                  activeNotification.senderAvatarUrl && !brokenAvatars[activeNotification.id] ? (
+                    <img
+                      src={activeNotification.senderAvatarUrl}
+                      alt=""
+                      onError={() =>
+                        setBrokenAvatars((prev) => ({ ...prev, [activeNotification.id]: true }))
+                      }
+                    />
                   ) : (
                     <span className="admin-notify-avatar-fallback">
                       {getInitials(activeNotification.sender)}
@@ -743,7 +804,7 @@ export default function AdminNotificationPage() {
             </div>
             <p className="admin-notify-detail-body">{activeNotification.description}</p>
 
-            {activeNotification.type === 'message' && activeNotification.unread ? (
+            {activeNotification.type === 'message' ? (
               <div className="admin-notify-reply">
                 <div className="admin-notify-reply-header">
                   <span>Reply to {activeNotification.sender || 'sender'}</span>

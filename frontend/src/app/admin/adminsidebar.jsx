@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useLanguage } from '@/i18n/language.jsx';
 import './style.css';
 
 const UNREAD_STORAGE_KEY = 'admin_notifications_unread';
+const SESSION_STORAGE_KEY = 'chomnuoy_session';
 
 const NAV_ITEMS = [
   {
@@ -43,6 +45,7 @@ const NAV_ITEMS = [
   },
   {
     label: 'Reports',
+    path: '/admin/reports',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 19h16M7 16V9M12 16V5M17 16v-7" />
@@ -79,7 +82,18 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: 'Profile',
+    path: '/admin/profile',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+        <path d="M5 20a7 7 0 0 1 14 0" />
+      </svg>
+    ),
+  },
+  {
     label: 'Settings',
+    path: '/admin/settings',
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" />
@@ -91,6 +105,32 @@ const NAV_ITEMS = [
 
 const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
   const [unreadCount, setUnreadCount] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const { t } = useLanguage();
+
+  const navLabels = {
+    Dashboard: t('admin.nav.dashboard'),
+    Users: t('admin.nav.users'),
+    Organizations: t('admin.nav.organizations'),
+    'Material Pickups': t('admin.nav.materialPickups'),
+    Reports: t('admin.nav.reports'),
+    Donations: t('admin.nav.donations'),
+    Transactions: t('admin.nav.transactions'),
+    Notifications: t('admin.nav.notifications'),
+    Profile: t('admin.nav.profile'),
+    Settings: t('admin.nav.settings'),
+  };
+
+  const readSessionAvatar = () => {
+    try {
+      const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      if (!raw) return '';
+      const session = JSON.parse(raw);
+      return session?.avatar || '';
+    } catch {
+      return '';
+    }
+  };
 
   useEffect(() => {
     const readCount = () => {
@@ -111,6 +151,21 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('admin-notify-updated', onCustom);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncAvatar = () => {
+      setAvatarUrl(readSessionAvatar());
+    };
+
+    syncAvatar();
+    window.addEventListener('storage', syncAvatar);
+    window.addEventListener('chomnuoy-session-updated', syncAvatar);
+
+    return () => {
+      window.removeEventListener('storage', syncAvatar);
+      window.removeEventListener('chomnuoy-session-updated', syncAvatar);
     };
   }, []);
 
@@ -156,45 +211,39 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
       </div>
 
       <nav className="admin-nav">
-        {NAV_ITEMS.map((item) => {
-          if (item.path) {
-            return (
-              <NavLink
-                key={item.label}
-                to={item.path}
-                className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
-                end={item.path === '/admin'}
-              >
-                <span className="admin-nav-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span className="admin-nav-label">{item.label}</span>
-                {item.showBadge && unreadCount > 0 ? (
-                  <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
-                    {unreadCount}
-                  </span>
-                ) : null}
-              </NavLink>
-            );
-          }
-
-          return (
-            <button key={item.label} type="button" className="admin-nav-item">
-              <span className="admin-nav-icon" aria-hidden="true">
-                {item.icon}
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.path}
+            className={({ isActive }) => `admin-nav-item${isActive ? ' is-active' : ''}`}
+            end={item.path === '/admin'}
+          >
+            <span className="admin-nav-icon" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span className="admin-nav-label">{navLabels[item.label] || item.label}</span>
+            {item.showBadge && unreadCount > 0 ? (
+              <span className="admin-nav-badge" aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount}
               </span>
-              <span className="admin-nav-label">{item.label}</span>
-            </button>
-          );
-        })}
+            ) : null}
+          </NavLink>
+        ))}
       </nav>
 
       <div className="admin-sidebar-footer">
         <div className="admin-user">
           <div className="admin-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 8a7 7 0 0 1 14 0" />
-            </svg>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" />
+            ) : (
+              userName
+                .split(' ')
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()
+            )}
           </div>
           <div className="admin-user-meta">
             <p className="admin-user-name">{userName}</p>
@@ -207,7 +256,7 @@ const AdminSidebar = ({ onLogout, userName, userRole = 'Admin' }) => {
             <path d="M15 12H3" />
             <path d="M14 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
           </svg>
-          <span>Logout</span>
+          <span>{t('admin.nav.logout') || 'Logout'}</span>
         </button>
       </div>
     </aside>

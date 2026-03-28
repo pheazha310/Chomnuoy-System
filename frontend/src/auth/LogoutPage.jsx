@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Home, LogOut } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-
-function clearAuthState() {
-  window.localStorage.removeItem('chomnuoy_session');
-  window.localStorage.removeItem('authToken');
-}
+import { clearAuthState, getAuthToken, getSession } from '@/services/session-service.js';
 
 const LOGOUT_REDIRECT_SECONDS = 30;
 
@@ -15,8 +11,8 @@ export default function LogoutPage() {
   const [secondsLeft, setSecondsLeft] = useState(LOGOUT_REDIRECT_SECONDS);
   const from = new URLSearchParams(location.search).get('from');
   const hadSession = useMemo(() => {
-    const hasDonorSession = Boolean(window.localStorage.getItem('chomnuoy_session'));
-    const hasApiToken = Boolean(window.localStorage.getItem('authToken'));
+    const hasDonorSession = Boolean(getSession());
+    const hasApiToken = Boolean(getAuthToken());
     return hasDonorSession || hasApiToken;
   }, []);
 

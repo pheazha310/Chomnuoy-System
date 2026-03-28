@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import ROUTES from '../../constants/routes';
+import ROUTES from '@/constants/routes.js';
 import '../css/organization.css';
 
 const organizations = [
@@ -135,10 +135,7 @@ const donorOrganizations = [
 
 const PAGE_SIZE = 3;
 const DONOR_PAGE_SIZE = 4;
-const DONATION_PRESET_AMOUNTS = [5, 10, 20, 50];
-const DONATION_PAYMENT_METHODS = [
-  { id: 'khqr', label: 'Bakong KHQR', badge: 'KHQR', badgeClassName: 'payment-badge-qr' },
-];
+
 const RATING_OPTIONS = [
   { value: 'all', label: 'All Ratings' },
   { value: '4plus', label: 'Rating: 4+ Stars' },
@@ -186,11 +183,25 @@ function getDonorSession() {
 }
 
 function Organization() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const { organizationId } = useParams();
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+  const donorDisplayName = useMemo(() => {
+    const rawName = typeof donorSession?.name === 'string' ? donorSession.name.trim() : '';
+    return rawName || 'Donor';
+  }, [donorSession?.name]);
+  const donorAvatar = typeof donorSession?.avatar === 'string' ? donorSession.avatar.trim() : '';
+  const donorInitials = useMemo(() => (
+    donorDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'D'
+  ), [donorDisplayName]);
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,11 +210,7 @@ function Organization() {
   const [sortBy, setSortBy] = useState('recent');
   const [currentPage, setCurrentPage] = useState(1);
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
-  const [isRatingMenuOpen, setIsRatingMenuOpen] = useState(false);
-  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const categoryMenuRef = useRef(null);
-  const ratingMenuRef = useRef(null);
-  const sortMenuRef = useRef(null);
 
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
@@ -214,16 +221,6 @@ function Organization() {
   const [donorSortBy, setDonorSortBy] = useState('recent');
   const [donorPage, setDonorPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
-  const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
-  const [customDonationAmount, setCustomDonationAmount] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('khqr');
-  const [donationMessage, setDonationMessage] = useState('');
-  const parsedCustomAmount = Number(customDonationAmount);
-  const hasCustomInput = customDonationAmount.trim() !== '';
-  const hasValidCustomAmount = hasCustomInput && Number.isFinite(parsedCustomAmount) && parsedCustomAmount > 0;
-  const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
-  const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
-  const quickDonationAmounts = [5, 10, 20, 50];
 
   const categoryOptions = useMemo(() => {
     const categories = new Set();
@@ -315,19 +312,11 @@ function Organization() {
       if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target)) {
         setIsCategoryMenuOpen(false);
       }
-      if (ratingMenuRef.current && !ratingMenuRef.current.contains(event.target)) {
-        setIsRatingMenuOpen(false);
-      }
-      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
-        setIsSortMenuOpen(false);
-      }
     };
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setIsCategoryMenuOpen(false);
-        setIsRatingMenuOpen(false);
-        setIsSortMenuOpen(false);
       }
     };
 
@@ -354,236 +343,11 @@ function Organization() {
   }, [filteredOrganizations, currentPage]);
 
   const categoryLabel = selectedCategory === 'all' ? 'All Categories' : selectedCategory;
-  const ratingLabel = RATING_OPTIONS.find((option) => option.value === ratingFilter)?.label || 'All Ratings';
-  const sortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label || 'Most Recent';
   const hasActiveSearch = searchTerm.trim().length > 0;
-  const isDonationPage = Boolean(organizationId);
-  const donationOrg = useMemo(
-    () => donorOrganizations.find((organization) => String(organization.id) === String(organizationId)) ?? null,
-    [organizationId]
-  );
-  const fromQuery = new URLSearchParams(location.search).get('from');
-  const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
-  const selectedPaymentLabel = 'Bakong KHQR';
 
   const handleSearch = () => {
     setSearchTerm(searchInput.trim());
   };
-
-  const handleDonationSubmit = () => {
-    if (!donationOrg) return;
-
-    window.alert(
-      `Donation submitted!\nOrganization: ${donationOrg.name}\nAmount: $${donationAmount.toLocaleString()}`
-    );
-    navigate(donationBackTarget);
-  };
-
-  if (isDonorLoggedIn && isDonationPage) {
-    if (!donationOrg) {
-      return (
-        <main className="donation-page donation-page-full">
-          <div className="donation-modal-card donation-page-card">
-            <div className="donation-modal-body">
-              <section className="donation-supporting">
-                <h2>Organization not found</h2>
-                <p>Please go back and try another organization.</p>
-              </section>
-            </div>
-            <div className="donation-modal-footer">
-              <button type="button" className="donation-confirm-btn" onClick={() => navigate(donationBackTarget)}>
-                Back to organizations
-              </button>
-            </div>
-          </div>
-        </main>
-      );
-    }
-
-    return (
-      <main className="donation-page donation-page-full">
-        <div className="donation-layout">
-          <section className="donation-main-column">
-            <div className="donation-modal-card donation-page-card">
-          <div className="donation-modal-head">
-            <div className="donation-modal-brand">
-              <div className="donation-modal-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <div className="donation-modal-title-wrap">
-                <strong>Donate</strong>
-                <p>Make a difference today</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="donation-modal-close donation-back-btn"
-              aria-label="Back to organizations"
-              onClick={() => navigate(donationBackTarget)}
-            >
-              {'\u2190'} Back to organizations
-            </button>
-          </div>
-
-          <div className="donation-modal-body">
-            <section className="donation-supporting">
-              <span>YOU ARE SUPPORTING</span>
-              <h2>{donationOrg.name}</h2>
-              <p>{donationOrg.summary}</p>
-            </section>
-
-            <section className="donation-section">
-              <h3>Select Donation Amount</h3>
-              <div className="donation-amount-grid">
-                {quickDonationAmounts.map((amount) => (
-                  <button
-                    key={amount}
-                    type="button"
-                    className={selectedDonationAmount === amount && !hasCustomInput ? 'is-active' : ''}
-                    onClick={() => {
-                      setSelectedDonationAmount(amount);
-                      setCustomDonationAmount('');
-                    }}
-                  >
-                    ${amount}
-                  </button>
-                ))}
-              </div>
-              <label className="donation-field-label" htmlFor="custom-donation-input">
-                Custom Amount
-              </label>
-              <div className="donation-custom-input">
-                <span className="donation-input-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="3" y="6.5" width="18" height="11" rx="1.8" strokeWidth="1.8" />
-                    <circle cx="12" cy="12" r="2.3" strokeWidth="1.8" />
-                    <path d="M7 10.4h.01M17 13.6h.01" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                </span>
-                <input
-                  id="custom-donation-input"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="Enter amount in USD"
-                  value={customDonationAmount}
-                  onChange={(event) => setCustomDonationAmount(event.target.value)}
-                />
-                <span className="donation-input-suffix">USD</span>
-              </div>
-            </section>
-
-            <section className="donation-section">
-              <h3>Payment Method</h3>
-              <div className="donation-payment-grid">
-                <button
-                  type="button"
-                  className={selectedPaymentMethod === 'khqr' ? 'is-active' : ''}
-                  onClick={() => setSelectedPaymentMethod('khqr')}
-                >
-                  <span className="payment-badge payment-badge-qr" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" stroke="currentColor" strokeWidth="2" />
-                      <path d="M14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor" stroke="none" />
-                    </svg>
-                  </span>
-                  <span className="payment-label">Bakong KHQR</span>
-                </button>
-              </div>
-            </section>
-
-            <section className="donation-section">
-              <h3>Message to Organization</h3>
-              <textarea
-                value={donationMessage}
-                onChange={(event) => setDonationMessage(event.target.value)}
-                placeholder="Write a short message of encouragement or specific instructions..."
-              />
-            </section>
-          </div>
-
-          <div className="donation-modal-footer">
-            <div className="donation-separator" />
-            <button
-              type="button"
-              className="donation-confirm-btn"
-              onClick={handleDonationSubmit}
-              disabled={hasInvalidCustomAmount}
-            >
-              <span aria-hidden="true">{'\u2665'}</span> Confirm Donation
-            </button>
-            {hasInvalidCustomAmount ? <p className="donation-note">Enter a valid amount greater than 0.</p> : null}
-            <p className="donation-legal">
-              By clicking confirm, you agree to our Terms of Service. 100% of your donation (minus payment
-              processing fees) goes directly to the organization.
-            </p>
-          </div>
-            </div>
-          </section>
-
-          <aside className="donation-side-column">
-            <div className="donation-summary-card">
-              <p className="donation-summary-label">Donation Summary</p>
-              <h3>{donationOrg.name}</h3>
-              <p>{donationOrg.category} • {donationOrg.region}</p>
-
-              <div className="donation-summary-item">
-                <span>Amount</span>
-                <strong>${donationAmount.toLocaleString()}</strong>
-              </div>
-
-              <div className="donation-summary-item">
-                <span>Payment Method</span>
-                <strong>{selectedPaymentLabel}</strong>
-              </div>
-
-              <div className="donation-summary-item">
-                <span>Tax Eligible</span>
-                <strong>{donationOrg.taxEligible ? 'Yes' : 'No'}</strong>
-              </div>
-
-              <button
-                type="button"
-                className="donation-summary-back"
-                onClick={() => navigate(donationBackTarget)}
-              >
-                Back to organizations
-              </button>
-            </div>
-          </aside>
-        </div>
-      </main>
-    );
-  }
 
   if (isDonorLoggedIn) {
     return (
@@ -592,13 +356,17 @@ function Organization() {
           <aside className="donor-org-sidebar donor-animate-sidebar">
             <section className="donor-org-panel donor-user-panel donor-animate-panel" style={{ animationDelay: '80ms' }}>
               <div className="donor-user-head">
-                <img
-                  src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                  alt={donorSession.name || 'Donor'}
-                />
+                {donorAvatar ? (
+                  <img
+                    src={donorAvatar}
+                    alt={donorDisplayName}
+                  />
+                ) : (
+                  <span className="donor-user-avatar-fallback" aria-hidden="true">{donorInitials}</span>
+                )}
                 <div>
                   <p>Welcome back,</p>
-                  <strong>{donorSession.name || 'Alex Rivera'}</strong>
+                  <strong>{donorDisplayName}</strong>
                 </div>
               </div>
               <div className="donor-user-stat">
@@ -739,7 +507,7 @@ function Organization() {
                             })
                           }
                         >
-                          {'\u2665'}
+                          ♥
                         </button>
                       </div>
                       <p>{organization.summary}</p>
@@ -754,11 +522,7 @@ function Organization() {
                         </div>
                       </div>
                       <div className="donor-org-actions">
-                        <button
-                          type="button"
-                          className="donor-donate-btn"
-                          onClick={() => navigate(`${ROUTES.ORGANIZATION_DONATE(organization.id)}?from=${encodeURIComponent(location.pathname + location.search)}`)}
-                        >
+                        <button type="button" className="donor-donate-btn">
                           Donate
                         </button>
                         <button type="button" className="donor-follow-btn" aria-label="Follow organization">
@@ -767,7 +531,6 @@ function Organization() {
                             <circle cx="9" cy="7" r="4" strokeWidth="2" />
                             <path d="M19 8v6M22 11h-6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                          Follow
                         </button>
                       </div>
                     </div>
@@ -805,7 +568,6 @@ function Organization() {
             </nav>
           </section>
         </div>
-
       </main>
     );
   }
@@ -856,11 +618,7 @@ function Organization() {
               aria-haspopup="listbox"
               aria-expanded={isCategoryMenuOpen}
               aria-label="Filter by category"
-              onClick={() => {
-                setIsCategoryMenuOpen((open) => !open);
-                setIsRatingMenuOpen(false);
-                setIsSortMenuOpen(false);
-              }}
+              onClick={() => setIsCategoryMenuOpen((open) => !open)}
             >
               {categoryLabel}
             </button>
@@ -895,74 +653,19 @@ function Organization() {
               </ul>
             ) : null}
           </div>
-          <div className="category-filter" ref={ratingMenuRef}>
-            <button
-              type="button"
-              className="filter-select category-trigger"
-              aria-haspopup="listbox"
-              aria-expanded={isRatingMenuOpen}
-              aria-label="Filter by rating"
-              onClick={() => {
-                setIsRatingMenuOpen((open) => !open);
-                setIsCategoryMenuOpen(false);
-                setIsSortMenuOpen(false);
-              }}
-            >
-              {ratingLabel}
-            </button>
-            {isRatingMenuOpen ? (
-              <ul className="category-menu" role="listbox" aria-label="Ratings">
-                {RATING_OPTIONS.map((option) => (
-                  <li key={option.value}>
-                    <button
-                      type="button"
-                      className={`category-option ${ratingFilter === option.value ? 'category-option-active' : ''}`}
-                      onClick={() => {
-                        setRatingFilter(option.value);
-                        setIsRatingMenuOpen(false);
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-          <div className="category-filter" ref={sortMenuRef}>
-            <button
-              type="button"
-              className="filter-select category-trigger"
-              aria-haspopup="listbox"
-              aria-expanded={isSortMenuOpen}
-              aria-label="Sort organizations"
-              onClick={() => {
-                setIsSortMenuOpen((open) => !open);
-                setIsCategoryMenuOpen(false);
-                setIsRatingMenuOpen(false);
-              }}
-            >
-              {sortLabel}
-            </button>
-            {isSortMenuOpen ? (
-              <ul className="category-menu" role="listbox" aria-label="Sort options">
-                {SORT_OPTIONS.map((option) => (
-                  <li key={option.value}>
-                    <button
-                      type="button"
-                      className={`category-option ${sortBy === option.value ? 'category-option-active' : ''}`}
-                      onClick={() => {
-                        setSortBy(option.value);
-                        setIsSortMenuOpen(false);
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+          <select className="filter-select" value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
+            <option value="all">All Ratings</option>
+            <option value="4plus">Rating: 4+ Stars</option>
+            <option value="45plus">Rating: 4.5+ Stars</option>
+          </select>
+          <select className="filter-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+            <option value="recent">Most Recent</option>
+            <option value="oldest">Oldest</option>
+            <option value="ratingHigh">Rating: High to Low</option>
+            <option value="ratingLow">Rating: Low to High</option>
+            <option value="nameAZ">Name: A to Z</option>
+            <option value="nameZA">Name: Z to A</option>
+          </select>
           <button
             className="clear-filters"
             type="button"
@@ -972,9 +675,6 @@ function Organization() {
               setSelectedCategory('all');
               setRatingFilter('4plus');
               setSortBy('recent');
-              setIsCategoryMenuOpen(false);
-              setIsRatingMenuOpen(false);
-              setIsSortMenuOpen(false);
             }}
           >
             Clear Filters
@@ -1004,11 +704,7 @@ function Organization() {
                 ))}
               </div>
               <div className="card-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`)}
-                >
+                <button type="button" className="btn-primary">
                   Donate
                 </button>
                 <button type="button" className="btn-outline">

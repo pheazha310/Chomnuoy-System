@@ -3,6 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPrivacyPreferences } from '@/utils/user-preferences';
+import {
+  clearAuthState,
+  getAuthToken,
+  getSession,
+  getSessionUpdatedEventName,
+} from '@/services/session-service.js';
 
 const guestNavItems = [
   { label: 'Home', href: '/' },
@@ -23,24 +29,7 @@ const donorNavItems = [
 ];
 
 function getDonorSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (!parsed) return null;
-    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
-      const normalized = { ...parsed, isLoggedIn: true };
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
-      return normalized;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function clearAuthState() {
-  window.localStorage.removeItem('chomnuoy_session');
-  window.localStorage.removeItem('authToken');
+  return getSession();
 }
 
 function isNavItemActive(itemHref, pathname) {
@@ -107,12 +96,12 @@ function Navbar() {
     if (!query) return;
 
     const encoded = encodeURIComponent(query);
-    navigate(`/campaigns?search=${encoded}`);
+    navigate(`${isDonorLoggedIn ? '/campaigns/donor' : '/campaigns'}?search=${encoded}`);
   };
 
   const markAllNotificationsRead = () => {
     setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     notifications.forEach((item) => {
@@ -129,10 +118,10 @@ function Navbar() {
   useEffect(() => {
     const syncSession = () => setDonorSession(getDonorSession());
     window.addEventListener('storage', syncSession);
-    window.addEventListener('chomnuoy-session-updated', syncSession);
+    window.addEventListener(getSessionUpdatedEventName(), syncSession);
     return () => {
       window.removeEventListener('storage', syncSession);
-      window.removeEventListener('chomnuoy-session-updated', syncSession);
+      window.removeEventListener(getSessionUpdatedEventName(), syncSession);
     };
   }, []);
 
@@ -193,13 +182,22 @@ function Navbar() {
     const session = getDonorSession();
     const userId = Number(session?.userId ?? 0);
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     fetch(`${apiBase}/notifications`, { headers })
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
-        const filtered = userId ? list.filter((item) => Number(item.user_id) === userId) : list;
+        const filtered = userId
+          ? list.filter((item) => {
+              const recipientType = String(item.recipient_type || '').toLowerCase();
+              const recipientId = Number(item.recipient_id || 0);
+              if (recipientType) {
+                return recipientType === 'user' && recipientId === userId;
+              }
+              return Number(item.user_id) === userId;
+            })
+          : [];
         const mapped = filtered
           .filter((item) => {
             const type = String(item.type || '').toLowerCase();
@@ -249,6 +247,24 @@ function Navbar() {
   }, [isDonorLoggedIn]);
 
   useEffect(() => {
+    if (!isDonorLoggedIn) return undefined;
+
+    const timer = window.setInterval(() => {
+      loadNotifications();
+    }, 15000);
+
+    const handleFocus = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
     if (!isNotificationsOpen) return;
     loadNotifications();
   }, [isNotificationsOpen]);
@@ -258,7 +274,7 @@ function Navbar() {
       item.id === id ? { ...item, isRead: true } : item
     )));
     if (source === 'api') {
-      const token = window.localStorage.getItem('authToken');
+      const token = getAuthToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
       fetch(`${apiBase}/notifications/${id}`, {
@@ -289,13 +305,17 @@ function Navbar() {
     if (!userId) return;
     setIsReplySending(true);
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const subject = activeNotification.subject || activeNotification.title || 'Message';
     const fromName = session?.name || 'Donor';
     const fromEmail = session?.email || 'donor@example.com';
     const payload = {
       user_id: userId,
+      sender_type: 'user',
+      sender_name: fromName,
+      sender_email: fromEmail,
+      recipient_type: 'admin',
       message: `From: ${fromName} <${fromEmail}>\nSubject: Reply: ${subject}\nMessage: ${replyDraft.trim()}`,
       type: 'message',
       is_read: false,

@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 import './organization.css';
 
 const DEFAULT_COORDINATE_CENTER = [11.5564, 104.9282];
@@ -811,6 +812,7 @@ export default function OrganizationCampaignCreatePage() {
 
     const session = getOrganizationSession();
     const organizationId = Number(session?.userId ?? 0);
+    const organizationName = String(session?.name || 'Organization').trim() || 'Organization';
     if (!organizationId) {
       setError('Organization session not found. Please log in again.');
       return;
@@ -862,42 +864,38 @@ export default function OrganizationCampaignCreatePage() {
 
       const savedCampaign = await response.json();
       const savedCampaignId = Number(savedCampaign?.id ?? editId);
-      let imageUploadFailures = [];
+      let imageUploadWarning = '';
       if (savedCampaignId) {
-        imageUploadFailures = await uploadCampaignImages(savedCampaignId);
+        try {
+          await uploadCampaignImages(savedCampaignId);
+        } catch (uploadError) {
+          imageUploadWarning =
+            uploadError instanceof Error
+              ? uploadError.message
+              : 'Campaign saved, but campaign image upload failed.';
+        }
       }
 
       if (isEditing) {
         setSuccess(
-          imageUploadFailures.length > 0
-            ? 'Campaign updated, but campaign images could not be uploaded.'
-            : 'Campaign updated.'
+          imageUploadWarning
+            ? `Campaign updated, but image upload failed: ${imageUploadWarning}`
+            : 'Campaign updated.',
         );
       } else {
         setSuccess(
-          imageUploadFailures.length > 0
-            ? (status === 'draft'
-              ? 'Draft saved, but campaign images could not be uploaded.'
-              : 'Campaign published, but campaign images could not be uploaded.')
-            : (status === 'draft' ? 'Draft saved.' : 'Campaign published.')
+          imageUploadWarning
+            ? `${status === 'draft' ? 'Draft saved' : 'Campaign published'}, but image upload failed: ${imageUploadWarning}`
+            : status === 'draft'
+              ? 'Draft saved.'
+              : 'Campaign published.',
         );
       }
-      if (status === 'active') {
-        try {
-          await fetch(`${apiBase}/notifications`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: organizationId,
-              message: `New campaign published: ${form.title.trim() || 'Untitled Campaign'}`,
-              type: 'campaign',
-              is_read: false,
-            }),
-          });
-        } catch {
-          // non-blocking notification failure
-        }
+      if (imageUploadFailures.length > 0) {
+        setError(`Image upload failed. The campaign was saved, but no campaign image was attached yet. ${imageUploadFailures.join(' ')}`);
+        return;
       }
+
       window.setTimeout(() => {
         navigate(ROUTES.ORGANIZATION_CAMPAIGNS);
       }, 600);
@@ -1040,6 +1038,7 @@ export default function OrganizationCampaignCreatePage() {
             <p className="mt-1 text-sm text-[#64748B]">Fill in the details to start your fundraising initiative.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <OrganizationIdentityPill />
             <button
               type="button"
               className="rounded-full border border-[#E2E8F0] bg-white px-6 py-2.5 text-sm font-semibold text-[#475569] shadow-[0_10px_22px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
