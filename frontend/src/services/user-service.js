@@ -140,6 +140,38 @@ export async function createBakongTransaction(payload) {
 }
 
 export async function verifyBakongTransaction(tranId) {
-    const response = await apiClient.post(`/bakong/transactions/${encodeURIComponent(tranId)}/verify`);
+    const response = await apiClient.post(`/verify-qr`, {
+        "tranId": tranId
+    });
     return response.data;
+}
+
+export async function checkPayment(payload) {
+    const response = await apiClient.post(`/check-payment`, payload);
+    return response.data;
+}
+
+export async function getPaymentStatus(payload) {
+    const response = await apiClient.post(`/get-payment-status`, payload);
+    return response.data;
+}
+
+export async function verifyQR(payload) {
+    const response = await apiClient.post(`/verify-qr`, payload);
+    return response.data;
+}
+
+export async function decodeQR(payload) {
+    const response = await apiClient.post(`/decode-qr`, payload);
+    return response.data;
+}
+
+export async function generateDeepLink(payload) {
+    const response = await apiClient.post(`/generate-deep-link`, payload);
+    return response.data;
+}
+
+export async function generateAbaQr(payload) {
+  const response = await apiClient.post(`/payment/generate`, payload);
+  return response.data;
 }

@@ -21,6 +21,7 @@ import { createBakongTransaction, verifyBakongTransaction } from '../../services
 
 import { getCampaignById } from '../../data/campaigns';
 import '../css/Campaigns.css';
+import { generateAbaQr } from '../../services/user-service';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
 const DONOR_CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
@@ -594,12 +595,74 @@ function CampaignDetailPage({ campaignId }) {
     setDonationMessage(`Custom amount applied: $${roundedAmount.toLocaleString()}.`);
   }
 
-  function handleDonateNow() {
+  async function handleDonateNow() {
     setDonationMessage('');
     setAbaQrCheckout(null);
     setShowCheckout(true);
     if (selectedPaymentMethod === 'Bakong KHQR') {
       setAutoStartAbaQr(true);
+    }
+
+    // Generate ABA QR code
+    const payload = {
+      "amount": totalDonation,
+      "currency": "USD", 
+      "bill_number": `DON-${campaign.id}-${Date.now()}`,
+      "mobile_number": "",
+      "store_label": "Chomnuoy Donation",
+      "terminal_label": "Online Donation",
+      "type": "individual",
+      "campaign_id": campaign.id,
+      "user_id": session?.userId || null
+    };
+    try {
+      console.log('Generating QR with payload:', payload);
+      const generateQR = await generateAbaQr(payload);
+      console.log('QR response:', generateQR);
+      
+      if (generateQR.success && generateQR.qr_code) {
+        try {
+          // Import qrcode dynamically to avoid SSR issues
+          const QRCode = await import('qrcode');
+          console.log('QR Code library loaded');
+          
+          const qrImage = await QRCode.toDataURL(generateQR.qr_code);
+          console.log('QR Image generated:', qrImage.substring(0, 50) + '...');
+          
+          setAbaQrCheckout({
+            tranId: generateQR.payment_id?.toString() || '',
+            donationId: null,
+            image: qrImage,
+            paymentLabel: 'Bakong KHQR',
+            status: 'pending',
+            amount: payload.amount,
+            expiresAt: generateQR.expires_at,
+            md5: generateQR.md5
+          });
+          console.log('abaQrCheckout set successfully');
+        } catch (qrError) {
+          console.error('Error generating QR image:', qrError);
+          // Fallback: set the QR data without image
+          setAbaQrCheckout({
+            tranId: generateQR.payment_id?.toString() || '',
+            donationId: null,
+            image: null,
+            paymentLabel: 'Bakong KHQR',
+            status: 'pending',
+            amount: payload.amount,
+            expiresAt: generateQR.expires_at,
+            md5: generateQR.md5
+          });
+        }
+      } else {
+        console.error('Invalid QR response:', generateQR);
+        const errorMessage = generateQR?.message || 'Failed to generate QR code. Please try again.';
+        setDonationMessage(`QR Generation Error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Network error occurred. Please check your connection.';
+      setDonationMessage(`QR Generation Failed: ${errorMessage}`);
     }
   }
 
