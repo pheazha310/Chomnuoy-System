@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
@@ -359,6 +360,7 @@ export default function App() {
     location.pathname.startsWith('/admin');
   const session = getSession();
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
   useEffect(() => {
     if (!session?.isLoggedIn || !session?.userId) return;
@@ -377,7 +379,7 @@ export default function App() {
     return () => window.clearInterval(intervalId);
   }, [apiBase, session?.isLoggedIn, session?.role, session?.accountType, session?.userId]);
 
-  return (
+  const appContent = (
     <>
       {!hideShell && <Navbar />}
       <Suspense fallback={<PageLoader />}>
@@ -631,4 +633,14 @@ export default function App() {
       {!hideShell && <Footer />}
     </>
   );
+
+  if (googleClientId) {
+    return (
+      <GoogleOAuthProvider clientId={googleClientId}>
+        {appContent}
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return appContent;
 }
