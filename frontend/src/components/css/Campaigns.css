@@ -430,32 +430,43 @@
 
 .campaign-card-badges {
   position: absolute;
-  inset: 0.7rem auto auto 0.7rem;
+  inset: 0.75rem auto auto 0.75rem;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
+  z-index: 2;
 }
 
 .campaign-card-category {
   position: absolute;
-  inset: auto auto 0.7rem 0.7rem;
+  inset: auto auto 0.75rem 0.75rem;
+  z-index: 2;
 }
 
 .campaign-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  padding: 0.24rem 0.7rem;
-  font-size: 0.58rem;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 0.3rem 0.78rem;
+  font-size: 0.62rem;
   line-height: 1;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .campaign-badge-category {
-  background: rgba(255, 255, 255, 0.82);
-  color: #2f4058;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(246, 250, 255, 0.72) 100%);
+  color: #23415f;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 22px rgba(17, 54, 92, 0.12);
+  backdrop-filter: blur(12px);
 }
 
 .campaign-badge-verified {
