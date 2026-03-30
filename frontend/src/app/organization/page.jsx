@@ -235,6 +235,7 @@ export default function OrganizationDashboardPage() {
       detail: item.message || 'New update available.',
       time: new Date(item.created_at || Date.now()).toLocaleString(),
       type: item.type || 'info',
+      followerKey: item.sender_email || item.sender_name || item.user_id || item.id,
       unread: !item.is_read,
     });
 
@@ -339,6 +340,14 @@ export default function OrganizationDashboardPage() {
     const materialCount = materialItems
       .filter((item) => materialDonationIds.has(item.donation_id))
       .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const followerCount = new Set(
+      notifications
+        .filter((item) => String(item.type || '').toLowerCase() === 'follow')
+        .map((item) => String(item.followerKey || item.id)),
+    ).size;
+    const newFollowerCount = notifications.filter(
+      (item) => String(item.type || '').toLowerCase() === 'follow' && item.unread,
+    ).length;
 
     return [
       {
@@ -359,8 +368,14 @@ export default function OrganizationDashboardPage() {
         change: 'Stable',
         icon: 'AC',
       },
+      {
+        title: 'Donor Followers',
+        value: `${followerCount.toLocaleString()} donors`,
+        change: newFollowerCount > 0 ? `+${newFollowerCount} new` : 'Growing',
+        icon: 'DF',
+      },
     ];
-  }, [campaigns, donations, materialItems]);
+  }, [campaigns, donations, materialItems, notifications]);
 
   const campaignPerformance = useMemo(() => {
     const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active');
