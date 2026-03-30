@@ -1,19 +1,16 @@
-﻿/**
+﻿﻿﻿/**
 * @license
 * SPDX-License-Identifier: Apache-2.0
 */
 
-import { loginUser } from '../services/user-service';
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  AlertCircle,
-} from 'lucide-react';
+import { loginUser } from "../services/user-service";
+import React, { useCallback, useState } from "react";
+import { motion } from "motion/react";
+import { useLocation } from "react-router-dom";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
 
 function GoogleIcon(props) {
   return (
@@ -50,6 +47,8 @@ function FacebookIcon(props) {
 }
 
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
+  const location = useLocation();
+  const showLogoutMessage = new URLSearchParams(location.search).get('loggedOut') === '1';
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +67,8 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
       import.meta.env.VITE_FACEBOOK_AUTH_URL ??
       `${import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'}/api/auth/facebook/redirect`,
   };
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
+  const isGoogleSignInConfigured = Boolean(googleClientId);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -80,6 +81,11 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         email: formData.email,
         password: formData.password,
       });
+      const token = data?.token || data?.access_token || data?.data?.token;
+      if (token) {
+        localStorage.setItem('authToken', token);
+      }
+
       onLoginSuccess?.(data);
     } catch (err) {
       const errors = err.response?.data?.errors || {};
@@ -105,6 +111,45 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     window.location.assign(authUrl);
   };
 
+  const handleGoogleSuccess = useCallback((credentialResponse) => {
+    try {
+      const credential = credentialResponse?.credential;
+      if (!credential) {
+        setError("Google did not return a credential. Please try again.");
+        return;
+      }
+
+      const payload = jwtDecode(credential);
+      const profile = {
+        id: payload?.sub ?? null,
+        name: payload?.name ?? payload?.email ?? "Google User",
+        email: payload?.email ?? "",
+        avatar: payload?.picture ?? null,
+      };
+
+      onLoginSuccess?.({
+        message: "Login successful",
+        account_type: "Donor",
+        user: profile,
+        organization: null,
+        google_id_token: credential,
+      });
+    } catch (decodeError) {
+      console.error("Failed to process Google credential:", decodeError);
+      setError("Unable to process Google login response. Please try again.");
+    }
+  }, [onLoginSuccess]);
+
+  const handleGoogleError = useCallback(() => {
+    const currentOrigin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "your-app-origin";
+    setError(
+      `Google login failed. Ensure ${currentOrigin} is added to Authorized JavaScript origins for this OAuth client ID.`
+    );
+  }, []);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
       <div className="text-center lg:pt-4">
@@ -112,6 +157,15 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <p className="mt-2.5 text-base font-medium text-[#4B617A]">Login to your Chomnuoy account to continue</p>
       </div>
 
+      {showLogoutMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700"
+        >
+          You have been logged out successfully.
+        </motion.div>
+      )}
 
       {error && (
         <motion.div
@@ -139,7 +193,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
-
             {fieldErrors.email && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
             )}
@@ -163,7 +216,6 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             />
-
             {fieldErrors.password && (
               <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
             )}
@@ -197,7 +249,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
+          {/* <button
             type="button"
             onClick={() => handleSocialLogin('google')}
             disabled={socialLoading !== null}
@@ -205,7 +257,25 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
           >
             <GoogleIcon className="h-5 w-5" />
             Gmail
-          </button>
+          </button> */}
+
+          {isGoogleSignInConfigured ? (
+            <GoogleOAuthProvider clientId={googleClientId}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
+            </GoogleOAuthProvider>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-[#F9FAFB] px-4 text-sm font-semibold text-[#98A2B3]"
+              title="Set VITE_GOOGLE_CLIENT_ID in frontend/.env and restart the frontend server."
+            >
+              Google not configured
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handleSocialLogin('facebook')}

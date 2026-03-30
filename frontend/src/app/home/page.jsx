@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import './home.css';
 import { Link } from 'react-router-dom';
+import Map from './map';    
 
 const stats = [
   { value: '$2.5M+', label: 'Total donated' },
@@ -127,7 +128,7 @@ function Home() {
             communities in need.
           </p>
           <div className="home-hero-actions">
-            <Link to="/login?redirect=%2Fcampaigns" className="home-btn home-btn-primary">
+            <Link to="/login?redirect=%2F" className="home-btn home-btn-primary">
               Donate Now
             </Link>
             <a href="/campaigns" className="home-btn home-btn-secondary">
@@ -262,11 +263,12 @@ function Home() {
           <a href="/campaigns" className="home-btn home-btn-light">
             Start Your Journey
           </a>
-          <a href="#" className="home-btn home-btn-outline-light">
+          <Link to="/contact" className="home-btn home-btn-outline-light">
             Contact Support
-          </a>
+          </Link>
         </div>
       </section>
+      <Map/>
     </main>
   );
 }

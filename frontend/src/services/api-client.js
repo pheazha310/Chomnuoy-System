@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -24,7 +24,8 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      const redirectPath = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+      window.location.href = `/login?redirect=${redirectPath}`;
     }
     return Promise.reject(error);
   }
