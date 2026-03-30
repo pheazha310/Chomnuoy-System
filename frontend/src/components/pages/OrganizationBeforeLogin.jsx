@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_SIZE,
   RATING_OPTIONS,
@@ -11,6 +11,7 @@ import '../css/organization.css';
 
 function OrganizationBeforeLogin() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -313,10 +314,18 @@ function OrganizationBeforeLogin() {
                 ))}
               </div>
               <div className="card-actions">
-                <button type="button" className="btn-primary">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => navigate(`/login?redirect=/organizations/${organization.id}/donate`)}
+                >
                   Donate
                 </button>
-                <button type="button" className="btn-outline">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => navigate(`/organizations/${organization.id}`)}
+                >
                   View Profile
                 </button>
               </div>

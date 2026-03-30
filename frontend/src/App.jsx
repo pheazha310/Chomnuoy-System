@@ -9,6 +9,7 @@ import CampaignDetailPage from '@/components/pages/CampaignDetailPage.jsx';
 import HowItWorksPage from '@/components/pages/HowItWorksPage.jsx';
 import OrganizationBeforeLogin from '@/components/pages/OrganizationBeforeLogin.jsx';
 import OrganizationAfterLogin from '@/components/pages/OrganizationAfterLogin.jsx';
+import OrganizationProfile from '@/components/pages/OrganizationProfile.jsx';
 import AboutPage from '@/components/pages/AboutPage.jsx';
 import ContactPage from '@/components/pages/ContactPage.jsx';
 import LoginPage from '@/auth/LoginPage.jsx';
@@ -134,6 +135,7 @@ export default function App() {
         <Route path={ROUTES.ABOUT} element={<AboutPage />} />
         <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
         <Route path={ROUTES.ORGANIZATION_DONATE()} element={<OrganizationRoute />} />
+        <Route path="/organizations/:id" element={<OrganizationProfile />} />
         <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
         <Route path="/campaigns/donor" element={<DonorCampaignsPage />} />
         <Route path={ROUTES.CAMPAIGN_DETAILS()} element={<CampaignDetailRoute />} />
