@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import ROUTES from '@/constants/routes.js';
 import {
   PAGE_SIZE,
   RATING_OPTIONS,
@@ -70,6 +71,7 @@ function mapOrganizations(items, apiBase) {
 
 function OrganizationBeforeLogin() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -429,10 +431,21 @@ function OrganizationBeforeLogin() {
                 ))}
               </div>
               <div className="card-actions">
-                <button type="button" className="btn-primary">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => {
+                    const redirect = encodeURIComponent(ROUTES.ORGANIZATION_DONATE(organization.id));
+                    navigate(`/login?redirect=${redirect}`);
+                  }}
+                >
                   Donate
                 </button>
-                <button type="button" className="btn-outline">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => navigate(ROUTES.ORGANIZATION_PUBLIC_PROFILE(organization.id))}
+                >
                   View Profile
                 </button>
               </div>

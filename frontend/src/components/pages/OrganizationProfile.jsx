@@ -80,15 +80,26 @@ function OrganizationProfile() {
           />
         </div>
         <div className="profile-info">
-          <h1>{organization.name}</h1>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {organization.name}
+            {organization.verified_status === 'approved' && (
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ background: '#fff', borderRadius: '50%', padding: '2px' }}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            )}
+          </h1>
           <p className="profile-category">{organization.category || organization.type || 'General'}</p>
-          <div className="profile-rating">
-            <span className="rating-stars">★ {organization.rating || '4.5'}</span>
-            <span className="review-count">({organization.reviews || organization.review_count || 0} reviews)</span>
+          <div className="profile-meta">
+            <div className="profile-rating">
+              <span className="rating-stars">★ {organization.rating || '4.5'}</span>
+              <span className="review-count">({organization.reviews || organization.review_count || 0} reviews)</span>
+            </div>
+            <p className="profile-location">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              {organization.location || organization.address || 'Location not specified'}
+            </p>
           </div>
-          <p className="profile-location">
-            {organization.location || organization.address || 'Location not specified'}
-          </p>
         </div>
         <div className="profile-actions">
           <button type="button" className="btn-primary" onClick={handleDonate}>
@@ -101,54 +112,92 @@ function OrganizationProfile() {
       </div>
 
       <div className="profile-content">
-        <section className="profile-section">
-          <h2>About</h2>
-          <p>{organization.mission || organization.description || organization.summary || 'No description available.'}</p>
-        </section>
-
-        {organization.vision && (
+        <div className="profile-main">
           <section className="profile-section">
-            <h2>Vision</h2>
-            <p>{organization.vision}</p>
+            <h2>About</h2>
+            <p>{organization.mission || organization.description || organization.summary || 'No description available.'}</p>
           </section>
-        )}
 
-        <section className="profile-section">
-          <h2>Contact Information</h2>
-          <div className="contact-grid">
-            {organization.email && (
-              <div className="contact-item">
-                <strong>Email:</strong> {organization.email}
-              </div>
-            )}
-            {organization.phone && (
-              <div className="contact-item">
-                <strong>Phone:</strong> {organization.phone}
-              </div>
-            )}
-            {organization.website && (
-              <div className="contact-item">
-                <strong>Website:</strong>{' '}
-                <a href={organization.website} target="_blank" rel="noopener noreferrer">
-                  {organization.website}
-                </a>
-              </div>
-            )}
-          </div>
-        </section>
+          {organization.vision && (
+            <section className="profile-section">
+              <h2>Vision</h2>
+              <p>{organization.vision}</p>
+            </section>
+          )}
+        </div>
 
-        {organization.tags && organization.tags.length > 0 && (
-          <section className="profile-section">
-            <h2>Focus Areas</h2>
-            <div className="tags">
-              {organization.tags.map((tag) => (
-                <span key={tag} className="tag">
-                  {tag}
+        <div className="profile-sidebar">
+          <section className="profile-section contact-card" style={{ marginBottom: '1.5rem' }}>
+            <h2>Organization Details</h2>
+            <div className="contact-grid">
+              <div className="contact-item">
+                <strong>Status:</strong>
+                <span style={{
+                  display: 'inline-block',
+                  padding: '4px 10px',
+                  background: organization.verified_status === 'approved' ? '#dcfce7' : '#fef08a',
+                  color: organization.verified_status === 'approved' ? '#166534' : '#854d0e',
+                  borderRadius: '99px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  marginTop: '4px',
+                  width: 'fit-content'
+                }}>
+                  {organization.verified_status === 'approved' ? 'Verified Partner' : 'Pending Verification'}
                 </span>
-              ))}
+              </div>
+              <div className="contact-item">
+                <strong>Member Since:</strong>
+                <span>
+                  {organization.created_at
+                    ? new Date(organization.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                    : 'Recently joined'}
+                </span>
+              </div>
+              <div className="contact-item" style={{ marginTop: '0.4rem' }}>
+                <strong>Location:</strong>
+                <span>{organization.location || organization.address || 'Location not specified'}</span>
+              </div>
             </div>
           </section>
-        )}
+
+          <section className="profile-section contact-card">
+            <h2>Contact Information</h2>
+            <div className="contact-grid">
+              {organization.email && (
+                <div className="contact-item">
+                  <strong>Email:</strong> {organization.email}
+                </div>
+              )}
+              {organization.phone && (
+                <div className="contact-item">
+                  <strong>Phone:</strong> {organization.phone}
+                </div>
+              )}
+              {organization.website && (
+                <div className="contact-item">
+                  <strong>Website:</strong>{' '}
+                  <a href={organization.website} target="_blank" rel="noopener noreferrer">
+                    {organization.website}
+                  </a>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {organization.tags && organization.tags.length > 0 && (
+            <section className="profile-section">
+              <h2>Focus Areas</h2>
+              <div className="tags">
+                {organization.tags.map((tag) => (
+                  <span key={tag} className="tag">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
     </main>
   );
