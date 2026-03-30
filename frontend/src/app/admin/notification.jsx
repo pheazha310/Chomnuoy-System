@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from './adminsidebar';
+import { getCachedBundle, getCachedJson } from '@/services/request-cache.js';
 import './style.css';
 import './notification.css';
 
@@ -350,12 +351,16 @@ export default function AdminNotificationPage() {
     const token = window.localStorage.getItem('authToken');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    Promise.all([
-      fetch(`${apiBase}/notifications?recipient_type=admin`, { headers }).then((response) => (response.ok ? response.json() : [])),
-      fetch(`${apiBase}/users`, { headers }).then((response) => (response.ok ? response.json() : [])),
-      fetch(`${apiBase}/organizations`, { headers }).then((response) => (response.ok ? response.json() : [])),
-    ])
-      .then(([data, usersData, organizationsData]) => {
+    getCachedBundle(
+      'admin:notifications-dashboard',
+      [
+        () => getCachedJson(`${apiBase}/notifications?recipient_type=admin`, { cacheKey: 'admin:notifications:admin', ttlMs: 30 * 1000, headers, fallbackMessage: 'Failed to load notifications' }).then((data) => ({ data: Array.isArray(data) ? data : [] })),
+        () => getCachedJson(`${apiBase}/users`, { cacheKey: 'admin:users', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load users' }).then((usersData) => ({ usersData: Array.isArray(usersData) ? usersData : [] })),
+        () => getCachedJson(`${apiBase}/organizations`, { cacheKey: 'admin:organizations', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load organizations' }).then((organizationsData) => ({ organizationsData: Array.isArray(organizationsData) ? organizationsData : [] })),
+      ],
+      { ttlMs: 30 * 1000 },
+    )
+      .then(({ data, usersData, organizationsData }) => {
         if (!active) return;
         const list = Array.isArray(data) ? data : [];
         const usersList = Array.isArray(usersData) ? usersData : [];

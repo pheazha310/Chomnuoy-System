@@ -22,9 +22,11 @@ import {
   deactivateAccount,
   findOrganizationByEmail,
   findUserByEmail,
+  getMyUserProfile,
   getOrganizationById,
   getUserById,
   updateOrganizationProfile,
+  updateMyUserProfile,
   updateUserProfile,
 } from '@/services/user-service.js';
 import { getPrivacyPreferences, setPrivacyPreferences } from '@/utils/user-preferences';
@@ -98,6 +100,10 @@ function getInitials(name) {
   if (parts.length === 0) return 'DU';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function isNotFoundError(error) {
+  return Number(error?.response?.status) === 404;
 }
 
 function readDonorProfilePreferences() {
@@ -191,6 +197,7 @@ export default function MyProfilePage() {
   const cameraInputRef = useRef(null);
   const webcamVideoRef = useRef(null);
   const webcamCanvasRef = useRef(null);
+  const loadedProfileKeyRef = useRef('');
   const session = useMemo(() => getSession(), []);
 
   const [saving, setSaving] = useState(false);
@@ -231,9 +238,8 @@ export default function MyProfilePage() {
         return;
       }
 
-      let effectiveAccountId = resolvedAccountId;
-
-      if (!effectiveAccountId && session?.email) {
+      const resolveAccountByEmail = async () => {
+        if (!session?.email) return null;
         try {
           let matched = isOrganization
             ? await findOrganizationByEmail(session.email)
@@ -245,15 +251,27 @@ export default function MyProfilePage() {
               : await findOrganizationByEmail(session.email);
           }
 
-          if (matched?.id) {
-            effectiveAccountId = matched.id;
-            setResolvedAccountId(matched.id);
-            const nextSession = { ...(getSession() || {}), userId: matched.id };
-            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
-            window.dispatchEvent(new Event('chomnuoy-session-updated'));
-          }
+          return matched?.id || null;
         } catch {
-          // Fall back to current session values.
+          return null;
+        }
+      };
+
+      const persistResolvedAccountId = (accountId) => {
+        if (!accountId) return;
+        setResolvedAccountId(accountId);
+        const nextSession = { ...(getSession() || {}), userId: accountId };
+        window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+        window.dispatchEvent(new Event('chomnuoy-session-updated'));
+      };
+
+      let effectiveAccountId = resolvedAccountId;
+
+      if (!effectiveAccountId) {
+        const matchedId = await resolveAccountByEmail();
+        if (matchedId) {
+          effectiveAccountId = matchedId;
+          persistResolvedAccountId(matchedId);
         }
       }
 
@@ -263,9 +281,55 @@ export default function MyProfilePage() {
       }
 
       try {
-        const data = isOrganization
-          ? await getOrganizationById(effectiveAccountId)
-          : await getUserById(effectiveAccountId);
+        let data;
+
+        if (!isOrganization) {
+          try {
+            const profileResponse = await getMyUserProfile();
+            const profile = profileResponse?.profile || {};
+            const resolvedId = Number(profile?.id || 0);
+
+            if (resolvedId > 0 && resolvedId !== effectiveAccountId) {
+              effectiveAccountId = resolvedId;
+              persistResolvedAccountId(resolvedId);
+            }
+
+            data = {
+              id: profile?.id,
+              name: profile?.name,
+              email: profile?.email,
+              phone: profile?.phone,
+              avatar_path: profile?.avatar_path || profile?.avatar_url,
+            };
+          } catch (err) {
+            if (!isNotFoundError(err)) {
+              throw err;
+            }
+          }
+        }
+
+        if (!data) {
+          try {
+            data = isOrganization
+              ? await getOrganizationById(effectiveAccountId)
+              : await getUserById(effectiveAccountId);
+          } catch (err) {
+            if (!isNotFoundError(err)) {
+              throw err;
+            }
+
+            const matchedId = await resolveAccountByEmail();
+            if (!matchedId || matchedId === effectiveAccountId) {
+              throw err;
+            }
+
+            effectiveAccountId = matchedId;
+            persistResolvedAccountId(matchedId);
+            data = isOrganization
+              ? await getOrganizationById(matchedId)
+              : await getUserById(matchedId);
+          }
+        }
 
         setFormData({
           name: data?.name || session?.name || '',
@@ -284,7 +348,14 @@ export default function MyProfilePage() {
       }
     };
 
+    const loadKey = `${isOrganization ? 'organization' : 'user'}:${resolvedAccountId || 'missing'}:${session?.email || ''}`;
+    if (loadedProfileKeyRef.current === loadKey) {
+      return undefined;
+    }
+
+    loadedProfileKeyRef.current = loadKey;
     loadProfile();
+    return undefined;
   }, [isOrganization, navigate, resolvedAccountId, session]);
 
   useEffect(() => {
@@ -474,9 +545,21 @@ export default function MyProfilePage() {
         payload.append('avatar', avatarFile);
       }
 
-      const updated = isOrganization
+      const updatedResponse = isOrganization
         ? await updateOrganizationProfile(effectiveAccountId, payload)
-        : await updateUserProfile(effectiveAccountId, payload);
+        : await updateMyUserProfile(payload).catch(async (error) => {
+            if (isNotFoundError(error)) {
+              return updateUserProfile(effectiveAccountId, payload);
+            }
+            throw error;
+          });
+      const updated = updatedResponse?.profile || updatedResponse;
+      const updatedId = Number(updated?.id || effectiveAccountId || 0);
+
+      if (updatedId > 0 && updatedId !== resolvedAccountId) {
+        setResolvedAccountId(updatedId);
+        effectiveAccountId = updatedId;
+      }
 
       const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';

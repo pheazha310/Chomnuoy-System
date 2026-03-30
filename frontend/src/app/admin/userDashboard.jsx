@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './adminsidebar';
+import { getCachedJson } from '@/services/request-cache.js';
 import './user.css';
 
 const USERS_CACHE_KEY = 'admin_user_dashboard_users_cache';
@@ -229,13 +230,12 @@ export default function UserDashboard() {
       }
       setError('');
       try {
-        const usersResponse = await fetch(`${apiBase}/users`, { headers });
-
-        if (!usersResponse.ok) {
-          throw new Error(`Failed to load users (${usersResponse.status})`);
-        }
-
-        const usersData = await usersResponse.json();
+        const usersData = await getCachedJson(`${apiBase}/users`, {
+          cacheKey: 'admin:users',
+          ttlMs: silent ? 30 * 1000 : CACHE_MAX_AGE_MS,
+          headers,
+          fallbackMessage: 'Failed to load users',
+        });
 
         if (mounted) {
           const nextUsers = Array.isArray(usersData) ? usersData : [];
@@ -243,12 +243,13 @@ export default function UserDashboard() {
           writeCache(USERS_CACHE_KEY, nextUsers);
         }
 
-        fetch(`${apiBase}/roles`, { headers })
-          .then(async (rolesResponse) => {
-            if (!rolesResponse.ok) {
-              throw new Error(`Failed to load roles (${rolesResponse.status})`);
-            }
-            const rolesData = await rolesResponse.json();
+        getCachedJson(`${apiBase}/roles`, {
+          cacheKey: 'admin:roles',
+          ttlMs: CACHE_MAX_AGE_MS,
+          headers,
+          fallbackMessage: 'Failed to load roles',
+        })
+          .then((rolesData) => {
             if (!mounted) return;
             const nextRoles = Array.isArray(rolesData) ? rolesData : [];
             setRoles(nextRoles);

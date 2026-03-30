@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from './adminsidebar';
+import { getCachedBundle, getCachedJson } from '@/services/request-cache.js';
 import './donaionAdmin.css';
 
 const DONATIONS_CACHE_KEY = 'admin_donations_dashboard_cache';
@@ -187,26 +188,19 @@ export default function DonationAdminPage() {
       setError('');
 
       try {
-        const results = await Promise.allSettled([
-          fetch(`${apiBase}/donations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/campaigns`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/users`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/campaign_update`, { headers }).then((res) => (res.ok ? res.json() : [])),
-        ]);
+        const nextData = await getCachedBundle(
+          'admin:donations-dashboard',
+          [
+            () => getCachedJson(`${apiBase}/donations`, { cacheKey: 'admin:donations', ttlMs: CACHE_MAX_AGE_MS, headers, fallbackMessage: 'Failed to load donations' }).then((donations) => ({ donations: Array.isArray(donations) ? donations : [] })),
+            () => getCachedJson(`${apiBase}/campaigns`, { cacheKey: 'admin:campaigns', ttlMs: CACHE_MAX_AGE_MS, headers, fallbackMessage: 'Failed to load campaigns' }).then((campaigns) => ({ campaigns: Array.isArray(campaigns) ? campaigns : [] })),
+            () => getCachedJson(`${apiBase}/users`, { cacheKey: 'admin:users', ttlMs: CACHE_MAX_AGE_MS, headers, fallbackMessage: 'Failed to load users' }).then((users) => ({ users: Array.isArray(users) ? users : [] })),
+            () => getCachedJson(`${apiBase}/organizations`, { cacheKey: 'admin:organizations', ttlMs: CACHE_MAX_AGE_MS, headers, fallbackMessage: 'Failed to load organizations' }).then((organizations) => ({ organizations: Array.isArray(organizations) ? organizations : [] })),
+            () => getCachedJson(`${apiBase}/campaign_update`, { cacheKey: 'admin:campaign-updates', ttlMs: CACHE_MAX_AGE_MS, headers, fallbackMessage: 'Failed to load campaign updates', allowStatuses: [404], defaultValue: [] }).then((campaignUpdates) => ({ campaignUpdates: Array.isArray(campaignUpdates) ? campaignUpdates : [] })),
+          ],
+          { ttlMs: CACHE_MAX_AGE_MS },
+        );
 
         if (!active) return;
-        if (results[0].status === 'rejected') {
-          throw new Error('Failed to load donations.');
-        }
-
-        const nextData = {
-          donations: results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [],
-          campaigns: results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [],
-          users: results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [],
-          organizations: results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [],
-          campaignUpdates: results[4].status === 'fulfilled' && Array.isArray(results[4].value) ? results[4].value : [],
-        };
 
         setData(nextData);
         writeCache(nextData);

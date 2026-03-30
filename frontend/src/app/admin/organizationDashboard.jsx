@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, ArrowUpRight, Building2, CheckCircle2, Clock3, Eye, Filter, MapPin, MoreVertical, PencilLine, Search, ShieldCheck, UserX } from 'lucide-react';
 import AdminSidebar from './adminsidebar';
 import { deactivateAccount, updateOrganizationProfile } from '@/services/user-service.js';
+import { getCachedJson } from '@/services/request-cache.js';
 import './organization.css';
 
 const ORGANIZATIONS_CACHE_KEY = 'admin_organization_dashboard_orgs_cache';
@@ -198,13 +199,12 @@ export default function OrganizationDashboard() {
       }
       setError('');
       try {
-        const orgResponse = await fetch(`${apiBase}/organizations`, { headers });
-
-        if (!orgResponse.ok) {
-          throw new Error(`Failed to load organizations (${orgResponse.status})`);
-        }
-
-        const orgData = await orgResponse.json();
+        const orgData = await getCachedJson(`${apiBase}/organizations`, {
+          cacheKey: 'admin:organizations',
+          ttlMs: silent ? 30 * 1000 : CACHE_MAX_AGE_MS,
+          headers,
+          fallbackMessage: 'Failed to load organizations',
+        });
 
         if (mounted) {
           const nextOrganizations = Array.isArray(orgData) ? orgData : [];
@@ -212,12 +212,13 @@ export default function OrganizationDashboard() {
           writeCache(ORGANIZATIONS_CACHE_KEY, nextOrganizations);
         }
 
-        fetch(`${apiBase}/categories`, { headers })
-          .then(async (categoryResponse) => {
-            if (!categoryResponse.ok) {
-              throw new Error(`Failed to load categories (${categoryResponse.status})`);
-            }
-            const catData = await categoryResponse.json();
+        getCachedJson(`${apiBase}/categories`, {
+          cacheKey: 'admin:categories',
+          ttlMs: CACHE_MAX_AGE_MS,
+          headers,
+          fallbackMessage: 'Failed to load categories',
+        })
+          .then((catData) => {
             if (!mounted) return;
             const nextCategories = Array.isArray(catData) ? catData : [];
             setCategories(nextCategories);
