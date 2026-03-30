@@ -189,6 +189,8 @@ export default function MyProfilePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const webcamVideoRef = useRef(null);
+  const webcamCanvasRef = useRef(null);
   const session = useMemo(() => getSession(), []);
 
   const [saving, setSaving] = useState(false);
@@ -197,6 +199,8 @@ export default function MyProfilePage() {
   const [success, setSuccess] = useState('');
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [showIllustrations, setShowIllustrations] = useState(false);
+  const [isWebcamOpen, setIsWebcamOpen] = useState(false);
+  const [webcamError, setWebcamError] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
   const [resolvedAccountId, setResolvedAccountId] = useState(
     session?.userId ?? session?.accountId ?? session?.id ?? session?.user_id ?? null,
@@ -287,6 +291,57 @@ export default function MyProfilePage() {
     setPreferences(readDonorProfilePreferences());
   }, []);
 
+  useEffect(() => () => {
+    if (formData.avatar?.startsWith?.('blob:')) {
+      URL.revokeObjectURL(formData.avatar);
+    }
+  }, [formData.avatar]);
+
+  useEffect(() => {
+    if (!isWebcamOpen) return undefined;
+
+    let active = true;
+    let nextStream = null;
+
+    const startWebcam = async () => {
+      try {
+        setWebcamError('');
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('Camera access is not supported in this browser.');
+        }
+
+        nextStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false,
+        });
+
+        if (!active) {
+          nextStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        if (webcamVideoRef.current) {
+          webcamVideoRef.current.srcObject = nextStream;
+          await webcamVideoRef.current.play().catch(() => {});
+        }
+      } catch (err) {
+        setWebcamError(err instanceof Error ? err.message : 'Unable to access your camera.');
+      }
+    };
+
+    startWebcam();
+
+    return () => {
+      active = false;
+      if (nextStream) {
+        nextStream.getTracks().forEach((track) => track.stop());
+      }
+      if (webcamVideoRef.current) {
+        webcamVideoRef.current.srcObject = null;
+      }
+    };
+  }, [isWebcamOpen]);
+
   const handleAvatarChange = (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -299,6 +354,7 @@ export default function MyProfilePage() {
     }));
     setIsCameraModalOpen(false);
     setShowIllustrations(false);
+    setIsWebcamOpen(false);
   };
 
   const handleSelectIllustration = (url) => {
@@ -309,6 +365,55 @@ export default function MyProfilePage() {
     }));
     setIsCameraModalOpen(false);
     setShowIllustrations(false);
+    setIsWebcamOpen(false);
+  };
+
+  const handleOpenCamera = async () => {
+    setShowIllustrations(false);
+
+    const isMobileLike = /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent || '');
+    if (isMobileLike) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    setIsWebcamOpen(true);
+  };
+
+  const handleCaptureFromWebcam = () => {
+    const video = webcamVideoRef.current;
+    const canvas = webcamCanvasRef.current;
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      setWebcamError('Camera is not ready yet. Please try again.');
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setWebcamError('Unable to capture photo.');
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setWebcamError('Unable to capture photo.');
+        return;
+      }
+
+      const file = new File([blob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarFile(file);
+      setFormData((previous) => ({
+        ...previous,
+        avatar: previewUrl,
+      }));
+      setIsWebcamOpen(false);
+      setIsCameraModalOpen(false);
+      setWebcamError('');
+    }, 'image/jpeg', 0.92);
   };
 
   const handleFieldChange = (field) => (event) => {
@@ -558,13 +663,77 @@ export default function MyProfilePage() {
 
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={handleOpenCamera}
                     className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:bg-[#F8FAFC]"
                   >
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB]">
                       <Camera className="h-5 w-5" />
                     </span>
                     <span className="text-sm font-semibold text-[#0F172A]">Camera</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isWebcamOpen ? (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4">
+            <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-[#D7DCE5] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.35)]">
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94A3B8]">Camera</p>
+                  <h2 className="mt-1 text-xl font-semibold text-[#0F172A]">Take a profile photo</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWebcamOpen(false);
+                    setWebcamError('');
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F172A] transition hover:bg-[#F8FAFC]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-6">
+                <div className="overflow-hidden rounded-[24px] bg-[#0F172A]">
+                  <video
+                    ref={webcamVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="aspect-[4/3] w-full object-cover"
+                  />
+                </div>
+                <canvas ref={webcamCanvasRef} className="hidden" />
+                {webcamError ? (
+                  <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {webcamError}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm text-[#64748B]">Position yourself in frame, then capture the photo.</p>
+                )}
+
+                <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWebcamOpen(false);
+                      setWebcamError('');
+                    }}
+                    className="rounded-xl border border-[#D7DCE5] bg-white px-4 py-2.5 text-sm font-semibold text-[#475569] transition hover:bg-[#F8FAFC]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCaptureFromWebcam}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(37,99,235,0.22)] transition hover:bg-[#1D4ED8]"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Capture Photo
                   </button>
                 </div>
               </div>
