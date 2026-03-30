@@ -364,17 +364,6 @@ export default function AdminSettingsPage() {
     window.location.href = '/login';
   };
 
-  if (isLoading) {
-    return (
-      <div className="admin-shell">
-        <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
-        <main className="admin-main">
-          <div className="admin-panel">Loading settings...</div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="admin-shell">
       <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />

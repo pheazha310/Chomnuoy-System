@@ -373,20 +373,6 @@ export default function AdminProfilePage() {
     setSaveMessage('');
   };
 
-  if (loading) {
-    return (
-      <div className="admin-shell">
-        <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
-        <main className="admin-main">
-          <div className="admin-profile-loading">
-            <div className="spinner" />
-            <p>Loading profile...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="admin-shell">
       <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
@@ -399,7 +385,7 @@ export default function AdminProfilePage() {
           </div>
         </header>
 
-        {!loading && loadError && !profile ? (
+        {loadError && !profile ? (
           <div className="admin-profile-empty is-error">{loadError}</div>
         ) : (
           <div className="admin-profile-container">
