@@ -92,26 +92,6 @@ const normalizeCategory = (value) => {
   return 'General';
 };
 
-<<<<<<< HEAD
-const getStorageFileUrl = (path) => {
-  if (!path) return '';
-  const rawPath = String(path).trim();
-  if (
-    rawPath.startsWith('http://') ||
-    rawPath.startsWith('https://') ||
-    rawPath.startsWith('blob:') ||
-    rawPath.startsWith('data:')
-  ) {
-    return rawPath;
-  }
-  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
-    return `${appBase}/${normalizedPath}`;
-  }
-  return `${appBase}/storage/${normalizedPath}`;
-=======
 const readCache = (key) => {
   try {
     const raw = window.sessionStorage.getItem(key);
@@ -166,7 +146,6 @@ const mapCampaigns = (items) => {
       isNew,
     };
   });
->>>>>>> 368e64761fc38b6c82439821fe92c0c52a5bfab8
 };
 
 export default function App() {
@@ -218,36 +197,7 @@ export default function App() {
       })
       .then((data) => {
         const items = Array.isArray(data) ? data : [];
-<<<<<<< HEAD
-        const activeOnly = items.filter((item) => {
-          const status = String(item.status || '').toLowerCase();
-          return !status || status === 'active';
-        });
-        const mapped = activeOnly.map((item) => {
-          const goal = Number(item.goal_amount || 0);
-          const raised = Number(item.current_amount || 0);
-          const timeLeft = getTimeLeft(item.end_date);
-          const daysLeft = getDaysLeft(item.end_date);
-          const createdAt = item.created_at ? new Date(item.created_at).getTime() : 0;
-          const categoryLabel = normalizeCategory(item.category);
-          const isNew = createdAt ? Date.now() - createdAt <= 1000 * 60 * 60 * 24 * 14 : false;
-          return {
-            id: item.id,
-            title: item.title || "Untitled Campaign",
-            description: item.description || "No description provided.",
-            image: getStorageFileUrl(item.image_path) || placeholderImage,
-            category: categoryLabel,
-            normalizedCategory: categoryLabel,
-            raised,
-            goal,
-            timeLeft,
-            isUrgent: typeof daysLeft === "number" ? daysLeft > 0 && daysLeft <= 3 : false,
-            isNew,
-          };
-        });
-=======
         const mapped = mapCampaigns(items);
->>>>>>> 368e64761fc38b6c82439821fe92c0c52a5bfab8
         setCampaigns(mapped);
         writeCache(CAMPAIGNS_CACHE_KEY, mapped);
       })
