@@ -23,7 +23,6 @@ import '../css/organization.css';
 function OrganizationBeforeLogin() {
 
   const location = useLocation();
-
   const navigate = useNavigate();
 
   const [searchInput, setSearchInput] = useState('');
