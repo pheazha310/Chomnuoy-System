@@ -50,6 +50,26 @@ const normalizeCategory = (value) => {
   return 'General';
 };
 
+const getStorageFileUrl = (path) => {
+  if (!path) return '';
+  const rawPath = String(path).trim();
+  if (
+    rawPath.startsWith('http://') ||
+    rawPath.startsWith('https://') ||
+    rawPath.startsWith('blob:') ||
+    rawPath.startsWith('data:')
+  ) {
+    return rawPath;
+  }
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+  if (normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
+};
+
 export default function App() {
   const [selectedFilter, setSelectedFilter] = useState('All Campaigns');
   const [visibleCount, setVisibleCount] = useState(6);
@@ -108,7 +128,7 @@ export default function App() {
             id: item.id,
             title: item.title || "Untitled Campaign",
             description: item.description || "No description provided.",
-            image: item.image_path || placeholderImage,
+            image: getStorageFileUrl(item.image_path) || placeholderImage,
             category: categoryLabel,
             normalizedCategory: categoryLabel,
             raised,

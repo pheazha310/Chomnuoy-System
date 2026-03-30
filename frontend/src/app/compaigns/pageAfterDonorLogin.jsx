@@ -1,7 +1,14 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import ROUTES from '@/constants/routes.js';
+
+const placeholderImage =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#fef3c7"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="28" font-family="Arial" text-anchor="middle" fill="#334155">Campaign</text></svg>'
+  );
 
 export default function CampaignCard({
   id,
@@ -15,18 +22,20 @@ export default function CampaignCard({
   isUrgent,
   isNew,
 }) {
+  const location = useLocation();
   const navigate = useNavigate();
   const safeGoal = goal > 0 ? goal : 1;
   const progress = Math.min((raised / safeGoal) * 100, 100);
-  const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
+  const campaignPath = ROUTES.CAMPAIGN_DETAILS(id || title.toLowerCase().replace(/\s+/g, '-'));
+  const fromPath = `${location.pathname}${location.search || ''}`;
 
   const handleCardClick = () => {
-    navigate(campaignPath);
+    navigate(campaignPath, { state: { from: fromPath } });
   };
 
   const handleDonateClick = (e) => {
     e.stopPropagation();
-    navigate(campaignPath);
+    navigate(campaignPath, { state: { from: fromPath } });
   };
 
   return (
@@ -43,6 +52,10 @@ export default function CampaignCard({
           alt={title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           referrerPolicy="no-referrer"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = placeholderImage;
+          }}
         />
         {isUrgent && (
           <div className="absolute top-4 left-4 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">

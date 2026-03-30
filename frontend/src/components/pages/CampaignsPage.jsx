@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import '../css/Campaigns.css';
+import ROUTES from '@/constants/routes.js';
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
@@ -80,6 +82,7 @@ function campaignCategoryToSidebarCategory(category) {
 }
 
 function CampaignsPage() {
+  const location = useLocation();
   const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
   const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -335,27 +338,36 @@ function CampaignsPage() {
           {paginatedCampaigns.map((campaign, index) => {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
-            const detailPath = `/campaigns/${campaign.id}`;
+            const detailPath = ROUTES.CAMPAIGN_DETAILS(campaign.id);
             const isUrgent = percentRaised < 40;
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
             const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
 
             return (
               <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
-                <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                <Link
+                  to={detailPath}
+                  state={{ from: `${location.pathname}${location.search || ''}` }}
+                  className="campaign-media-link"
+                  aria-label={`Open ${campaign.title} details`}
+                >
                   <img src={campaign.image} alt={campaign.title} className="campaign-image campaign-dashboard-image" loading="lazy" />
                   <div className="campaign-card-badges">
                     <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
                     <span className="campaign-badge campaign-badge-verified">Verified</span>
                     {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
                   </div>
-                </a>
+                </Link>
 
                 <div className="campaign-content campaign-dashboard-content">
                   <h2>
-                    <a href={detailPath} className="campaign-title-link">
+                    <Link
+                      to={detailPath}
+                      state={{ from: `${location.pathname}${location.search || ''}` }}
+                      className="campaign-title-link"
+                    >
                       {campaign.title}
-                    </a>
+                    </Link>
                   </h2>
                   <p className="campaign-summary">{campaign.summary}</p>
 
@@ -380,9 +392,14 @@ function CampaignsPage() {
                       <img className="donor-avatar donor-avatar-image" src={donorProfileImages[1]} alt="" aria-hidden="true" />
                       <span className="donor-avatar donor-avatar-more">+{mockDonorCount}</span>
                     </div>
-                    <a href={detailPath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
+                    <Link
+                      to={detailPath}
+                      state={{ from: `${location.pathname}${location.search || ''}` }}
+                      className="donate-button campaign-donate-button"
+                      aria-label={`Donate to ${campaign.title}`}
+                    >
                       Donate Now
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </article>
