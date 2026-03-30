@@ -36,14 +36,7 @@ export default function SupportSection() {
               </div>
             </div>
             <h3>{item.title}</h3>
-            <p>{item.description}</p>
-            <a
-              href={item.link}
-              className="support-link"
-            >
-              {item.linkText}
-              <ArrowRight className="h-4 w-4" />
-            </a>
+            <p>{item.description}</p> 
           </div>
         ))}
       </div>

@@ -48,6 +48,7 @@ use Illuminate\Support\Facades\Storage;
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
+Route::post('/auth/google/token', [SocialAuthController::class, 'googleTokenLogin']);
 Route::get('/files/{path}', function (string $path) {
     $disk = Storage::disk('public');
 

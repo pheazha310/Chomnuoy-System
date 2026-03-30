@@ -44,6 +44,11 @@ export async function loginUser(payload) {
     return response.data;
 }
 
+export async function loginWithGoogleCredential(credential) {
+    const response = await apiClient.post('/auth/google/token', { credential });
+    return response.data;
+}
+
 /**
  * Get all categories
  * Send GET request to fetch category list
