@@ -478,12 +478,6 @@ const AdminDashboard = () => {
             <p className="admin-header-kicker">Admin Dashboard Hub</p>
             <h1>Overview</h1>
           </div>
-          <div className="admin-header-actions">
-            <button className="admin-icon-btn" type="button" aria-label="Toggle theme">
-              <span className="admin-icon" />
-            </button>
-            <button className="admin-primary-btn" type="button">+ New Task</button>
-          </div>
         </header>
 
       <section className="admin-stats">

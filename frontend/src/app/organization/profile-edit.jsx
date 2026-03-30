@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getOrganizationById, updateOrganizationProfile } from '@/services/user-service.js';
+import { DEFAULT_MAP_CENTER, getCurrentCoordinates } from '@/utils/geolocation.js';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';

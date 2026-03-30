@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Activity, ArrowUpRight, Building2, CheckCircle2, Clock3, Filter, MapPin, Search, ShieldCheck } from 'lucide-react';
 import AdminSidebar from './adminsidebar';
 import './organization.css';
 
@@ -228,12 +229,60 @@ export default function OrganizationDashboard() {
     const ngos = normalizedOrgs.filter((org) => org.type === 'NGO').length;
     const schools = normalizedOrgs.filter((org) => org.type === 'School').length;
     const hospitals = normalizedOrgs.filter((org) => org.type === 'Hospital').length;
+    const verified = normalizedOrgs.filter((org) => org.status === 'Verified').length;
+    const pending = normalizedOrgs.filter((org) => org.status === 'Pending').length;
+    const verificationRate = total ? Math.round((verified / total) * 100) : 0;
     return [
-      { id: 'total', label: 'Total Entities', value: total.toLocaleString(), note: '+12% from last month' },
-      { id: 'ngo', label: 'NGOs', value: ngos.toLocaleString(), note: `Verified: ${ngos}` },
-      { id: 'school', label: 'Schools', value: schools.toLocaleString(), note: `Verified: ${schools}` },
-      { id: 'hospital', label: 'Hospitals', value: hospitals.toLocaleString(), note: `Verified: ${hospitals}` },
+      {
+        id: 'total',
+        label: 'Total Entities',
+        value: total.toLocaleString(),
+        note: `${verified.toLocaleString()} verified organizations`,
+        accent: 'blue',
+        Icon: Building2,
+      },
+      {
+        id: 'ngo',
+        label: 'NGOs',
+        value: ngos.toLocaleString(),
+        note: pending ? `${pending.toLocaleString()} pending review` : 'All active records reviewed',
+        accent: 'emerald',
+        Icon: ShieldCheck,
+      },
+      {
+        id: 'school',
+        label: 'Schools',
+        value: schools.toLocaleString(),
+        note: `${verificationRate}% verification rate`,
+        accent: 'amber',
+        Icon: Activity,
+      },
+      {
+        id: 'hospital',
+        label: 'Hospitals',
+        value: hospitals.toLocaleString(),
+        note: `${hospitals ? hospitals : 0} medical partners onboarded`,
+        accent: 'violet',
+        Icon: CheckCircle2,
+      },
     ];
+  }, [normalizedOrgs]);
+
+  const summary = useMemo(() => {
+    const total = normalizedOrgs.length;
+    const verified = normalizedOrgs.filter((org) => org.status === 'Verified').length;
+    const pending = normalizedOrgs.filter((org) => org.status === 'Pending').length;
+    const inactive = normalizedOrgs.filter((org) => org.status === 'Inactive').length;
+    const uniqueLocations = new Set(normalizedOrgs.map((org) => org.location).filter((value) => value && value !== '-')).size;
+
+    return {
+      total,
+      verified,
+      pending,
+      inactive,
+      uniqueLocations,
+      verificationRate: total ? Math.round((verified / total) * 100) : 0,
+    };
   }, [normalizedOrgs]);
 
   return (
@@ -242,17 +291,67 @@ export default function OrganizationDashboard() {
 
       <main className="admin-main admin-org-main">
         <header className="admin-org-header">
-          <div>
-            <h1>Organization Management</h1>
-            <p>Track and verify organizations onboarded into the platform.</p>
-            {isRefreshing && !loading ? <span className="admin-org-refreshing">Refreshing data...</span> : null}
+          <div className="admin-org-hero">
+            <div className="admin-org-hero-copy">
+              <span className="admin-org-eyebrow">Admin Workspace</span>
+              <h1>Organization Management</h1>
+              <p>Track onboarding, spot pending verifications, and keep partner records clean across the platform.</p>
+              <div className="admin-org-hero-chips">
+                <span className="admin-org-hero-chip">
+                  <CheckCircle2 size={14} />
+                  {summary.verified} verified
+                </span>
+                <span className="admin-org-hero-chip is-warning">
+                  <Clock3 size={14} />
+                  {summary.pending} pending
+                </span>
+                <span className="admin-org-hero-chip is-neutral">
+                  <MapPin size={14} />
+                  {summary.uniqueLocations} locations
+                </span>
+              </div>
+              {isRefreshing && !loading ? <span className="admin-org-refreshing">Refreshing live data...</span> : null}
+            </div>
+
+            <div className="admin-org-hero-panel">
+              <div className="admin-org-hero-panel-top">
+                <span className="admin-org-live-pill">
+                  <Activity size={14} />
+                  Live overview
+                </span>
+                <span className="admin-org-hero-rate">{summary.verificationRate}%</span>
+              </div>
+              <p className="admin-org-hero-panel-label">Verification coverage</p>
+              <div className="admin-org-hero-meter" aria-hidden="true">
+                <span style={{ width: `${summary.verificationRate}%` }} />
+              </div>
+              <div className="admin-org-hero-metrics">
+                <div>
+                  <strong>{summary.total}</strong>
+                  <span>Total orgs</span>
+                </div>
+                <div>
+                  <strong>{summary.pending}</strong>
+                  <span>Needs review</span>
+                </div>
+                <div>
+                  <strong>{summary.inactive}</strong>
+                  <span>Inactive</span>
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 
         <section className="admin-org-stats">
           {stats.map((stat) => (
-            <div key={stat.id} className="admin-org-stat">
-              <p>{stat.label}</p>
+            <div key={stat.id} className={`admin-org-stat admin-org-stat-${stat.accent}`}>
+              <div className="admin-org-stat-top">
+                <p>{stat.label}</p>
+                <span className="admin-org-stat-icon">
+                  <stat.Icon size={16} />
+                </span>
+              </div>
               <h3>{stat.value}</h3>
               <span>{stat.note}</span>
             </div>
@@ -267,30 +366,30 @@ export default function OrganizationDashboard() {
                 className={filter === 'all' ? 'is-active' : ''}
                 onClick={() => setFilter('all')}
               >
-                All Organizations
+                <span>All Organizations</span>
+                <strong>{normalizedOrgs.length}</strong>
               </button>
               <button
                 type="button"
                 className={filter === 'pending' ? 'is-active' : ''}
                 onClick={() => setFilter('pending')}
               >
-                Pending
+                <span>Pending</span>
+                <strong>{summary.pending}</strong>
               </button>
               <button
                 type="button"
                 className={filter === 'verified' ? 'is-active' : ''}
                 onClick={() => setFilter('verified')}
               >
-                Verified
+                <span>Verified</span>
+                <strong>{summary.verified}</strong>
               </button>
             </div>
             <div className="admin-org-toolbar-actions">
               <label className="admin-org-search">
                 <span aria-hidden="true" className="admin-org-search-icon">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" fill="none" />
-                    <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
+                  <Search size={16} />
                 </span>
                 <input
                   type="search"
@@ -300,9 +399,11 @@ export default function OrganizationDashboard() {
                 />
               </label>
               <button type="button" className="admin-org-ghost-btn">
+                <Filter size={15} />
                 Organization Type
               </button>
               <button type="button" className="admin-org-ghost-btn">
+                <ArrowUpRight size={15} />
                 More Filters
               </button>
             </div>

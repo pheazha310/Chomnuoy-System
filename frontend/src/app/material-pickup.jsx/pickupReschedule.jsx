@@ -1,16 +1,24 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarDays } from 'lucide-react';
+import apiClient from '@/services/api-client.js';
+import { parseDate } from '@/services/material-workflow-service.js';
 import './pickup-detail.css';
 
 export default function PickupReschedulePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const pickup = location.state?.pickup;
+  const scheduledDate = parseDate(pickup?.scheduleDateRaw || pickup?.date);
+  const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
-    date: pickup?.date || '',
-    timeFrom: '',
+    date: scheduledDate
+      ? `${scheduledDate.getFullYear()}-${String(scheduledDate.getMonth() + 1).padStart(2, '0')}-${String(scheduledDate.getDate()).padStart(2, '0')}`
+      : '',
+    timeFrom: scheduledDate
+      ? `${String(scheduledDate.getHours()).padStart(2, '0')}:${String(scheduledDate.getMinutes()).padStart(2, '0')}`
+      : '',
     timeTo: '',
     address: pickup?.address || '',
     note: '',
@@ -33,9 +41,27 @@ export default function PickupReschedulePage() {
     );
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    navigate('/pickup');
+    if (!pickup?.pickupId) {
+      navigate('/pickup');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const [hours = '09', minutes = '00'] = String(form.timeFrom || '09:00').split(':');
+      const scheduleDate = new Date(`${form.date}T${hours}:${minutes}:00`);
+      await apiClient.put(`/material_pickups/${pickup.pickupId}`, {
+        status: 'pending',
+        pickup_address: form.address,
+        schedule_date: scheduleDate.toISOString(),
+        notes: form.note || pickup?.detail || '',
+      });
+      navigate('/pickup');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -56,31 +82,27 @@ export default function PickupReschedulePage() {
             <label>
               New Date
               <input
-                type="text"
+                type="date"
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
-                placeholder="Oct 30, 2023"
                 required
               />
             </label>
             <label>
               New Time From
               <input
-                type="text"
+                type="time"
                 value={form.timeFrom}
                 onChange={(e) => setForm({ ...form, timeFrom: e.target.value })}
-                placeholder="10:00 AM"
                 required
               />
             </label>
             <label>
               New Time To
               <input
-                type="text"
+                type="time"
                 value={form.timeTo}
                 onChange={(e) => setForm({ ...form, timeTo: e.target.value })}
-                placeholder="12:00 PM"
-                required
               />
             </label>
             <label className="full">
@@ -104,9 +126,9 @@ export default function PickupReschedulePage() {
 
             <div className="pr-actions">
               <button type="button" className="cancel" onClick={() => navigate('/pickup')}>Cancel</button>
-              <button type="submit" className="submit">
+              <button type="submit" className="submit" disabled={saving}>
                 <CalendarDays />
-                Save Reschedule
+                {saving ? 'Saving...' : 'Save Reschedule'}
               </button>
             </div>
           </form>
