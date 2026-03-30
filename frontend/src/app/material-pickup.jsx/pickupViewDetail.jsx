@@ -62,10 +62,14 @@ export default function PickupViewDetailPage() {
           <div className="pd-track">
             <h3><Truck /> Tracking Timeline</h3>
             <ul>
-              <li className="done">Pickup requested</li>
-              <li className="done">Driver assigned</li>
-              <li className={pickup.status === 'Delivered' ? 'done' : ''}>In transit</li>
-              <li className={pickup.status === 'Delivered' ? 'done' : ''}>Delivered</li>
+              {(Array.isArray(pickup.timeline) ? pickup.timeline : [
+                { key: 'requested', label: 'Pickup requested', done: true },
+                { key: 'confirmed', label: 'Driver assigned', done: true },
+                { key: 'transit', label: 'In transit', done: pickup.status === 'Delivered' },
+                { key: 'completed', label: 'Delivered', done: pickup.status === 'Delivered' },
+              ]).map((item) => (
+                <li key={item.key} className={item.done ? 'done' : ''}>{item.label}</li>
+              ))}
             </ul>
           </div>
         </article>

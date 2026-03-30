@@ -78,6 +78,29 @@ const StatCard = ({ stat }) => (
   </div>
 );
 
+const MENU_ICONS = {
+  profile: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  ),
+  edit: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m12.5 7.5 4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  deactivate: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="9.5" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M17 8h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19.5 5.5v5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
 export default function UserDashboard() {
   const navigate = useNavigate();
   const cachedUsers = readCache(USERS_CACHE_KEY);
@@ -479,11 +502,16 @@ export default function UserDashboard() {
                   {openMenuId === user.id ? (
                     <div className="admin-user-menu" role="menu">
                       <button type="button" role="menuitem" onClick={() => navigate(`/admin/users/${user.id}`)}>
-                        View Profile
+                        <span className="admin-user-menu-icon">{MENU_ICONS.profile}</span>
+                        <span>View Profile</span>
                       </button>
-                      <button type="button" role="menuitem" onClick={() => openActionModal('edit', user)}>Edit User</button>
+                      <button type="button" role="menuitem" onClick={() => openActionModal('edit', user)}>
+                        <span className="admin-user-menu-icon">{MENU_ICONS.edit}</span>
+                        <span>Edit</span>
+                      </button>
                       <button type="button" role="menuitem" className="danger" onClick={() => openActionModal('deactivate', user)}>
-                        Deactivate
+                        <span className="admin-user-menu-icon">{MENU_ICONS.deactivate}</span>
+                        <span>Deactivate</span>
                       </button>
                     </div>
                   ) : null}

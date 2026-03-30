@@ -215,6 +215,10 @@ export default function ReportsAdmin() {
   const topCampaigns = reportData.top_campaigns || [];
   const categoryBreakdown = reportData.category_breakdown || [];
   const placeholderNotes = reportData.placeholders || {};
+  const totalDonors = useMemo(() => (series.donors || []).reduce((sum, value) => sum + Number(value || 0), 0), [series.donors]);
+  const totalOrganizations = useMemo(() => (series.organizations || []).reduce((sum, value) => sum + Number(value || 0), 0), [series.organizations]);
+  const totalCampaigns = useMemo(() => (series.campaigns || []).reduce((sum, value) => sum + Number(value || 0), 0), [series.campaigns]);
+  const peakGrowth = useMemo(() => Math.max(...chartValues, 0), [chartValues]);
 
   const handleDownloadCsv = () => {
     const rows = [];
@@ -505,6 +509,24 @@ export default function ReportsAdmin() {
               </div>
             </div>
             <div className="admin-report-chart">
+              <div className="admin-report-chart-overview" aria-hidden="true">
+                <div className="admin-report-chart-stat">
+                  <span>Total donations</span>
+                  <strong>{totalDonors.toLocaleString()}</strong>
+                </div>
+                <div className="admin-report-chart-stat">
+                  <span>Organizations</span>
+                  <strong>{totalOrganizations.toLocaleString()}</strong>
+                </div>
+                <div className="admin-report-chart-stat">
+                  <span>Campaigns</span>
+                  <strong>{totalCampaigns.toLocaleString()}</strong>
+                </div>
+                <div className="admin-report-chart-stat">
+                  <span>Peak point</span>
+                  <strong>{peakGrowth.toLocaleString()}</strong>
+                </div>
+              </div>
               <div className="admin-report-legend">
                 <span style={{ '--legend-color': '#2563eb' }}>Donations</span>
                 <span style={{ '--legend-color': '#10b981' }}>Organizations</span>
@@ -557,12 +579,21 @@ export default function ReportsAdmin() {
                   </svg>
                   <div className="admin-report-labels" style={{ '--label-count': series.labels.length }}>
                     {series.labels.map((label, index) => (
-                      <span key={`${label}-${index}`}>{label}</span>
+                      <span key={`${label}-${index}`}>
+                        {rangeDays >= 30 && index % Math.ceil(series.labels.length / 8) !== 0 ? '' : label}
+                      </span>
                     ))}
                   </div>
                 </>
               ) : (
-                <div className="admin-report-message">{loading ? 'Loading chart data...' : 'No chart data available.'}</div>
+                <div className="admin-report-message admin-report-chart-message">
+                  <strong>{loading ? 'Loading chart data' : 'No chart data available'}</strong>
+                  <span>
+                    {loading
+                      ? 'Collecting donation, organization, and campaign trends for this range.'
+                      : 'Try a different date range or wait for more platform activity to be recorded.'}
+                  </span>
+                </div>
               )}
             </div>
           </div>

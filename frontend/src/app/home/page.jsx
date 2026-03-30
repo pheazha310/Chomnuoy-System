@@ -18,8 +18,6 @@ const howItWorks = {
   ],
 };
 
-const trustedBy = ['UNICEF', 'Red Cross', 'WWF', 'CARE', 'OXFAM'];
-
 function formatCompactCurrency(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return '$0';
@@ -27,6 +25,16 @@ function formatCompactCurrency(value) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '0';
+
+  return new Intl.NumberFormat('en-US', {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(number);
@@ -46,24 +54,91 @@ function shortenText(value, maxLength = 140) {
   return `${text.slice(0, maxLength).trimEnd()}...`;
 }
 
+function useCountUp(targetValue, duration = 1200) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = Math.max(0, Number(targetValue || 0));
+    if (!Number.isFinite(target)) {
+      setDisplayValue(0);
+      return undefined;
+    }
+
+    let frameId = null;
+    let startTime = null;
+
+    const step = (timestamp) => {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress));
+      setDisplayValue(target * eased);
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    setDisplayValue(0);
+    frameId = window.requestAnimationFrame(step);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [duration, targetValue]);
+
+  return displayValue;
+}
+
+function formatAnimatedStat(type, value) {
+  const numericValue = Math.max(0, Number(value || 0));
+
+  if (type === 'currency') {
+    return formatCompactCurrency(numericValue);
+  }
+
+  return `${formatCompactNumber(numericValue)}+`;
+}
+
+function HomeStat({ item }) {
+  const animatedValue = useCountUp(item.rawValue);
+
+  return (
+    <article data-reveal style={{ '--reveal-delay': item.delay }}>
+      <p>{formatAnimatedStat(item.type, animatedValue)}</p>
+      <span>{item.label}</span>
+    </article>
+  );
+}
+
 function Home() {
   const session = getSession();
   const donateHref = session?.isLoggedIn ? '/campaigns/donor' : '/login?redirect=%2Fcampaigns';
   const [campaigns, setCampaigns] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
     setCampaignsLoading(true);
-    fetchCampaigns()
-      .then((items) => {
+    Promise.allSettled([
+      fetchCampaigns(),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([campaignResult, donationResult, organizationResult]) => {
         if (!active) return;
-        setCampaigns(items);
+        setCampaigns(campaignResult.status === 'fulfilled' ? campaignResult.value : []);
+        setDonations(donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : []);
+        setOrganizations(organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value) ? organizationResult.value : []);
       })
       .catch(() => {
         if (!active) return;
         setCampaigns([]);
+        setDonations([]);
+        setOrganizations([]);
       })
       .finally(() => {
         if (!active) return;
@@ -76,17 +151,25 @@ function Home() {
   }, []);
 
   const stats = useMemo(() => {
-    const totalDonated = campaigns.reduce((sum, item) => sum + Number(item.raisedAmount || 0), 0);
-    const totalGoal = campaigns.reduce((sum, item) => sum + Number(item.goalAmount || 0), 0);
-    const activeProjects = campaigns.length;
-    const livesTouched = Math.max(activeProjects * 120, Math.round(totalDonated / 18));
+    const activeProjects = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+    const completedDonations = donations.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return !status || status === 'completed' || status === 'confirmed';
+    });
+    const totalDonated = completedDonations.reduce((sum, item) => {
+      if (String(item.donation_type || '').toLowerCase() === 'material') return sum;
+      return sum + Number(item.amount || 0);
+    }, 0);
+    const uniqueDonors = new Set(completedDonations.map((item) => Number(item.user_id)).filter(Boolean)).size;
+    const uniqueOrganizations = new Set(completedDonations.map((item) => Number(item.organization_id)).filter(Boolean)).size;
+    const livesTouched = uniqueDonors + uniqueOrganizations;
 
     return [
-      { value: formatCompactCurrency(totalDonated || totalGoal), label: 'Total donated' },
-      { value: `${Math.max(0, livesTouched).toLocaleString()}+`, label: 'Lives touched' },
-      { value: `${activeProjects.toLocaleString()}+`, label: 'Active projects' },
+      { rawValue: totalDonated, type: 'currency', label: 'Total donated', delay: '100ms' },
+      { rawValue: livesTouched, type: 'number', label: 'Lives touched', delay: '190ms' },
+      { rawValue: activeProjects, type: 'number', label: 'Active projects', delay: '280ms' },
     ];
-  }, [campaigns]);
+  }, [campaigns, donations]);
 
   const featuredCauses = useMemo(() => {
     return campaigns
@@ -114,6 +197,58 @@ function Home() {
         };
       });
   }, [campaigns]);
+
+  const trustedPartners = useMemo(() => {
+    const verifiedOrganizations = organizations
+      .filter((item) => {
+        const status = String(item.verified_status || item.status || '').toLowerCase();
+        return !status || status.includes('verified') || status.includes('approved') || status.includes('active');
+      })
+      .slice(0, 5)
+      .map((item) => item.name)
+      .filter(Boolean);
+
+    return verifiedOrganizations.length > 0
+      ? verifiedOrganizations
+      : ['Verified NGOs', 'Health Relief', 'Education Funds', 'Community Care', 'Emergency Aid'];
+  }, [organizations]);
+
+  const ctaMetrics = useMemo(() => {
+    const verifiedOrganizations = organizations.filter((item) => {
+      const status = String(item.verified_status || item.status || '').toLowerCase();
+      return !status || status.includes('verified') || status.includes('approved') || status.includes('active');
+    }).length;
+
+    const completedDonations = donations.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return !status || status === 'completed' || status === 'confirmed';
+    }).length;
+
+    const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+
+    return [
+      { label: 'Verified organizations', value: formatCompactNumber(verifiedOrganizations) },
+      { label: 'Completed donations', value: formatCompactNumber(completedDonations) },
+      { label: 'Active campaigns', value: formatCompactNumber(activeCampaigns) },
+    ];
+  }, [campaigns, donations, organizations]);
+
+  const ctaSummary = useMemo(() => {
+    const totalRaised = donations.reduce((sum, item) => {
+      const status = String(item.status || '').toLowerCase();
+      const isMaterial = String(item.donation_type || '').toLowerCase() === 'material';
+      if (isMaterial || (status && status !== 'completed' && status !== 'confirmed')) return sum;
+      return sum + Number(item.amount || 0);
+    }, 0);
+
+    const leadCause = featuredCauses[0];
+
+    return {
+      totalRaised: formatCompactCurrency(totalRaised),
+      featuredTitle: leadCause?.title || 'New community campaigns launching now',
+      featuredProgress: leadCause ? `${leadCause.progress}% funded` : 'Fresh opportunities for donors and organizations',
+    };
+  }, [donations, featuredCauses]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -201,16 +336,13 @@ function Home() {
         <div className="home-hero-visual" aria-hidden="true">
           <div className="home-hero-art" />
         </div>
-      </section>
+        </section>
 
-      <section className="home-stats" aria-label="Platform stats" data-reveal>
-        {stats.map((item, index) => (
-          <article key={item.label} data-reveal style={{ '--reveal-delay': `${100 + index * 90}ms` }}>
-            <p>{item.value}</p>
-            <span>{item.label}</span>
-          </article>
-        ))}
-      </section>
+        <section className="home-stats" aria-label="Platform stats" data-reveal>
+          {stats.map((item) => (
+            <HomeStat key={item.label} item={item} />
+          ))}
+        </section>
 
       <section className="home-featured" aria-labelledby="featured-title" data-reveal>
         <div className="home-section-head">
@@ -354,9 +486,9 @@ function Home() {
       </section>
 
       <section className="home-trusted" aria-label="Trusted organizations" data-reveal>
-        <p>Trusted by global organizations</p>
-        <div>
-          {trustedBy.map((org, index) => (
+        <p>Trusted by active partners on Chomnuoy</p>
+        <div className="home-trusted-list">
+          {trustedPartners.map((org, index) => (
             <span key={org} data-reveal style={{ '--reveal-delay': `${160 + index * 60}ms` }}>
               {org}
             </span>
@@ -365,13 +497,36 @@ function Home() {
       </section>
 
       <section className="home-cta" aria-labelledby="cta-title" data-reveal>
-        <h2 id="cta-title">Ready to make a difference?</h2>
-        <p>Whether you want to give or start a campaign, Chomnuoy is here to support your journey.</p>
-        <div className="home-hero-actions">
-          <Link to="/campaigns" className="home-btn home-btn-light">
-            Start Your Journey
-          </Link>
-          <Link to="/contact" className="home-btn home-btn-outline-light">
+        <div className="home-cta-copy">
+          <span className="home-cta-kicker">Platform momentum</span>
+          <h2 id="cta-title">Turn generosity into visible progress.</h2>
+          <p>
+            Support verified organizations, fund live campaigns, and track a platform that has already moved {ctaSummary.totalRaised} in support.
+          </p>
+          <div className="home-hero-actions">
+            <Link to="/campaigns" className="home-btn home-btn-light">
+              Explore Live Campaigns
+            </Link>
+            <Link to="/organizations" className="home-btn home-btn-outline-light">
+              Browse Organizations
+            </Link>
+          </div>
+        </div>
+
+        <div className="home-cta-panel">
+          <div className="home-cta-panel-head">
+            <strong>{ctaSummary.featuredTitle}</strong>
+            <span>{ctaSummary.featuredProgress}</span>
+          </div>
+          <div className="home-cta-metrics">
+            {ctaMetrics.map((item) => (
+              <article key={item.label}>
+                <strong>{item.value}</strong>
+                <span>{item.label}</span>
+              </article>
+            ))}
+          </div>
+          <Link to="/contact" className="home-cta-support-link">
             Contact Support
           </Link>
         </div>

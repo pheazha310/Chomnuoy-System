@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -79,20 +80,48 @@ class ProfileController extends Controller
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
+        $persistableColumns = array_flip([
+            'name',
+            'title',
+            'email',
+            'phone',
+            'location',
+            'bio',
+            'website',
+            'linkedin_url',
+            'skills',
+            'avatar_path',
+        ]);
+        foreach (array_keys($persistableColumns) as $column) {
+            if (!Schema::hasColumn('users', $column)) {
+                unset($persistableColumns[$column]);
+            }
+        }
+
         // Handle avatar upload
         if ($request->hasFile('avatar')) {
-            if ($user->avatar_path) {
+            if (Schema::hasColumn('users', 'avatar_path') && $user->avatar_path) {
                 Storage::disk('public')->delete($user->avatar_path);
             }
-            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            if (isset($persistableColumns['avatar_path'])) {
+                $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            }
         }
 
         // Convert skills array to JSON
         if (isset($data['skills'])) {
-            $data['skills'] = json_encode($data['skills']);
+            if (is_string($data['skills'])) {
+                $decodedSkills = json_decode($data['skills'], true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decodedSkills)) {
+                    $data['skills'] = $decodedSkills;
+                } else {
+                    $data['skills'] = array_values(array_filter(array_map('trim', explode(',', $data['skills']))));
+                }
+            }
+            $data['skills'] = json_encode(array_values((array) $data['skills']));
         }
 
-        $user->update($data);
+        $user->update(array_intersect_key($data, $persistableColumns));
 
         return $this->show($user->fresh());
     }

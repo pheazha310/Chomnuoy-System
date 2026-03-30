@@ -395,6 +395,19 @@ export default function DonationAdminPage() {
     highlighted: row.status === 'Verified',
   })), [sortedDonationRows]);
 
+  const donationSummary = useMemo(() => {
+    const verifiedCount = donationRows.filter((row) => row.status === 'Verified').length;
+    const activeCampaigns = new Set(donationRows.map((row) => row.campaignName).filter(Boolean)).size;
+    const materialCount = donationRows.filter((row) => row.method === 'ITEM').length;
+
+    return {
+      verifiedCount,
+      activeCampaigns,
+      materialCount,
+      avgMonthly: chartBars.length ? stats.totalFunds / chartBars.length : 0,
+    };
+  }, [chartBars.length, donationRows, stats.totalFunds]);
+
   const scrollToActivityTable = () => {
     document.querySelector('.admin-donation-table-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -453,6 +466,43 @@ export default function DonationAdminPage() {
             Export Report
           </button>
         </header>
+
+        <section className="admin-donation-hero">
+          <div className="admin-donation-hero-copy">
+            <p className="admin-donation-kicker">Revenue Command Center</p>
+            <h1>Donations Overview</h1>
+            <p>Monitor donation velocity, donor activity, and campaign momentum from live platform transactions.</p>
+            <div className="admin-donation-hero-chips">
+              <span>{donationSummary.verifiedCount} verified donations</span>
+              <span>{donationSummary.activeCampaigns} active campaigns</span>
+              <span>{donationSummary.materialCount} material contributions</span>
+            </div>
+          </div>
+
+          <div className="admin-donation-hero-panel">
+            <div className="admin-donation-hero-panel-top">
+              <span>Average monthly volume</span>
+              <strong>{formatCurrency(donationSummary.avgMonthly)}</strong>
+            </div>
+            <div className="admin-donation-hero-progress" aria-hidden="true">
+              <span style={{ width: `${Math.min(100, Math.max(18, Number(stats.monthGrowth.replace(/[^0-9.-]/g, '')) || 0))}%` }} />
+            </div>
+            <div className="admin-donation-hero-grid">
+              <div>
+                <strong>{stats.totalDonors}</strong>
+                <span>Unique donors</span>
+              </div>
+              <div>
+                <strong>{recentUpdates.length}</strong>
+                <span>Recent updates</span>
+              </div>
+              <div>
+                <strong>{filteredRows.length}</strong>
+                <span>Visible records</span>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {isRefreshing && !loading ? <div className="admin-donation-refresh">Refreshing donations data...</div> : null}
         {error ? <div className="admin-donation-error">{error}</div> : null}

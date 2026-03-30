@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { loginUser } from "../services/user-service";
+import { loginUser, loginWithGoogleCredential } from "../services/user-service";
 import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 
 function GoogleIcon(props) {
   return (
@@ -31,67 +32,48 @@ function GoogleIcon(props) {
   );
 }
 
-function FacebookIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <path
-        fill="#1877F2"
-        d="M24 12a12 12 0 1 0-13.9 11.8v-8.3H7.1V12h3V9.3c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v2.9h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.3A12 12 0 0 0 24 12z"
-      />
-    </svg>
-  );
-}
-
 export default function LoginPage({ onToggleMode, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState(null);
   const [providerStatus, setProviderStatus] = useState({
-    google: true,
-    facebook: true,
+    google: Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID),
   });
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
-  const socialAuthUrls = {
-    google:
-      import.meta.env.VITE_GOOGLE_AUTH_URL ??
-      `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/google/redirect`,
-    facebook:
-      import.meta.env.VITE_FACEBOOK_AUTH_URL ??
-      `${import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"}/api/auth/facebook/redirect`,
-  };
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+  const googleSignInEnabled =
+    String(import.meta.env.VITE_ENABLE_GOOGLE_SIGN_IN ?? "false").toLowerCase() === "true" &&
+    Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
   const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
   useEffect(() => {
     let active = true;
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
-    fetch(`${apiBase}/api/auth/providers/status`)
+    fetch(`${apiBaseUrl}/api/auth/providers/status`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!active || !data?.providers) return;
         setProviderStatus({
-          google: Boolean(data.providers.google?.configured),
-          facebook: Boolean(data.providers.facebook?.configured),
+          google: googleSignInEnabled || Boolean(data.providers.google?.configured),
         });
       })
       .catch(() => {
         if (!active) return;
         setProviderStatus({
-          google: false,
-          facebook: false,
+          google: googleSignInEnabled,
         });
       });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [apiBaseUrl]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -126,21 +108,27 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    if (!providerStatus[provider]) {
-      setError(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login is not configured yet.`);
-      return;
-    }
-
-    const authUrl = socialAuthUrls[provider];
-    if (!authUrl) {
-      setError(`Unable to start ${provider} login. Please try again later.`);
+  const handleGoogleCredential = async (credentialResponse) => {
+    const credential = credentialResponse?.credential;
+    if (!credential) {
+      setError("Google login did not return a credential. Please try again.");
       return;
     }
 
     setError(null);
-    setSocialLoading(provider);
-    window.location.assign(authUrl);
+    setSocialLoading("google");
+
+    try {
+      const data = await loginWithGoogleCredential(credential);
+      onLoginSuccess?.(data);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Google login failed. Please try again."
+      );
+    } finally {
+      setSocialLoading(null);
+    }
   };
 
   return (
@@ -172,13 +160,13 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         </motion.div>
       )}
 
-      {(!providerStatus.google || !providerStatus.facebook) && (
+      {!providerStatus.google && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-700"
         >
-          Social login is only available after the provider credentials are configured in the backend.
+          Google login is not available yet. Please check the app configuration.
         </motion.div>
       )}
 
@@ -269,40 +257,46 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
         <div className="mt-5 flex items-center gap-3">
           <span className="h-px flex-1 bg-[#E4E7EC]" />
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98A2B3]">
-            or login with email
+            or continue with Google
           </span>
           <span className="h-px flex-1 bg-[#E4E7EC]" />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {/* <button
-            type="button"
-            onClick={() => handleSocialLogin('google')}
-            disabled={socialLoading !== null}
-            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <GoogleIcon className="h-5 w-5" />
-            Gmail
-          </button> */}
-
-          <button
-            type="button"
-            onClick={() => handleSocialLogin('google')}
-            disabled={socialLoading !== null || !providerStatus.google}
-            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <GoogleIcon className="h-5 w-5" />
-            {providerStatus.google ? "Google" : "Google unavailable"}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSocialLogin("facebook")}
-            disabled={socialLoading !== null || !providerStatus.facebook}
-            className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <FacebookIcon className="h-5 w-5" />
-            {providerStatus.facebook ? "Facebook" : "Facebook unavailable"}
-          </button>
+        <div className="mt-6 grid grid-cols-1 gap-3">
+          {providerStatus.google ? (
+            <div className="rounded-[28px] border border-[#D9E2F2] bg-[linear-gradient(180deg,#F8FBFF_0%,#EEF4FF_100%)] p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)]">
+              <div className="flex items-center justify-between rounded-[22px] border border-white/80 bg-white/90 px-4 py-3 backdrop-blur">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7C8DA6]">
+                    Quick Access
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[#101828]">
+                    Sign in with your Google account
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <GoogleLogin
+                    onSuccess={handleGoogleCredential}
+                    onError={() => setError("Google login could not be started. Please try again.")}
+                    theme="outline"
+                    size="large"
+                    shape="pill"
+                    text="signin_with"
+                    width="260"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-[#D0D5DD] bg-white px-4 text-sm font-semibold text-[#101828] transition disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <GoogleIcon className="h-5 w-5" />
+              Google unavailable
+            </button>
+          )}
         </div>
         <button
           type="submit"

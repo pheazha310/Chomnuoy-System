@@ -83,22 +83,48 @@ class AdminProfileController extends Controller
         if (isset($data['skills']) && is_array($data['skills'])) {
             $data['skills'] = json_encode($data['skills']);
         } elseif (isset($data['skills']) && is_string($data['skills'])) {
-            $data['skills'] = json_encode(explode(',', $data['skills']));
+            $decodedSkills = json_decode($data['skills'], true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedSkills)) {
+                $data['skills'] = json_encode(array_values($decodedSkills));
+            } else {
+                $data['skills'] = json_encode(array_values(array_filter(array_map('trim', explode(',', $data['skills'])))));
+            }
+        }
+
+        $persistableColumns = array_flip([
+            'name',
+            'title',
+            'email',
+            'phone',
+            'bio',
+            'location',
+            'website',
+            'linkedin_url',
+            'skills',
+            'avatar_path',
+            'two_factor_enabled',
+        ]);
+        foreach (array_keys($persistableColumns) as $column) {
+            if (!Schema::hasColumn('users', $column)) {
+                unset($persistableColumns[$column]);
+            }
         }
 
         if ($request->hasFile('avatar')) {
-            if ($user->avatar_path) {
+            if (Schema::hasColumn('users', 'avatar_path') && $user->avatar_path) {
                 Storage::disk('public')->delete($user->avatar_path);
             }
 
-            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            if (isset($persistableColumns['avatar_path'])) {
+                $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            }
         }
 
         if (array_key_exists('two_factor_enabled', $data) && !Schema::hasColumn('users', 'two_factor_enabled')) {
             unset($data['two_factor_enabled']);
         }
 
-        $user->update($data);
+        $user->update(array_intersect_key($data, $persistableColumns));
 
         $this->recordAuditLog(
             $user->id,

@@ -73,7 +73,12 @@ export default function CampaignCard({
   const handleDonateClick = (e) => {
     e.stopPropagation();
     window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaignState.campaign));
-    navigate(campaignPath, { state: campaignState });
+    navigate(campaignPath, {
+      state: {
+        ...campaignState,
+        openCheckout: true,
+      },
+    });
   };
 
   return (

@@ -1,5 +1,5 @@
 import '../css/about.css';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
@@ -10,13 +10,6 @@ import teamImage4 from '../../images/6147792428195319151_121.jpg';
 import teamImage5 from '../../images/6147792428195319154_121.jpg';
 
 // --- Mock Data ---
-
-const STATS = [
-  { label: 'Total Donated', value: '$2.4M', change: '+12% this month', trend: 'up' },
-  { label: 'Verified Partners', value: '150+', change: '+5% new partners', trend: 'up' },
-  { label: 'Impacted Lives', value: '50K+', change: '+18% growth', trend: 'up' },
-  { label: 'Active Campaigns', value: '85', change: '+10% active', trend: 'up' },
-];
 
 const ORGANIZATIONS = [
   {
@@ -161,32 +154,156 @@ const Hero = ({ donateHref }) => (
   </section>
 );
 
+function formatCompactCurrency(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '$0';
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '0';
+
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+}
+
+function useCountUp(targetValue, duration = 1200) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = Math.max(0, Number(targetValue || 0));
+    if (!Number.isFinite(target)) {
+      setDisplayValue(0);
+      return undefined;
+    }
+
+    let frameId = null;
+    let startTime = null;
+
+    const step = (timestamp) => {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress));
+      setDisplayValue(target * eased);
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    setDisplayValue(0);
+    frameId = window.requestAnimationFrame(step);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [duration, targetValue]);
+
+  return displayValue;
+}
+
+function AboutStatCard({ stat, idx }) {
+  const animatedValue = useCountUp(stat.rawValue);
+  const displayValue = stat.type === 'currency'
+    ? formatCompactCurrency(animatedValue)
+    : `${formatCompactNumber(animatedValue)}${stat.suffix || ''}`;
+
+  return (
+    <motion.div 
+      key={stat.label}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: idx * 0.1 }}
+      className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
+    >
+      <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
+      <p className="text-4xl font-black text-slate-900">{displayValue}</p>
+      <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
+        <TrendingUp className="w-4 h-4" />
+        {stat.change}
+      </div>
+    </motion.div>
+  );
+}
+
 //Categorie total 
 
-const Stats = () => (
-  <section className="bg-slate-100/50 py-16 border-y border-slate-200">
-    <div className="mx-auto max-w-7xl px-6">
-      <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-        {STATS.map((stat, idx) => (
-          <motion.div 
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: idx * 0.1 }}
-            className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
-          >
-            <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
-            <p className="text-4xl font-black text-slate-900">{stat.value}</p>
-            <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
-              <TrendingUp className="w-4 h-4" />
-              {stat.change}
-            </div>
-          </motion.div>
-        ))}
+const Stats = () => {
+  const [campaigns, setCampaigns] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+    Promise.allSettled([
+      fetch(`${apiBase}/campaigns`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
+    ]).then(([campaignResult, donationResult, organizationResult]) => {
+      if (!active) return;
+      setCampaigns(campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : []);
+      setDonations(donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : []);
+      setOrganizations(organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value) ? organizationResult.value : []);
+    }).catch(() => {
+      if (!active) return;
+      setCampaigns([]);
+      setDonations([]);
+      setOrganizations([]);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    const completedDonations = donations.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return !status || status === 'completed' || status === 'confirmed';
+    });
+    const totalDonated = completedDonations.reduce((sum, item) => {
+      if (String(item.donation_type || '').toLowerCase() === 'material') return sum;
+      return sum + Number(item.amount || 0);
+    }, 0);
+    const verifiedPartners = organizations.filter((item) => {
+      const status = String(item.verified_status || '').toLowerCase();
+      return !status || ['verified', 'approved', 'active'].includes(status);
+    }).length;
+    const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+    const impactedLives = new Set(completedDonations.map((item) => Number(item.user_id)).filter(Boolean)).size
+      + new Set(completedDonations.map((item) => Number(item.organization_id)).filter(Boolean)).size;
+
+    return [
+      { label: 'Total Donated', rawValue: totalDonated, type: 'currency', change: 'Live donation total' },
+      { label: 'Verified Partners', rawValue: verifiedPartners, type: 'number', suffix: '+', change: 'Verified organizations' },
+      { label: 'Impacted Lives', rawValue: impactedLives, type: 'number', suffix: '+', change: 'Based on real activity' },
+      { label: 'Active Campaigns', rawValue: activeCampaigns, type: 'number', change: 'Currently running' },
+    ];
+  }, [campaigns, donations, organizations]);
+
+  return (
+    <section className="bg-slate-100/50 py-16 border-y border-slate-200">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+          {stats.map((stat, idx) => (
+            <AboutStatCard key={stat.label} stat={stat} idx={idx} />
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const AboutContent = () => (
   <section className="about-content-sections">

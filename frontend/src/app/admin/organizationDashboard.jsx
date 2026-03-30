@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Activity, ArrowUpRight, Building2, CheckCircle2, Clock3, Eye, Filter, MapPin, MoreVertical, PencilLine, Search, ShieldCheck, UserX } from 'lucide-react';
 import AdminSidebar from './adminsidebar';
+import { deactivateAccount, updateOrganizationProfile } from '@/services/user-service.js';
 import './organization.css';
 
 const ORGANIZATIONS_CACHE_KEY = 'admin_organization_dashboard_orgs_cache';
 const CATEGORIES_CACHE_KEY = 'admin_organization_dashboard_categories_cache';
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const ORGANIZATION_STATUS_OPTIONS = ['Pending', 'Verified', 'Inactive'];
 
 function formatDate(value) {
   if (!value) return '-';
@@ -84,6 +87,8 @@ export default function OrganizationDashboard() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [actionModal, setActionModal] = useState(null);
   const [editDraft, setEditDraft] = useState({ name: '', email: '', location: '', status: '' });
+  const [actionError, setActionError] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
@@ -98,24 +103,83 @@ export default function OrganizationDashboard() {
 
   const openActionModal = (type, org) => {
     setOpenMenuId(null);
+    setActionError('');
     if (type === 'edit') {
+      const sourceStatus = org.verified_status || org.status || '';
       setEditDraft({
         name: org.name || '',
         email: org.email || '',
         location: org.location || '',
-        status: org.status || '',
+        status: normalizeStatus(sourceStatus),
       });
     }
     setActionModal({ type, org });
   };
 
   const closeActionModal = () => {
+    setActionError('');
+    setActionSaving(false);
     setActionModal(null);
   };
 
   const openOrganizationDetails = (organizationId) => {
     setOpenMenuId(null);
     navigate(`/admin/organizations/${organizationId}`);
+  };
+
+  const handleEditSave = async () => {
+    if (!actionModal?.org?.id) return;
+    setActionError('');
+
+    try {
+      setActionSaving(true);
+      const formData = new FormData();
+      formData.append('name', editDraft.name || actionModal.org.name || '');
+      formData.append('email', editDraft.email || actionModal.org.email || '');
+      formData.append('location', editDraft.location || actionModal.org.location || '');
+      formData.append('verified_status', editDraft.status || actionModal.org.status || 'Pending');
+
+      const updated = await updateOrganizationProfile(actionModal.org.id, formData);
+      const nextStatus = normalizeStatus(updated?.verified_status || updated?.status || editDraft.status);
+
+      setOrganizations((prev) => {
+        const nextOrganizations = prev.map((item) => (
+          Number(item.id) === Number(actionModal.org.id)
+            ? {
+                ...item,
+                ...updated,
+                name: updated?.name ?? editDraft.name,
+                email: updated?.email ?? editDraft.email,
+                location: updated?.location ?? editDraft.location,
+                verified_status: updated?.verified_status ?? nextStatus,
+                status: updated?.status ?? nextStatus,
+              }
+            : item
+        ));
+        writeCache(ORGANIZATIONS_CACHE_KEY, nextOrganizations);
+        return nextOrganizations;
+      });
+      closeActionModal();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update organization.');
+    } finally {
+      setActionSaving(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!actionModal?.org?.id) return;
+    setActionError('');
+
+    try {
+      setActionSaving(true);
+      await deactivateAccount({ accountType: 'organization', userId: actionModal.org.id });
+      setOrganizations((prev) => prev.filter((item) => Number(item.id) !== Number(actionModal.org.id)));
+      closeActionModal();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to deactivate organization.');
+      setActionSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -182,6 +246,30 @@ export default function OrganizationDashboard() {
     };
   }, [apiBase]);
 
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.closest('.admin-org-menu-wrap')) {
+        setOpenMenuId(null);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
   const categoryLookup = useMemo(() => {
     const map = new Map();
     categories.forEach((cat) => {
@@ -203,11 +291,61 @@ export default function OrganizationDashboard() {
           type: normalizeType(typeName),
           location: org.location || '-',
           joined: formatDate(org.created_at),
+          verified_status: org.verified_status || '',
           status: normalizeStatus(org.verified_status || org.status),
         };
       }),
     [organizations, categoryLookup]
   );
+
+  const editChangeCount = useMemo(() => {
+    if (!actionModal || actionModal.type !== 'edit') return 0;
+    const source = actionModal.org;
+    const sourceStatus = normalizeStatus(source?.verified_status || source?.status || '');
+    const comparisons = [
+      [editDraft.name, source?.name || ''],
+      [editDraft.email, source?.email || ''],
+      [editDraft.location, source?.location || ''],
+      [editDraft.status, sourceStatus],
+    ];
+    return comparisons.filter(([current, original]) => String(current || '').trim() !== String(original || '').trim()).length;
+  }, [actionModal, editDraft]);
+
+  const editChangedFields = useMemo(() => {
+    if (!actionModal || actionModal.type !== 'edit') return [];
+    const source = actionModal.org;
+    const sourceStatus = normalizeStatus(source?.verified_status || source?.status || '');
+    const fields = [
+      { label: 'Name', current: editDraft.name, original: source?.name || '' },
+      { label: 'Email', current: editDraft.email, original: source?.email || '' },
+      { label: 'Location', current: editDraft.location, original: source?.location || '' },
+      { label: 'Status', current: editDraft.status, original: sourceStatus },
+    ];
+
+    return fields
+      .filter(({ current, original }) => String(current || '').trim() !== String(original || '').trim())
+      .map(({ label }) => label);
+  }, [actionModal, editDraft]);
+
+  const editStatusMeta = useMemo(() => {
+    const status = editDraft.status || 'Pending';
+    if (status === 'Verified') {
+      return {
+        headline: 'Ready for public visibility',
+        description: 'This organization will appear as approved and active across the platform.',
+      };
+    }
+    if (status === 'Inactive') {
+      return {
+        headline: 'Access will stay restricted',
+        description: 'The organization remains disabled until an admin restores access later.',
+      };
+    }
+    return {
+      headline: 'Still waiting for review',
+      description: 'The organization remains in the verification queue until approval is completed.',
+    };
+  }, [editDraft.status]);
 
   const filteredOrgs = useMemo(() => {
     let result = normalizedOrgs;
@@ -228,12 +366,60 @@ export default function OrganizationDashboard() {
     const ngos = normalizedOrgs.filter((org) => org.type === 'NGO').length;
     const schools = normalizedOrgs.filter((org) => org.type === 'School').length;
     const hospitals = normalizedOrgs.filter((org) => org.type === 'Hospital').length;
+    const verified = normalizedOrgs.filter((org) => org.status === 'Verified').length;
+    const pending = normalizedOrgs.filter((org) => org.status === 'Pending').length;
+    const verificationRate = total ? Math.round((verified / total) * 100) : 0;
     return [
-      { id: 'total', label: 'Total Entities', value: total.toLocaleString(), note: '+12% from last month' },
-      { id: 'ngo', label: 'NGOs', value: ngos.toLocaleString(), note: `Verified: ${ngos}` },
-      { id: 'school', label: 'Schools', value: schools.toLocaleString(), note: `Verified: ${schools}` },
-      { id: 'hospital', label: 'Hospitals', value: hospitals.toLocaleString(), note: `Verified: ${hospitals}` },
+      {
+        id: 'total',
+        label: 'Total Entities',
+        value: total.toLocaleString(),
+        note: `${verified.toLocaleString()} verified organizations`,
+        accent: 'blue',
+        Icon: Building2,
+      },
+      {
+        id: 'ngo',
+        label: 'NGOs',
+        value: ngos.toLocaleString(),
+        note: pending ? `${pending.toLocaleString()} pending review` : 'All active records reviewed',
+        accent: 'emerald',
+        Icon: ShieldCheck,
+      },
+      {
+        id: 'school',
+        label: 'Schools',
+        value: schools.toLocaleString(),
+        note: `${verificationRate}% verification rate`,
+        accent: 'amber',
+        Icon: Activity,
+      },
+      {
+        id: 'hospital',
+        label: 'Hospitals',
+        value: hospitals.toLocaleString(),
+        note: `${hospitals ? hospitals : 0} medical partners onboarded`,
+        accent: 'violet',
+        Icon: CheckCircle2,
+      },
     ];
+  }, [normalizedOrgs]);
+
+  const summary = useMemo(() => {
+    const total = normalizedOrgs.length;
+    const verified = normalizedOrgs.filter((org) => org.status === 'Verified').length;
+    const pending = normalizedOrgs.filter((org) => org.status === 'Pending').length;
+    const inactive = normalizedOrgs.filter((org) => org.status === 'Inactive').length;
+    const uniqueLocations = new Set(normalizedOrgs.map((org) => org.location).filter((value) => value && value !== '-')).size;
+
+    return {
+      total,
+      verified,
+      pending,
+      inactive,
+      uniqueLocations,
+      verificationRate: total ? Math.round((verified / total) * 100) : 0,
+    };
   }, [normalizedOrgs]);
 
   return (
@@ -242,17 +428,67 @@ export default function OrganizationDashboard() {
 
       <main className="admin-main admin-org-main">
         <header className="admin-org-header">
-          <div>
-            <h1>Organization Management</h1>
-            <p>Track and verify organizations onboarded into the platform.</p>
-            {isRefreshing && !loading ? <span className="admin-org-refreshing">Refreshing data...</span> : null}
+          <div className="admin-org-hero">
+            <div className="admin-org-hero-copy">
+              <span className="admin-org-eyebrow">Admin Workspace</span>
+              <h1>Organization Management</h1>
+              <p>Track onboarding, spot pending verifications, and keep partner records clean across the platform.</p>
+              <div className="admin-org-hero-chips">
+                <span className="admin-org-hero-chip">
+                  <CheckCircle2 size={14} />
+                  {summary.verified} verified
+                </span>
+                <span className="admin-org-hero-chip is-warning">
+                  <Clock3 size={14} />
+                  {summary.pending} pending
+                </span>
+                <span className="admin-org-hero-chip is-neutral">
+                  <MapPin size={14} />
+                  {summary.uniqueLocations} locations
+                </span>
+              </div>
+              {isRefreshing && !loading ? <span className="admin-org-refreshing">Refreshing live data...</span> : null}
+            </div>
+
+            <div className="admin-org-hero-panel">
+              <div className="admin-org-hero-panel-top">
+                <span className="admin-org-live-pill">
+                  <Activity size={14} />
+                  Live overview
+                </span>
+                <span className="admin-org-hero-rate">{summary.verificationRate}%</span>
+              </div>
+              <p className="admin-org-hero-panel-label">Verification coverage</p>
+              <div className="admin-org-hero-meter" aria-hidden="true">
+                <span style={{ width: `${summary.verificationRate}%` }} />
+              </div>
+              <div className="admin-org-hero-metrics">
+                <div>
+                  <strong>{summary.total}</strong>
+                  <span>Total orgs</span>
+                </div>
+                <div>
+                  <strong>{summary.pending}</strong>
+                  <span>Needs review</span>
+                </div>
+                <div>
+                  <strong>{summary.inactive}</strong>
+                  <span>Inactive</span>
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 
         <section className="admin-org-stats">
           {stats.map((stat) => (
-            <div key={stat.id} className="admin-org-stat">
-              <p>{stat.label}</p>
+            <div key={stat.id} className={`admin-org-stat admin-org-stat-${stat.accent}`}>
+              <div className="admin-org-stat-top">
+                <p>{stat.label}</p>
+                <span className="admin-org-stat-icon">
+                  <stat.Icon size={16} />
+                </span>
+              </div>
               <h3>{stat.value}</h3>
               <span>{stat.note}</span>
             </div>
@@ -267,30 +503,30 @@ export default function OrganizationDashboard() {
                 className={filter === 'all' ? 'is-active' : ''}
                 onClick={() => setFilter('all')}
               >
-                All Organizations
+                <span>All Organizations</span>
+                <strong>{normalizedOrgs.length}</strong>
               </button>
               <button
                 type="button"
                 className={filter === 'pending' ? 'is-active' : ''}
                 onClick={() => setFilter('pending')}
               >
-                Pending
+                <span>Pending</span>
+                <strong>{summary.pending}</strong>
               </button>
               <button
                 type="button"
                 className={filter === 'verified' ? 'is-active' : ''}
                 onClick={() => setFilter('verified')}
               >
-                Verified
+                <span>Verified</span>
+                <strong>{summary.verified}</strong>
               </button>
             </div>
             <div className="admin-org-toolbar-actions">
               <label className="admin-org-search">
                 <span aria-hidden="true" className="admin-org-search-icon">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="2" fill="none" />
-                    <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
+                  <Search size={16} />
                 </span>
                 <input
                   type="search"
@@ -300,9 +536,11 @@ export default function OrganizationDashboard() {
                 />
               </label>
               <button type="button" className="admin-org-ghost-btn">
+                <Filter size={15} />
                 Organization Type
               </button>
               <button type="button" className="admin-org-ghost-btn">
+                <ArrowUpRight size={15} />
                 More Filters
               </button>
             </div>
@@ -379,16 +617,25 @@ export default function OrganizationDashboard() {
                           type="button"
                           className="admin-org-icon-btn"
                           onClick={() => setOpenMenuId((prev) => (prev === org.id ? null : org.id))}
-                          aria-label="More actions"
+                          aria-label={`More actions for ${org.name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuId === org.id}
                         >
-                          ⋮
+                          <MoreVertical size={16} />
                         </button>
                         {openMenuId === org.id ? (
-                          <div className="admin-org-menu">
-                            <button type="button" onClick={() => openOrganizationDetails(org.id)}>View Profile</button>
-                            <button type="button" onClick={() => openActionModal('edit', org)}>Edit</button>
-                            <button type="button" className="danger" onClick={() => openActionModal('deactivate', org)}>
-                              Deactivate
+                          <div className="admin-org-menu" role="menu">
+                            <button type="button" role="menuitem" onClick={() => openOrganizationDetails(org.id)}>
+                              <Eye size={14} />
+                              <span>View Profile</span>
+                            </button>
+                            <button type="button" role="menuitem" onClick={() => openActionModal('edit', org)}>
+                              <PencilLine size={14} />
+                              <span>Edit</span>
+                            </button>
+                            <button type="button" role="menuitem" className="danger" onClick={() => openActionModal('deactivate', org)}>
+                              <UserX size={14} />
+                              <span>Deactivate</span>
                             </button>
                           </div>
                         ) : null}
@@ -468,50 +715,133 @@ export default function OrganizationDashboard() {
             {actionModal.type === 'edit' ? (
               <>
                 <h3 id="admin-org-action-title">Edit Organization</h3>
-                <div className="admin-org-form">
-                  <label>
-                    Name
-                    <input
-                      type="text"
-                      value={editDraft.name}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Email
-                    <input
-                      type="email"
-                      value={editDraft.email}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, email: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Location
-                    <input
-                      type="text"
-                      value={editDraft.location}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, location: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      value={editDraft.status}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, status: event.target.value }))}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Verified">Verified</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </label>
+                <div className="admin-org-edit-topline">
+                  <div>
+                    <p className="admin-org-edit-kicker">Live editor</p>
+                    <span className="admin-org-edit-subtitle">
+                      {editChangeCount > 0
+                        ? `${editChangeCount} field${editChangeCount === 1 ? '' : 's'} changed`
+                        : 'No pending changes'}
+                    </span>
+                  </div>
+                  <span className={`admin-org-status admin-org-status-${String(editDraft.status || '').toLowerCase()}`}>
+                    {editDraft.status || 'Pending'}
+                  </span>
                 </div>
-                <div className="admin-modal-actions">
-                  <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
-                    Cancel
-                  </button>
-                  <button type="button" className="admin-user-save" onClick={closeActionModal}>
-                    Save Changes
-                  </button>
+
+                <div className="admin-org-form admin-org-form-enhanced">
+                  <div className="admin-org-form-main">
+                    <div className="admin-org-edit-change-row">
+                      {editChangedFields.length > 0 ? (
+                        editChangedFields.map((field) => (
+                          <span key={field} className="admin-org-edit-change-chip">{field}</span>
+                        ))
+                      ) : (
+                        <span className="admin-org-edit-change-chip is-muted">No edited fields yet</span>
+                      )}
+                    </div>
+                    <label className="admin-org-form-span-2">
+                      Name
+                      <input
+                        type="text"
+                        value={editDraft.name}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))}
+                      />
+                    </label>
+                    <label className="admin-org-form-span-2">
+                      Email
+                      <input
+                        type="email"
+                        value={editDraft.email}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, email: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Location
+                      <input
+                        type="text"
+                        value={editDraft.location}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, location: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Status
+                      <select
+                        value={editDraft.status}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, status: event.target.value }))}
+                      >
+                        {ORGANIZATION_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <aside className="admin-org-edit-preview">
+                    <p className="admin-org-edit-preview-kicker">Preview</p>
+                    <div className="admin-org-edit-preview-card">
+                      <span className="admin-org-modal-avatar" aria-hidden="true">
+                        {getInitials(editDraft.name)}
+                      </span>
+                      <div className="admin-org-edit-preview-copy">
+                        <strong>{editDraft.name || 'Organization'}</strong>
+                        <span>{editDraft.email || 'No email set'}</span>
+                      </div>
+                    </div>
+                    <div className="admin-org-edit-live-card">
+                      <span className="admin-org-edit-live-label">Live status</span>
+                      <strong>{editStatusMeta.headline}</strong>
+                      <p>{editStatusMeta.description}</p>
+                    </div>
+                    <div className="admin-org-edit-status-grid">
+                      {ORGANIZATION_STATUS_OPTIONS.map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          className={`admin-org-edit-status-card${editDraft.status === status ? ' is-active' : ''}`}
+                          onClick={() => setEditDraft((prev) => ({ ...prev, status }))}
+                        >
+                          <strong>{status}</strong>
+                          <span>
+                            {status === 'Verified'
+                              ? 'Public and approved'
+                              : status === 'Pending'
+                                ? 'Waiting for review'
+                                : 'Access disabled'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="admin-org-edit-meta">
+                      <div>
+                        <span>Current location</span>
+                        <strong>{editDraft.location || 'Not provided'}</strong>
+                      </div>
+                      <div>
+                        <span>Profile ID</span>
+                        <strong>ORG-{String(actionModal.org.id).padStart(4, '0')}</strong>
+                      </div>
+                      <div>
+                        <span>Save state</span>
+                        <strong>{editChangeCount > 0 ? `${editChangeCount} change${editChangeCount === 1 ? '' : 's'} ready` : 'No changes to save'}</strong>
+                      </div>
+                    </div>
+                  </aside>
+                </div>
+                {actionError ? <p className="admin-org-warning">{actionError}</p> : null}
+                <div className="admin-modal-actions admin-org-edit-actions">
+                  <div className="admin-org-edit-actions-copy">
+                    <strong>{editChangeCount > 0 ? 'Ready to update organization' : 'Waiting for edits'}</strong>
+                    <span>{editStatusMeta.headline}</span>
+                  </div>
+                  <div className="admin-org-edit-actions-buttons">
+                    <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
+                      Cancel
+                    </button>
+                    <button type="button" className="admin-user-save" onClick={handleEditSave} disabled={actionSaving || editChangeCount === 0}>
+                      {actionSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : null}
@@ -522,12 +852,13 @@ export default function OrganizationDashboard() {
                 <p className="admin-org-warning">
                   This will disable access for <strong>{actionModal.org.name}</strong> until reactivated.
                 </p>
+                {actionError ? <p className="admin-org-warning">{actionError}</p> : null}
                 <div className="admin-modal-actions">
                   <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
                     Cancel
                   </button>
-                  <button type="button" className="admin-user-danger" onClick={closeActionModal}>
-                    Deactivate
+                  <button type="button" className="admin-user-danger" onClick={handleDeactivate} disabled={actionSaving}>
+                    {actionSaving ? 'Deactivating...' : 'Deactivate'}
                   </button>
                 </div>
               </>
