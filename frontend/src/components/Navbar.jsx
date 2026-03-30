@@ -1,9 +1,14 @@
 import './css/Navbar.css';
-import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import DonorNotificationsDropdown from './pages/notifications/DonorNotificationsDropdown';
-import { initialNotifications } from './pages/notifications/notificationData';
+import { getPrivacyPreferences } from '@/utils/user-preferences';
+import {
+  clearAuthState,
+  getAuthToken,
+  getSession,
+  getSessionUpdatedEventName,
+} from '@/services/session-service.js';
 
 const guestNavItems = [
   { label: 'Home', href: '/' },
@@ -24,17 +29,7 @@ const donorNavItems = [
 ];
 
 function getDonorSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function clearAuthState() {
-  window.localStorage.removeItem('chomnuoy_session');
-  window.localStorage.removeItem('authToken');
+  return getSession();
 }
 
 function isNavItemActive(itemHref, pathname) {
@@ -51,60 +46,90 @@ function isGuestNavItemActive(itemHref, pathname) {
   return pathname === itemHref;
 }
 
+function getInitials(name) {
+  if (!name) return 'DU';
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
+}
+
+function isDefaultAvatarUrl(url) {
+  return typeof url === 'string' && url.includes('photo-1500648767791-00dcc994a43e');
+}
+
 function Navbar() {
   const navigate = useNavigate();
-  const pathname = window.location.pathname;
-  const donorSession = getDonorSession();
+  const location = useLocation();
+  const pathname = location.pathname;
+  const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
+  const loginHref = `/login?redirect=${loginRedirectTarget}`;
+
+  const [donorSession, setDonorSession] = useState(() => getDonorSession());
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
   const [isGuestMenuOpen, setIsGuestMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isAllNotificationsOpen, setIsAllNotificationsOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [activeNotification, setActiveNotification] = useState(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [isReplySending, setIsReplySending] = useState(false);
+  const notificationRef = useRef(null);
+
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   const handleLogout = () => {
     const savedBeforeLoginPath = donorSession?.logoutRedirectTo;
-    const logoutTarget = savedBeforeLoginPath && savedBeforeLoginPath.startsWith('/') ? savedBeforeLoginPath : '/';
+    const logoutTarget =
+      savedBeforeLoginPath && savedBeforeLoginPath.startsWith('/') ? savedBeforeLoginPath : '/';
     clearAuthState();
     window.location.href = logoutTarget;
   };
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
-    const query = searchQuery.trim();
+    const query = searchQuery.trim().replace(/\s+/g, ' ');
     if (!query) return;
 
-    const normalized = query.toLowerCase();
-    const encodedQuery = encodeURIComponent(query);
-
-    if (normalized.includes('organization') || normalized.includes('ngo')) {
-      navigate(`/organizations?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('donation')) {
-      navigate(`/donations?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('pickup') || normalized.includes('material')) {
-      navigate(`/pickup?search=${encodedQuery}`);
-      return;
-    }
-    if (normalized.includes('contact') || normalized.includes('support')) {
-      navigate(`/contact?search=${encodedQuery}`);
-      return;
-    }
-
-    navigate(`/campaigns?search=${encodedQuery}`);
+    const encoded = encodeURIComponent(query);
+    navigate(`${isDonorLoggedIn ? '/campaigns/donor' : '/campaigns'}?search=${encoded}`);
   };
+
+  const markAllNotificationsRead = () => {
+    setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
+    const token = getAuthToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    notifications.forEach((item) => {
+      if (!item.isRead && item.source === 'api') {
+        fetch(`${apiBase}/notifications/${item.id}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_read: true }),
+        }).catch(() => {});
+      }
+    });
+  };
+
+  useEffect(() => {
+    const syncSession = () => setDonorSession(getDonorSession());
+    window.addEventListener('storage', syncSession);
+    window.addEventListener(getSessionUpdatedEventName(), syncSession);
+    return () => {
+      window.removeEventListener('storage', syncSession);
+      window.removeEventListener(getSessionUpdatedEventName(), syncSession);
+    };
+  }, []);
 
   useEffect(() => {
     setIsGuestMenuOpen(false);
     setIsProfileMenuOpen(false);
     setIsLogoutPopupOpen(false);
-    setIsNotificationOpen(false);
+    setIsNotificationsOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -112,14 +137,14 @@ function Navbar() {
       if (isProfileMenuOpen && !event.target.closest('.donor-profile')) {
         setIsProfileMenuOpen(false);
       }
-      if (isNotificationOpen && !event.target.closest('.donor-notification')) {
-        setIsNotificationOpen(false);
+      if (isNotificationsOpen && notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isNotificationOpen, isProfileMenuOpen]);
+  }, [isNotificationsOpen, isProfileMenuOpen]);
 
   useEffect(() => {
     if (!isLogoutPopupOpen) return undefined;
@@ -131,6 +156,196 @@ function Navbar() {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isLogoutPopupOpen]);
+
+  useEffect(() => {
+    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
+    setSearchQuery(urlQuery);
+  }, [location.search]);
+
+  const parseMessageDetails = (rawMessage = '') => {
+    const lines = String(rawMessage).split('\n').map((line) => line.trim()).filter(Boolean);
+    const fromLine = lines.find((line) => line.toLowerCase().startsWith('from:')) || '';
+    const subjectLine = lines.find((line) => line.toLowerCase().startsWith('subject:')) || '';
+    const messageLine = lines.find((line) => line.toLowerCase().startsWith('message:')) || '';
+    const fromValue = fromLine.replace(/^from:\s*/i, '');
+    const subjectValue = subjectLine.replace(/^subject:\s*/i, '');
+    const messageValue = messageLine.replace(/^message:\s*/i, '');
+    return {
+      from: fromValue || null,
+      subject: subjectValue || null,
+      body: messageValue || rawMessage,
+    };
+  };
+
+  const loadNotifications = () => {
+    if (!isDonorLoggedIn) return;
+    const session = getDonorSession();
+    const userId = Number(session?.userId ?? 0);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = getAuthToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(`${apiBase}/notifications`, { headers })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        const filtered = userId
+          ? list.filter((item) => {
+              const recipientType = String(item.recipient_type || '').toLowerCase();
+              const recipientId = Number(item.recipient_id || 0);
+              if (recipientType) {
+                return recipientType === 'user' && recipientId === userId;
+              }
+              return Number(item.user_id) === userId;
+            })
+          : [];
+        const mapped = filtered
+          .filter((item) => {
+            const type = String(item.type || '').toLowerCase();
+            if (type === 'message') {
+              return false;
+            }
+            return true;
+          })
+          .map((item) => {
+          const type = String(item.type || '').toLowerCase();
+          const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+          const timeLabel = createdAt.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          const parsed = parseMessageDetails(item.message || '');
+          const title = type === 'reply'
+            ? 'Admin Reply'
+            : type === 'campaign'
+              ? 'Campaign Update'
+              : type === 'pickup'
+                ? 'Pickup Reminder'
+                : 'Notification';
+          return {
+            id: item.id,
+            type: type === 'reply' ? 'message' : (type || 'info'),
+            title,
+            message: parsed.body || item.message || 'New update available.',
+            time: timeLabel,
+            isRead: Boolean(item.is_read),
+            source: 'api',
+            rawMessage: item.message || '',
+            subject: parsed.subject,
+            from: parsed.from,
+            userId: Number(item.user_id) || 0,
+          };
+        });
+        setNotifications(mapped);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
+    if (!isDonorLoggedIn) return undefined;
+
+    const timer = window.setInterval(() => {
+      loadNotifications();
+    }, 15000);
+
+    const handleFocus = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+    loadNotifications();
+  }, [isNotificationsOpen]);
+
+  const markNotificationRead = (id, source) => {
+    setNotifications((previous) => previous.map((item) => (
+      item.id === id ? { ...item, isRead: true } : item
+    )));
+    if (source === 'api') {
+      const token = getAuthToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+      fetch(`${apiBase}/notifications/${id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_read: true }),
+      }).catch(() => {});
+    }
+  };
+
+  const openNotificationDetails = (item) => {
+    setActiveNotification(item);
+    if (!item.isRead) {
+      markNotificationRead(item.id, item.source);
+    }
+  };
+
+  const closeNotificationDetails = () => {
+    setActiveNotification(null);
+    setReplyDraft('');
+    setIsReplySending(false);
+  };
+
+  const handleReplySend = async () => {
+    if (!replyDraft.trim() || !activeNotification) return;
+    const session = getDonorSession();
+    const userId = Number(session?.userId ?? 0);
+    if (!userId) return;
+    setIsReplySending(true);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = getAuthToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const subject = activeNotification.subject || activeNotification.title || 'Message';
+    const fromName = session?.name || 'Donor';
+    const fromEmail = session?.email || 'donor@example.com';
+    const payload = {
+      user_id: userId,
+      sender_type: 'user',
+      sender_name: fromName,
+      sender_email: fromEmail,
+      recipient_type: 'admin',
+      message: `From: ${fromName} <${fromEmail}>\nSubject: Reply: ${subject}\nMessage: ${replyDraft.trim()}`,
+      type: 'message',
+      is_read: false,
+    };
+
+    try {
+      const response = await fetch(`${apiBase}/notifications`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to send reply.');
+      }
+      setNotifications((previous) =>
+        previous.map((item) =>
+          item.id === activeNotification.id ? { ...item, isRead: true } : item
+        )
+      );
+      markNotificationRead(activeNotification.id, activeNotification.source);
+      setReplyDraft('');
+      closeNotificationDetails();
+    } catch {
+      setIsReplySending(false);
+    }
+  };
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [donorSession?.avatar]);
 
   const logoutPopupMarkup = (
     <div className="logout-popup-overlay" role="presentation" onClick={() => setIsLogoutPopupOpen(false)}>
@@ -171,40 +386,20 @@ function Navbar() {
   if (isDonorLoggedIn) {
     const donorName = donorSession.name || 'Donor User';
     const donorImpact = donorSession.impactLevel || 'Gold';
+    const donorInitials = getInitials(donorName);
+    const donorAvatar = donorSession.avatar;
+    const hasCustomAvatar = Boolean(donorAvatar) && !isDefaultAvatarUrl(donorAvatar) && !avatarLoadFailed;
+    const { publicProfile } = getPrivacyPreferences();
 
     return (
       <nav className="donor-navbar" aria-label="Donor navigation">
         <Link to="/" className="donor-brand" aria-label="Donor portal home">
           <span className="donor-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
-                stroke="currentColor"
-                strokeWidth="2.35"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M4.5 15.8v4.5" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>
@@ -238,31 +433,66 @@ function Navbar() {
         </form>
 
         <div className="donor-actions">
-          <div className="donor-notification">
+          <div className="donor-notification" ref={notificationRef}>
             <button
               type="button"
-              className={`donor-notify ${isNotificationOpen ? 'is-active' : ''}`}
+              className={`donor-notify ${isNotificationsOpen ? 'is-active' : ''}`}
               aria-label="Notifications"
-              aria-expanded={isNotificationOpen}
-              aria-pressed={isNotificationOpen}
-              onClick={() => setIsNotificationOpen((previous) => !previous)}
+              aria-expanded={isNotificationsOpen}
+              aria-pressed={isNotificationsOpen}
+              onClick={() => setIsNotificationsOpen((previous) => !previous)}
             >
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              {unreadCount > 0 && <span className="notification-dot" />}
+              {unreadCount > 0 ? <span className="notification-dot"></span> : null}
             </button>
-
-            {isNotificationOpen && (
-              <DonorNotificationsDropdown
-                notifications={notifications}
-                unreadCount={unreadCount}
-                isAllNotificationsOpen={isAllNotificationsOpen}
-                onMarkAllRead={() => setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })))}
-                onToggleAll={() => setIsAllNotificationsOpen((previous) => !previous)}
-              />
-            )}
+            {isNotificationsOpen ? (
+              <div className="donor-notification-dropdown" aria-label="Notification list">
+                <div className="donor-notification-header">
+                  <h4>Notifications</h4>
+                  <button
+                    type="button"
+                    className="donor-mark-read"
+                    onClick={markAllNotificationsRead}
+                    disabled={unreadCount === 0}
+                  >
+                    Mark all read
+                  </button>
+                </div>
+                <ul className="donor-notification-list">
+                  {notifications.map((item) => (
+                    <li
+                      key={item.id}
+                      className={`donor-notification-item ${item.isRead ? 'is-read' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openNotificationDetails(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          openNotificationDetails(item);
+                        }
+                      }}
+                    >
+                      <div className={`donor-notification-icon ${item.type}`}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                          <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                          <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="donor-notification-content">
+                        <div className="donor-notification-topline">
+                          <p>{item.title}</p>
+                          <time>{item.time}</time>
+                        </div>
+                        <span>{item.message}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <div className="donor-profile">
@@ -273,25 +503,31 @@ function Navbar() {
               aria-label="Profile menu"
               aria-expanded={isProfileMenuOpen}
             >
-              <img
-                src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                alt={donorName}
-                className="donor-avatar-photo"
-              />
+              {hasCustomAvatar ? (
+                <img src={donorAvatar} alt={donorName} className="donor-avatar-photo" onError={() => setAvatarLoadFailed(true)} />
+              ) : (
+                <span className="donor-avatar-fallback" aria-hidden="true">{donorInitials}</span>
+              )}
             </button>
 
             {isProfileMenuOpen && (
               <div className="donor-profile-dropdown" aria-label="Profile menu" style={{ display: 'block' }}>
                 <div className="donor-profile-header">
-                  <img
-                    src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                    alt={donorName}
-                    className="donor-profile-avatar"
-                  />
+                  {hasCustomAvatar ? (
+                    <img src={donorAvatar} alt={donorName} className="donor-profile-avatar" onError={() => setAvatarLoadFailed(true)} />
+                  ) : (
+                    <span className="donor-profile-avatar donor-profile-avatar-fallback" aria-hidden="true">
+                      {donorInitials}
+                    </span>
+                  )}
                   <div className="donor-profile-info">
                     <p className="donor-profile-name">{donorName}</p>
                     <p className="donor-profile-email">{donorSession.email || 'donor@example.com'}</p>
-                    <p className="donor-profile-impact">Impact Level: {donorImpact}</p>
+                    {publicProfile ? (
+                      <p className="donor-profile-impact">Impact Level: {donorImpact}</p>
+                    ) : (
+                      <p className="donor-profile-impact">Profile visibility: Private</p>
+                    )}
                   </div>
                 </div>
 
@@ -306,10 +542,17 @@ function Navbar() {
                     My Profile
                   </Link>
 
-                  <Link to="/settings" className="donor-profile-menu-item" onClick={() => setIsProfileMenuOpen(false)}>
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor">
-                      <circle cx="12" cy="12" r="3" strokeWidth="2" />
-                      <path d="M12 1v6m0 6v6m4.22-13.22 4.22 4.22M1.54 9.54l4.22 4.22M20.46 14.46l-4.22 4.22" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <Link
+                    to="/settings/AccountSettings"
+                    className="donor-profile-menu-item"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" strokeWidth="1.8" />
+                      <path
+                        d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.06V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.06-.4H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.6 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.06V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.06.4H21a2 2 0 1 1 0 4h-.1A1.7 1.7 0 0 0 19.4 15Z"
+                        strokeWidth="1.2"
+                      />
                     </svg>
                     Settings
                   </Link>
@@ -344,6 +587,58 @@ function Navbar() {
         </div>
 
         {isLogoutPopupOpen && typeof document !== 'undefined' ? createPortal(logoutPopupMarkup, document.body) : null}
+        {activeNotification && typeof document !== 'undefined'
+          ? createPortal(
+            <div className="donor-notify-modal-overlay" role="presentation" onClick={closeNotificationDetails}>
+              <div
+                className="donor-notify-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="donor-notify-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="donor-notify-modal-header">
+                  <div className={`donor-notify-modal-icon ${activeNotification.type}`} aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="12" cy="12" r="8" strokeWidth="2" />
+                      <path d="M12 8v4l2 2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="donor-notify-modal-kicker">{activeNotification.title}</p>
+                    <h3 id="donor-notify-title">{activeNotification.subject || activeNotification.title}</h3>
+                    <span className="donor-notify-modal-time">{activeNotification.time}</span>
+                  </div>
+                </div>
+                {activeNotification.from ? (
+                  <p className="donor-notify-modal-from">From: {activeNotification.from}</p>
+                ) : null}
+                <p className="donor-notify-modal-body">{activeNotification.message}</p>
+
+                {activeNotification.title === 'Admin Reply' && !activeNotification.isRead ? (
+                  <div className="donor-notify-reply">
+                    <span>Reply to Admin</span>
+                    <textarea
+                      rows={4}
+                      placeholder="Write your reply..."
+                      value={replyDraft}
+                      onChange={(event) => setReplyDraft(event.target.value)}
+                    />
+                    <div className="donor-notify-reply-actions">
+                      <button type="button" className="donor-notify-reply-ghost" onClick={closeNotificationDetails}>
+                        Cancel
+                      </button>
+                      <button type="button" className="donor-notify-reply-send" onClick={handleReplySend} disabled={isReplySending}>
+                        {isReplySending ? 'Sending...' : 'Send Reply'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>,
+            document.body
+          )
+          : null}
       </nav>
     );
   }
@@ -353,34 +648,10 @@ function Navbar() {
       <a href="/" className="brand" aria-label="Chomnuoy home">
         <span className="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" className="logo-mark" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
-              stroke="currentColor"
-              strokeWidth="2.35"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M4.5 15.8v4.5" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
@@ -417,7 +688,7 @@ function Navbar() {
         ))}
       </ul>
 
-      <Link to="/login?redirect=%2F" className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
+      <Link to={loginHref} className="nav-cta" onClick={() => setIsGuestMenuOpen(false)}>
         Donate Now
       </Link>
     </nav>

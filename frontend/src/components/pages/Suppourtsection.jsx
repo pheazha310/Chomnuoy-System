@@ -6,19 +6,22 @@ export default function SupportSection() {
       icon: HelpCircle,
       title: 'FAQ Center',
       description: 'Find quick answers to common questions about our platform and services.',
-     
+      link: '/faq',
+      linkText: 'Visit Help Center',
     },
     {
       icon: Users,
       title: 'Community Forum',
       description: 'Connect with other users, share ideas, and learn best practices.',
-      
+      link: '/community',
+      linkText: 'Join Discussion',
     },
     {
       icon: BookOpen,
       title: 'Documentation',
       description: 'Detailed guides and API references for developers and businesses.',
-     
+      link: '/docs',
+      linkText: 'Read Docs',
     },
   ];
 
@@ -34,7 +37,13 @@ export default function SupportSection() {
             </div>
             <h3>{item.title}</h3>
             <p>{item.description}</p>
-            
+            <a
+              href={item.link}
+              className="support-link"
+            >
+              {item.linkText}
+              <ArrowRight className="h-4 w-4" />
+            </a>
           </div>
         ))}
       </div>

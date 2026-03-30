@@ -1,7 +1,18 @@
-import { useState } from 'react';
+import React from 'react';
+import { Link, useLocation, NavLink } from 'react-router-dom';
+import { Home, Target, CreditCard, FileText, Users, BarChart3, Settings, HelpCircle, Menu, X, Sun, Moon } from 'lucide-react';
+import ROUTES from '@/constants/routes.js';
+import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
 
-export default function OrganizationSidebar() {
-  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+export default function OrganizationSidebar({ compact = false }) {
+  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = React.useState(false);
+  const { displayPrefs, toggleDarkMode, toggleHighContrast, toggleCompactView } = useGlobalTheme();
+  const location = useLocation();
+  const pathname = location.pathname;
+
+  const isGuestNavItemActive = (href, currentPath) => {
+    return currentPath === href;
+  };
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -11,7 +22,7 @@ export default function OrganizationSidebar() {
 
   return (
     <>
-      <aside className="org-sidebar" aria-label="Organization navigation">
+      <aside className={`org-sidebar${compact ? ' compact' : ''}`} aria-label="Organization navigation">
         <div className="org-brand">
           <span className="org-brand-mark" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="org-brand-icon" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -54,39 +65,70 @@ export default function OrganizationSidebar() {
         </div>
 
         <nav className="org-nav">
-          <button className="org-nav-item active" type="button">
+          <NavLink
+            to={ROUTES.ORGANIZATION_DASHBOARD}
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+            end
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M3 13h8V3H3zM13 21h8v-6h-8zM13 11h8V3h-8zM3 21h8v-6H3z" strokeWidth="1.8" />
               </svg>
             </span>
             Dashboard
-          </button>
-          <button className="org-nav-item" type="button">
+          </NavLink>
+
+          <NavLink
+            to={ROUTES.ORGANIZATION_CAMPAIGNS}
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M4 7h16M4 12h16M4 17h10" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </span>
             Campaigns
-          </button>
-          <button className="org-nav-item" type="button">
+          </NavLink>
+
+          <NavLink
+            to="/organization/donations"
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z" strokeWidth="1.8" />
               </svg>
             </span>
             Donations
-          </button>
-          <button className="org-nav-item" type="button">
+          </NavLink>
+
+          <NavLink
+            to={ROUTES.ORGANIZATION_REPORTS}
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M4 19h16M7 16V9M12 16V5M17 16v-7" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             </span>
             Reports
-          </button>
-          <button className="org-nav-item" type="button">
+          </NavLink>
+          <NavLink
+            to="/organization/profile"
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
+            <span className="org-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 12.5a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" strokeWidth="1.8" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </span>
+            Profile
+          </NavLink>
+          <NavLink
+            to="/organization/settings"
+            className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
+          >
             <span className="org-nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" strokeWidth="1.8" />
@@ -94,17 +136,42 @@ export default function OrganizationSidebar() {
               </svg>
             </span>
             Settings
-          </button>
+          </NavLink>
         </nav>
 
-        <div className="org-plan-card">
-          <p>Support Tier</p>
-          <strong>Pro Plan</strong>
+        <div className="org-sidebar-footer">
+          {/* Theme Controls */}
+          <div className="org-theme-controls">
+          <p>Display Settings</p>
+          <div className="org-theme-buttons">
+            <button 
+              className={`org-theme-btn ${displayPrefs.darkMode ? 'active' : ''}`}
+              onClick={toggleDarkMode}
+              title="Toggle Dark Mode"
+            >
+              {displayPrefs.darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button 
+              className={`org-theme-btn ${displayPrefs.highContrast ? 'active' : ''}`}
+              onClick={toggleHighContrast}
+              title="Toggle High Contrast"
+            >
+              <span className="org-theme-icon">Aa</span>
+            </button>
+            <button 
+              className={`org-theme-btn ${displayPrefs.compactView ? 'active' : ''}`}
+              onClick={toggleCompactView}
+              title="Toggle Compact View"
+            >
+              <span className="org-theme-icon">⊡</span>
+            </button>
+          </div>
         </div>
 
-        <button className="org-logout-button" type="button" onClick={() => setIsLogoutPopupOpen(true)}>
-          Logout
-        </button>
+          <button className="org-logout-button" type="button" onClick={() => setIsLogoutPopupOpen(true)}>
+            Logout
+          </button>
+        </div>
       </aside>
 
       {isLogoutPopupOpen ? (

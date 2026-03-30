@@ -6,6 +6,10 @@ import SupportSection from '../pages/Suppourtsection';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 export default function ContactPage() {
+  const sessionRaw = window.localStorage.getItem('chomnuoy_session');
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const donateHref = session?.isLoggedIn ? '/campaigns' : '/login?redirect=%2Fcampaigns';
+
   return (
     <div className="contact-shell">
       <section className="contact-hero-wrap">
@@ -23,13 +27,11 @@ export default function ContactPage() {
               A bridge between those who want to help and those who need it most. Join our ecosystem of transparent giving.
             </p>
             <div className="contact-hero-actions">
-              <Link to="/campaigns" className="contact-hero-btn contact-hero-btn-primary">
+              <Link to={donateHref} className="contact-hero-btn contact-hero-btn-primary">
                 Donate Now
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/login" className="contact-hero-btn contact-hero-btn-secondary">
-                Join Us
-              </Link>
+              <button className="contact-hero-btn contact-hero-btn-secondary">Join Us</button>
             </div>
           </div>
         </div>

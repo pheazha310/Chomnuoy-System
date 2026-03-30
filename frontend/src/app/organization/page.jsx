@@ -1,90 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
-
-const summaryCards = [
-  {
-    title: 'Total Funds Raised',
-    value: '$45,280.00',
-    change: '+12.5%',
-    icon: 'TF',
-  },
-  {
-    title: 'Material Items Received',
-    value: '1,240 items',
-    change: '+5.2%',
-    icon: 'MI',
-  },
-  {
-    title: 'Active Campaigns',
-    value: '8 active',
-    change: 'Stable',
-    icon: 'AC',
-  },
-];
-
-const campaignPerformance = [
-  {
-    name: 'Annual School Supplies',
-    raised: '$12,400 raised',
-    goal: 'Goal: $15,000',
-    percent: 82,
-    time: '12 Days Left',
-  },
-  {
-    name: 'Clean Water Initiative',
-    raised: '$3,200 raised',
-    goal: 'Goal: $7,000',
-    percent: 45,
-    time: '45 Days Left',
-  },
-];
-
-const donationRows = [
-  {
-    donor: 'Sarah Jenkins',
-    type: 'Money',
-    amount: '$250.00',
-    status: 'Completed',
-    date: 'Oct 24, 2023',
-  },
-  {
-    donor: 'David Miller',
-    type: 'Material',
-    amount: '15x Backpacks',
-    status: 'Pending',
-    date: 'Oct 23, 2023',
-  },
-  {
-    donor: 'Emma Wilson',
-    type: 'Money',
-    amount: '$1,000.00',
-    status: 'Completed',
-    date: 'Oct 22, 2023',
-  },
-];
-
-const pickupAlerts = [
-  {
-    title: 'Textbook Collection',
-    location: '124 North Ave, Downtown',
-    when: 'Today',
-    action: 'Coordinate Pickup',
-    primary: true,
-  },
-  {
-    title: 'Sports Equipment',
-    location: 'Community Center East',
-    when: 'Tomorrow',
-    action: 'Assign Volunteer',
-    primary: false,
-  },
-];
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 
 function getOrganizationSession() {
   try {
     const raw = window.localStorage.getItem('chomnuoy_session');
     return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredProfile() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_org_profile');
+    if (raw) return JSON.parse(raw);
+    const fallbackRaw = window.localStorage.getItem('chomnuoy_org_info');
+    return fallbackRaw ? JSON.parse(fallbackRaw) : null;
   } catch {
     return null;
   }
@@ -99,20 +32,15 @@ function getInitials(name) {
   return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 }
 
-function Topbar() {
+function Topbar({ notifications, setNotifications }) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [activeNotificationTab, setActiveNotificationTab] = useState('all');
+  const [storedProfile, setStoredProfile] = useState(() => getStoredProfile());
   const session = getOrganizationSession();
-  const organizationName = session?.name || 'Organization';
+  const organizationName = storedProfile?.name || session?.name || 'Organization';
+  const organizationLogo = storedProfile?.logo || '';
   const roleLabel = session?.role === 'Organization' ? 'Administrator' : (session?.role || 'Administrator');
   const initials = getInitials(organizationName);
-  const [notifications, setNotifications] = useState([
-    { id: 1, actor: 'SJ', title: 'New Donation Received', detail: 'Sarah Jenkins donated $250 to Annual School Supplies.', time: '2m', type: 'success', unread: true },
-    { id: 2, actor: 'TC', title: 'Pickup Request Updated', detail: 'Textbook Collection is now marked as urgent pickup.', time: '30m', type: 'info', unread: true },
-    { id: 3, actor: 'CW', title: 'Campaign Goal Progress', detail: 'Clean Water Initiative reached 45% of its target.', time: '1h', type: 'progress', unread: true },
-    { id: 4, actor: 'DM', title: 'New Donor Message', detail: 'David Miller asked about delivery details for material items.', time: '5h', type: 'message', unread: false },
-    { id: 5, actor: 'VR', title: 'Verification Reminder', detail: 'Please upload updated organization documents by next week.', time: '1d', type: 'warning', unread: false },
-  ]);
   const unreadCount = notifications.filter((item) => item.unread).length;
   const visibleNotifications =
     activeNotificationTab === 'unread'
@@ -120,9 +48,30 @@ function Topbar() {
       : notifications;
 
   const markAllNotificationsRead = () => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
     setActiveNotificationTab('all');
+    notifications.forEach((item) => {
+      fetch(`${apiBase}/notifications/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_read: true }),
+      }).catch(() => null);
+    });
   };
+
+  useEffect(() => {
+    const syncProfile = () => {
+      setStoredProfile(getStoredProfile());
+    };
+
+    window.addEventListener('storage', syncProfile);
+    window.addEventListener('chomnuoy-org-profile-updated', syncProfile);
+    return () => {
+      window.removeEventListener('storage', syncProfile);
+      window.removeEventListener('chomnuoy-org-profile-updated', syncProfile);
+    };
+  }, []);
 
   return (
     <>
@@ -152,11 +101,7 @@ function Topbar() {
             </svg>
             {unreadCount > 0 ? <span className="org-notify-dot" /> : null}
           </button>
-          <div style={{marginLeft:'15px'}}>
-            <p>{organizationName}</p>
-            <span>{roleLabel}</span>
-          </div>
-          <span className="org-avatar">{initials}</span>
+          <OrganizationIdentityPill className="org-topbar-pill" />
         </div>
       </header>
 
@@ -239,12 +184,324 @@ function Topbar() {
 }
 
 export default function OrganizationDashboardPage() {
+  const [selectedPickupAlert, setSelectedPickupAlert] = useState(null);
+  const [confirmingPickup, setConfirmingPickup] = useState(false);
+  const [campaigns, setCampaigns] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [pickups, setPickups] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const lastNotificationIdRef = useRef(0);
+  const session = getOrganizationSession();
+  const organizationId = Number(session?.userId ?? 0);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    Promise.all([
+      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/material_pickups`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/users`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([campaignData, donationData, materialData, pickupData, userData]) => {
+        const campaignsList = Array.isArray(campaignData) ? campaignData : [];
+        const donationList = Array.isArray(donationData) ? donationData : [];
+        const materialList = Array.isArray(materialData) ? materialData : [];
+        const pickupList = Array.isArray(pickupData) ? pickupData : [];
+        const userList = Array.isArray(userData) ? userData : [];
+
+        const filteredCampaigns = organizationId
+          ? campaignsList.filter((item) => Number(item.organization_id) === organizationId)
+          : campaignsList;
+        const filteredDonations = organizationId
+          ? donationList.filter((item) => Number(item.organization_id) === organizationId)
+          : donationList;
+
+        setCampaigns(filteredCampaigns);
+        setDonations(filteredDonations);
+        setMaterialItems(materialList);
+        setPickups(pickupList);
+        setUsers(userList);
+      })
+      .catch(() => null);
+  }, [organizationId]);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+    let source = null;
+    let pollTimer = null;
+
+    const mapNotification = (item) => ({
+      id: item.id,
+      actor: (item.type || 'NT').slice(0, 2).toUpperCase(),
+      title: item.type === 'campaign' ? 'Campaign Update' : 'Notification',
+      detail: item.message || 'New update available.',
+      time: new Date(item.created_at || Date.now()).toLocaleString(),
+      type: item.type || 'info',
+      unread: !item.is_read,
+    });
+
+    const upsertNotifications = (items) => {
+      setNotifications((prev) => {
+        const next = new Map(prev.map((item) => [item.id, item]));
+        items.forEach((item) => {
+          next.set(item.id, mapNotification(item));
+        });
+        return Array.from(next.values()).sort((a, b) => b.id - a.id);
+      });
+    };
+
+    const loadNotifications = () => {
+      return fetch(`${apiBase}/notifications`)
+        .then((response) => (response.ok ? response.json() : []))
+        .then((data) => {
+          if (!alive) return;
+          const items = Array.isArray(data) ? data : [];
+          const filtered = organizationId
+            ? items.filter((item) => {
+                const recipientType = String(item.recipient_type || '').toLowerCase();
+                const recipientId = Number(item.recipient_id || 0);
+                if (recipientType) {
+                  if (recipientType !== 'organization' || recipientId !== organizationId) return false;
+                } else if (Number(item.user_id) !== organizationId) {
+                  return false;
+                }
+                const type = String(item.type || '').toLowerCase();
+                return type !== 'message' && type !== 'reply';
+              })
+            : [];
+          const mapped = filtered.map(mapNotification);
+          setNotifications(mapped);
+          const latestId = mapped.reduce((maxId, item) => Math.max(maxId, Number(item.id) || 0), 0);
+          lastNotificationIdRef.current = Math.max(lastNotificationIdRef.current, latestId);
+        })
+        .catch(() => {
+          if (!alive) return;
+          setNotifications([]);
+        });
+    };
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      pollTimer = window.setInterval(loadNotifications, 15000);
+    };
+
+    const startEventSource = () => {
+      if (typeof EventSource === 'undefined') {
+        startPolling();
+        return;
+      }
+      const url = `${apiBase}/notifications/stream?recipient_type=organization&recipient_id=${organizationId}&last_id=${lastNotificationIdRef.current}`;
+      source = new EventSource(url);
+      source.addEventListener('notification', (event) => {
+        if (!alive) return;
+        try {
+          const item = JSON.parse(event.data);
+          if (organizationId && Number(item.user_id) !== organizationId) return;
+          const type = String(item.type || '').toLowerCase();
+          if (type === 'message' || type === 'reply') return;
+          upsertNotifications([item]);
+          lastNotificationIdRef.current = Math.max(lastNotificationIdRef.current, Number(item.id) || 0);
+        } catch {
+          // ignore malformed payload
+        }
+      });
+      source.onerror = () => {
+        if (!alive) return;
+        if (source) source.close();
+        source = null;
+        startPolling();
+      };
+    };
+
+    loadNotifications().then(() => {
+      if (!alive) return;
+      startEventSource();
+    });
+    return () => {
+      alive = false;
+      if (source) source.close();
+      if (pollTimer) window.clearInterval(pollTimer);
+    };
+  }, [organizationId]);
+
+  const summaryCards = useMemo(() => {
+    const totalRaised = campaigns.reduce((sum, item) => sum + Number(item.current_amount || 0), 0);
+    const activeCount = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+    const materialDonationIds = new Set(
+      donations.filter((item) => item.donation_type === 'material').map((item) => item.id),
+    );
+    const materialCount = materialItems
+      .filter((item) => materialDonationIds.has(item.donation_id))
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    return [
+      {
+        title: 'Total Funds Raised',
+        value: `$${totalRaised.toLocaleString()}`,
+        change: '+12.5%',
+        icon: 'TF',
+      },
+      {
+        title: 'Material Items Received',
+        value: `${materialCount.toLocaleString()} items`,
+        change: '+5.2%',
+        icon: 'MI',
+      },
+      {
+        title: 'Active Campaigns',
+        value: `${activeCount} active`,
+        change: 'Stable',
+        icon: 'AC',
+      },
+    ];
+  }, [campaigns, donations, materialItems]);
+
+  const campaignPerformance = useMemo(() => {
+    const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active');
+    return activeCampaigns.slice(0, 2).map((item) => {
+      const goal = Number(item.goal_amount || 0);
+      const raised = Number(item.current_amount || 0);
+      const percent = goal ? Math.round((raised / goal) * 100) : 0;
+      return {
+        name: item.title || 'Untitled Campaign',
+        raised: `$${raised.toLocaleString()} raised`,
+        goal: `Goal: $${goal.toLocaleString()}`,
+        percent,
+        time: item.end_date ? `${Math.max(0, Math.ceil((new Date(item.end_date) - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left` : 'Ongoing',
+      };
+    });
+  }, [campaigns]);
+
+  const donationRows = useMemo(() => {
+    return donations.slice(0, 5).map((row) => {
+      const materialItem = materialItems.find((item) => item.donation_id === row.id);
+      const pickup = pickups.find((item) => Number(item.donation_id) === Number(row.id));
+      const donor = users.find((item) => Number(item.id) === Number(row.user_id));
+      const quantity = Math.max(1, Number(materialItem?.quantity || row.amount || 1));
+      const amountText = row.donation_type === 'material'
+        ? `${quantity}x ${materialItem?.item_name || 'Items'}`
+        : `$${Number(row.amount || 0).toLocaleString()}`;
+      const statusText = row.donation_type === 'material' && pickup?.status
+        ? String(pickup.status)
+        : String(row.status || 'Pending');
+      return {
+        id: row.id ?? `${row.user_id || 'anonymous'}-${row.created_at || 'no-date'}-${row.amount || row.donation_type || 'donation'}`,
+        donor: donor?.name || (row.user_id ? `Donor #${row.user_id}` : 'Anonymous'),
+        type: row.donation_type === 'material' ? 'Material' : 'Money',
+        amount: amountText,
+        status: statusText,
+        date: row.created_at ? new Date(row.created_at).toLocaleDateString() : '-',
+      };
+    });
+  }, [donations, materialItems, pickups, users]);
+
+  const pickupAlerts = useMemo(() => {
+    return pickups.slice(0, 3).map((item, index) => {
+      const donation = donations.find((row) => Number(row.id) === Number(item.donation_id));
+      const materialItem = materialItems.find((row) => Number(row.donation_id) === Number(item.donation_id));
+      const campaign = campaigns.find((row) => Number(row.id) === Number(donation?.campaign_id));
+      const donor = users.find((row) => Number(row.id) === Number(donation?.user_id));
+      const quantity = Math.max(1, Number(materialItem?.quantity || donation?.amount || 1));
+      const donorName = donor?.name || (donation?.user_id ? `Donor #${donation.user_id}` : 'Anonymous donor');
+      const itemName = materialItem?.item_name || 'Material items';
+      const schedule = item.schedule_date ? new Date(item.schedule_date) : null;
+      const hasSchedule = schedule && !Number.isNaN(schedule.getTime());
+
+      return {
+        id: item.id,
+        donationId: donation?.id ?? null,
+        donorUserId: donation?.user_id ?? null,
+        title: campaign?.title || `Pickup Request #${item.id}`,
+        donorName,
+        itemName,
+        quantity,
+        campaignName: campaign?.title || 'Campaign',
+        location: item.pickup_address || 'Location pending',
+        scheduleRaw: item.schedule_date || null,
+        when: hasSchedule
+          ? schedule.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+          : 'Not scheduled yet',
+        status: String(item.status || 'pending'),
+        action: index === 0 ? 'Coordinate Pickup' : 'Review Pickup',
+        primary: index === 0,
+      };
+    });
+  }, [pickups, donations, materialItems, campaigns, users]);
+
+  const handleConfirmPickup = async () => {
+    if (!selectedPickupAlert?.id) {
+      setSelectedPickupAlert(null);
+      return;
+    }
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    setConfirmingPickup(true);
+
+    try {
+      const pickupResponse = await fetch(`${apiBase}/material_pickups/${selectedPickupAlert.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'confirmed',
+          pickup_address: selectedPickupAlert.location,
+          schedule_date: selectedPickupAlert.scheduleRaw,
+        }),
+      });
+      if (!pickupResponse.ok) {
+        throw new Error(`Failed to confirm pickup (${pickupResponse.status})`);
+      }
+
+      if (selectedPickupAlert.donationId) {
+        await fetch(`${apiBase}/donations/${selectedPickupAlert.donationId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'confirmed',
+          }),
+        });
+      }
+
+      if (selectedPickupAlert.donorUserId) {
+        await fetch(`${apiBase}/notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: selectedPickupAlert.donorUserId,
+            message: `Your material donation for "${selectedPickupAlert.title}" has been confirmed by the organization for pickup.`,
+            type: 'pickup-confirmed',
+            is_read: false,
+          }),
+        });
+      }
+
+      setPickups((prev) => prev.map((item) => (
+        Number(item.id) === Number(selectedPickupAlert.id)
+          ? { ...item, status: 'confirmed' }
+          : item
+      )));
+      setDonations((prev) => prev.map((item) => (
+        Number(item.id) === Number(selectedPickupAlert.donationId)
+          ? { ...item, status: 'confirmed' }
+          : item
+      )));
+      setSelectedPickupAlert(null);
+    } catch {
+      // Keep the modal open if the request fails so the organization can retry.
+    } finally {
+      setConfirmingPickup(false);
+    }
+  };
+
   return (
     <div className="org-page">
       <OrganizationSidebar />
 
       <main className="org-main">
-        <Topbar />
+        <Topbar notifications={notifications} setNotifications={setNotifications} />
 
         <section className="org-summary-grid" aria-label="Summary metrics">
           {summaryCards.map((card) => (
@@ -303,7 +560,7 @@ export default function OrganizationDashboardPage() {
                 </thead>
                 <tbody>
                   {donationRows.map((row) => (
-                    <tr key={`${row.donor}-${row.date}`}>
+                    <tr key={row.id}>
                       <td>{row.donor}</td>
                       <td>{row.type}</td>
                       <td>{row.amount}</td>
@@ -322,17 +579,22 @@ export default function OrganizationDashboardPage() {
             <article className="org-pickup-card">
               <div className="org-section-head">
                 <h3>Pickup Alerts</h3>
-                <span className="org-small-badge">3 New</span>
+                <span className="org-small-badge">{pickupAlerts.length} New</span>
               </div>
 
               {pickupAlerts.map((item) => (
-                <section key={item.title} className="org-alert-item">
+                <section key={item.id} className="org-alert-item">
                   <div className="org-alert-head">
                     <h4>{item.title}</h4>
                     <span>{item.when}</span>
                   </div>
+                  <p>{item.donorName} • {item.quantity}x {item.itemName}</p>
                   <p>{item.location}</p>
-                  <button className={item.primary ? 'primary' : 'secondary'} type="button">
+                  <button
+                    className={item.primary ? 'primary' : 'secondary'}
+                    type="button"
+                    onClick={() => setSelectedPickupAlert(item)}
+                  >
                     {item.action}
                   </button>
                 </section>
@@ -347,6 +609,84 @@ export default function OrganizationDashboardPage() {
             </article>
           </aside>
         </section>
+
+        {selectedPickupAlert ? (
+          <div className="org-pickup-modal-overlay" role="presentation" onClick={() => setSelectedPickupAlert(null)}>
+            <div
+              className="org-pickup-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="org-pickup-modal-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="org-pickup-modal-top">
+                <div>
+                  <span className={`org-pickup-modal-badge ${selectedPickupAlert.status}`}>
+                    {selectedPickupAlert.status === 'confirmed' ? 'Pickup Confirmed' : 'Awaiting Confirmation'}
+                  </span>
+                  <h3 id="org-pickup-modal-title">Coordinate Pickup</h3>
+                  <p className="org-pickup-modal-copy">Review this pickup request and confirm the next step with real campaign and donor data.</p>
+                </div>
+              </div>
+
+              <div className="org-pickup-modal-card">
+                <div className="org-pickup-modal-details">
+                  <div>
+                    <span>Campaign</span>
+                    <strong>{selectedPickupAlert.title}</strong>
+                  </div>
+                  <div>
+                    <span>Donor</span>
+                    <strong>{selectedPickupAlert.donorName}</strong>
+                  </div>
+                  <div>
+                    <span>Items</span>
+                    <strong>{selectedPickupAlert.quantity}x {selectedPickupAlert.itemName}</strong>
+                  </div>
+                  <div>
+                    <span>Pickup Address</span>
+                    <strong>{selectedPickupAlert.location}</strong>
+                  </div>
+                  <div>
+                    <span>Schedule</span>
+                    <strong>{selectedPickupAlert.when}</strong>
+                  </div>
+                  <div>
+                    <span>Status</span>
+                    <strong>{selectedPickupAlert.status}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="org-pickup-modal-note">
+                <strong>Next step</strong>
+                <p>
+                  {selectedPickupAlert.status === 'confirmed'
+                    ? 'The donor has already been notified that this pickup was confirmed.'
+                    : 'Confirm pickup to notify the donor and move this request into the confirmed pickup workflow.'}
+                </p>
+              </div>
+
+              <div className="org-pickup-modal-actions">
+                <button type="button" className="org-pickup-modal-btn secondary" onClick={() => setSelectedPickupAlert(null)}>
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="org-pickup-modal-btn primary"
+                  onClick={handleConfirmPickup}
+                  disabled={confirmingPickup || selectedPickupAlert.status === 'confirmed'}
+                >
+                  {selectedPickupAlert.status === 'confirmed'
+                    ? 'Pickup Confirmed'
+                    : confirmingPickup
+                      ? 'Confirming...'
+                      : 'Confirm Pickup'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   );

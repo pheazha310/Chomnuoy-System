@@ -1,29 +1,93 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import ROUTES from '../../constants/routes';
+import { createBakongTransaction, verifyBakongTransaction } from '../../services/user-service';
 import {
   DONATION_PAYMENT_METHODS,
   DONATION_PRESET_AMOUNTS,
   DONOR_PAGE_SIZE,
   DONOR_SORT_OPTIONS,
-  donorOrganizations,
   getDonorSession,
   getPaginationItems,
 } from './organizationShared';
 import '../css/organization.css';
 
+const ORG_IMAGE_POOL = [
+  'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=960&q=80',
+  'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?auto=format&fit=crop&w=960&q=80',
+];
+const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
+const FOLLOWED_ORGANIZATIONS_KEY = 'chomnuoy_followed_organizations_v1';
+const ORGANIZATION_FOLLOW_COUNTS_KEY = 'chomnuoy_organization_follow_counts_v1';
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const validationErrors = error?.response?.data?.errors;
+  const firstValidationMessage = validationErrors && typeof validationErrors === 'object'
+    ? Object.values(validationErrors).flat().find(Boolean)
+    : null;
+
+  return error?.response?.data?.message
+    || error?.response?.data?.error
+    || firstValidationMessage
+    || error?.message
+    || fallbackMessage;
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '0';
+  if (number >= 1000000) return `${(number / 1000000).toFixed(number >= 10000000 ? 0 : 1)}M`;
+  if (number >= 1000) return `${(number / 1000).toFixed(number >= 100000 ? 0 : 1)}K`;
+  return `${Math.round(number)}`;
+}
+
+function formatRelativeLabel(value) {
+  if (!value) return 'Recently';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Recently';
+
+  const diffMs = Date.now() - parsed.getTime();
+  const diffHours = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+
+  if (diffHours < 1) return 'Just now';
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function OrganizationAfterLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { organizationId } = useParams();
 
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
+  const donorDisplayName = useMemo(() => {
+    const rawName = typeof donorSession?.name === 'string' ? donorSession.name.trim() : '';
+    return rawName || 'Donor';
+  }, [donorSession?.name]);
+  const donorAvatar = typeof donorSession?.avatar === 'string' ? donorSession.avatar.trim() : '';
+  const donorInitials = useMemo(() => (
+    donorDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'D'
+  ), [donorDisplayName]);
 
   const [donorSearchInput, setDonorSearchInput] = useState('');
   const [donorSearchTerm, setDonorSearchTerm] = useState('');
   const [donorCategory, setDonorCategory] = useState('All Categories');
   const [donorRegion, setDonorRegion] = useState('Everywhere');
-  const [donorVerifiedOnly, setDonorVerifiedOnly] = useState(true);
+  const [donorVerifiedOnly, setDonorVerifiedOnly] = useState(false);
   const [donorTaxEligibleOnly, setDonorTaxEligibleOnly] = useState(false);
   const [donorSortBy, setDonorSortBy] = useState('recent');
   const [isDonorSortMenuOpen, setIsDonorSortMenuOpen] = useState(false);
@@ -31,12 +95,37 @@ function OrganizationAfterLogin() {
   const [isDonorRegionMenuOpen, setIsDonorRegionMenuOpen] = useState(false);
   const [donorPage, setDonorPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set([103]));
-  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
-  const [selectedDonationOrg, setSelectedDonationOrg] = useState(null);
+  const [followedOrganizationIds, setFollowedOrganizationIds] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(FOLLOWED_ORGANIZATIONS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed.map((item) => Number(item)).filter(Boolean) : []);
+    } catch {
+      return new Set();
+    }
+  });
+  const [organizationFollowCounts, setOrganizationFollowCounts] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(ORGANIZATION_FOLLOW_COUNTS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [selectedFollowOrganizationId, setSelectedFollowOrganizationId] = useState(null);
+  const [followProfileTab, setFollowProfileTab] = useState('feed');
+  const [organizationItems, setOrganizationItems] = useState([]);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
+  const [organizationError, setOrganizationError] = useState('');
+  const [donorImpactTotal, setDonorImpactTotal] = useState(0);
+  const [donorCausesSupported, setDonorCausesSupported] = useState(0);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qr');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('khqr');
   const [donationMessage, setDonationMessage] = useState('');
+  const [donationStatusMessage, setDonationStatusMessage] = useState('');
+  const [isSubmittingDonation, setIsSubmittingDonation] = useState(false);
+  const [donationQrData, setDonationQrData] = useState(null);
 
   const donorSortMenuRef = useRef(null);
   const donorCategoryMenuRef = useRef(null);
@@ -48,12 +137,29 @@ function OrganizationAfterLogin() {
   const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
   const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
 
-  const donorCategories = useMemo(() => ['All Categories', ...new Set(donorOrganizations.map((item) => item.category))], []);
-  const donorRegions = useMemo(() => ['Everywhere', ...new Set(donorOrganizations.map((item) => item.region))], []);
+  const formatMoney = (value) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return '$0.00';
+    return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const donorCategories = useMemo(
+    () => ['All Categories', ...new Set(organizationItems.map((item) => item.category))],
+    [organizationItems],
+  );
+  const donorRegions = useMemo(
+    () => ['Everywhere', ...new Set(organizationItems.map((item) => item.region))],
+    [organizationItems],
+  );
+  const verifiedCount = useMemo(
+    () => organizationItems.filter((item) => item.verified).length,
+    [organizationItems],
+  );
+  const registeredCount = organizationItems.length;
 
   const donorFilteredOrganizations = useMemo(() => {
     const query = donorSearchTerm.trim().toLowerCase();
-    return donorOrganizations
+    return organizationItems
       .filter((organization) => {
         if (!query) return true;
         const searchableText = `${organization.name} ${organization.summary} ${organization.category} ${organization.region}`.toLowerCase();
@@ -68,7 +174,7 @@ function OrganizationAfterLogin() {
         if (donorSortBy === 'impactHigh') return parseInt(right.metricLeftValue, 10) - parseInt(left.metricLeftValue, 10);
         return right.id - left.id;
       });
-  }, [donorCategory, donorRegion, donorSearchTerm, donorSortBy, donorTaxEligibleOnly, donorVerifiedOnly]);
+  }, [donorCategory, donorRegion, donorSearchTerm, donorSortBy, donorTaxEligibleOnly, donorVerifiedOnly, organizationItems]);
 
   const donorTotalPages = Math.max(1, Math.ceil(donorFilteredOrganizations.length / DONOR_PAGE_SIZE));
   const donorPaginationItems = useMemo(() => getPaginationItems(donorTotalPages, donorPage), [donorPage, donorTotalPages]);
@@ -78,10 +184,17 @@ function OrganizationAfterLogin() {
     return donorFilteredOrganizations.slice(start, start + DONOR_PAGE_SIZE);
   }, [donorFilteredOrganizations, donorPage]);
 
-  const donationRouteOrganization = useMemo(() => {
+  const isDonationPage = Boolean(organizationId);
+  const selectedDonationOrg = useMemo(() => {
     if (!organizationId) return null;
-    return donorOrganizations.find((organization) => String(organization.id) === String(organizationId)) ?? null;
-  }, [organizationId]);
+    return organizationItems.find((organization) => String(organization.id) === String(organizationId)) ?? null;
+  }, [organizationId, organizationItems]);
+  const selectedFollowOrganization = useMemo(() => (
+    organizationItems.find((organization) => Number(organization.id) === Number(selectedFollowOrganizationId)) ?? null
+  ), [organizationItems, selectedFollowOrganizationId]);
+  const fromQuery = new URLSearchParams(location.search).get('from');
+  const donationBackTarget = fromQuery && fromQuery.startsWith('/') ? fromQuery : ROUTES.ORGANIZATIONS;
+  const selectedPaymentLabel = DONATION_PAYMENT_METHODS.find((method) => method.id === selectedPaymentMethod)?.label || 'Bakong KHQR';
 
   const donorSortLabel = DONOR_SORT_OPTIONS.find((option) => option.value === donorSortBy)?.label || 'Most Recent';
   const donorCategoryLabel = donorCategory || 'All Categories';
@@ -92,8 +205,205 @@ function OrganizationAfterLogin() {
   }, [donorSearchTerm, donorCategory, donorRegion, donorVerifiedOnly, donorTaxEligibleOnly, donorSortBy]);
 
   useEffect(() => {
+    window.localStorage.setItem(
+      FOLLOWED_ORGANIZATIONS_KEY,
+      JSON.stringify(Array.from(followedOrganizationIds)),
+    );
+  }, [followedOrganizationIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      ORGANIZATION_FOLLOW_COUNTS_KEY,
+      JSON.stringify(organizationFollowCounts),
+    );
+  }, [organizationFollowCounts]);
+
+  useEffect(() => {
+    if (!selectedFollowOrganization) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedFollowOrganizationId(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [selectedFollowOrganization]);
+
+  useEffect(() => {
+    if (!donationQrData?.tranId) {
+      return undefined;
+    }
+
+    let active = true;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const result = await verifyBakongTransaction(donationQrData.tranId);
+        if (!active) return;
+
+        const status = String(result?.transaction?.status || '').toLowerCase();
+        if (!status) return;
+
+        setDonationQrData((previous) => (
+          previous ? { ...previous, status } : previous
+        ));
+
+        if (status === 'completed') {
+          setDonationStatusMessage('Payment confirmed. The donation was recorded successfully.');
+          setIsSubmittingDonation(false);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+          return;
+        }
+
+        if (['failed', 'cancelled', 'expired'].includes(status)) {
+          setDonationStatusMessage(`Payment ${status}. Please generate a new KHQR and try again.`);
+          setIsSubmittingDonation(false);
+          window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+        }
+      } catch {
+        // Keep polling while the QR session is active.
+      }
+    }, 4000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [donationQrData?.tranId]);
+
+  useEffect(() => {
     setDonorPage((previousPage) => Math.min(previousPage, donorTotalPages));
   }, [donorTotalPages]);
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const userId = Number(donorSession?.userId ?? 0);
+    let active = true;
+    setLoadingOrganizations(true);
+    setOrganizationError('');
+
+    Promise.allSettled([
+      fetch(`${apiBase}/organizations`).then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load organizations (${response.status})`);
+        }
+        return response.json();
+      }),
+      fetch(`${apiBase}/categories`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([orgResult, categoryResult, campaignResult, donationResult]) => {
+        if (!active) return;
+        if (orgResult.status !== 'fulfilled') {
+          throw new Error('Failed to load organizations.');
+        }
+
+        const organizations = Array.isArray(orgResult.value) ? orgResult.value : [];
+        const categories = categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value) ? categoryResult.value : [];
+        const campaigns = campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : [];
+        const donations = donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : [];
+        const categoryMap = new Map(categories.map((item) => [Number(item.id), item.category_name]));
+
+        const mapped = organizations.map((org, index) => {
+          const orgCampaigns = campaigns.filter((item) => Number(item.organization_id) === Number(org.id));
+          const orgDonations = donations.filter((item) => Number(item.organization_id) === Number(org.id));
+          const raised = orgDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+          const campaignCount = orgCampaigns.length;
+          const impactScore = Math.min(100, 60 + campaignCount * 2 + Math.floor(raised / 1000));
+          const location = String(org.location || '').trim();
+          const region = location.split(',').shift()?.trim() || 'Everywhere';
+          const baseFollowers = Math.max(12, campaignCount * 28 + orgDonations.length * 3 + Math.round(raised / 250));
+          const savedFollowerBoost = Number(organizationFollowCounts[String(org.id)] || 0);
+          const projectRegions = new Set(
+            orgCampaigns
+              .map((item) => String(item.location || '').split(',').pop()?.trim())
+              .filter(Boolean),
+          );
+          const recentActivity = orgCampaigns
+            .slice()
+            .sort((left, right) => new Date(right.created_at || right.start_date || 0) - new Date(left.created_at || left.start_date || 0))
+            .slice(0, 4)
+            .map((campaign, activityIndex) => ({
+              id: `campaign-${campaign.id || activityIndex}`,
+              title: campaign.title || `Project update ${activityIndex + 1}`,
+              body: campaign.description || `${org.name || 'This organization'} posted a new update for supporters.`,
+              metric: campaign.goal_amount
+                ? `Goal ${formatMoney(campaign.goal_amount)}`
+                : `${campaign.status || 'Active'} campaign`,
+              image: campaign.image_path || ORG_IMAGE_POOL[(index + activityIndex) % ORG_IMAGE_POOL.length],
+              dateLabel: formatRelativeLabel(campaign.created_at || campaign.start_date || campaign.updated_at),
+            }));
+
+          const statusValue = String(org.verified_status || '').toLowerCase();
+          const isVerified = statusValue
+            ? ['verified', 'approved', 'active'].includes(statusValue)
+            : true;
+          const statusLabel = isVerified
+            ? 'Verified'
+            : (statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Pending');
+
+          return {
+            id: org.id,
+            name: org.name || 'Organization',
+            summary: org.description || 'Organization description is being updated.',
+            category: categoryMap.get(Number(org.category_id)) || 'General',
+            region: region || 'Everywhere',
+            verified: isVerified,
+            statusLabel,
+            taxEligible: false,
+            image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
+            metricLeftLabel: 'Impact Score',
+            metricLeftValue: `${impactScore}/100`,
+            metricRightLabel: 'Live Projects',
+            metricRightValue: `${campaignCount} Active`,
+            projectsCount: campaignCount,
+            countriesCount: Math.max(1, projectRegions.size || (region && region !== 'Everywhere' ? 1 : 0)),
+            raisedTotal: raised,
+            followersCount: baseFollowers + savedFollowerBoost,
+            about: org.description || `${org.name || 'This organization'} is building measurable community impact across ${region || 'Cambodia'}.`,
+            recentActivity: recentActivity.length > 0 ? recentActivity : [
+              {
+                id: `fallback-${org.id}`,
+                title: org.name || 'Organization update',
+                body: org.description || 'This organization will publish updates for donors and followers soon.',
+                metric: campaignCount > 0 ? `${campaignCount} live projects` : 'Profile recently created',
+                image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
+                dateLabel: 'Recently',
+              },
+            ],
+          };
+        });
+
+        setOrganizationItems(mapped);
+
+        if (userId) {
+          const myDonations = donations.filter((item) => Number(item.user_id) === userId);
+          const totalImpact = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+          const uniqueCauses = new Set(
+            myDonations.map((item) => Number(item.organization_id)).filter(Boolean),
+          );
+          setDonorImpactTotal(totalImpact);
+          setDonorCausesSupported(uniqueCauses.size);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setOrganizationError('Failed to load organizations.');
+        setOrganizationItems([]);
+        setDonorImpactTotal(0);
+        setDonorCausesSupported(0);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoadingOrganizations(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -125,91 +435,384 @@ function OrganizationAfterLogin() {
     };
   }, []);
 
-  const closeDonationModal = () => {
-    setIsDonationModalOpen(false);
-    setSelectedDonationOrg(null);
+  const navigateToDonatePage = (organization) => {
     setSelectedDonationAmount(10);
     setCustomDonationAmount('');
-    setSelectedPaymentMethod('qr');
+    setSelectedPaymentMethod('khqr');
     setDonationMessage('');
-    navigate(ROUTES.ORGANIZATIONS);
+    setDonationStatusMessage('');
+    setDonationQrData(null);
+    navigate(`${ROUTES.ORGANIZATION_DONATE(organization.id)}?from=${encodeURIComponent(ROUTES.ORGANIZATIONS)}`);
   };
 
-  useEffect(() => {
-    if (!isDonationModalOpen) {
-      return undefined;
-    }
+  const handleFollowToggle = (organization) => {
+    if (!organization?.id) return;
 
-    const handleModalEscape = (event) => {
-      if (event.key === 'Escape') {
-        closeDonationModal();
+    const orgId = Number(organization.id);
+    const isAlreadyFollowing = followedOrganizationIds.has(orgId);
+
+    setFollowedOrganizationIds((previous) => {
+      const next = new Set(previous);
+      if (isAlreadyFollowing) {
+        next.delete(orgId);
+      } else {
+        next.add(orgId);
       }
-    };
+      return next;
+    });
 
-    document.addEventListener('keydown', handleModalEscape);
-    return () => document.removeEventListener('keydown', handleModalEscape);
-  }, [isDonationModalOpen]);
+    setOrganizationFollowCounts((previous) => {
+      const key = String(orgId);
+      const current = Number(previous[key] || 0);
+      return {
+        ...previous,
+        [key]: Math.max(0, current + (isAlreadyFollowing ? -1 : 1)),
+      };
+    });
 
-  useEffect(() => {
-    if (!isDonorLoggedIn || !donationRouteOrganization) {
-      return;
-    }
-
-    setSelectedDonationOrg(donationRouteOrganization);
-    setSelectedDonationAmount(10);
-    setCustomDonationAmount('');
-    setSelectedPaymentMethod('qr');
-    setDonationMessage('');
-    setIsDonationModalOpen(true);
-  }, [isDonorLoggedIn, donationRouteOrganization]);
-
-  const openDonationModal = (organization) => {
-    setSelectedDonationOrg(organization);
-    setSelectedDonationAmount(10);
-    setCustomDonationAmount('');
-    setSelectedPaymentMethod('qr');
-    setDonationMessage('');
-    setIsDonationModalOpen(true);
-    navigate(ROUTES.ORGANIZATION_DONATE(organization.id));
+    setOrganizationItems((previous) => previous.map((item) => (
+      Number(item.id) === orgId
+        ? {
+          ...item,
+          followersCount: Math.max(0, Number(item.followersCount || 0) + (isAlreadyFollowing ? -1 : 1)),
+        }
+        : item
+    )));
   };
 
-  const handleConfirmDonation = () => {
+  const openFollowProfile = (organization) => {
+    setSelectedFollowOrganizationId(Number(organization.id));
+    setFollowProfileTab('feed');
+    if (!followedOrganizationIds.has(Number(organization.id))) {
+      handleFollowToggle(organization);
+    }
+  };
+
+  const handleConfirmDonation = async () => {
     if (hasInvalidCustomAmount || donationAmount <= 0) {
       return;
     }
 
-    alert(
-      `Donation submitted!\nOrganization: ${selectedDonationOrg?.name}\nAmount: $${donationAmount}\nPayment: ${selectedPaymentMethod.toUpperCase()}`
-    );
-    closeDonationModal();
+    if (!selectedDonationOrg || !donorSession?.userId) {
+      setDonationStatusMessage('Your donor session is missing. Please sign in again.');
+      return;
+    }
+
+    setIsSubmittingDonation(true);
+    setDonationStatusMessage('Preparing Bakong KHQR checkout...');
+
+    try {
+      const result = await createBakongTransaction({
+        user_id: Number(donorSession.userId),
+        organization_id: Number(selectedDonationOrg.id),
+        amount: donationAmount,
+        customer_name: donorSession.name || '',
+        customer_email: donorSession.email || '',
+        customer_phone: donorSession.phone || '',
+        message: donationMessage,
+      });
+
+      const checkout = result?.checkout;
+      const qr = checkout?.qr;
+      if (checkout?.mode !== 'qr' || (!qr?.image && !qr?.string)) {
+        throw new Error('The Bakong QR payload is incomplete.');
+      }
+
+      window.sessionStorage.setItem(PENDING_BAKONG_TRANSACTION_KEY, JSON.stringify({
+        tranId: result?.transaction?.tran_id || '',
+        donationId: result?.donation?.id || null,
+        organizationId: selectedDonationOrg.id,
+        amount: donationAmount,
+        paymentOption: result?.checkout?.meta?.payment_option || '',
+        environment: result?.checkout?.meta?.environment || 'sandbox',
+        createdAt: new Date().toISOString(),
+      }));
+
+      setDonationQrData({
+        image: qr?.image || '',
+        qrString: qr?.string || '',
+        deeplink: qr?.deeplink || '',
+        checkoutUrl: qr?.checkout_url || '',
+        amount: qr?.amount || donationAmount,
+        currency: qr?.currency || 'USD',
+        paymentLabel: result?.checkout?.meta?.payment_label || selectedPaymentLabel,
+        tranId: result?.transaction?.tran_id || '',
+        status: 'pending',
+      });
+      setDonationStatusMessage('QR code generated. Ask the donor to scan and complete payment.');
+    } catch (error) {
+      setDonationStatusMessage(getApiErrorMessage(error, 'Failed to start Bakong KHQR checkout.'));
+      setIsSubmittingDonation(false);
+    }
   };
 
   if (!isDonorLoggedIn) {
     return null;
   }
 
+  if (isDonationPage) {
+    if (!selectedDonationOrg) {
+      return (
+        <main className="donation-page">
+          <div className="donation-page-full">
+            <div className="donation-modal-card donation-page-card">
+              <div className="donation-modal-body">
+                <section className="donation-supporting">
+                  <h2>Organization not found</h2>
+                  <p>Please go back and try another organization.</p>
+                </section>
+              </div>
+              <div className="donation-modal-footer">
+                <button type="button" className="donation-confirm-btn" onClick={() => navigate(donationBackTarget)}>
+                  Back to organizations
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <main className="donation-page">
+        <div className="donation-page-full">
+          <div className="donation-layout">
+            <section className="donation-main-column">
+              <div className="donation-modal-card donation-page-card">
+              <div className="donation-modal-head">
+                <div className="donation-modal-brand">
+                  <div className="donation-modal-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M22 8.65a2 2 0 0 0-3.42-1.41L17 8.82l-1.58-1.58A2 2 0 0 0 12 8.65c0 .53.21 1.04.59 1.41l3.35 3.35c.58.58 1.52.58 2.1 0l3.37-3.35A2 2 0 0 0 22 8.65Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M3 14h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H3z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M7 16h4l5.2 1.88A2 2 0 0 1 17.5 19.8"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M7 20.4 13.1 22 21 19.7c.82-.24 1.27-1.11 1.03-1.93A1.6 1.6 0 0 0 20.5 16.6H16"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <div className="donation-modal-title-wrap">
+                    <strong>Donate</strong>
+                    <p>Make a difference today</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="donation-modal-close donation-back-btn"
+                  aria-label="Back to organizations"
+                  onClick={() => navigate(donationBackTarget)}
+                >
+                  {'\u2190'} Back to organizations
+                </button>
+              </div>
+
+              <div className="donation-modal-body">
+                <section className="donation-supporting">
+                  <span>YOU ARE SUPPORTING</span>
+                  <h2>{selectedDonationOrg.name}</h2>
+                  <p>{selectedDonationOrg.summary}</p>
+                </section>
+
+                <section className="donation-section">
+                  <h3>Select Donation Amount</h3>
+                  <div className="donation-amount-grid">
+                    {DONATION_PRESET_AMOUNTS.map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        className={selectedDonationAmount === amount && !hasCustomInput ? 'is-active' : ''}
+                        onClick={() => {
+                          setSelectedDonationAmount(amount);
+                          setCustomDonationAmount('');
+                          setDonationStatusMessage('');
+                        }}
+                      >
+                        ${amount}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="donation-section">
+                  <h3>Custom Amount</h3>
+                  <label className="donation-custom-input">
+                    <span className="donation-input-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <rect x="3.5" y="6.5" width="17" height="11" rx="2.2" strokeWidth="1.8" />
+                        <circle cx="12" cy="12" r="2.2" strokeWidth="1.8" />
+                        <path d="M7 9.8h.01M17 14.2h.01" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="numeric"
+                      placeholder="Enter amount in USD"
+                      value={customDonationAmount}
+                      onChange={(event) => {
+                        setCustomDonationAmount(event.target.value);
+                        setDonationStatusMessage('');
+                      }}
+                    />
+                    <span className="donation-input-suffix">USD</span>
+                  </label>
+                  {hasInvalidCustomAmount ? <p className="donation-field-error">Enter a valid amount greater than 0.</p> : null}
+                </section>
+
+                <section className="donation-section">
+                  <h3>Payment Method</h3>
+                  <div className="donation-payment-grid">
+                    {DONATION_PAYMENT_METHODS.map((method) => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        className={selectedPaymentMethod === method.id ? 'is-active' : ''}
+                        onClick={() => {
+                          setSelectedPaymentMethod(method.id);
+                          setDonationStatusMessage('');
+                        }}
+                      >
+                        <span className={`payment-badge ${method.badgeClassName}`}>{method.badge}</span>
+                        <span>{method.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="donation-section">
+                  <h3>Message to Organization</h3>
+                  <textarea
+                    placeholder="Write a short message of encouragement or specific instructions..."
+                    value={donationMessage}
+                    onChange={(event) => {
+                      setDonationMessage(event.target.value);
+                      setDonationStatusMessage('');
+                    }}
+                  />
+                </section>
+              </div>
+
+              <div className="donation-modal-footer">
+                <div className="donation-separator" />
+                <button
+                  type="button"
+                  className="donation-confirm-btn"
+                  onClick={handleConfirmDonation}
+                  disabled={hasInvalidCustomAmount || donationAmount <= 0 || isSubmittingDonation}
+                >
+                  <span aria-hidden="true">&#10084;</span> {isSubmittingDonation ? 'Generating KHQR...' : `Confirm Donation ($${donationAmount.toLocaleString()})`}
+                </button>
+                {donationStatusMessage ? <p className="donation-status-note">{donationStatusMessage}</p> : null}
+                {donationQrData ? (
+                  <div className="donation-status-note">
+                    {donationQrData.image ? (
+                      <img
+                        src={donationQrData.image}
+                        alt={`${donationQrData.paymentLabel} QR code`}
+                        style={{ width: '100%', maxWidth: 240, display: 'block', margin: '12px auto', borderRadius: 16 }}
+                      />
+                    ) : null}
+                    <p>Transaction: {donationQrData.tranId}</p>
+                    <p>Amount: ${Number(donationQrData.amount).toFixed(2)} {donationQrData.currency}</p>
+                    <p>Status: {String(donationQrData.status || 'pending').toUpperCase()}</p>
+                    {donationQrData.deeplink ? <a href={donationQrData.deeplink}>Open banking app</a> : null}
+                    {!donationQrData.deeplink && donationQrData.checkoutUrl ? (
+                      <a href={donationQrData.checkoutUrl} target="_blank" rel="noreferrer">Open checkout page</a>
+                    ) : null}
+                    {!donationQrData.image && donationQrData.qrString ? (
+                      <p>KHQR string is ready from the gateway. Use the checkout link if scan rendering is unavailable.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="donation-legal">
+                  By clicking confirm, you agree to our Terms of Service. 100% of your donation (minus payment processing fees)
+                  goes directly to the organization.
+                </p>
+              </div>
+              </div>
+            </section>
+
+            <aside className="donation-side-column">
+              <div className="donation-summary-card">
+                <p className="donation-summary-label">Donation Summary</p>
+                <h3>{selectedDonationOrg.name}</h3>
+                <p>{selectedDonationOrg.category} - {selectedDonationOrg.region}</p>
+                <div className="donation-summary-item">
+                  <span>Amount</span>
+                  <strong>${donationAmount.toLocaleString()}</strong>
+                </div>
+                <div className="donation-summary-item">
+                  <span>Payment Method</span>
+                  <strong>{selectedPaymentLabel}</strong>
+                </div>
+                <div className="donation-summary-item">
+                  <span>Tax Eligible</span>
+                  <strong>{selectedDonationOrg.taxEligible ? 'Yes' : 'No'}</strong>
+                </div>
+                <button
+                  type="button"
+                  className="donation-summary-back"
+                  onClick={() => navigate(donationBackTarget)}
+                >
+                  Back to organizations
+                </button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="donor-org-page">
-      <div className={isDonationModalOpen ? 'donor-org-layout donor-org-layout-donation' : 'donor-org-layout'}>
+      <div className="donor-org-layout">
         <aside className="donor-org-sidebar">
           <section className="donor-org-panel donor-user-panel">
             <div className="donor-user-head">
-              <img
-                src={donorSession.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80'}
-                alt={donorSession.name || 'Donor'}
-              />
+              {donorAvatar ? (
+                <img
+                  src={donorAvatar}
+                  alt={donorDisplayName}
+                />
+              ) : (
+                <span className="donor-user-avatar-fallback" aria-hidden="true">{donorInitials}</span>
+              )}
               <div>
                 <p>Welcome back,</p>
-                <strong>{donorSession.name || 'Alex Rivera'}</strong>
+                <strong>{donorDisplayName}</strong>
               </div>
             </div>
             <div className="donor-user-stat">
               <span>Total Impact</span>
-              <strong>$4,820.00</strong>
+              <strong>{formatMoney(donorImpactTotal)}</strong>
             </div>
             <div className="donor-user-stat">
               <span>Causes Supported</span>
-              <strong>14</strong>
+              <strong>{donorCausesSupported}</strong>
             </div>
           </section>
 
@@ -320,7 +923,7 @@ function OrganizationAfterLogin() {
                 setDonorSearchTerm('');
                 setDonorCategory('All Categories');
                 setDonorRegion('Everywhere');
-                setDonorVerifiedOnly(true);
+                setDonorVerifiedOnly(false);
                 setDonorTaxEligibleOnly(false);
                 setDonorSortBy('recent');
                 setIsDonorCategoryMenuOpen(false);
@@ -334,129 +937,14 @@ function OrganizationAfterLogin() {
         </aside>
 
         <section className="donor-org-main">
-          {isDonationModalOpen && selectedDonationOrg ? (
-            <section className="donation-modal-overlay" onClick={closeDonationModal}>
-              <article className="donation-modal-card" aria-label="Organization donation form" onClick={(event) => event.stopPropagation()}>
-                <header className="donation-modal-head">
-                  <div className="donation-modal-title-wrap">
-                    <span className="donation-modal-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M12 14V4" strokeWidth="1.8" strokeLinecap="round" />
-                        <path d="M8.5 7.5L12 4l3.5 3.5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                    <div>
-                      <strong>Donate</strong>
-                      <p>Make a difference today</p>
-                    </div>
-                  </div>
-                  <button type="button" className="donation-modal-close" aria-label="Close donation panel" onClick={closeDonationModal}>
-                    &times;
-                  </button>
-                </header>
-
-                <div className="donation-modal-body">
-                  <section className="donation-supporting">
-                    <p>YOU ARE SUPPORTING</p>
-                    <h2>{selectedDonationOrg.name}</h2>
-                    <span>Your contribution directly supports educational supplies and scholarships for underprivileged students.</span>
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Select Donation Amount</h3>
-                    <div className="donation-amount-grid">
-                      {DONATION_PRESET_AMOUNTS.map((amount) => (
-                        <button
-                          key={amount}
-                          type="button"
-                          className={selectedDonationAmount === amount && customDonationAmount.trim() === '' ? 'is-active' : ''}
-                          onClick={() => {
-                            setSelectedDonationAmount(amount);
-                            setCustomDonationAmount('');
-                          }}
-                        >
-                          ${amount}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Custom Amount</h3>
-                    <label className="donation-custom-input">
-                      <span className="donation-input-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <rect x="3.5" y="6.5" width="17" height="11" rx="2.2" strokeWidth="1.8" />
-                          <circle cx="12" cy="12" r="2.2" strokeWidth="1.8" />
-                          <path d="M7 9.8h.01M17 14.2h.01" strokeWidth="1.8" strokeLinecap="round" />
-                        </svg>
-                      </span>
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        placeholder="Enter amount in USD"
-                        value={customDonationAmount}
-                        onChange={(event) => setCustomDonationAmount(event.target.value)}
-                      />
-                      <span className="donation-input-suffix">USD</span>
-                    </label>
-                    {hasInvalidCustomAmount ? <p className="donation-field-error">Enter a valid amount greater than 0.</p> : null}
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Payment Method</h3>
-                    <div className="donation-payment-grid">
-                      {DONATION_PAYMENT_METHODS.map((method) => (
-                        <button
-                          key={method.id}
-                          type="button"
-                          className={selectedPaymentMethod === method.id ? 'is-active' : ''}
-                          onClick={() => setSelectedPaymentMethod(method.id)}
-                        >
-                          <span className={`payment-badge ${method.badgeClassName}`}>{method.badge}</span>
-                          <span>{method.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="donation-section">
-                    <h3>Message to Organization</h3>
-                    <textarea
-                      placeholder="Write a short message of encouragement or specific instructions..."
-                      value={donationMessage}
-                      onChange={(event) => setDonationMessage(event.target.value)}
-                    />
-                  </section>
-                </div>
-
-                <div className="donation-modal-footer">
-                  <button
-                    type="button"
-                    className="donation-confirm-btn"
-                    onClick={handleConfirmDonation}
-                    disabled={hasInvalidCustomAmount || donationAmount <= 0}
-                  >
-                    <span aria-hidden="true">&#10084;</span> Confirm Donation (${donationAmount})
-                  </button>
-                  <p className="donation-note">
-                    By clicking confirm, you agree to our Terms of Service. 100% of your donation (minus payment processing fees)
-                    goes directly to the organization.
-                  </p>
-                </div>
-              </article>
-            </section>
-          ) : null}
-
-          {!isDonationModalOpen ? (
-            <div className="donor-main-content">
+          <div className="donor-main-content">
               <header className="donor-org-header">
                 <div>
                   <h1>Browse Organizations</h1>
-                  <p>Discover 1,248 verified non-profit organizations</p>
+                  <p>
+                    Discover {registeredCount.toLocaleString('en-US')} registered organizations
+                    {verifiedCount > 0 ? `, including ${verifiedCount.toLocaleString('en-US')} verified non-profit organizations` : ''}
+                  </p>
                 </div>
                 <div className="donor-sort-wrap" ref={donorSortMenuRef}>
                   <span>Sort by:</span>
@@ -496,13 +984,14 @@ function OrganizationAfterLogin() {
               <section className="donor-org-grid" aria-label="Organization List">
                 {donorPaginatedOrganizations.map((organization) => {
                   const isFavorite = favoriteIds.has(organization.id);
+                  const isFollowing = followedOrganizationIds.has(Number(organization.id));
                   return (
                     <article key={organization.id} className="donor-org-card">
                       <div className="donor-org-image-wrap">
                         <img src={organization.image} alt={organization.name} />
                         <div className="donor-org-badges">
                           <span>{organization.category.toUpperCase()}</span>
-                          {organization.verified ? <strong>Verified</strong> : null}
+                          <strong>{organization.statusLabel}</strong>
                         </div>
                       </div>
                       <div className="donor-org-card-body">
@@ -539,18 +1028,30 @@ function OrganizationAfterLogin() {
                           </div>
                         </div>
                         <div className="donor-org-actions">
-                          <button type="button" className="donor-donate-btn" onClick={() => openDonationModal(organization)}>
+                          <button type="button" className="donor-donate-btn" onClick={() => navigateToDonatePage(organization)}>
                             Donate
                           </button>
-                          <button type="button" className="donor-follow-btn" aria-label="Follow organization">
-                            Follow
+                          <button
+                            type="button"
+                            className={`donor-follow-btn ${isFollowing ? 'is-following' : ''}`}
+                            aria-label={isFollowing ? 'View followed organization' : 'Follow organization'}
+                            onClick={() => openFollowProfile(organization)}
+                          >
+                            {isFollowing ? 'Following' : 'Follow'}
                           </button>
                         </div>
                       </div>
                     </article>
                   );
                 })}
+                {!loadingOrganizations && donorPaginatedOrganizations.length === 0 ? (
+                  <p className="text-sm text-slate-500">No organizations found for the current filters.</p>
+                ) : null}
               </section>
+
+              {organizationError ? (
+                <p className="mt-4 text-sm text-red-600">{organizationError}</p>
+              ) : null}
 
               <nav className="donor-org-pagination" aria-label="Pagination">
                 <button type="button" onClick={() => setDonorPage((page) => Math.max(1, page - 1))} disabled={donorPage === 1}>
@@ -576,11 +1077,150 @@ function OrganizationAfterLogin() {
                 </button>
               </nav>
             </div>
-          ) : null}
         </section>
       </div>
+
+      {selectedFollowOrganization ? (
+        <div
+          className="org-follow-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${selectedFollowOrganization.name} profile`}
+          onClick={() => setSelectedFollowOrganizationId(null)}
+        >
+          <div className="org-follow-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="org-follow-close"
+              aria-label="Close organization profile"
+              onClick={() => setSelectedFollowOrganizationId(null)}
+            >
+              x
+            </button>
+
+            <header className="org-follow-hero">
+              <div className="org-follow-avatar-wrap">
+                <img src={selectedFollowOrganization.image} alt={selectedFollowOrganization.name} className="org-follow-avatar" />
+              </div>
+              <h2>{selectedFollowOrganization.name}</h2>
+              <p className="org-follow-subtitle">
+                {selectedFollowOrganization.category} - {formatCompactNumber(selectedFollowOrganization.followersCount)} followers
+              </p>
+              <p className="org-follow-location">{selectedFollowOrganization.region}</p>
+
+              <button
+                type="button"
+                className={`org-follow-primary ${followedOrganizationIds.has(Number(selectedFollowOrganization.id)) ? 'is-following' : ''}`}
+                onClick={() => handleFollowToggle(selectedFollowOrganization)}
+              >
+                {followedOrganizationIds.has(Number(selectedFollowOrganization.id)) ? 'Following' : 'Follow'}
+              </button>
+
+              {followedOrganizationIds.has(Number(selectedFollowOrganization.id)) ? (
+                <div className="org-follow-toast">
+                  You&apos;re subscribed. You will now receive real-time updates from {selectedFollowOrganization.name}.
+                </div>
+              ) : null}
+
+              <div className="org-follow-stats">
+                <article>
+                  <strong>{formatMoney(selectedFollowOrganization.raisedTotal)}</strong>
+                  <span>Raised</span>
+                </article>
+                <article>
+                  <strong>{selectedFollowOrganization.projectsCount}</strong>
+                  <span>Projects</span>
+                </article>
+                <article>
+                  <strong>{selectedFollowOrganization.countriesCount}</strong>
+                  <span>Regions</span>
+                </article>
+              </div>
+            </header>
+
+            <nav className="org-follow-tabs" aria-label="Organization profile sections">
+              {['feed', 'projects', 'about'].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={followProfileTab === tab ? 'is-active' : ''}
+                  onClick={() => setFollowProfileTab(tab)}
+                >
+                  {tab === 'feed' ? 'Feed' : tab === 'projects' ? 'Projects' : 'About'}
+                </button>
+              ))}
+            </nav>
+
+            <section className="org-follow-content">
+              {followProfileTab === 'feed' ? (
+                <div className="org-follow-feed">
+                  <div className="org-follow-section-head">
+                    <h3>Recent Activity</h3>
+                    <span>Live updates</span>
+                  </div>
+                  {selectedFollowOrganization.recentActivity.map((item, index) => (
+                    <article key={item.id} className={`org-follow-post ${index === 0 ? 'is-featured' : ''}`}>
+                      <div className="org-follow-post-head">
+                        <div className="org-follow-post-brand">
+                          <img src={selectedFollowOrganization.image} alt={selectedFollowOrganization.name} />
+                          <div>
+                            <strong>{selectedFollowOrganization.name}</strong>
+                            <span>{item.dateLabel}</span>
+                          </div>
+                        </div>
+                        <span className="org-follow-post-chip">{item.metric}</span>
+                      </div>
+                      <p>{item.body}</p>
+                      {index === 0 ? (
+                        <img src={item.image} alt={item.title} className="org-follow-post-image" />
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {followProfileTab === 'projects' ? (
+                <div className="org-follow-projects">
+                  {selectedFollowOrganization.recentActivity.map((item) => (
+                    <article key={`project-${item.id}`} className="org-follow-project-card">
+                      <img src={item.image} alt={item.title} />
+                      <div>
+                        <h3>{item.title}</h3>
+                        <p>{item.body}</p>
+                        <span>{item.metric}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {followProfileTab === 'about' ? (
+                <article className="org-follow-about">
+                  <h3>About {selectedFollowOrganization.name}</h3>
+                  <p>{selectedFollowOrganization.about}</p>
+                  <dl>
+                    <div>
+                      <dt>Category</dt>
+                      <dd>{selectedFollowOrganization.category}</dd>
+                    </div>
+                    <div>
+                      <dt>Region</dt>
+                      <dd>{selectedFollowOrganization.region}</dd>
+                    </div>
+                    <div>
+                      <dt>Status</dt>
+                      <dd>{selectedFollowOrganization.statusLabel}</dd>
+                    </div>
+                  </dl>
+                </article>
+              ) : null}
+            </section>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
 
 export default OrganizationAfterLogin;
+

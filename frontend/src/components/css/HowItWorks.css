@@ -34,7 +34,7 @@
   padding-bottom: 10px;
   margin: 0;
   font-style: bold;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(4rem, 6vw, 5rem);
   line-height: 0.95;
   color: #f6fbff;
@@ -130,7 +130,7 @@
   border-radius: 10px;
   background: transparent;
   color: #476686;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
   padding: 0.6rem 1.4rem;
@@ -181,7 +181,7 @@
 
 .how-step-card h3 {
   margin: 0.85rem 0 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #081b3d;
   font-size: 1.65rem;
 }
@@ -203,7 +203,7 @@
 .how-trust-section h2,
 .how-cta h2 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #10263d;
 }
 
@@ -265,7 +265,7 @@
 
 .how-material-item h3 {
   margin: 0.9rem 0 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #0b1f3f;
   font-size: 1.8rem;
 }
@@ -319,7 +319,7 @@
 
 .how-trust-card h3 {
   margin: 0.8rem 0 0;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-sans);
   color: #0a1f3f;
   font-size: 1.7rem;
 }
@@ -526,4 +526,30 @@
   .how-trust-card {
     transition: none;
   }
+}
+
+body.public-theme .how-page::before {
+  background:
+    radial-gradient(circle at 12% 6%, rgba(199, 118, 60, 0.14), transparent 42%),
+    radial-gradient(circle at 88% 94%, rgba(93, 141, 111, 0.12), transparent 35%),
+    linear-gradient(170deg, var(--public-bg-1) 0%, var(--public-bg-2) 52%, var(--public-bg-3) 100%);
+}
+
+body.public-theme .how-hero {
+  border-color: rgba(199, 118, 60, 0.18);
+  background:
+    linear-gradient(30deg, rgba(199, 118, 60, 0.12) 12%, transparent 12.5%, transparent 87%, rgba(199, 118, 60, 0.12) 87.5%, rgba(199, 118, 60, 0.12)),
+    linear-gradient(150deg, rgba(199, 118, 60, 0.12) 12%, transparent 12.5%, transparent 87%, rgba(199, 118, 60, 0.12) 87.5%, rgba(199, 118, 60, 0.12)),
+    linear-gradient(90deg, rgba(199, 118, 60, 0.12) 2%, transparent 2.5%, transparent 97%, rgba(199, 118, 60, 0.12) 97.5%, rgba(199, 118, 60, 0.12)),
+    linear-gradient(145deg, #3a2a1f, #3b2f24 42%, #2f2319);
+  box-shadow: 0 20px 36px rgba(40, 30, 22, 0.18);
+}
+
+body.public-theme .how-button-primary {
+  background: linear-gradient(145deg, var(--public-accent), var(--public-accent-strong));
+}
+
+body.public-theme .how-button-secondary {
+  background: rgba(92, 72, 58, 0.6);
+  border-color: rgba(199, 118, 60, 0.25);
 }

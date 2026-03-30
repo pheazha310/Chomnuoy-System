@@ -83,6 +83,8 @@ class AuthControllerRegister extends Controller
                     && empty($request->input('organization.category_id'))),
             ],
             'organization.location' => ['nullable', 'string', 'max:255'],
+            'organization.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'organization.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'organization.description' => ['nullable', 'string'],
         ]);
 
@@ -110,6 +112,8 @@ class AuthControllerRegister extends Controller
                     'password' => Hash::make($data['password']),
                     'category_id' => $categoryId,
                     'location' => $organizationData['location'] ?? null,
+                    'latitude' => $organizationData['latitude'] ?? null,
+                    'longitude' => $organizationData['longitude'] ?? null,
                     'description' => $organizationData['description'] ?? null,
                     'verified_status' => 'pending',
                 ]);
@@ -197,13 +201,29 @@ class AuthControllerRegister extends Controller
         }
 
         if ($user && $userPasswordMatches) {
+            $roleName = Role::query()
+                ->where('id', $user->role_id)
+                ->value('role_name') ?? 'Donor';
+            $user->last_seen_at = now();
+            $user->save();
+            if (strtolower($roleName) === 'admin') {
+                $auditPayload = [
+                    'user_id' => $user->id,
+                    'action' => 'Admin login',
+                    'affected_table' => 'users',
+                ];
+                if (Schema::hasColumn('audit_logs', 'ip_address')) {
+                    $auditPayload['ip_address'] = $request->ip();
+                }
+                AuditLog::create($auditPayload);
+            }
             Log::info('Auth login success', [
                 'email' => $email,
-                'account_type' => 'Donor',
+                'account_type' => $roleName,
             ]);
             return response()->json([
                 'message' => 'Login successful',
-                'account_type' => 'Donor',
+                'account_type' => $roleName,
                 'user' => $user,
                 'organization' => null,
             ]);
@@ -266,6 +286,86 @@ class AuthControllerRegister extends Controller
 
         throw ValidationException::withMessages([
             'email' => ['Email not found. Please register first.'],
+        ]);
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8', 'confirmed', 'different:current_password'],
+            'account_type' => ['nullable', 'string', Rule::in(['Donor', 'Organization'])],
+        ]);
+
+        $email = strtolower(trim($data['email']));
+        $currentPassword = $data['current_password'];
+        $newPassword = $data['new_password'];
+        $accountType = $data['account_type'] ?? null;
+
+        $user = null;
+        $organization = null;
+
+        if ($accountType === 'Donor' || !$accountType) {
+            $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
+        }
+
+        if ($accountType === 'Organization' || (!$accountType && !$user)) {
+            $organization = Organization::whereRaw('LOWER(email) = ?', [$email])->first();
+        }
+
+        if ($user) {
+            $currentMatches = false;
+
+            if (Schema::hasColumn('users', 'password')) {
+                $currentMatches = Hash::check($currentPassword, (string) $user->password);
+            } else {
+                $credential = UserCredential::where('user_id', $user->id)->first();
+                $currentMatches = $credential && Hash::check($currentPassword, (string) $credential->password);
+            }
+
+            if (!$currentMatches) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['Current password is incorrect.'],
+                ]);
+            }
+
+            if (Schema::hasColumn('users', 'password')) {
+                $user->password = Hash::make($newPassword);
+                $user->save();
+            } else {
+                UserCredential::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['password' => Hash::make($newPassword)],
+                );
+            }
+
+            return response()->json([
+                'message' => 'Password updated successfully.',
+            ]);
+        }
+
+        if ($organization) {
+            $organizationPassword = (string) $organization->password;
+            $matchesHashed = Hash::check($currentPassword, $organizationPassword);
+            $matchesPlaintext = hash_equals($organizationPassword, $currentPassword);
+
+            if (!($matchesHashed || $matchesPlaintext)) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['Current password is incorrect.'],
+                ]);
+            }
+
+            $organization->password = Hash::make($newPassword);
+            $organization->save();
+
+            return response()->json([
+                'message' => 'Password updated successfully.',
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => ['Account not found for the provided email.'],
         ]);
     }
 }

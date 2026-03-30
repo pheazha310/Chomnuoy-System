@@ -1,7 +1,14 @@
-import { useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { campaigns } from '../../data/campaigns';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import '../css/Campaigns.css';
+import {
+  campaignCategoryToSidebarCategory,
+  CAMPAIGN_FALLBACK_IMAGE,
+  fetchCampaigns,
+} from '@/services/campaign-service.js';
+import { getSession } from '@/services/session-service.js';
+
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
@@ -11,152 +18,479 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-function CategoryIcon({ category }) {
-  if (category === 'All Categories') {
-    return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <rect x="4" y="4" width="7" height="7" rx="1.5" />
-        <rect x="13" y="4" width="7" height="7" rx="1.5" />
-        <rect x="4" y="13" width="7" height="7" rx="1.5" />
-        <rect x="13" y="13" width="7" height="7" rx="1.5" />
-      </svg>
-    );
-  }
+const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
+const urgencyOptions = ['Urgent', 'Ongoing', 'Nearly Funded'];
+const sortOptions = ['Most Recent', 'Most Funded', 'Ending Soon'];
 
-  if (category === 'Technology') {
-    return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <rect x="4" y="5" width="16" height="11" rx="2" />
-        <path d="M9 19h6M12 16v3" />
-      </svg>
-    );
-  }
+function getFundingProgress(campaign) {
+  const isMaterialCampaign = String(campaign?.campaignType || '').toLowerCase().includes('material');
+  const requestedItems = Math.max(1, Number(campaign?.materialItem?.quantity || campaign?.goalAmount || 1));
+  const pledgedItems = Math.max(0, Number(campaign?.raisedAmount || 0));
+  const safeGoal = isMaterialCampaign ? requestedItems : Math.max(Number(campaign?.goalAmount || 0), 1);
+  const currentValue = isMaterialCampaign ? pledgedItems : Math.max(0, Number(campaign?.raisedAmount || 0));
+  return Math.min(100, Math.round((currentValue / safeGoal) * 100));
+}
 
-  if (category === 'Social Good') {
-    return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <path d="M12 20s-6.5-3.9-8.5-7.9C2 9.7 3.5 7 6.4 7c1.8 0 3 1 3.6 2 0.6-1 1.8-2 3.6-2 2.9 0 4.4 2.7 2.9 5.1C18.5 16.1 12 20 12 20z" />
-      </svg>
-    );
-  }
+function isVerifiedOrganizationStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  return ['verified', 'approved', 'active'].some((item) => status.includes(item));
+}
 
-  if (category === 'Environment') {
-    return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <path d="M18.8 4.5C11 5.6 7.2 10.5 7.2 16.3c0 2.1 1.7 3.7 3.8 3.7 5.8 0 10.2-4.4 9.3-12.1-.1-.9-.6-1.8-1.5-2.4z" />
-        <path d="M8.5 17c1.7-1.2 3.8-2.7 6.5-4.8" />
-      </svg>
-    );
-  }
+function normalizeDonationType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'material' || key === 'materials') return 'material';
+  return 'money';
+}
 
-  if (category === 'Health') {
-    return (
-      <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-        <path d="M12 3l7 3v5.8c0 4.2-2.5 7.3-7 9.2-4.5-1.9-7-5-7-9.2V6l7-3z" />
-        <path d="M12 8v6M9 11h6" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" className="chip-icon-svg" aria-hidden="true">
-      <path d="M4.5 14.5c3.5-.1 5.8 2.2 5.9 5.7-3.5.1-5.8-2.2-5.9-5.7zM10.5 18c3.7-3.5 6.6-7.8 8.1-12.6 1.2 4.6.8 9.8-2.4 13-1.7 1.7-3.9 2.6-5.7 2.6v-3z" />
-    </svg>
-  );
+function getContributionPercent(value, goal) {
+  const safeGoal = Math.max(Number(goal || 0), 1);
+  return Math.min(100, Math.round((Math.max(0, Number(value || 0)) / safeGoal) * 100));
 }
 
 function CampaignsPage() {
   const location = useLocation();
-  const searchQuery = useMemo(() => new URLSearchParams(location.search).get('search')?.trim() || '', [location.search]);
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const session = getSession();
+  const isLoggedIn = Boolean(session?.isLoggedIn);
+  const currentUserId = Number(session?.userId || 0);
+  const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
+  const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const sortMenuRef = useRef(null);
+  const itemsPerPage = 6;
 
-  const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(campaigns.map((campaign) => campaign.category))];
-    return ['All Categories', ...uniqueCategories];
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+        setIsSortOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
 
-  const filteredCampaigns = useMemo(() => {
-    const normalizedQuery = searchQuery.toLowerCase();
-    return campaigns.filter((campaign) => {
-      const matchesCategory = selectedCategory === 'All Categories' || campaign.category === selectedCategory;
-      if (!matchesCategory) return false;
-      if (!normalizedQuery) return true;
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
-      const searchableText = `${campaign.title} ${campaign.summary} ${campaign.category}`.toLowerCase();
-      return searchableText.includes(normalizedQuery);
+    Promise.allSettled([
+      fetchCampaigns(),
+      fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([campaignResult, organizationResult, donationResult]) => {
+        if (!active) return;
+        if (campaignResult.status !== 'fulfilled') {
+          throw campaignResult.reason instanceof Error ? campaignResult.reason : new Error('Failed to load campaigns.');
+        }
+
+        const organizations =
+          organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value)
+            ? organizationResult.value
+            : [];
+        const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
+        const organizationByUserMap = new Map(
+          organizations
+            .map((item) => [Number(item.user_id), item])
+            .filter(([userId]) => Number.isFinite(userId) && userId > 0),
+        );
+        const donations =
+          donationResult.status === 'fulfilled' && Array.isArray(donationResult.value)
+            ? donationResult.value
+            : [];
+        const campaignDonationTotals = donations.reduce((map, item) => {
+          const campaignId = Number(item.campaign_id || 0);
+          if (!campaignId) return map;
+
+          const current = map.get(campaignId) || {
+            money: 0,
+            material: 0,
+            supporters: new Set(),
+            currentUserMoney: 0,
+            currentUserMaterial: 0,
+          };
+          const amount = Math.max(0, Number(item.amount || 0));
+          const donationType = normalizeDonationType(item.donation_type);
+          if (donationType === 'material') {
+            current.material += amount;
+          } else {
+            current.money += amount;
+          }
+          const donorUserId = Number(item.user_id || 0);
+          if (donorUserId) {
+            current.supporters.add(donorUserId);
+          }
+          if (currentUserId && donorUserId === currentUserId) {
+            if (donationType === 'material') {
+              current.currentUserMaterial += amount;
+            } else {
+              current.currentUserMoney += amount;
+            }
+          }
+          map.set(campaignId, current);
+          return map;
+        }, new Map());
+
+        const mergedCampaigns = campaignResult.value.map((item) => {
+          const organization =
+            organizationMap.get(Number(item.organizationId || 0)) ||
+            organizationByUserMap.get(Number(item.organizationId || 0)) ||
+            null;
+          const donationTotals = campaignDonationTotals.get(Number(item.id || 0));
+          const isMaterialCampaign = String(item.campaignType || '').toLowerCase().includes('material');
+          const campaignGoal = isMaterialCampaign
+            ? Number(item.materialItem?.quantity || item.goalAmount || 1)
+            : Number(item.goalAmount || 0);
+          const liveRaisedAmount = isMaterialCampaign
+            ? Number(donationTotals?.material || 0)
+            : Number(donationTotals?.money ?? item.raisedAmount ?? 0);
+          const currentUserContribution = isMaterialCampaign
+            ? Number(donationTotals?.currentUserMaterial || 0)
+            : Number(donationTotals?.currentUserMoney || 0);
+
+          return {
+            ...item,
+            isVerified: isVerifiedOrganizationStatus(organization?.verified_status || organization?.status),
+            raisedAmount: liveRaisedAmount,
+            raised: liveRaisedAmount,
+            supporterCount: donationTotals?.supporters?.size || 0,
+            currentUserContribution,
+            currentUserContributionPercent: getContributionPercent(currentUserContribution, campaignGoal),
+          };
+        });
+
+        setCampaigns(mergedCampaigns);
+        setCurrentPage(1);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : 'Failed to load campaigns.');
+        setCampaigns([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUserId]);
+
+  const filteredCampaigns = useMemo(() => {
+    const searchTerm = new URLSearchParams(location.search).get('search')?.trim().toLowerCase() || '';
+    const byCategory = campaigns.filter((campaign) => {
+      if (selectedCategory === 'All Campaigns') {
+        return true;
+      }
+
+      return campaignCategoryToSidebarCategory(campaign.category) === selectedCategory;
     });
-  }, [selectedCategory, searchQuery]);
+
+    const urgencyScoped = byCategory.filter((campaign) => {
+      const progress = getFundingProgress(campaign);
+      if (selectedUrgency === 'Urgent') return Boolean(campaign.isUrgent);
+      if (selectedUrgency === 'Nearly Funded') return progress >= 75;
+      return campaign.timeLeft !== 'Ended';
+    });
+
+    const baseList = verifiedOnly
+      ? urgencyScoped.filter((campaign) => campaign.isVerified)
+      : urgencyScoped;
+
+    const searchedList = searchTerm
+      ? baseList.filter((campaign) => {
+          const haystack = [
+            campaign.title,
+            campaign.summary,
+            campaign.organization,
+            campaign.category,
+            campaign.location,
+          ]
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(searchTerm);
+        })
+      : baseList;
+
+    if (selectedSort === 'Most Funded') {
+      return [...searchedList].sort((a, b) => getFundingProgress(b) - getFundingProgress(a));
+    }
+
+    if (selectedSort === 'Ending Soon') {
+      return [...searchedList].sort((a, b) => {
+        const daysA = typeof a.daysLeft === 'number' ? a.daysLeft : Number.POSITIVE_INFINITY;
+        const daysB = typeof b.daysLeft === 'number' ? b.daysLeft : Number.POSITIVE_INFINITY;
+        return daysA - daysB;
+      });
+    }
+
+    if (selectedSort === 'Most Recent') {
+      return [...searchedList].sort((a, b) => b.createdAt - a.createdAt);
+    }
+
+    return searchedList;
+  }, [campaigns, location.search, selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedCampaigns = filteredCampaigns.slice(startIndex, startIndex + itemsPerPage);
+  const gridAnimationKey = `${selectedCategory}-${selectedUrgency}-${verifiedOnly}-${selectedSort}-${currentPage}`;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
 
   return (
-    <main className="campaigns-page">
-      <section className="campaigns-header">
-        <h1>Explore Campaigns</h1>
-        <p>Support impactful projects and choose the campaign you want to back.</p>
-        {searchQuery ? <p>Showing {filteredCampaigns.length} result(s) for "{searchQuery}"</p> : null}
-      </section>
+    <main className="campaigns-page campaigns-page-v2">
+      <section className="campaign-content-area campaign-content-area-v2">
+        <header className="campaigns-toolbar campaigns-toolbar-v2">
+          <div>
+            <h1>Campaigns</h1>
+            <p>Explore the latest organization posts and support active community needs.</p>
+          </div>
+        </header>
 
-      <section className="campaign-filters" aria-label="Campaign categories">
-        {categories.map((category) => (
-          <button
-            key={category}
-            type="button"
-            className={`category-chip ${selectedCategory === category ? 'category-chip-active' : ''}`}
-            onClick={() => setSelectedCategory(category)}
-          >
-            <span className="chip-icon" aria-hidden="true">
-              <CategoryIcon category={category} />
-            </span>
-            {category}
-          </button>
-        ))}
-      </section>
+        <section className="campaign-filter-bar" aria-label="Campaign filters">
+          <div className="campaign-filter-row">
+            {sidebarCategories.map((category) => {
+              const isActive = selectedCategory === category;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  className={`campaign-filter-chip ${isActive ? 'is-active' : ''}`}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category}
+                </button>
+              );
+            })}
+          </div>
 
-      <section className="campaign-grid" aria-label="Campaign list">
-        {filteredCampaigns.map((campaign) => {
-          const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
-          const progressWidth = Math.min(percentRaised, 100);
-          const detailPath = `/campaigns/${campaign.id}`;
+          <div className="campaign-filter-row campaign-filter-row-secondary">
+            {urgencyOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`campaign-filter-chip campaign-filter-chip-light ${selectedUrgency === option ? 'is-active' : ''}`}
+                onClick={() => setSelectedUrgency(option)}
+              >
+                {option}
+              </button>
+            ))}
 
-          return (
-            <article key={campaign.id} className="campaign-card">
-              <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
-                <img src={campaign.image} alt={campaign.title} className="campaign-image" loading="lazy" />
-              </a>
+            <button
+              type="button"
+              className={`campaign-filter-chip campaign-filter-chip-light ${verifiedOnly ? 'is-active' : ''}`}
+              onClick={() => setVerifiedOnly((previous) => !previous)}
+            >
+              Verified Only
+            </button>
 
-              <div className="campaign-content">
-                <span className="campaign-category">{campaign.category}</span>
-                <h2>
-                  <a href={detailPath} className="campaign-title-link">
-                    {campaign.title}
-                  </a>
-                </h2>
-                <p className="campaign-summary">{campaign.summary}</p>
+            <div className="campaign-sorter campaign-sorter-v2" ref={sortMenuRef}>
+              <button
+                type="button"
+                className={`campaign-sort-trigger ${isSortOpen ? 'is-open' : ''}`}
+                aria-haspopup="listbox"
+                aria-expanded={isSortOpen}
+                onClick={() => setIsSortOpen((previous) => !previous)}
+              >
+                {selectedSort}
+              </button>
 
-                <div className="campaign-amounts">
-                  <p>
-                    Goal: <strong>{formatCurrency(campaign.goalAmount)}</strong>
-                  </p>
-                  <p>
-                    Raised: <strong>{formatCurrency(campaign.raisedAmount)}</strong>
-                  </p>
+              {isSortOpen ? (
+                <ul className="campaign-sort-menu" role="listbox" aria-label="Sort campaigns">
+                  {sortOptions.map((option) => (
+                    <li key={option}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selectedSort === option}
+                        className={`campaign-sort-option ${selectedSort === option ? 'is-selected' : ''}`}
+                        onClick={() => {
+                          setSelectedSort(option);
+                          setIsSortOpen(false);
+                        }}
+                      >
+                        {option}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        </section>
+
+        {loading ? <p className="campaign-loading">Loading campaigns...</p> : null}
+        {error ? <p className="campaign-error">{error}</p> : null}
+
+        <section key={gridAnimationKey} className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">
+          {paginatedCampaigns.map((campaign, index) => {
+            const isMaterialCampaign = String(campaign.campaignType || '').toLowerCase().includes('material');
+            const requestedItems = Math.max(1, Number(campaign.materialItem?.quantity || campaign.goalAmount || 1));
+            const pledgedItems = Math.max(0, Number(campaign.raisedAmount || 0));
+            const percentRaised = getFundingProgress(campaign);
+            const progressWidth = Math.min(percentRaised, 100);
+            const detailPath = `/campaigns/${campaign.id}`;
+            const detailState = {
+              from: '/campaigns',
+              campaign,
+            };
+            const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
+            const isUrgent = Boolean(campaign.isUrgent);
+            const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
+            const timelineLabel = campaign.timeLeft || 'Ongoing';
+            const progressLabel = isMaterialCampaign ? `${Math.round(progressWidth)}% pledged` : `${Math.round(progressWidth)}% funded`;
+            const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
+            const donorContribution = Math.max(0, Number(campaign.currentUserContribution || 0));
+            const donorContributionPercent = Math.max(0, Number(campaign.currentUserContributionPercent || 0));
+            const donorContributionLabel = isMaterialCampaign
+              ? `You pledged ${donorContribution.toLocaleString()} of ${requestedItems.toLocaleString()} items`
+              : `You donated ${formatCurrency(donorContribution)} of ${formatCurrency(campaign.goalAmount)}`;
+            const donorPercentLabel = donorContribution > 0
+              ? `Your share ${donorContributionPercent}%`
+              : campaignTypeLabel;
+
+            const persistCampaign = () => {
+              window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(campaign));
+            };
+
+            return (
+              <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
+                <Link
+                  to={detailPath}
+                  state={detailState}
+                  className="campaign-media-link"
+                  aria-label={`Open ${campaign.title} details`}
+                  onClick={persistCampaign}
+                >
+                  <img
+                    src={campaign.image}
+                    alt={campaign.title}
+                    className="campaign-image campaign-dashboard-image"
+                    loading="lazy"
+                    onError={(event) => {
+                      if (event.currentTarget.src !== CAMPAIGN_FALLBACK_IMAGE) {
+                        event.currentTarget.src = CAMPAIGN_FALLBACK_IMAGE;
+                      }
+                    }}
+                  />
+                  <div className="campaign-card-badges">
+                    {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
+                  </div>
+                  <div className="campaign-card-category">
+                    <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
+                  </div>
+                </Link>
+
+                <div className="campaign-content campaign-dashboard-content">
+                  <h2>
+                    <Link to={detailPath} state={detailState} className="campaign-title-link" onClick={persistCampaign}>
+                      {campaign.title}
+                    </Link>
+                  </h2>
+                  <p className="campaign-organization">{campaign.organization}</p>
+                  <p className="campaign-summary">{campaign.summary}</p>
+
+                  <div className="campaign-funding-row">
+                    <p className="campaign-raised">
+                      <span>{isMaterialCampaign ? 'Pledged' : 'Raised'}</span>
+                      <strong>{isMaterialCampaign ? pledgedItems.toLocaleString() : formatCurrency(campaign.raisedAmount)}</strong>
+                    </p>
+                    <p className="campaign-target">
+                      <span>{isMaterialCampaign ? 'Needed' : 'Goal'}</span>
+                      <strong>{isMaterialCampaign ? requestedItems.toLocaleString() : formatCurrency(campaign.goalAmount)}</strong>
+                    </p>
+                  </div>
+
+                  <div className="campaign-progress-shell">
+                    <div className="campaign-progress-meta-row">
+                      <span>{progressLabel}</span>
+                      <span>{donorPercentLabel}</span>
+                    </div>
+                    <div
+                      className="campaign-progress"
+                      role="progressbar"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-valuenow={progressWidth}
+                    >
+                      <span style={{ width: `${progressWidth}%` }} />
+                    </div>
+                    {isLoggedIn ? (
+                      <div className="campaign-progress-donor-note">
+                        <strong>{donorContribution > 0 ? donorContributionLabel : 'You have not donated to this campaign yet'}</strong>
+                        <span>{donorContribution > 0 ? `${donorContributionPercent}% of this campaign goal came from you` : campaignTypeLabel}</span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="campaign-actions campaign-dashboard-actions">
+                    <div className="campaign-support-meta" aria-label={timelineLabel}>
+                      <span className="campaign-support-meta-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" className="campaign-support-meta-svg">
+                          <circle cx="12" cy="12" r="8.5" />
+                          <path d="M12 7.8v4.6l3.1 1.8" />
+                        </svg>
+                      </span>
+                      <span className="campaign-support-meta-copy">
+                        <strong>{isMaterialCampaign ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items left` : timelineLabel}</strong>
+                        <small>Time remaining</small>
+                      </span>
+                    </div>
+                    {isLoggedIn ? (
+                      <Link
+                        to={detailPath}
+                        state={detailState}
+                        className="donate-button campaign-donate-button"
+                        aria-label={`Support ${campaign.title}`}
+                        onClick={persistCampaign}
+                      >
+                        {isMaterialCampaign ? 'Pledge Support' : 'Support'}
+                      </Link>
+                    ) : (
+                      <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Support ${campaign.title}`}>
+                        {isMaterialCampaign ? 'Pledge Support' : 'Support'}
+                      </a>
+                    )}
+                  </div>
                 </div>
+              </article>
+            );
+          })}
+          {!loading && !error && paginatedCampaigns.length === 0 ? (
+            <div className="campaign-empty">
+              <strong>No public campaigns match these filters.</strong>
+              <span>Try All Campaigns or check back after organizations publish more active campaigns.</span>
+            </div>
+          ) : null}
+        </section>
 
-                <div className="campaign-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progressWidth}>
-                  <span style={{ width: `${progressWidth}%` }} />
-                </div>
-
-                <div className="campaign-actions">
-                  <a href={detailPath} className="campaign-link">
-                    View campaign
-                  </a>
-                  <a href={detailPath} className="donate-button" aria-label={`Donate to ${campaign.title}`}>
-                    Donate
-                  </a>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+        {totalPages > 1 ? (
+          <nav className="campaign-pagination campaign-pagination-v2" aria-label="Campaign pages">
+            <button
+              type="button"
+              className="campaign-view-more-button"
+              onClick={() => setCurrentPage((page) => (page < totalPages ? page + 1 : 1))}
+            >
+              <span className="campaign-view-more-label">
+                {currentPage < totalPages ? 'View More Campaigns' : 'Back To First Page'}
+              </span>
+            </button>
+          </nav>
+        ) : null}
       </section>
     </main>
   );

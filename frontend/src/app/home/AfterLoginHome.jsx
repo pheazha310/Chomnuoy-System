@@ -1,91 +1,277 @@
-import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Bell,
-  CircleUserRound,
-  LogOut,
-  Search,
   Users,
   FileText,
-  Building2,
-  Truck,
   Award,
   Star,
   Smile,
   Leaf
 } from 'lucide-react';
-import schoolSuppliesImage from '@/images/organization1.png';
-import cleanWaterImage from '@/images/kids.jpg';
 import './afterLoginHome.css';
+import { fetchCampaigns } from '@/services/campaign-service.js';
+import { getSession } from '@/services/session-service.js';
 
-const campaigns = [
-  {
-    id: '1',
-    image: schoolSuppliesImage,
-    badge: 'ENDING SOON',
-    badgeTone: 'ending',
-    title: 'School Supplies for Remote Villages',
-    description:
-      'Help 200 students in Ratanakiri get the essential books and stationery they need for the new term.',
-    raised: '$1,840 raised',
-    progressLabel: '92%',
-    progress: 92,
-  },
-  {
-    id: '2',
-    image: cleanWaterImage,
-    badge: 'URGENT',
-    badgeTone: 'urgent',
-    title: 'Clean Water Project: Takeo Province',
-    description:
-      'Building 5 new community wells to provide safe drinking water for over 150 families.',
-    raised: '$2,250 raised',
-    progressLabel: '45%',
-    progress: 45,
-  },
-];
-
-const activity = [
-  {
-    id: 'a1',
-    icon: Building2,
-    text: 'Smile Cambodia posted a new update:',
-    note:
-      '"Thanks to donors like Rithy, we successfully completed 12 surgeries this week!"',
-    time: '2 hours ago',
-  },
-  {
-    id: 'a2',
-    icon: Truck,
-    text:
-      'Your material pickup request for Old Clothing has been scheduled.',
-    note: 'Scheduled for Tomorrow, 10:00 AM',
-    time: '5 hours ago',
-  },
-  {
-    id: 'a3',
-    icon: Star,
-    text: 'You earned the "Community Champion" badge!',
-    note: 'Awarded for supporting 5 different NGOs.',
-    time: 'Yesterday',
-  },
-];
+const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
+const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 function getLoggedInUserName() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    if (!raw) return 'Donor';
+  const session = getSession();
+  const name = typeof session?.name === 'string' ? session.name.trim() : '';
+  return name || 'Donor';
+}
 
-    const session = JSON.parse(raw);
-    const name = typeof session?.name === 'string' ? session.name.trim() : '';
-    return name || 'Donor';
+function formatMoney(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return '$0.00';
+  return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function getImpactLevel(totalDonated) {
+  if (totalDonated >= 2000) return 'Level 5 Donor';
+  if (totalDonated >= 1000) return 'Level 4 Donor';
+  if (totalDonated >= 500) return 'Level 3 Donor';
+  if (totalDonated >= 200) return 'Level 2 Donor';
+  return 'Level 1 Donor';
+}
+
+function readDashboardCache() {
+  try {
+    const raw = window.sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp) return null;
+    if (Date.now() - parsed.timestamp > DASHBOARD_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+      return null;
+    }
+    return parsed.data ?? null;
   } catch {
-    return 'Donor';
+    return null;
   }
 }
 
+function writeDashboardCache(data) {
+  try {
+    window.sessionStorage.setItem(
+      DASHBOARD_CACHE_KEY,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data,
+      })
+    );
+  } catch {
+    // Ignore cache write failures.
+  }
+}
+
+function getActivityIcon(iconType) {
+  switch (String(iconType || '').toLowerCase()) {
+    case 'badge':
+      return Star;
+    default:
+      return FileText;
+  }
+}
+
+function normalizeCachedActivity(activityData) {
+  if (!Array.isArray(activityData)) return [];
+
+  return activityData.map((item, index) => ({
+    id: item?.id ?? `cached-activity-${index}`,
+    iconType:
+      typeof item?.iconType === 'string'
+        ? item.iconType
+        : typeof item?.type === 'string'
+          ? item.type
+          : 'notification',
+    text: item?.text || 'Notification:',
+    note: item?.note || 'New update available.',
+    time: item?.time || '',
+  }));
+}
+
+function mapUrgentCampaigns(campaignsData) {
+  const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
+
+  return campaignItems
+    .slice()
+    .sort((a, b) => {
+      const progressA = a.goalAmount ? a.raisedAmount / a.goalAmount : 0;
+      const progressB = b.goalAmount ? b.raisedAmount / b.goalAmount : 0;
+      const urgencyA = a.isUrgent ? -1 : 0;
+      const urgencyB = b.isUrgent ? -1 : 0;
+      return urgencyA - urgencyB || progressA - progressB;
+    })
+    .map((item) => {
+      const progress = item.goalAmount ? Math.min(100, Math.round((item.raisedAmount / item.goalAmount) * 100)) : 0;
+      const isEndingSoon = typeof item.daysLeft === 'number' ? item.daysLeft > 0 && item.daysLeft <= 5 : false;
+      return {
+        id: item.id,
+        image: item.image,
+        badge: isEndingSoon ? 'ENDING SOON' : 'URGENT',
+        badgeTone: isEndingSoon ? 'ending' : 'urgent',
+        title: item.title || 'Untitled Campaign',
+        description: item.summary || 'No description provided.',
+        raised: formatMoney(item.raisedAmount) + ' raised',
+        progressLabel: `${progress}%`,
+        progress,
+        rawCampaign: item,
+      };
+    })
+    .slice(0, 2);
+}
+
+function mapDonationMetrics(donationsData, userId) {
+  const donations = Array.isArray(donationsData) ? donationsData : [];
+  const myDonations = userId
+    ? donations.filter((item) => Number(item.user_id) === userId)
+    : [];
+  const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthTotal = myDonations.reduce((sum, item) => {
+    const created = new Date(item.created_at || 0).getTime();
+    if (!Number.isNaN(created) && created >= monthStart) {
+      return sum + Number(item.amount || 0);
+    }
+    return sum;
+  }, 0);
+
+  return {
+    totalDonated: total,
+    monthlyTotal: monthTotal,
+  };
+}
+
+function mapActivity(notificationsData, userId) {
+  const notifications = Array.isArray(notificationsData) ? notificationsData : [];
+  const filtered = userId
+    ? notifications.filter((item) => {
+        const recipientType = String(item.recipient_type || '').toLowerCase();
+        const recipientId = Number(item.recipient_id || 0);
+        if (recipientType) {
+          return recipientType === 'user' && recipientId === userId;
+        }
+        return Number(item.user_id) === userId;
+      })
+    : [];
+
+  return filtered.slice(0, 4).map((item) => {
+    const type = String(item.type || '').toLowerCase();
+    return {
+      id: item.id,
+      iconType: type,
+      text: type === 'campaign' ? 'Campaign update:' : 'Notification:',
+      note: item.message || 'New update available.',
+      time: new Date(item.created_at || Date.now()).toLocaleString(),
+    };
+  });
+}
+
 function AfterLoginHome() {
+  const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
+  const cachedDashboard = useMemo(() => readDashboardCache(), []);
+  const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
+  const [activity, setActivity] = useState(normalizeCachedActivity(cachedDashboard?.activity));
+  const [totalDonated, setTotalDonated] = useState(Number(cachedDashboard?.totalDonated || 0));
+  const [monthlyTotal, setMonthlyTotal] = useState(Number(cachedDashboard?.monthlyTotal || 0));
+  const [loading, setLoading] = useState(!cachedDashboard);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const session = getSession();
+    const userId = Number(session?.userId ?? 0);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let active = true;
+    setError('');
+    if (!cachedDashboard) {
+      setLoading(true);
+    }
+
+    const nextCache = {
+      campaigns: Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : [],
+      activity: normalizeCachedActivity(cachedDashboard?.activity),
+      totalDonated: Number(cachedDashboard?.totalDonated || 0),
+      monthlyTotal: Number(cachedDashboard?.monthlyTotal || 0),
+    };
+    let pendingRequests = 3;
+
+    const finishRequest = () => {
+      pendingRequests -= 1;
+      if (pendingRequests <= 0 && active) {
+        setLoading(false);
+      }
+    };
+
+    fetchCampaigns()
+      .then((campaignsData) => {
+        if (!active) return;
+        const urgent = mapUrgentCampaigns(campaignsData);
+        setCampaigns(urgent);
+        nextCache.campaigns = urgent;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
+
+    fetch(`${apiBase}/donations`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((donationsData) => {
+        if (!active) return;
+        const metrics = mapDonationMetrics(donationsData, userId);
+        setTotalDonated(metrics.totalDonated);
+        setMonthlyTotal(metrics.monthlyTotal);
+        nextCache.totalDonated = metrics.totalDonated;
+        nextCache.monthlyTotal = metrics.monthlyTotal;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
+
+    fetch(`${apiBase}/notifications`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((notificationsData) => {
+        if (!active) return;
+        const mapped = mapActivity(notificationsData, userId);
+        setActivity(mapped);
+        nextCache.activity = mapped;
+        writeDashboardCache(nextCache);
+      })
+      .catch(() => {
+        if (!active) return;
+        setError('Failed to load some dashboard data.');
+      })
+      .finally(finishRequest);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const monthlyGoal = 250;
+  const monthlyPercent = monthlyGoal ? Math.min(100, Math.round((monthlyTotal / monthlyGoal) * 100)) : 0;
+  const impactLevel = getImpactLevel(totalDonated);
+
+  const openCampaignDetail = (campaign) => {
+    const persistedCampaign = campaign.rawCampaign || null;
+    if (!persistedCampaign) return;
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(persistedCampaign));
+    navigate(`/campaigns/${campaign.id}`, {
+      state: {
+        from: '/AfterLoginHome',
+        campaign: persistedCampaign,
+      },
+    });
+  };
 
   return (
     <div className="dashboard-home">
@@ -101,13 +287,13 @@ function AfterLoginHome() {
 
           <article className="metric-card">
             <span>TOTAL DONATED</span>
-            <strong>$250.00</strong>
+            <strong>{formatMoney(totalDonated)}</strong>
           </article>
 
           <article className="metric-card is-blue">
             <span>CURRENT IMPACT</span>
             <strong>
-              <Users size={16} /> Level 4 Donor
+              <Users size={16} /> {impactLevel}
             </strong>
           </article>
         </section>
@@ -117,20 +303,20 @@ function AfterLoginHome() {
             <h2>
               <Award size={17} /> Monthly Donation Goal
             </h2>
-            <p>75% Achieved</p>
+            <p>{monthlyPercent}% Achieved</p>
           </div>
 
           <div
             className="goal-track"
             role="img"
-            aria-label="75 percent achieved"
+            aria-label={`${monthlyPercent} percent achieved`}
           >
-            <span style={{ width: '75%' }} />
+            <span style={{ width: `${monthlyPercent}%` }} />
           </div>
 
           <div className="goal-meta">
-            <span>$187.50 raised</span>
-            <span>$250.00 goal</span>
+            <span>{formatMoney(monthlyTotal)} raised</span>
+            <span>{formatMoney(monthlyGoal)} goal</span>
           </div>
         </section>
 
@@ -178,10 +364,13 @@ function AfterLoginHome() {
                       <span>{item.progressLabel}</span>
                     </div>
 
-                    <button type="button">Donate Now</button>
+                    <button type="button" onClick={() => openCampaignDetail(item)}>Donate Now</button>
                   </div>
                 </article>
               ))}
+              {!loading && campaigns.length === 0 ? (
+                <p className="text-sm text-[#64748B]">No urgent campaigns available.</p>
+              ) : null}
             </div>
 
             <section className="personalized">
@@ -218,19 +407,25 @@ function AfterLoginHome() {
               </h2>
 
               <ul>
-                {activity.map((item) => (
-                  <li key={item.id}>
-                    <span className="activity-icon">
-                      <item.icon size={16} />
-                    </span>
-                    <div>
-                      <p>{item.text}</p>
-                      <strong>{item.note}</strong>
-                      <span>{item.time}</span>
-                    </div>
-                  </li>
-                ))}
+                {activity.map((item) => {
+                  const ActivityIcon = getActivityIcon(item.iconType);
+                  return (
+                    <li key={item.id}>
+                      <span className="activity-icon">
+                        <ActivityIcon size={16} />
+                      </span>
+                      <div>
+                        <p>{item.text}</p>
+                        <strong>{item.note}</strong>
+                        <span>{item.time}</span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
+              {!loading && activity.length === 0 ? (
+                <p className="text-sm text-[#64748B]">No recent activity yet.</p>
+              ) : null}
 
               <button
                 type="button"
@@ -246,12 +441,13 @@ function AfterLoginHome() {
                 Start your own fundraising campaign for a cause
                 you care about.
               </p>
-              <button type="button">
+              <Link to="/campaigns/donor" className="cta-start-link">
                 Start Campaign
-              </button>
+              </Link>
             </section>
           </aside>
         </section>
+        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
       </main>
     </div>
   );
