@@ -20,7 +20,6 @@ const OrganizationAfterLogin = lazy(() => import('@/components/pages/Organizatio
 const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
 const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
-const ProfilePage = lazy(() => import('@/components/pages/ProfilePage.jsx'));
 const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
@@ -615,7 +614,7 @@ export default function App() {
             path="/profile"
             element={(
               <RequireAuth>
-                <ProfilePage />
+                <MyProfilePage />
               </RequireAuth>
             )}
           />
