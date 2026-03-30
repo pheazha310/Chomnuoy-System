@@ -133,6 +133,18 @@ export async function getUserById(userId) {
     return response.data;
 }
 
+export async function getMyUserProfile() {
+    const response = await apiClient.get('/profile/me');
+    return response.data;
+}
+
+export async function updateMyUserProfile(formData) {
+    const response = await apiClient.post('/profile/me?_method=PUT', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+}
+
 export async function getOrganizationById(orgId) {
     const normalizedId = requireResourceId(orgId, 'organization');
     const response = await apiClient.get(`/organizations/${normalizedId}`);

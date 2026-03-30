@@ -1,4 +1,6 @@
 import apiClient from './api-client';
+import { getCachedBundle, getCachedJson } from './request-cache';
+import { getAuthToken } from './session-service.js';
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -89,33 +91,23 @@ function getOrganizationFromMaps({ pickup, donation, campaign, organizationsById
 }
 
 export async function getMaterialWorkflowResources() {
-  const [
-    donationsResponse,
-    materialItemsResponse,
-    pickupsResponse,
-    campaignsResponse,
-    organizationsResponse,
-    usersResponse,
-    notificationsResponse,
-  ] = await Promise.all([
-    apiClient.get('/donations'),
-    apiClient.get('/material_items'),
-    apiClient.get('/material_pickups'),
-    apiClient.get('/campaigns'),
-    apiClient.get('/organizations'),
-    apiClient.get('/users'),
-    apiClient.get('/notifications').catch(() => ({ data: [] })),
-  ]);
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const token = getAuthToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-  return {
-    donations: Array.isArray(donationsResponse.data) ? donationsResponse.data : [],
-    materialItems: Array.isArray(materialItemsResponse.data) ? materialItemsResponse.data : [],
-    pickups: Array.isArray(pickupsResponse.data) ? pickupsResponse.data : [],
-    campaigns: Array.isArray(campaignsResponse.data) ? campaignsResponse.data : [],
-    organizations: Array.isArray(organizationsResponse.data) ? organizationsResponse.data : [],
-    users: Array.isArray(usersResponse.data) ? usersResponse.data : [],
-    notifications: Array.isArray(notificationsResponse.data) ? notificationsResponse.data : [],
-  };
+  return getCachedBundle(
+    'admin:material-workflow',
+    [
+      () => getCachedJson(`${apiBase}/donations`, { cacheKey: 'shared:donations', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Failed to load donations' }).then((donations) => ({ donations: Array.isArray(donations) ? donations : [] })),
+      () => getCachedJson(`${apiBase}/material_items`, { cacheKey: 'shared:material-items', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Failed to load material items' }).then((materialItems) => ({ materialItems: Array.isArray(materialItems) ? materialItems : [] })),
+      () => getCachedJson(`${apiBase}/material_pickups`, { cacheKey: 'shared:material-pickups', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Failed to load material pickups' }).then((pickups) => ({ pickups: Array.isArray(pickups) ? pickups : [] })),
+      () => getCachedJson(`${apiBase}/campaigns`, { cacheKey: 'shared:campaigns', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Failed to load campaigns' }).then((campaigns) => ({ campaigns: Array.isArray(campaigns) ? campaigns : [] })),
+      () => getCachedJson(`${apiBase}/organizations`, { cacheKey: 'shared:organizations', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Failed to load organizations' }).then((organizations) => ({ organizations: Array.isArray(organizations) ? organizations : [] })),
+      () => getCachedJson(`${apiBase}/users`, { cacheKey: 'shared:users', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Failed to load users' }).then((users) => ({ users: Array.isArray(users) ? users : [] })),
+      () => getCachedJson(`${apiBase}/notifications`, { cacheKey: 'shared:notifications', ttlMs: 30 * 1000, cooldownMs: 45 * 1000, headers, allowStatuses: [404], defaultValue: [], fallbackMessage: 'Failed to load notifications' }).then((notifications) => ({ notifications: Array.isArray(notifications) ? notifications : [] })),
+    ],
+    { ttlMs: 60 * 1000 },
+  );
 }
 
 export function buildMaterialWorkflowRows(resources = {}) {

@@ -27,7 +27,7 @@ class OrganizationController extends Controller
 
         $organization = Organization::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         if (!$organization) {
-            return response()->json(['message' => 'Organization not found.'], 404);
+            return response()->json(null);
         }
 
         return response()->json($organization);
