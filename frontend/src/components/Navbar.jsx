@@ -1,5 +1,5 @@
 import './css/Navbar.css';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPrivacyPreferences } from '@/utils/user-preferences';
@@ -60,7 +60,6 @@ function isDefaultAvatarUrl(url) {
 }
 
 function Navbar() {
-  const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
   const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
@@ -73,7 +72,6 @@ function Navbar() {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [activeNotification, setActiveNotification] = useState(null);
   const [replyDraft, setReplyDraft] = useState('');
@@ -88,15 +86,6 @@ function Navbar() {
       savedBeforeLoginPath && savedBeforeLoginPath.startsWith('/') ? savedBeforeLoginPath : '/';
     clearAuthState();
     window.location.href = logoutTarget;
-  };
-
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-    const query = searchQuery.trim().replace(/\s+/g, ' ');
-    if (!query) return;
-
-    const encoded = encodeURIComponent(query);
-    navigate(`${isDonorLoggedIn ? '/campaigns/donor' : '/campaigns'}?search=${encoded}`);
   };
 
   const markAllNotificationsRead = () => {
@@ -156,11 +145,6 @@ function Navbar() {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isLogoutPopupOpen]);
-
-  useEffect(() => {
-    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
-    setSearchQuery(urlQuery);
-  }, [location.search]);
 
   const parseMessageDetails = (rawMessage = '') => {
     const lines = String(rawMessage).split('\n').map((line) => line.trim()).filter(Boolean);
@@ -346,7 +330,6 @@ function Navbar() {
   useEffect(() => {
     setAvatarLoadFailed(false);
   }, [donorSession?.avatar]);
-
   const logoutPopupMarkup = (
     <div className="logout-popup-overlay" role="presentation" onClick={() => setIsLogoutPopupOpen(false)}>
       <div
@@ -419,18 +402,9 @@ function Navbar() {
           ))}
         </ul>
 
-        <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
-            <circle cx="11" cy="11" r="8" strokeWidth="2" />
-            <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <input
-            type="search"
-            placeholder="Search causes..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </form>
+        <Link to="/campaigns/donor" className="donor-donate-cta">
+          Donate Now
+        </Link>
 
         <div className="donor-actions">
           <div className="donor-notification" ref={notificationRef}>

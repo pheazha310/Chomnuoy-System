@@ -450,6 +450,7 @@ function OrganizationAfterLogin() {
 
     const orgId = Number(organization.id);
     const isAlreadyFollowing = followedOrganizationIds.has(orgId);
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
     setFollowedOrganizationIds((previous) => {
       const next = new Set(previous);
@@ -478,6 +479,29 @@ function OrganizationAfterLogin() {
         }
         : item
     )));
+
+    if (!isAlreadyFollowing && isDonorLoggedIn && Number(donorSession?.userId || 0) > 0) {
+      const donorUserId = Number(donorSession?.userId || 0);
+      const donorName = donorDisplayName || 'Donor';
+      const donorEmail = donorSession?.email || '';
+      const orgName = organization.name || 'your organization';
+
+      fetch(`${apiBase}/notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: donorUserId,
+          sender_type: 'user',
+          sender_name: donorName,
+          sender_email: donorEmail,
+          recipient_type: 'organization',
+          recipient_id: orgId,
+          message: `${donorName} started following ${orgName}.`,
+          type: 'follow',
+          is_read: false,
+        }),
+      }).catch(() => null);
+    }
   };
 
   const openFollowProfile = (organization) => {
