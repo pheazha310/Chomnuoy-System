@@ -587,7 +587,21 @@
   cursor: pointer;
   display: grid;
   place-items: center;
-  font-size: 16px;
+  color: #64748b;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+
+.admin-org-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-org-icon-btn:hover,
+.admin-org-icon-btn[aria-expanded='true'] {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
 }
 
 .admin-org-menu-wrap {
@@ -618,6 +632,15 @@
   font-size: 12px;
   color: #475569;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-org-menu button svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 
 .admin-org-menu button:hover {

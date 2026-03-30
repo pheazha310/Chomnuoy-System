@@ -1584,9 +1584,6 @@ body {
 
 .donation-page {
   min-height: calc(100vh - 72px);
-  background:
-    radial-gradient(820px 340px at 10% 8%, rgba(130, 162, 189, 0.28), transparent 62%),
-    linear-gradient(135deg, #2f4f67 0%, #1d4565 42%, #133c5e 65%, #5d7e98 100%);
   padding: 2rem 1rem 2.8rem;
 }
 

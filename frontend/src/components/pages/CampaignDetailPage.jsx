@@ -470,9 +470,16 @@ function CampaignDetailPage({ campaignId }) {
   const requestedItemCategory = activeMaterialOption?.category || safeCategory;
   const materialDeliveryLabel = materialDeliveryMode === 'dropoff' ? 'Self Drop-off' : 'Schedule Pickup';
   const materialAddressLabel = materialDeliveryMode === 'dropoff' ? 'Drop-off details' : 'Pickup address';
+  const materialModeDescription = materialDeliveryMode === 'dropoff'
+    ? 'Deliver the items yourself to the organization location below.'
+    : 'Our logistics team will collect the donation from your address.';
   const materialAddressPlaceholder = materialDeliveryMode === 'dropoff'
-    ? 'Add the note or place where you will drop off the items.'
+    ? 'Add your arrival note, landmark, or contact detail for the handoff.'
     : 'Enter your street name, building, apartment, or meeting point.';
+  const materialAddressNote = materialDeliveryMode === 'dropoff'
+    ? 'Share a clear note so the organizer knows how and when to expect your drop-off.'
+    : 'Add a precise landmark or gate number so pickup is easier to coordinate.';
+  const materialDestinationLabel = materialDeliveryMode === 'dropoff' ? 'Drop-off hub' : 'Destination';
   const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
     ? campaign.donationTiers
         .map((item) => Number(item?.amount ?? item))
@@ -505,6 +512,18 @@ function CampaignDetailPage({ campaignId }) {
   const progressSecondaryValue = isMaterialCampaign ? requestedItemTarget.toLocaleString() : formatCurrency(goalAmount);
   const showUrgentBadge = Boolean(campaign?.isUrgent) || String(campaign?.status || '').toLowerCase().includes('urgent');
   const organizationName = String(campaign?.organization || 'Organization');
+  const materialDestinationTitle = materialDeliveryMode === 'dropoff'
+    ? `${organizationName} Drop-off Point`
+    : `${organizationName} Receiving Location`;
+  const materialDestinationNote = materialDeliveryMode === 'dropoff'
+    ? 'You will bring the donated items directly to this verified organization address.'
+    : 'Your selected pickup address will be routed here after organizer confirmation.';
+  const materialLocationActionLabel = materialDeliveryMode === 'dropoff'
+    ? 'Use My Location for Route'
+    : 'Use Current Location';
+  const materialMapsActionLabel = materialDeliveryMode === 'dropoff'
+    ? 'Open Drop-off Hub in Maps'
+    : 'Open Destination in Maps';
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -1423,10 +1442,19 @@ function CampaignDetailPage({ campaignId }) {
 
                   return (
                     <article key={item.id} className={`material-select-card ${isSelected ? 'is-selected' : ''}`}>
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         className="material-select-card-button"
                         onClick={() => {
+                          setSelectedMaterialOptionId(item.id);
+                          setMaterialQuantity(1);
+                          setMaterialDescription('');
+                          setDonationMessage('');
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return;
+                          event.preventDefault();
                           setSelectedMaterialOptionId(item.id);
                           setMaterialQuantity(1);
                           setMaterialDescription('');
@@ -1481,7 +1509,7 @@ function CampaignDetailPage({ campaignId }) {
                             )}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     </article>
                   );
                 })}
@@ -1501,12 +1529,12 @@ function CampaignDetailPage({ campaignId }) {
             </article>
 
             <article className="donation-checkout-card material-form-section">
-              <div className="material-section-heading">
-                <div>
-                  <h2><Truck size={18} /> Schedule Your Contribution</h2>
-                  <p>Choose how you&apos;d like to deliver your donation. Our logistics team provides complimentary home pickup for large-volume donations.</p>
+                <div className="material-section-heading">
+                  <div>
+                    <h2><Truck size={18} /> Schedule Your Contribution</h2>
+                    <p>{materialModeDescription}</p>
+                  </div>
                 </div>
-              </div>
               <div className="material-logistics-toggle">
                 <button
                   type="button"
@@ -1541,10 +1569,15 @@ function CampaignDetailPage({ campaignId }) {
                   />
                 </label>
                 <div className="material-readonly-stack">
-                  <span>{materialDeliveryMode === 'dropoff' ? 'Logistics hub' : 'Destination'}</span>
+                  <span>{materialDestinationLabel}</span>
                   <div className="material-readonly-field">
-                    <MapPin size={15} /> {safeLocation}
+                    <MapPin size={15} />
+                    <div className="material-readonly-copy">
+                      <strong>{materialDestinationTitle}</strong>
+                      <span>{safeLocation}</span>
+                    </div>
                   </div>
+                  <small className="material-field-note">{materialDestinationNote}</small>
                 </div>
               </div>
 
@@ -1555,11 +1588,16 @@ function CampaignDetailPage({ campaignId }) {
                   onClick={handleUseCurrentLocation}
                   disabled={locationLoading}
                 >
-                  <MapPin size={15} /> {locationLoading ? 'Getting current location...' : 'Use Current Location'}
+                  <MapPin size={15} /> {locationLoading ? 'Getting current location...' : materialLocationActionLabel}
                 </button>
-                <p className="material-address-hint">
-                  Add a precise landmark or gate number so pickup is easier to coordinate.
-                </p>
+                <a
+                  className="material-inline-map-link"
+                  href={`https://www.google.com/maps?q=${postedMapsQuery}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {materialMapsActionLabel}
+                </a>
               </div>
 
               <div className="material-map-preview">

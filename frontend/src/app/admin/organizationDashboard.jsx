@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, ArrowUpRight, Building2, CheckCircle2, Clock3, Filter, MapPin, Search, ShieldCheck } from 'lucide-react';
+import { Activity, ArrowUpRight, Building2, CheckCircle2, Clock3, Eye, Filter, MapPin, MoreVertical, PencilLine, Search, ShieldCheck, UserX } from 'lucide-react';
 import AdminSidebar from './adminsidebar';
+import { deactivateAccount, updateOrganizationProfile } from '@/services/user-service.js';
 import './organization.css';
 
 const ORGANIZATIONS_CACHE_KEY = 'admin_organization_dashboard_orgs_cache';
@@ -85,6 +86,8 @@ export default function OrganizationDashboard() {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [actionModal, setActionModal] = useState(null);
   const [editDraft, setEditDraft] = useState({ name: '', email: '', location: '', status: '' });
+  const [actionError, setActionError] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
@@ -99,6 +102,7 @@ export default function OrganizationDashboard() {
 
   const openActionModal = (type, org) => {
     setOpenMenuId(null);
+    setActionError('');
     if (type === 'edit') {
       setEditDraft({
         name: org.name || '',
@@ -111,12 +115,65 @@ export default function OrganizationDashboard() {
   };
 
   const closeActionModal = () => {
+    setActionError('');
+    setActionSaving(false);
     setActionModal(null);
   };
 
   const openOrganizationDetails = (organizationId) => {
     setOpenMenuId(null);
     navigate(`/admin/organizations/${organizationId}`);
+  };
+
+  const handleEditSave = async () => {
+    if (!actionModal?.org?.id) return;
+    setActionError('');
+
+    try {
+      setActionSaving(true);
+      const formData = new FormData();
+      formData.append('name', editDraft.name || actionModal.org.name || '');
+      formData.append('email', editDraft.email || actionModal.org.email || '');
+      formData.append('location', editDraft.location || actionModal.org.location || '');
+      formData.append('verified_status', editDraft.status || actionModal.org.status || 'Pending');
+
+      const updated = await updateOrganizationProfile(actionModal.org.id, formData);
+      const nextStatus = normalizeStatus(updated?.verified_status || updated?.status || editDraft.status);
+
+      setOrganizations((prev) => prev.map((item) => (
+        Number(item.id) === Number(actionModal.org.id)
+          ? {
+              ...item,
+              ...updated,
+              name: updated?.name ?? editDraft.name,
+              email: updated?.email ?? editDraft.email,
+              location: updated?.location ?? editDraft.location,
+              verified_status: updated?.verified_status ?? nextStatus,
+              status: updated?.status ?? nextStatus,
+            }
+          : item
+      )));
+      closeActionModal();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update organization.');
+    } finally {
+      setActionSaving(false);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!actionModal?.org?.id) return;
+    setActionError('');
+
+    try {
+      setActionSaving(true);
+      await deactivateAccount({ accountType: 'organization', userId: actionModal.org.id });
+      setOrganizations((prev) => prev.filter((item) => Number(item.id) !== Number(actionModal.org.id)));
+      closeActionModal();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to deactivate organization.');
+      setActionSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -182,6 +239,30 @@ export default function OrganizationDashboard() {
       }
     };
   }, [apiBase]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.closest('.admin-org-menu-wrap')) {
+        setOpenMenuId(null);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const categoryLookup = useMemo(() => {
     const map = new Map();
@@ -480,16 +561,25 @@ export default function OrganizationDashboard() {
                           type="button"
                           className="admin-org-icon-btn"
                           onClick={() => setOpenMenuId((prev) => (prev === org.id ? null : org.id))}
-                          aria-label="More actions"
+                          aria-label={`More actions for ${org.name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuId === org.id}
                         >
-                          ⋮
+                          <MoreVertical size={16} />
                         </button>
                         {openMenuId === org.id ? (
-                          <div className="admin-org-menu">
-                            <button type="button" onClick={() => openOrganizationDetails(org.id)}>View Profile</button>
-                            <button type="button" onClick={() => openActionModal('edit', org)}>Edit</button>
-                            <button type="button" className="danger" onClick={() => openActionModal('deactivate', org)}>
-                              Deactivate
+                          <div className="admin-org-menu" role="menu">
+                            <button type="button" role="menuitem" onClick={() => openOrganizationDetails(org.id)}>
+                              <Eye size={14} />
+                              <span>View Profile</span>
+                            </button>
+                            <button type="button" role="menuitem" onClick={() => openActionModal('edit', org)}>
+                              <PencilLine size={14} />
+                              <span>Edit</span>
+                            </button>
+                            <button type="button" role="menuitem" className="danger" onClick={() => openActionModal('deactivate', org)}>
+                              <UserX size={14} />
+                              <span>Deactivate</span>
                             </button>
                           </div>
                         ) : null}
@@ -606,12 +696,13 @@ export default function OrganizationDashboard() {
                     </select>
                   </label>
                 </div>
+                {actionError ? <p className="admin-org-warning">{actionError}</p> : null}
                 <div className="admin-modal-actions">
                   <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
                     Cancel
                   </button>
-                  <button type="button" className="admin-user-save" onClick={closeActionModal}>
-                    Save Changes
+                  <button type="button" className="admin-user-save" onClick={handleEditSave} disabled={actionSaving}>
+                    {actionSaving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </>
@@ -623,12 +714,13 @@ export default function OrganizationDashboard() {
                 <p className="admin-org-warning">
                   This will disable access for <strong>{actionModal.org.name}</strong> until reactivated.
                 </p>
+                {actionError ? <p className="admin-org-warning">{actionError}</p> : null}
                 <div className="admin-modal-actions">
                   <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
                     Cancel
                   </button>
-                  <button type="button" className="admin-user-danger" onClick={closeActionModal}>
-                    Deactivate
+                  <button type="button" className="admin-user-danger" onClick={handleDeactivate} disabled={actionSaving}>
+                    {actionSaving ? 'Deactivating...' : 'Deactivate'}
                   </button>
                 </div>
               </>

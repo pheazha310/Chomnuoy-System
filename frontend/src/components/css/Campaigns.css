@@ -2186,6 +2186,12 @@
   font-weight: 700;
 }
 
+.material-field-note {
+  color: #70859b;
+  font-size: 0.79rem;
+  line-height: 1.5;
+}
+
 .material-address-block {
   display: grid;
   gap: 0.65rem;
@@ -2212,30 +2218,92 @@
 .material-address-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.85rem;
   flex-wrap: wrap;
+  margin-top: 0.2rem;
 }
 
 .material-address-hint {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1 1 280px;
+}
+
+.material-address-hint p {
   margin: 0;
   color: #6d8095;
   font-size: 0.82rem;
   line-height: 1.5;
-  flex: 1 1 280px;
+}
+
+.material-inline-map-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 46px;
+  padding: 0 1rem;
+  border: 1px solid #d4e3f2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1b5e9f;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.material-inline-map-link:hover,
+.material-inline-map-link:focus-visible {
+  border-color: #bdd5ed;
+  background: #f7fbff;
+  color: #144a7c;
+  transform: translateY(-1px);
+  outline: none;
 }
 
 .material-readonly-field {
-  min-height: 48px;
+  min-height: 82px;
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
+  align-items: flex-start;
+  gap: 0.65rem;
   border: 1px solid #d4e0ec;
-  border-radius: 12px;
-  background: #f8fbff;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f8ff 100%);
   color: #17324d;
-  padding: 0 0.95rem;
+  padding: 0.9rem 1rem;
   font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.material-readonly-field svg {
+  margin-top: 0.2rem;
+  flex: 0 0 auto;
+  color: #2b6eb4;
+}
+
+.material-readonly-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.material-readonly-copy strong,
+.material-readonly-copy span {
+  display: block;
+}
+
+.material-readonly-copy strong {
+  color: #143553;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.material-readonly-copy span {
+  color: #46647f;
+  line-height: 1.55;
 }
 
 .material-quantity-picker-wide {
@@ -2311,9 +2379,9 @@
 
 .material-logistics-toggle button.is-selected {
   border-color: #1f7de2;
-  background: #edf5ff;
+  background: linear-gradient(180deg, #edf5ff 0%, #f7fbff 100%);
   color: #165ca7;
-  box-shadow: inset 0 0 0 1px rgba(31, 125, 226, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(31, 125, 226, 0.16), 0 12px 24px rgba(31, 125, 226, 0.08);
 }
 
 .material-story-section p {
