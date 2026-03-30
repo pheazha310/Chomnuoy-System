@@ -122,7 +122,7 @@ export default function AdminUserProfilePage() {
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   return (
@@ -175,6 +175,52 @@ export default function AdminUserProfilePage() {
                 <p>{user.id}</p>
               </div>
             </div>
+
+            <div className="admin-user-profile-sections">
+              <div className="admin-user-profile-section">
+                <div className="admin-user-profile-section-title">
+                  <span className="admin-user-profile-section-icon" aria-hidden="true">i</span>
+                  <span>Personal Information</span>
+                </div>
+                <div className="admin-user-profile-info-list">
+                  <div className="admin-user-profile-info-row">
+                    <span>Full Name</span>
+                    <strong>{user.name || 'Unknown'}</strong>
+                  </div>
+                  <div className="admin-user-profile-info-row">
+                    <span>Time Zone</span>
+                    <strong>UTC+07:00 (ICT)</strong>
+                  </div>
+                  <div className="admin-user-profile-info-row">
+                    <span>Last Login</span>
+                    <strong>Yesterday, 14:22</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-user-profile-section">
+                <div className="admin-user-profile-section-title">
+                  <span className="admin-user-profile-section-icon" aria-hidden="true">⏱</span>
+                  <span>Recent Activity</span>
+                </div>
+                <div className="admin-user-profile-activity">
+                  <div className="admin-user-profile-activity-item">
+                    <span className="admin-user-profile-activity-icon" aria-hidden="true">💳</span>
+                    <div>
+                      <strong>Processed Donation</strong>
+                      <small>$500.00 to Ocean Clean-up</small>
+                    </div>
+                  </div>
+                  <div className="admin-user-profile-activity-item">
+                    <span className="admin-user-profile-activity-icon" aria-hidden="true">🔒</span>
+                    <div>
+                      <strong>Updated Security</strong>
+                      <small>2FA enabled successfully</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         ) : null}
       </main>
@@ -189,7 +235,7 @@ export default function AdminUserProfilePage() {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="admin-logout-title">Are you sure you want to logout?</h3>
-            <p>You will be returned to the login page.</p>
+            <p>You will be returned to the public home page.</p>
             <div className="admin-modal-actions">
               <button type="button" className="admin-modal-cancel" onClick={() => setIsLogoutOpen(false)}>
                 Cancel
@@ -204,3 +250,4 @@ export default function AdminUserProfilePage() {
     </div>
   );
 }
+

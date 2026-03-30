@@ -1,20 +1,21 @@
 import '../css/about.css';
 import React from 'react';
-import { Link } from 'react-router-dom';
-import ROUTES from '@/constants/routes.js';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ArrowRight, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
 import teamImage1 from '../../images/6129610942573121254_121.jpg';
 import teamImage2 from '../../images/6129631399502351996_121.jpg';
 import teamImage3 from '../../images/6147792428195319150_121.jpg';
 import teamImage4 from '../../images/6147792428195319151_121.jpg';
 import teamImage5 from '../../images/6147792428195319154_121.jpg';
 
+// --- Mock Data ---
+
 const STATS = [
-  { label: 'Total Donated', value: '$2.4M', change: '+12% this month' },
-  { label: 'Verified Partners', value: '150+', change: '+5% new partners' },
-  { label: 'Impacted Lives', value: '50K+', change: '+18% growth' },
-  { label: 'Active Campaigns', value: '85', change: '+10% active' },
+  { label: 'Total Donated', value: '$2.4M', change: '+12% this month', trend: 'up' },
+  { label: 'Verified Partners', value: '150+', change: '+5% new partners', trend: 'up' },
+  { label: 'Impacted Lives', value: '50K+', change: '+18% growth', trend: 'up' },
+  { label: 'Active Campaigns', value: '85', change: '+10% active', trend: 'up' },
 ];
 
 const ORGANIZATIONS = [
@@ -25,7 +26,7 @@ const ORGANIZATIONS = [
     description: 'Providing quality education and digital literacy programs to rural youth across the country.',
     image: 'https://cdn2.slideserve.com/4355656/slide1-n.jpg',
     donors: 12,
-    color: 'text-primary',
+    color: 'text-primary'
   },
   {
     id: 2,
@@ -34,7 +35,7 @@ const ORGANIZATIONS = [
     description: 'Building sustainable water infrastructure and purification systems for drought-affected regions.',
     image: 'https://www.borgenmagazine.com/wp-content/uploads/2020/08/Poor-People-Are-Happier-1.jpg',
     donors: 8,
-    color: 'text-emerald-600',
+    color: 'text-emerald-600'
   },
   {
     id: 3,
@@ -43,31 +44,31 @@ const ORGANIZATIONS = [
     description: 'Mobile clinics and professional medical care for underserved communities without hospital access.',
     image: 'https://i.ytimg.com/vi/bgPZU9rb4kc/maxresdefault.jpg',
     donors: 24,
-    color: 'text-rose-600',
-  },
+    color: 'text-rose-600'
+  }
 ];
 
 const CORE_VALUES = [
   {
     icon: Eye,
     title: 'Transparency',
-    description: 'Every donation is tracked end-to-end, so you can clearly see where your support goes.',
+    description: 'Every donation is tracked end-to-end, so you can clearly see where your support goes.'
   },
   {
     icon: ShieldCheck,
     title: 'Trust',
-    description: 'We partner only with vetted organizations and verified projects for accountable delivery.',
+    description: 'We partner only with vetted organizations and verified projects for accountable delivery.'
   },
   {
     icon: HandHeart,
     title: 'Impact',
-    description: 'Our focus is long-term, sustainable outcomes that uplift communities over time.',
+    description: 'Our focus is long-term, sustainable outcomes that uplift communities over time.'
   },
   {
     icon: Users2,
     title: 'Community',
-    description: 'We bring donors, partners, and volunteers together to solve local challenges.',
-  },
+    description: 'We bring donors, partners, and volunteers together to solve local challenges.'
+  }
 ];
 
 const TEAM = [
@@ -75,38 +76,40 @@ const TEAM = [
     name: 'Sreyvik Von',
     role: 'Founder & CEO',
     bio: 'Passionate about using technology to close social impact gaps across Cambodia.',
-    image: teamImage2,
+    image: teamImage2
   },
   {
     name: 'Nita Chroun',
     role: 'Operations Director',
     bio: 'Ensuring every project is executed with precision, integrity, and measurable results.',
-    image: teamImage1,
+    image: teamImage1
   },
   {
     name: 'Sophea Phal',
     role: 'Product Manager',
     bio: 'Designing user-friendly donation flows that create trust and increase community impact.',
-    image: teamImage3,
+    image: teamImage3
   },
   {
     name: 'Ly Sarl',
     role: 'Partnership Lead',
     bio: 'Building strategic partnerships with NGOs, schools, and local leaders across regions.',
-    image: teamImage4,
+    image: teamImage4
   },
   {
     name: 'Seyha Ny',
     role: 'Community Relations',
     bio: 'Building trusted partnerships with communities and local organizations nationwide.',
-    image: teamImage5,
-  },
+    image: teamImage5
+  }
 ];
 
-const Hero = () => (
+// --- Components ---
+// Note: this is the header section of the about page
+const Hero = ({ donateHref }) => (
   <section className="about-hero">
     <div className="about-header-card">
-      <motion.div
+      <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6 }}
@@ -122,27 +125,29 @@ const Hero = () => (
           <span>Change Lives.</span>
         </h1>
         <p className="about-header-desc">
-          Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate
-          donors with grassroots initiatives making a real difference.
+          Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate donors with grassroots initiatives making a real difference.
         </p>
         <div className="about-header-actions">
-          <Link to="/login" className="about-header-btn about-header-btn-primary group">
+          <Link to={donateHref} className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+          </Link>
+          <Link to="/campaigns" className="about-header-btn about-header-btn-secondary">
+            Start a Campaign
           </Link>
         </div>
         <p className="about-header-meta">Joined by 10K+ active donors</p>
       </motion.div>
-      <motion.div
+      <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.2 }}
         className="about-header-media"
       >
         <div className="about-header-media-card">
-          <img
-            src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cG9vciUyMHBlb3BsZXxlbnwwfHwwfHx8MA%3D%3D"
-            alt="Community support"
+          <img 
+            src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8cG9vciUyMHBlb3BsZXxlbnwwfHwwfHx8MA%3D%3D" 
+            alt="Community support" 
             className="h-full w-full object-cover"
             referrerPolicy="no-referrer"
           />
@@ -156,19 +161,27 @@ const Hero = () => (
   </section>
 );
 
+//Categorie total 
+
 const Stats = () => (
   <section className="bg-slate-100/50 py-16 border-y border-slate-200">
     <div className="mx-auto max-w-7xl px-6">
       <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-        {STATS.map((stat) => (
-          <div key={stat.label} className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover">
+        {STATS.map((stat, idx) => (
+          <motion.div 
+            key={stat.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: idx * 0.1 }}
+            className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
+          >
             <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
             <p className="text-4xl font-black text-slate-900">{stat.value}</p>
             <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
-              <span aria-hidden="true">↗</span>
+              <TrendingUp className="w-4 h-4" />
               {stat.change}
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>
@@ -228,26 +241,90 @@ const AboutContent = () => (
   </section>
 );
 
+// Card of the organization 
+
 const FeaturedOrgs = () => (
   <section className="mx-auto max-w-7xl px-6 py-24">
-    <div className="flex items-end justify-between mb-12">
-      <div className="max-w-xl">
-        <h2 className="text-3xl font-bold tracking-tight text-white lg:text-4xl mb-6">Featured Organizations</h2>
-        <p className="mt-4 text-white max-w-2xl mx-auto">
-          Discover vetted organizations that are making real measurable impact in their local communities.
-        </p>
+    <div className="relative mb-12 overflow-hidden rounded-[2.25rem] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-blue-100 px-8 py-10 shadow-[0_24px_80px_rgba(37,99,235,0.12)]">
+      <div className="pointer-events-none absolute inset-y-0 left-[8%] hidden w-64 rounded-full bg-sky-300/20 blur-3xl lg:block" />
+      <div className="pointer-events-none absolute -right-16 top-10 hidden h-56 w-56 rounded-full bg-blue-300/20 blur-3xl lg:block" />
+      <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="space-y-8">
+          <div className="max-w-2xl">
+            <span className="inline-flex rounded-full border border-sky-200 bg-white/90 px-4 py-1 text-xs font-extrabold uppercase tracking-[0.28em] text-sky-700 shadow-sm">
+              Trusted Partners
+            </span>
+            <h2 className="mt-5 text-3xl font-black tracking-tight text-slate-900 lg:text-5xl">
+              Featured Organizations
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-8 text-slate-600 lg:text-lg">
+              Discover vetted organizations that are making real, measurable impact in their local communities.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-sky-700">Verified NGOs</p>
+              <p className="mt-3 text-3xl font-black text-slate-900">150+</p>
+              <p className="mt-2 text-sm text-slate-500">Screened partners with transparent impact reporting.</p>
+            </div>
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-emerald-700">Active Causes</p>
+              <p className="mt-3 text-3xl font-black text-slate-900">24</p>
+              <p className="mt-2 text-sm text-slate-500">Education, health, climate, food security, and more.</p>
+            </div>
+            <div className="rounded-2xl border border-white/70 bg-slate-900 p-5 shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-sky-300">Donor Trust</p>
+              <p className="mt-3 text-3xl font-black text-white">4.9/5</p>
+              <p className="mt-2 text-sm text-slate-300">Highly rated by supporters for clarity and delivery.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/70 bg-white/70 p-6 shadow-[0_18px_60px_rgba(148,163,184,0.18)] backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-500">Partner Snapshot</p>
+              <h3 className="mt-3 text-2xl font-black text-slate-900">Organizations ready for impact</h3>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+              Live now
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {ORGANIZATIONS.map((org) => (
+              <div
+                key={org.id}
+                className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm transition-transform duration-300 hover:-translate-y-0.5"
+              >
+                <img
+                  src={org.image}
+                  alt={org.name}
+                  className="h-16 w-16 rounded-2xl object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className={`inline-flex text-[11px] font-extrabold uppercase tracking-[0.2em] ${org.color}`}>
+                    {org.category}
+                  </div>
+                  <h4 className="mt-1 truncate text-lg font-bold text-slate-900">{org.name}</h4>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-500">{org.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-500/20">
+            View All Organizations
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
       </div>
-      <Link
-        to={ROUTES.ORGANIZATIONS}
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xl text-primary hover:text-white hover:border-primary transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-primary/25 transform hover:-translate-y-0.5 whitespace-nowrap mb-4"
-      >
-        View All Organizations
-        <span className="transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
-      </Link>
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
-        <motion.div
+        <motion.div 
           key={org.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -255,23 +332,33 @@ const FeaturedOrgs = () => (
           className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-100 card-hover"
         >
           <div className="aspect-video w-full overflow-hidden">
-            <img src={org.image} alt={org.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
+            <img 
+              src={org.image} 
+              alt={org.name} 
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              referrerPolicy="no-referrer"
+            />
           </div>
           <div className="flex flex-1 flex-col p-6">
-            <div className={`mb-2 inline-flex text-xs font-bold uppercase tracking-tighter ${org.color}`}>{org.category}</div>
+            <div className={`mb-2 inline-flex text-xs font-bold uppercase tracking-tighter ${org.color}`}>
+              {org.category}
+            </div>
             <h3 className="mb-2 text-xl font-bold text-slate-900">{org.name}</h3>
             <p className="mb-6 text-sm text-slate-600 line-clamp-2">{org.description}</p>
             <div className="mt-auto pt-6 border-t border-slate-100 flex items-center justify-between">
               <div className="flex -space-x-2">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-8 w-8 rounded-full border-2 border-white bg-slate-200 overflow-hidden">
-                    <img src={`https://picsum.photos/seed/donor${i + idx}/32/32`} alt="Donor" referrerPolicy="no-referrer" />
+                    <img src={`https://picsum.photos/seed/donor${i+idx}/32/32`} alt="Donor" referrerPolicy="no-referrer" />
                   </div>
                 ))}
                 <div className="h-8 w-8 rounded-full border-2 border-white bg-primary flex items-center justify-center text-[10px] font-bold text-white">
                   +{org.donors}
                 </div>
               </div>
+              {/* <button className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-primary hover:text-white transition-all">
+                Learn More
+              </button> */}
             </div>
           </div>
         </motion.div>
@@ -281,10 +368,14 @@ const FeaturedOrgs = () => (
 );
 
 export default function AboutPage() {
+  const sessionRaw = window.localStorage.getItem('chomnuoy_session');
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const donateHref = session?.isLoggedIn ? '/campaigns' : '/login?redirect=%2Fcampaigns';
+
   return (
     <div className="h-screen w-screen flex flex-col selection:bg-primary/10 selection:text-primary">
       <main className="flex-grow overflow-auto">
-        <Hero />
+        <Hero donateHref={donateHref} />
         <Stats />
         <AboutContent />
         <FeaturedOrgs />

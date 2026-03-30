@@ -1,50 +1,71 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarPlus2, CircleCheckBig, Package, Search, EllipsisVertical, Info, MapPinned, ChevronLeft, ChevronRight, Eye, CalendarDays, XCircle } from 'lucide-react';
 import './material-pickup.css';
 
-const summary = [
-  { title: 'Scheduled Pickups', value: 3, icon: <CalendarPlus2 />, tone: 'amber' },
-  { title: 'Completed Deliveries', value: 12, icon: <CircleCheckBig />, tone: 'green' },
-  { title: 'Total Items Donated', value: 48, icon: <Package />, tone: 'blue' },
-];
+const PAGE_SIZE = 6;
+const PICKUP_CACHE_KEY_PREFIX = 'donor_material_pickups_v2';
+const PICKUP_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
-const rows = [
-  {
-    date: 'Oct 24, 2023',
-    time: '10:00 AM - 12:00 PM',
-    org: "Children's Hope Foundation",
-    items: 'Clothing & Textbooks',
-    detail: '3 boxes total',
-    address: '#123 Street 45, Phnom Penh',
-    status: 'Pending',
-    statusTone: 'pending',
-  },
-  {
-    date: 'Oct 22, 2023',
-    time: '02:00 PM - 04:00 PM',
-    org: 'Eco-Green Cambodia',
-    items: 'Electronics for Recycling',
-    detail: '1 large monitor, 2 laptops',
-    address: '#123 Street 45, Phnom Penh',
-    status: 'In Transit',
-    statusTone: 'transit',
-  },
-  {
-    date: 'Oct 18, 2023',
-    time: 'Completed 11:30 AM',
-    org: 'Health First Foundation',
-    items: 'First Aid Kits',
-    detail: '10 sealed kits',
-    address: '#123 Street 45, Phnom Penh',
-    status: 'Delivered',
-    statusTone: 'delivered',
-  },
-];
+function getDonorSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getInitials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'DN';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function getPickupCacheKey(donorId) {
+  return `${PICKUP_CACHE_KEY_PREFIX}:${donorId || 'guest'}`;
+}
+
+function readPickupCache(donorId) {
+  try {
+    const raw = window.sessionStorage.getItem(getPickupCacheKey(donorId));
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp) return null;
+    if (Date.now() - parsed.timestamp > PICKUP_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(getPickupCacheKey(donorId));
+      return null;
+    }
+    return parsed.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writePickupCache(donorId, data) {
+  try {
+    window.sessionStorage.setItem(
+      getPickupCacheKey(donorId),
+      JSON.stringify({
+        timestamp: Date.now(),
+        data,
+      })
+    );
+  } catch {
+    // Ignore cache write failures.
+  }
+}
 
 export default function MaterialPickupPage() {
   const navigate = useNavigate();
-  const [pickupRows, setPickupRows] = useState(rows);
+  const donorSession = getDonorSession();
+  const donorId = Number(donorSession?.userId || donorSession?.id || 0);
+  const cachedRows = useMemo(() => readPickupCache(donorId), [donorId]);
+  const [pickupRows, setPickupRows] = useState(Array.isArray(cachedRows) ? cachedRows : []);
+  const [loading, setLoading] = useState(!Array.isArray(cachedRows));
+  const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [openMenuKey, setOpenMenuKey] = useState(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [newPickupForm, setNewPickupForm] = useState({
@@ -56,6 +77,26 @@ export default function MaterialPickupPage() {
     detail: '',
     address: '',
   });
+
+  const normalizeStatus = (value) => {
+    const status = String(value || '').toLowerCase();
+    if (['delivered', 'completed', 'complete'].includes(status)) {
+      return { label: 'Delivered', tone: 'delivered' };
+    }
+    if (['in transit', 'transit', 'in_transit', 'enroute', 'en route'].includes(status)) {
+      return { label: 'In Transit', tone: 'transit' };
+    }
+    return { label: 'Pending', tone: 'pending' };
+  };
+
+  const formatTimeRange = (fromValue, toValue, fallback) => {
+    if (fromValue || toValue) {
+      const fromLabel = fromValue || '';
+      const toLabel = toValue ? ` - ${toValue}` : '';
+      return `${fromLabel}${toLabel}`.trim();
+    }
+    return fallback || 'Pending confirmation';
+  };
 
   const formatDateLabel = (rawDate) => {
     if (!rawDate) return '';
@@ -71,6 +112,152 @@ export default function MaterialPickupPage() {
     return () => window.removeEventListener('click', handleCloseMenu);
   }, []);
 
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    let alive = true;
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    setError('');
+    if (!Array.isArray(cachedRows)) {
+      setLoading(true);
+    }
+
+    Promise.allSettled([
+      fetch(`${apiBase}/material_pickups`, { headers }).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load pickups (${response.status})`);
+        }
+        return response.json();
+      }),
+      fetch(`${apiBase}/donations`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/material_items`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/campaigns`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`, { headers }).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/users`, { headers }).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([pickupResult, donationResult, materialResult, campaignResult, organizationResult, userResult]) => {
+        if (!alive) return;
+        if (pickupResult.status !== 'fulfilled') {
+          throw pickupResult.reason instanceof Error ? pickupResult.reason : new Error('Failed to load pickups.');
+        }
+
+        const list = Array.isArray(pickupResult.value) ? pickupResult.value : [];
+        const donations = donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : [];
+        const materialItems = materialResult.status === 'fulfilled' && Array.isArray(materialResult.value) ? materialResult.value : [];
+        const campaigns = campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : [];
+        const organizations = organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value) ? organizationResult.value : [];
+        const users = userResult.status === 'fulfilled' && Array.isArray(userResult.value) ? userResult.value : [];
+
+        const donationMap = new Map(donations.map((item) => [Number(item.id), item]));
+        const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
+        const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
+        const organizationByUserMap = new Map(
+          organizations
+            .map((item) => [Number(item.user_id), item])
+            .filter(([userId]) => Number.isFinite(userId) && userId > 0)
+        );
+        const userMap = new Map(users.map((item) => [Number(item.id), item]));
+        const materialItemsByDonation = materialItems.reduce((map, item) => {
+          const key = Number(item.donation_id);
+          if (!map.has(key)) {
+            map.set(key, []);
+          }
+          map.get(key).push(item);
+          return map;
+        }, new Map());
+
+        const donorScopedList = donorId
+          ? list.filter((item) => {
+            const donation = donationMap.get(Number(item.donation_id));
+            return (
+              Number(item.user_id) === donorId ||
+              Number(item.donor_id) === donorId ||
+              Number(donation?.user_id) === donorId
+            );
+          })
+          : list;
+
+        const mapped = donorScopedList.map((item) => {
+          const status = normalizeStatus(item.status);
+          const dateValue = item.pickup_date || item.date || item.created_at || '';
+          const donation = donationMap.get(Number(item.donation_id));
+          const campaign = campaignMap.get(Number(item.campaign_id || donation?.campaign_id));
+          const organization =
+            organizationMap.get(Number(item.organization_id || donation?.organization_id || campaign?.organization_id)) ||
+            organizationByUserMap.get(Number(item.organization_id || donation?.organization_id || campaign?.organization_id)) ||
+            null;
+          const donor =
+            userMap.get(Number(item.user_id || item.donor_id || donation?.user_id)) ||
+            null;
+          const linkedItems = materialItemsByDonation.get(Number(item.donation_id)) || [];
+          const primaryItem = linkedItems[0];
+          const itemCount = linkedItems.reduce((sum, linkedItem) => sum + Math.max(1, Number(linkedItem.quantity) || 1), 0);
+          const itemNames = linkedItems.map((linkedItem) => linkedItem.item_name).filter(Boolean);
+          const organizationName =
+            item.organization_name ||
+            item.organization ||
+            item.org ||
+            campaign?.organization_name ||
+            organization?.name ||
+            organization?.organization_name ||
+            (campaign?.title ? `${campaign.title} Organizer` : '') ||
+            (donation?.organization_id ? `Organization #${donation.organization_id}` : 'Unknown Organization');
+          const address =
+            item.address ||
+            item.pickup_address ||
+            campaign?.pickup_location ||
+            campaign?.location ||
+            donation?.pickup_address ||
+            item.location ||
+            'Pickup address not provided';
+
+          return {
+            id: item.id ?? `${organizationName}-${dateValue}`,
+            date: formatDateLabel(dateValue),
+            time: formatTimeRange(
+              item.time_from || item.timeFrom,
+              item.time_to || item.timeTo,
+              item.time || item.schedule_time || (item.schedule_date ? 'Pickup scheduled' : 'Pending confirmation')
+            ),
+            org: organizationName,
+            donor: donor?.name || item.donor_name || item.user_name || 'Donor',
+            donorInitials: getInitials(donor?.name || item.donor_name || item.user_name || 'Donor'),
+            items: item.items || primaryItem?.item_name || item.item_name || item.item || 'Material items',
+            detail:
+              item.detail ||
+              item.notes ||
+              item.description ||
+              (itemNames.length > 1 ? itemNames.join(', ') : primaryItem?.description) ||
+              'No additional details',
+            address,
+            status: status.label,
+            statusTone: status.tone,
+            createdAt: new Date(dateValue || Date.now()).getTime(),
+            quantity: Number(item.quantity || item.item_count || item.items_count || item.total_items || itemCount || 1),
+            donationId: Number(item.donation_id || donation?.id || 0) || null,
+            campaignId: Number(item.campaign_id || donation?.campaign_id || 0) || null,
+          };
+        });
+        setPickupRows(mapped);
+        writePickupCache(donorId, mapped);
+        setCurrentPage(1);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : 'Failed to load pickups.');
+        if (!Array.isArray(cachedRows)) {
+          setPickupRows([]);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [cachedRows, donorId]);
+
   const handleOpenSchedulePopup = () => {
     setIsScheduleOpen(true);
   };
@@ -82,6 +269,7 @@ export default function MaterialPickupPage() {
   const handleScheduleSubmit = (event) => {
     event.preventDefault();
 
+    const status = normalizeStatus('pending');
     const nextRow = {
       date: formatDateLabel(newPickupForm.date),
       time: `${newPickupForm.timeFrom} - ${newPickupForm.timeTo}`,
@@ -89,11 +277,19 @@ export default function MaterialPickupPage() {
       items: newPickupForm.items,
       detail: newPickupForm.detail || 'No additional details',
       address: newPickupForm.address,
-      status: 'Pending',
-      statusTone: 'pending',
+      status: status.label,
+      statusTone: status.tone,
+      id: `local-${Date.now()}`,
+      createdAt: new Date(newPickupForm.date || Date.now()).getTime(),
+      quantity: 1,
     };
 
-    setPickupRows((prev) => [nextRow, ...prev]);
+    setPickupRows((prev) => {
+      const nextRows = [nextRow, ...prev];
+      writePickupCache(donorId, nextRows);
+      return nextRows;
+    });
+    setCurrentPage(1);
     setNewPickupForm({
       date: '',
       timeFrom: '',
@@ -105,6 +301,45 @@ export default function MaterialPickupPage() {
     });
     setIsScheduleOpen(false);
   };
+
+  const filteredRows = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return pickupRows;
+
+    return pickupRows.filter((row) => {
+      const haystack = [
+        row.date,
+        row.time,
+        row.org,
+        row.items,
+        row.detail,
+        row.address,
+        row.status,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [pickupRows, searchTerm]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, pageCount);
+  const pagedRows = filteredRows.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
+  const summaryCards = useMemo(() => {
+    const scheduled = pickupRows.filter((row) => row.statusTone === 'pending').length;
+    const delivered = pickupRows.filter((row) => row.statusTone === 'delivered').length;
+    const totalItems = pickupRows.reduce((sum, row) => sum + (row.quantity || 1), 0);
+
+    return [
+      { title: 'Scheduled Pickups', value: scheduled, icon: <CalendarPlus2 />, tone: 'amber' },
+      { title: 'Completed Deliveries', value: delivered, icon: <CircleCheckBig />, tone: 'green' },
+      { title: 'Total Items Donated', value: totalItems, icon: <Package />, tone: 'blue' },
+    ];
+  }, [pickupRows]);
 
   return (
     <main className="mp-page">
@@ -121,7 +356,7 @@ export default function MaterialPickupPage() {
         </header>
 
         <section className="mp-summary-grid" aria-label="Pickup summary">
-          {summary.map((card) => (
+          {summaryCards.map((card) => (
             <article key={card.title} className="mp-summary-card">
               <span className={`mp-summary-icon ${card.tone}`}>{card.icon}</span>
               <div>
@@ -137,7 +372,15 @@ export default function MaterialPickupPage() {
             <h2>Active & Recent Pickups</h2>
             <label className="mp-search">
               <Search />
-              <input type="search" placeholder="Search pickups..." />
+              <input
+                type="search"
+                placeholder="Search pickups..."
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  setCurrentPage(1);
+                }}
+              />
             </label>
           </div>
 
@@ -150,95 +393,148 @@ export default function MaterialPickupPage() {
             <span />
           </div>
 
-          <div className="mp-table-body">
-            {pickupRows.map((row) => {
-              const rowKey = `${row.org}-${row.date}`;
-              const isMenuOpen = openMenuKey === rowKey;
-
-              return (
-              <article key={rowKey} className="mp-row">
-                <div>
-                  <strong>{row.date}</strong>
-                  <p>{row.time}</p>
-                </div>
-                <div>
-                  <strong>{row.org}</strong>
-                </div>
-                <div>
-                  <strong>{row.items}</strong>
-                  <p>{row.detail}</p>
-                </div>
-                <div>{row.address}</div>
-                <div>
-                  <span className={`mp-status ${row.statusTone}`}>{row.status}</span>
-                </div>
-                <div className="mp-more-wrap">
-                  <button
-                    type="button"
-                    className="mp-more-btn"
-                    aria-label="More options"
-                    aria-expanded={isMenuOpen}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenMenuKey((prev) => (prev === rowKey ? null : rowKey));
-                    }}
-                  >
-                    <EllipsisVertical />
-                  </button>
-
-                  {isMenuOpen && (
-                    <div className="mp-action-menu" role="menu" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuKey(null);
-                          navigate('/pickup/view-detail', { state: { pickup: row } });
-                        }}
-                      >
-                        <Eye />
-                        View Details
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOpenMenuKey(null);
-                          navigate('/pickup/reschedule', { state: { pickup: row } });
-                        }}
-                      >
-                        <CalendarDays />
-                        Reschedule Pickup
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="danger"
-                        onClick={() => {
-                          setPickupRows((prev) => prev.filter((item) => `${item.org}-${item.date}` !== rowKey));
-                          setOpenMenuKey(null);
-                        }}
-                      >
-                        <XCircle />
-                        Cancel Request
-                      </button>
-                    </div>
-                  )}
-                </div>
+          {loading ? (
+            <div className="mp-table-body">
+              <article className="mp-row">
+                <div>Loading pickups...</div>
               </article>
-            )})}
-          </div>
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="mp-table-body">
+              <article className="mp-row">
+                <div>{error}</div>
+              </article>
+            </div>
+          ) : null}
+
+          {!loading && !error ? (
+            <div className="mp-table-body">
+              {pagedRows.length === 0 ? (
+                <article className="mp-row">
+                  <div>No pickups match your search.</div>
+                </article>
+              ) : (
+                pagedRows.map((row, index) => {
+                  const rowKey = row.id ?? `${row.org}-${row.date}`;
+                  const isMenuOpen = openMenuKey === rowKey;
+                  const shouldOpenUpward = index >= pagedRows.length - 2;
+
+                  return (
+                    <article key={rowKey} className="mp-row">
+                      <div>
+                        <strong>{row.date}</strong>
+                        <p>{row.time}</p>
+                      </div>
+                      <div>
+                        <strong>{row.org}</strong>
+                      </div>
+                      <div>
+                        <strong>{row.items}</strong>
+                        <p>{row.detail}</p>
+                      </div>
+                      <div>{row.address}</div>
+                      <div>
+                        <span className={`mp-status ${row.statusTone}`}>{row.status}</span>
+                      </div>
+                      <div className="mp-more-wrap">
+                        <button
+                          type="button"
+                          className="mp-more-btn"
+                          aria-label="More options"
+                          aria-expanded={isMenuOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuKey((prev) => (prev === rowKey ? null : rowKey));
+                          }}
+                        >
+                          <EllipsisVertical />
+                        </button>
+
+                        {isMenuOpen && (
+                          <div
+                            className={`mp-action-menu${shouldOpenUpward ? ' up' : ''}`}
+                            role="menu"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuKey(null);
+                                navigate('/pickup/view-detail', { state: { pickup: row } });
+                              }}
+                            >
+                              <Eye />
+                              View Details
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuKey(null);
+                                navigate('/pickup/reschedule', { state: { pickup: row } });
+                              }}
+                            >
+                              <CalendarDays />
+                              Reschedule Pickup
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="danger"
+                              onClick={() => {
+                                setPickupRows((prev) => {
+                                  const nextRows = prev.filter(
+                                    (item) => (item.id ?? `${item.org}-${item.date}`) !== rowKey,
+                                  );
+                                  writePickupCache(donorId, nextRows);
+                                  return nextRows;
+                                });
+                                setOpenMenuKey(null);
+                              }}
+                            >
+                              <XCircle />
+                              Cancel Request
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          ) : null}
 
           <footer className="mp-table-foot">
-            <p>Showing {pickupRows.length} material donations</p>
+            <p>Showing {filteredRows.length} pickup request{filteredRows.length === 1 ? '' : 's'}</p>
             <div className="mp-pagination">
-              <button type="button" aria-label="Previous page">
+              <button
+                type="button"
+                aria-label="Previous page"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={safePage === 1}
+              >
                 <ChevronLeft />
               </button>
-              <button type="button" className="active">1</button>
-              <button type="button">2</button>
-              <button type="button">3</button>
-              <button type="button" aria-label="Next page">
+              {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  className={page === safePage ? 'active' : ''}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-label="Next page"
+                onClick={() => setCurrentPage((prev) => Math.min(pageCount, prev + 1))}
+                disabled={safePage === pageCount}
+              >
                 <ChevronRight />
               </button>
             </div>
@@ -355,6 +651,6 @@ export default function MaterialPickupPage() {
           </div>
         </div>
       )}
-q    </main>
+    </main>
   );
 }

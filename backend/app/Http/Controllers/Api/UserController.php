@@ -18,6 +18,21 @@ class UserController extends Controller
         return response()->json(User::query()->orderByDesc('id')->get());
     }
 
+    public function findByEmail(Request $request): JsonResponse
+    {
+        $email = strtolower(trim((string) $request->query('email', '')));
+        if ($email === '') {
+            return response()->json(['message' => 'Email is required.'], 422);
+        }
+
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        return response()->json($user);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $record = User::create($request->all());
@@ -25,11 +40,9 @@ class UserController extends Controller
         return response()->json($record, 201);
     }
 
-    public function show(int $id): JsonResponse
+    public function show(User $user): JsonResponse
     {
-        $record = User::findOrFail($id);
-
-        return response()->json($record);
+        return response()->json($user);
     }
 
 
@@ -39,11 +52,8 @@ class UserController extends Controller
      * This function receives a request from the client (frontend/Postman),
      * validates the input data, uploads avatar if provided, and updates the user record.
      */
-    public function update(Request $request, int $id): JsonResponse
+    public function update(Request $request, User $user): JsonResponse
     {
-        // Find the user by ID. If not found, Laravel automatically returns 404 error.
-        $user = User::findOrFail($id);
-
         // Validate request data before updating
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -84,10 +94,9 @@ class UserController extends Controller
         return response()->json($user);
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(User $user): JsonResponse
     {
-        $record = User::findOrFail($id);
-        $record->delete();
+        $user->delete();
 
         return response()->json(null, 204);
     }

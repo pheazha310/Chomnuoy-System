@@ -1,0 +1,425 @@
+.apsettings-wrap {
+  --set-text: #0f172a;
+  --set-muted: #52627a;
+  --set-border: #d7e3f2;
+  --set-surface: #ffffff;
+  --set-surface-2: #f8fbff;
+  --set-primary: #1d72e8;
+  --set-primary-strong: #0f5ed0;
+  --set-ring: 0 0 0 3px rgba(29, 114, 232, 0.16);
+  max-width: none;
+  width: 100%;
+  margin-right: 0;
+}
+
+.admin-main {
+  padding: 20px 20px 36px 16px;
+}
+
+.apsettings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border-radius: 18px;
+  background:
+    radial-gradient(1200px 220px at 0% 0%, rgba(29, 114, 232, 0.16), transparent 48%),
+    radial-gradient(700px 180px at 100% 100%, rgba(37, 99, 235, 0.08), transparent 42%),
+    var(--set-surface);
+  border: 1px solid rgba(167, 186, 216, 0.5);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+.apsettings-kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #4c6ea4;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.apsettings-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.06;
+  color: #0b1d3a;
+  font-weight: 800;
+}
+
+.apsettings-subtitle {
+  margin: 10px 0 0;
+  color: var(--set-muted);
+  font-size: 15px;
+  max-width: 700px;
+}
+
+.apsettings-save-top {
+  border: none;
+  background: linear-gradient(180deg, #2e83ff 0%, #1d72e8 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 22px rgba(29, 114, 232, 0.3);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.apsettings-save-top:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 24px rgba(29, 114, 232, 0.34);
+}
+
+.apsettings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.apsettings-card {
+  background: var(--set-surface);
+  border: 1px solid var(--set-border);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.apsettings-card-title {
+  font-size: 17px;
+  font-weight: 800;
+  margin-bottom: 14px;
+  color: var(--set-text);
+}
+
+.apsettings-profile-grid {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.apsettings-avatar-block {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #e6efff;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
+}
+
+.apsettings-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.apsettings-input-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.apsettings-input-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.apsettings-input-grid.three-col {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.apsettings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.apsettings-field > span {
+  font-size: 12px;
+  color: #334155;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.apsettings-field input,
+.apsettings-field select {
+  height: 41px;
+  border: 1px solid #cfdbed;
+  border-radius: 10px;
+  background: var(--set-surface-2);
+  padding: 0 12px;
+  color: var(--set-text);
+  font-size: 13px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.apsettings-field input:hover,
+.apsettings-field select:hover {
+  border-color: #b9cbe4;
+}
+
+.apsettings-field input:focus,
+.apsettings-field select:focus {
+  outline: none;
+  border-color: var(--set-primary);
+  box-shadow: var(--set-ring);
+  background: #fff;
+}
+
+.apsettings-security-banner {
+  border: 1px solid #cfe0f7;
+  background: linear-gradient(180deg, #f6faff 0%, #eff6ff 100%);
+  border-radius: 11px;
+  padding: 13px 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.apsettings-banner-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.apsettings-banner-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #52627a;
+}
+
+.apsettings-chip-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.apsettings-chip-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.top-gap {
+  margin-top: 14px;
+}
+
+.apsettings-card h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.apsettings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf2f8;
+}
+
+.apsettings-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.apsettings-toggle-row p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #10284a;
+}
+
+.apsettings-toggle-row small {
+  color: #61738f;
+  font-size: 12px;
+}
+
+.apsettings-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+}
+
+.apsettings-switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.apsettings-switch span {
+  display: block;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: #c6d4e5;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.apsettings-switch span::after {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.2);
+}
+
+.apsettings-switch input:checked + span {
+  background: var(--set-primary);
+}
+
+.apsettings-switch input:checked + span::after {
+  transform: translateX(20px);
+}
+
+.apsettings-link-btn {
+  margin-top: 10px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.apsettings-link-btn:hover {
+  background: #e2eeff;
+  border-color: #93c5fd;
+}
+
+.apsettings-api-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.apsettings-hook-row {
+  margin-top: 14px;
+  border-top: 1px solid #edf2f8;
+  padding-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.apsettings-hook-row p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #10284a;
+}
+
+.apsettings-hook-row small {
+  color: #61738f;
+  font-size: 12px;
+}
+
+.apsettings-webhook-editor {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.apsettings-webhook-add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.apsettings-webhook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.apsettings-webhook-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #dce7f4;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px 10px;
+}
+
+.apsettings-webhook-item span {
+  color: #1e293b;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.apsettings-webhook-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.apsettings-wrap .settings-alert {
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border-width: 1px;
+  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.12);
+}
+
+.apsettings-wrap .settings-actions {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.apsettings-wrap .settings-save-btn {
+  border-radius: 10px;
+  padding: 10px 17px;
+  background: linear-gradient(180deg, #2e83ff 0%, #1d72e8 100%);
+  box-shadow: 0 10px 20px rgba(29, 114, 232, 0.25);
+}
+
+.apsettings-wrap .settings-save-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #267bf8 0%, #0f5ed0 100%);
+}
+
+@media (max-width: 900px) {
+  .apsettings-head {
+    flex-direction: column;
+    padding: 18px;
+  }
+
+  .apsettings-save-top {
+    width: 100%;
+  }
+
+  .apsettings-input-grid.two-col,
+  .apsettings-input-grid.three-col,
+  .apsettings-api-grid,
+  .apsettings-webhook-add {
+    grid-template-columns: 1fr;
+  }
+
+  .apsettings-profile-grid {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+}

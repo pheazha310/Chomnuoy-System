@@ -83,6 +83,8 @@ class AuthControllerRegister extends Controller
                     && empty($request->input('organization.category_id'))),
             ],
             'organization.location' => ['nullable', 'string', 'max:255'],
+            'organization.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'organization.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'organization.description' => ['nullable', 'string'],
         ]);
 
@@ -110,6 +112,8 @@ class AuthControllerRegister extends Controller
                     'password' => Hash::make($data['password']),
                     'category_id' => $categoryId,
                     'location' => $organizationData['location'] ?? null,
+                    'latitude' => $organizationData['latitude'] ?? null,
+                    'longitude' => $organizationData['longitude'] ?? null,
                     'description' => $organizationData['description'] ?? null,
                     'verified_status' => 'pending',
                 ]);
@@ -202,6 +206,17 @@ class AuthControllerRegister extends Controller
                 ->value('role_name') ?? 'Donor';
             $user->last_seen_at = now();
             $user->save();
+            if (strtolower($roleName) === 'admin') {
+                $auditPayload = [
+                    'user_id' => $user->id,
+                    'action' => 'Admin login',
+                    'affected_table' => 'users',
+                ];
+                if (Schema::hasColumn('audit_logs', 'ip_address')) {
+                    $auditPayload['ip_address'] = $request->ip();
+                }
+                AuditLog::create($auditPayload);
+            }
             Log::info('Auth login success', [
                 'email' => $email,
                 'account_type' => $roleName,
