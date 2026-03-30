@@ -26,8 +26,6 @@ function OrganizationBeforeLogin() {
 
   const navigate = useNavigate();
 
-
-
   const [searchInput, setSearchInput] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -630,13 +628,35 @@ function OrganizationBeforeLogin() {
 
               <div className="card-actions">
 
-                <button type="button" className="btn-primary">
+                <button
+
+                  type="button"
+
+                  className="btn-primary"
+
+                  onClick={() => {
+
+                    const redirect = encodeURIComponent(`/organizations/donate/${organization.id}`);
+
+                    navigate(`/login?redirect=${redirect}`);
+
+                  }}
+
+                >
 
                   Donate
 
                 </button>
 
-                <button type="button" className="btn-outline">
+                <button
+
+                  type="button"
+
+                  className="btn-outline"
+
+                  onClick={() => navigate(`/organizations/${organization.id}`)}
+
+                >
 
                   View Profile
 

@@ -16,6 +16,7 @@ const CampaignDetailPage = lazy(() => import('@/components/pages/CampaignDetailP
 const HowItWorksPage = lazy(() => import('@/components/pages/HowItWorksPage.jsx'));
 const OrganizationBeforeLogin = lazy(() => import('@/components/pages/OrganizationBeforeLogin.jsx'));
 const OrganizationAfterLogin = lazy(() => import('@/components/pages/OrganizationAfterLogin.jsx'));
+const OrganizationProfile = lazy(() => import('@/components/pages/OrganizationProfile.jsx'));
 const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
 const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));

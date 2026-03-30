@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import '../css/organization.css';
 
+const FALLBACK_ORGANIZATION_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="%23EAF2FF"/><circle cx="120" cy="110" r="44" fill="%232563EB" opacity="0.16"/><circle cx="535" cy="82" r="58" fill="%232563EB" opacity="0.1"/><circle cx="500" cy="282" r="74" fill="%232563EB" opacity="0.08"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="%231E3A5F">Organization</text></svg>';
+
 function OrganizationProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -9,20 +11,29 @@ function OrganizationProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // For now, use the mock data from OrganizationBeforeLogin
-  // In production, this would fetch from API: /api/organizations/${id}
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
   useEffect(() => {
-    // Import the organizations data dynamically
-    import('../components/pages/organizationShared').then((module) => {
-      const foundOrg = module.organizations.find((org) => org.id === parseInt(id, 10));
-      if (foundOrg) {
-        setOrganization(foundOrg);
-      } else {
-        setError('Organization not found');
+    async function fetchOrganization() {
+      try {
+        setLoading(true);
+        const response = await fetch(`${apiBase}/organizations/${id}`);
+        if (!response.ok) {
+          throw new Error('Organization not found');
+        }
+        const data = await response.json();
+        setOrganization(data.data || data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
-  }, [id]);
+    }
+
+    if (id) {
+      fetchOrganization();
+    }
+  }, [id, apiBase]);
 
   const handleDonate = () => {
     navigate(`/login?redirect=/organizations/donate/${id}`);
