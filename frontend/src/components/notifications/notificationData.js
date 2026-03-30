@@ -1,0 +1,42 @@
+export const initialNotifications = [
+  {
+    id: 'donation-confirmed',
+    title: 'Donation Confirmed',
+    message: 'Your $50 donation to the Education Fund was successful. Thank you for your support!',
+    time: '2m ago',
+    type: 'success',
+    isRead: false,
+  },
+  {
+    id: 'delivery-update',
+    title: 'Delivery Update',
+    message: 'The medical supplies you funded for the local clinic are currently out for delivery.',
+    time: '1h ago',
+    type: 'info',
+    isRead: false,
+  },
+  {
+    id: 'message-thankyou',
+    title: 'Message from SaveTheChildren',
+    message: 'Your contribution is making a real difference in the lives of 20 students this semester.',
+    time: '3h ago',
+    type: 'message',
+    isRead: false,
+  },
+  {
+    id: 'campaign-milestone',
+    title: 'Campaign Milestone Reached',
+    message: 'Clean Water Initiative reached 80% of its goal. Share it to help complete funding.',
+    time: '6h ago',
+    type: 'info',
+    isRead: true,
+  },
+  {
+    id: 'tax-receipt',
+    title: 'Tax Receipt Available',
+    message: 'Your monthly donation summary and tax receipt for this period is now ready to download.',
+    time: '1d ago',
+    type: 'success',
+    isRead: true,
+  },
+];
