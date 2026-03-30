@@ -1886,3 +1886,222 @@
     overflow: visible;
   }
 }
+
+.org-page.report-page {
+  background: var(--org-bg);
+  color: var(--org-text);
+}
+
+.org-page.theme-dark.report-page .report-title-row p,
+.org-page.theme-dark.report-page .report-panel-head span,
+.org-page.theme-dark.report-page .report-legend,
+.org-page.theme-dark.report-page .trend-bar-group label,
+.org-page.theme-dark.report-page .report-donut-inner span,
+.org-page.theme-dark.report-page .report-empty-note,
+.org-page.theme-dark.report-page .report-table-panel th,
+.org-page.theme-dark.report-page .report-filter-select,
+.org-page.theme-dark.report-page .financial-tab .financial-panel-head p,
+.org-page.theme-dark.report-page .financial-tab .financial-chart-legend,
+.org-page.theme-dark.report-page .financial-tab .financial-summary-card p,
+.org-page.theme-dark.report-page .financial-tab .financial-table-panel th,
+.org-page.theme-dark.report-page .financial-tab .financial-table-footer p,
+.org-page.theme-dark.report-page .material-tab .material-summary-card p,
+.org-page.theme-dark.report-page .material-tab .material-breakdown-head p,
+.org-page.theme-dark.report-page .material-tab .material-breakdown-head span,
+.org-page.theme-dark.report-page .material-tab .material-flow-list p,
+.org-page.theme-dark.report-page .material-tab .material-table-panel th,
+.org-page.theme-dark.report-page .regional-tab .regional-metric-card p,
+.org-page.theme-dark.report-page .regional-tab .regional-sort span,
+.org-page.theme-dark.report-page .regional-tab .regional-table-panel th,
+.org-page.theme-dark.report-page .regional-tab .regional-table-footer p,
+.org-page.theme-dark.report-page .map-caption,
+.org-page.theme-dark.report-page .report-impact-level {
+  color: var(--org-subtext);
+}
+
+.org-page.theme-dark.report-page .report-title-row h1,
+.org-page.theme-dark.report-page .report-panel h3,
+.org-page.theme-dark.report-page .report-stat-card h3,
+.org-page.theme-dark.report-page .report-table-panel td,
+.org-page.theme-dark.report-page .report-breakdown-btn,
+.org-page.theme-dark.report-page .financial-tab .financial-summary-card strong,
+.org-page.theme-dark.report-page .financial-tab .financial-table-panel td,
+.org-page.theme-dark.report-page .material-tab .material-summary-card strong,
+.org-page.theme-dark.report-page .material-tab .material-flow-list strong,
+.org-page.theme-dark.report-page .material-tab .material-table-panel td,
+.org-page.theme-dark.report-page .regional-tab .regional-metric-card strong,
+.org-page.theme-dark.report-page .regional-tab .regional-top-panel h3,
+.org-page.theme-dark.report-page .regional-tab .regional-top-list .meta strong,
+.org-page.theme-dark.report-page .regional-tab .regional-table-panel td {
+  color: var(--org-text);
+}
+
+.org-page.theme-dark.report-page .report-stat-card,
+.org-page.theme-dark.report-page .report-panel,
+.org-page.theme-dark.report-page .report-table-panel,
+.org-page.theme-dark.report-page .financial-tab .financial-summary-card,
+.org-page.theme-dark.report-page .financial-tab .financial-chart-panel,
+.org-page.theme-dark.report-page .financial-tab .financial-source-panel,
+.org-page.theme-dark.report-page .financial-tab .financial-table-panel,
+.org-page.theme-dark.report-page .material-tab .material-summary-card,
+.org-page.theme-dark.report-page .material-tab .material-breakdown-panel,
+.org-page.theme-dark.report-page .material-tab .material-flow-panel,
+.org-page.theme-dark.report-page .material-tab .material-table-panel,
+.org-page.theme-dark.report-page .regional-tab .regional-metric-card,
+.org-page.theme-dark.report-page .regional-tab .regional-filter-bar,
+.org-page.theme-dark.report-page .regional-tab .regional-top-panel,
+.org-page.theme-dark.report-page .regional-tab .regional-table-panel,
+.org-page.theme-dark.report-page .map-note {
+  background: var(--org-panel);
+  border-color: var(--org-border);
+  box-shadow: var(--org-shadow);
+}
+
+.org-page.theme-dark.report-page .report-search,
+.org-page.theme-dark.report-page .report-filter-select,
+.org-page.theme-dark.report-page .regional-tab .regional-filter-bar button,
+.org-page.theme-dark.report-page .regional-tab .regional-sort button,
+.org-page.theme-dark.report-page .report-pagination button,
+.org-page.theme-dark.report-page .financial-tab .financial-table-pagination button,
+.org-page.theme-dark.report-page .regional-tab .regional-pagination button,
+.org-page.theme-dark.report-page .report-export-actions button:not(.primary),
+.org-page.theme-dark.report-page .regional-tab .regional-view-all {
+  background: var(--org-panel-soft);
+  border-color: var(--org-border);
+  color: var(--org-text);
+}
+
+.org-page.theme-dark.report-page .report-search input,
+.org-page.theme-dark.report-page .report-filter-select select {
+  color: var(--org-text);
+}
+
+.org-page.theme-dark.report-page .report-search input::placeholder {
+  color: var(--org-subtext);
+}
+
+.org-page.theme-dark.report-page .report-table-scroll thead th,
+.org-page.theme-dark.report-page .financial-tab .financial-table-panel thead,
+.org-page.theme-dark.report-page .material-tab .material-table-panel thead,
+.org-page.theme-dark.report-page .regional-tab .regional-table-panel thead {
+  background: var(--org-panel-soft);
+}
+
+.org-page.theme-dark.report-page .report-table-panel th,
+.org-page.theme-dark.report-page .report-table-panel td,
+.org-page.theme-dark.report-page .financial-tab .financial-table-panel th,
+.org-page.theme-dark.report-page .financial-tab .financial-table-panel td,
+.org-page.theme-dark.report-page .material-tab .material-table-panel th,
+.org-page.theme-dark.report-page .material-tab .material-table-panel td,
+.org-page.theme-dark.report-page .regional-tab .regional-table-panel th,
+.org-page.theme-dark.report-page .regional-tab .regional-table-panel td,
+.org-page.theme-dark.report-page .report-table-footer,
+.org-page.theme-dark.report-page .financial-tab .financial-table-footer,
+.org-page.theme-dark.report-page .regional-tab .regional-table-footer,
+.org-page.theme-dark.report-page .report-tabs {
+  border-color: var(--org-border);
+}
+
+.org-page.theme-dark.report-page .map-placeholder {
+  border-color: var(--org-border);
+  background: radial-gradient(circle at 20% 20%, rgba(96, 165, 250, 0.14) 0%, rgba(15, 23, 42, 0.9) 54%);
+}
+
+.org-page.theme-dark.report-page .province-track,
+.org-page.theme-dark.report-page .material-tab .material-track,
+.org-page.theme-dark.report-page .financial-tab .financial-chart-body {
+  background: var(--org-panel-soft);
+  border-color: var(--org-border);
+}
+
+.org-page.theme-contrast.report-page .report-title-row p,
+.org-page.theme-contrast.report-page .report-panel-head span,
+.org-page.theme-contrast.report-page .report-legend,
+.org-page.theme-contrast.report-page .trend-bar-group label,
+.org-page.theme-contrast.report-page .report-donut-inner span,
+.org-page.theme-contrast.report-page .report-empty-note,
+.org-page.theme-contrast.report-page .report-table-panel th,
+.org-page.theme-contrast.report-page .financial-tab .financial-panel-head p,
+.org-page.theme-contrast.report-page .financial-tab .financial-chart-legend,
+.org-page.theme-contrast.report-page .financial-tab .financial-summary-card p,
+.org-page.theme-contrast.report-page .financial-tab .financial-table-panel th,
+.org-page.theme-contrast.report-page .financial-tab .financial-table-footer p,
+.org-page.theme-contrast.report-page .material-tab .material-summary-card p,
+.org-page.theme-contrast.report-page .material-tab .material-flow-list p,
+.org-page.theme-contrast.report-page .material-tab .material-table-panel th,
+.org-page.theme-contrast.report-page .regional-tab .regional-metric-card p,
+.org-page.theme-contrast.report-page .regional-tab .regional-sort span,
+.org-page.theme-contrast.report-page .regional-tab .regional-table-panel th,
+.org-page.theme-contrast.report-page .regional-tab .regional-table-footer p,
+.org-page.theme-contrast.report-page .map-caption,
+.org-page.theme-contrast.report-page .report-impact-level,
+.org-page.theme-contrast.report-page .report-filter-select {
+  color: var(--org-text);
+}
+
+.org-page.theme-contrast.report-page .report-stat-card,
+.org-page.theme-contrast.report-page .report-panel,
+.org-page.theme-contrast.report-page .report-table-panel,
+.org-page.theme-contrast.report-page .financial-tab .financial-summary-card,
+.org-page.theme-contrast.report-page .financial-tab .financial-chart-panel,
+.org-page.theme-contrast.report-page .financial-tab .financial-source-panel,
+.org-page.theme-contrast.report-page .financial-tab .financial-table-panel,
+.org-page.theme-contrast.report-page .material-tab .material-summary-card,
+.org-page.theme-contrast.report-page .material-tab .material-breakdown-panel,
+.org-page.theme-contrast.report-page .material-tab .material-flow-panel,
+.org-page.theme-contrast.report-page .material-tab .material-table-panel,
+.org-page.theme-contrast.report-page .regional-tab .regional-metric-card,
+.org-page.theme-contrast.report-page .regional-tab .regional-filter-bar,
+.org-page.theme-contrast.report-page .regional-tab .regional-top-panel,
+.org-page.theme-contrast.report-page .regional-tab .regional-table-panel,
+.org-page.theme-contrast.report-page .map-note,
+.org-page.theme-contrast.report-page .report-search,
+.org-page.theme-contrast.report-page .report-filter-select,
+.org-page.theme-contrast.report-page .regional-tab .regional-filter-bar button,
+.org-page.theme-contrast.report-page .regional-tab .regional-sort button,
+.org-page.theme-contrast.report-page .report-pagination button,
+.org-page.theme-contrast.report-page .financial-tab .financial-table-pagination button,
+.org-page.theme-contrast.report-page .regional-tab .regional-pagination button,
+.org-page.theme-contrast.report-page .report-export-actions button:not(.primary),
+.org-page.theme-contrast.report-page .regional-tab .regional-view-all,
+.org-page.theme-contrast.report-page .map-placeholder,
+.org-page.theme-contrast.report-page .province-track,
+.org-page.theme-contrast.report-page .material-tab .material-track,
+.org-page.theme-contrast.report-page .financial-tab .financial-chart-body,
+.org-page.theme-contrast.report-page .report-donut-inner,
+.org-page.theme-contrast.report-page .financial-tab .financial-source-inner {
+  background: #000000 !important;
+  border: 2px solid var(--org-border) !important;
+  color: var(--org-text) !important;
+  box-shadow: none !important;
+}
+
+.org-page.theme-contrast.report-page .report-title-row h1,
+.org-page.theme-contrast.report-page .report-panel h3,
+.org-page.theme-contrast.report-page .report-stat-card h3,
+.org-page.theme-contrast.report-page .report-table-panel td,
+.org-page.theme-contrast.report-page .report-breakdown-btn,
+.org-page.theme-contrast.report-page .financial-tab .financial-summary-card strong,
+.org-page.theme-contrast.report-page .financial-tab .financial-table-panel td,
+.org-page.theme-contrast.report-page .material-tab .material-summary-card strong,
+.org-page.theme-contrast.report-page .material-tab .material-flow-list strong,
+.org-page.theme-contrast.report-page .material-tab .material-table-panel td,
+.org-page.theme-contrast.report-page .regional-tab .regional-metric-card strong,
+.org-page.theme-contrast.report-page .regional-tab .regional-top-panel h3,
+.org-page.theme-contrast.report-page .regional-tab .regional-top-list .meta strong,
+.org-page.theme-contrast.report-page .regional-tab .regional-table-panel td,
+.org-page.theme-contrast.report-page .report-search input,
+.org-page.theme-contrast.report-page .report-filter-select select {
+  color: var(--org-text) !important;
+}
+
+.org-page.theme-contrast.report-page .report-search input::placeholder {
+  color: var(--org-text) !important;
+}
+
+.org-page.theme-contrast.report-page .report-table-scroll thead th,
+.org-page.theme-contrast.report-page .financial-tab .financial-table-panel thead,
+.org-page.theme-contrast.report-page .material-tab .material-table-panel thead,
+.org-page.theme-contrast.report-page .regional-tab .regional-table-panel thead {
+  background: #000000 !important;
+}

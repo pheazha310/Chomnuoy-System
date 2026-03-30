@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import AdminSidebar from './adminsidebar';
 import './style.css';
 import './admin-profile-new.css';
@@ -13,8 +13,6 @@ import {
   Globe,
   Edit3,
   Award,
-  Users,
-  Star,
   FileText,
   User,
   Shield,
@@ -31,7 +29,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 
-function formatDateTime(value) {
+const formatDateTime = (value) => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
@@ -42,18 +40,26 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
+};
 
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+const getSession = (() => {
+  let cached = null;
+  let timestamp = 0;
+  return () => {
+    const now = Date.now();
+    if (now - timestamp < 5000 && cached) return cached; // Cache for 5 seconds
+    try {
+      const raw = window.localStorage.getItem('chomnuoy_session');
+      cached = raw ? JSON.parse(raw) : null;
+      timestamp = now;
+      return cached;
+    } catch {
+      return null;
+    }
+  };
+})();
 
-function getStorageFileUrl(path) {
+const getStorageFileUrl = (path) => {
   if (!path) return '';
   if (/^(https?:|blob:|data:)/.test(path)) return path;
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -61,14 +67,13 @@ function getStorageFileUrl(path) {
   return normalizedPath.startsWith('files/')
     ? `${apiBase}/${normalizedPath}`
     : `${apiBase}/files/${normalizedPath}`;
-}
+};
 
-function getReadableError(err) {
+const getReadableError = (err) => {
   if (err?.code === 'ERR_NETWORK' || err?.message === 'Network Error') {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     return `Cannot connect to backend API at ${apiBase}. Please make sure Laravel is running.`;
   }
-
   const fieldErrors = err?.response?.data?.errors || {};
   return (
     fieldErrors.name?.[0] ||
@@ -80,7 +85,7 @@ function getReadableError(err) {
     err?.message ||
     'Something went wrong.'
   );
-}
+};
 
 const iconMap = {
   upload: Upload,
@@ -90,6 +95,30 @@ const iconMap = {
   update: FileText,
   achievement: TrendingUp,
 };
+
+const fallbackActivities = [
+  {
+    id: 'fallback-1',
+    icon: 'review',
+    title: 'Reviewed organization submissions',
+    description: 'Validated pending organization profiles and updated approval notes.',
+    time_ago: 'Recently',
+  },
+  {
+    id: 'fallback-2',
+    icon: 'update',
+    title: 'Updated platform settings',
+    description: 'Adjusted administrative preferences and monitoring defaults.',
+    time_ago: 'Today',
+  },
+  {
+    id: 'fallback-3',
+    icon: 'achievement',
+    title: 'Monitored donation activity',
+    description: 'Checked platform performance and the latest donation summaries.',
+    time_ago: 'This week',
+  },
+];
 
 export default function AdminProfilePage() {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
@@ -137,34 +166,6 @@ export default function AdminProfilePage() {
     newPassword: false,
     confirmPassword: false,
   });
-
-  // Mock activities data
-  const [activities] = useState([
-    {
-      id: 1,
-      type: 'update',
-      title: 'Profile Updated',
-      description: 'Updated admin profile information and avatar.',
-      icon: 'update',
-      time_ago: '2 hours ago',
-    },
-    {
-      id: 2,
-      type: 'certification',
-      title: 'Security Certification',
-      description: 'Completed annual security compliance training.',
-      icon: 'certification',
-      time_ago: 'Yesterday',
-    },
-    {
-      id: 3,
-      type: 'achievement',
-      title: '100 Campaigns Managed',
-      description: 'Successfully managed 100+ donation campaigns.',
-      icon: 'achievement',
-      time_ago: '3 days ago',
-    },
-  ]);
 
   useEffect(() => {
     if (!adminId) {
@@ -246,6 +247,25 @@ export default function AdminProfilePage() {
       .toUpperCase();
   }, [adminName, form.name]);
 
+  const activities = useMemo(() => {
+    const rawActivities = Array.isArray(profile?.recent_activities) ? profile.recent_activities : [];
+    if (!rawActivities.length) {
+      return fallbackActivities;
+    }
+
+    return rawActivities.map((activity, index) => ({
+      id: activity?.id || `activity-${index}`,
+      icon: activity?.icon || activity?.type || 'update',
+      title: activity?.title || activity?.action || 'Admin activity',
+      description:
+        activity?.description ||
+        activity?.details ||
+        activity?.message ||
+        'Recent admin activity was recorded.',
+      time_ago: activity?.time_ago || formatDateTime(activity?.created_at) || 'Recently',
+    }));
+  }, [profile]);
+
   const syncSession = (nextBasicInfo) => {
     const currentSession = getSession() || {};
     const avatar =
@@ -266,19 +286,19 @@ export default function AdminProfilePage() {
     window.dispatchEvent(new Event('chomnuoy-session-updated'));
   };
 
-  const handleProfileChange = (field) => (event) => {
+  const handleProfileChange = useCallback((field) => (event) => {
     const value = field === 'twoFactorEnabled' ? event.target.checked : event.target.value;
     setSaveMessage('');
     setSaveError('');
     setForm((previous) => ({ ...previous, [field]: value }));
-  };
+  }, []);
 
   const handleSkillsChange = (skillsString) => {
     const skills = skillsString.split(',').map((s) => s.trim()).filter(Boolean);
     setForm((previous) => ({ ...previous, skills }));
   };
 
-  const handleAvatarChange = (event) => {
+  const handleAvatarChange = useCallback((event) => {
     const file = event.target.files?.[0] || null;
     const previousPreview = avatarPreview;
     setForm((previous) => ({ ...previous, avatar: file }));
@@ -295,9 +315,9 @@ export default function AdminProfilePage() {
       setSelectedAvatarName('');
     }
     event.target.value = '';
-  };
+  }, [avatarPreview]);
 
-  const handleProfileSubmit = async (event) => {
+  const handleProfileSubmit = useCallback(async (event) => {
     event.preventDefault();
     if (!adminId) return;
     setSavingProfile(true);
@@ -320,22 +340,22 @@ export default function AdminProfilePage() {
     } finally {
       setSavingProfile(false);
     }
-  };
+  }, [adminId, form]);
 
-  const handlePasswordChange = (field) => (event) => {
+  const handlePasswordChange = useCallback((field) => (event) => {
     setPasswordError('');
     setPasswordMessage('');
     setPasswordForm((previous) => ({ ...previous, [field]: event.target.value }));
-  };
+  }, []);
 
-  const togglePasswordVisibility = (field) => {
+  const togglePasswordVisibility = useCallback((field) => {
     setPasswordVisibility((previous) => ({
       ...previous,
       [field]: !previous[field],
     }));
-  };
+  }, []);
 
-  const handlePasswordSubmit = async (event) => {
+  const handlePasswordSubmit = useCallback(async (event) => {
     event.preventDefault();
     if (!adminId) return;
     setSavingPassword(true);
@@ -359,18 +379,18 @@ export default function AdminProfilePage() {
     } finally {
       setSavingPassword(false);
     }
-  };
+  }, [adminId, passwordForm]);
+
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setSaveError('');
+    setSaveMessage('');
+  }, []);
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
     window.location.href = '/login';
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setSaveError('');
-    setSaveMessage('');
   };
 
   if (loading) {

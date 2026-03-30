@@ -6,6 +6,8 @@ import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
 import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
+import { OrganizationSettingsProvider } from '@/contexts/OrganizationSettingsContext';
+
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
 const CampaignsPage = lazy(() => import('@/components/pages/CampaignsPage.jsx'));
@@ -31,6 +33,7 @@ const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/Org
 const OrganizationCampaignDetailPage = lazy(() => import('@/app/organization/OrganizationCampaignDetailPage.jsx'));
 const OrganizationProfilePage = lazy(() => import('@/app/organization/profile.jsx'));
 const OrganizationProfileEditPage = lazy(() => import('@/app/organization/profile-edit.jsx'));
+const OrganizationSettings = lazy(() => import('@/app/organization/OrganizationSettings.jsx'));
 const MaterialPickupPage = lazy(() => import('@/app/material-pickup.jsx/materialPickup.jsx'));
 const PickupViewDetailPage = lazy(() => import('@/app/material-pickup.jsx/pickupViewDetail.jsx'));
 const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickupReschedule.jsx'));
@@ -395,7 +398,9 @@ export default function App() {
             path={ROUTES.ORGANIZATION_DASHBOARD}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationDashboardPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationDashboardPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -403,7 +408,9 @@ export default function App() {
             path={ROUTES.ORGANIZATION_REPORTS}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationReports />
+                <OrganizationSettingsProvider>
+                  <OrganizationReports />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -411,7 +418,9 @@ export default function App() {
             path="/organization/donations"
             element={(
               <RequireOrganizationAuth>
-                <OrganizationDonationsPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationDonationsPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -419,15 +428,9 @@ export default function App() {
             path={ROUTES.ORGANIZATION_CAMPAIGNS}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationCampaignsPage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
-            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationCampaignDetailPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignsPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -435,7 +438,49 @@ export default function App() {
             path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationCampaignCreatePage />
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignCreatePage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignDetailPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationProfilePage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile/edit"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationProfileEditPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/settings"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationSettings />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -496,14 +541,6 @@ export default function App() {
             )}
           />
           <Route
-            path="/admin/profile"
-            element={(
-              <RequireAdminAuth>
-                <AdminProfilePage />
-              </RequireAdminAuth>
-            )}
-          />
-          <Route
             path="/admin/reports"
             element={(
               <RequireAdminAuth>
@@ -557,22 +594,6 @@ export default function App() {
               <RequireAdminAuth>
                 <MaterialPickupAdminPage />
               </RequireAdminAuth>
-            )}
-          />
-          <Route
-            path="/organization/profile"
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationProfilePage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
-            path="/organization/profile/edit"
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationProfileEditPage />
-              </RequireOrganizationAuth>
             )}
           />
           <Route

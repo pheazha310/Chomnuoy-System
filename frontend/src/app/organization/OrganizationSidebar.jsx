@@ -1,9 +1,18 @@
-import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React from 'react';
+import { Link, useLocation, NavLink } from 'react-router-dom';
+import { Home, Target, CreditCard, FileText, Users, BarChart3, Settings, HelpCircle, Menu, X, Sun, Moon } from 'lucide-react';
 import ROUTES from '@/constants/routes.js';
+import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
 
 export default function OrganizationSidebar({ compact = false }) {
-  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
+  const [isLogoutPopupOpen, setIsLogoutPopupOpen] = React.useState(false);
+  const { displayPrefs, toggleDarkMode, toggleHighContrast, toggleCompactView } = useGlobalTheme();
+  const location = useLocation();
+  const pathname = location.pathname;
+
+  const isGuestNavItemActive = (href, currentPath) => {
+    return currentPath === href;
+  };
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -117,7 +126,7 @@ export default function OrganizationSidebar({ compact = false }) {
             Profile
           </NavLink>
           <NavLink
-            to="/settings/AccountSettings"
+            to="/organization/settings"
             className={({ isActive }) => `org-nav-item${isActive ? ' active' : ''}`}
           >
             <span className="org-nav-icon" aria-hidden="true">
@@ -130,9 +139,32 @@ export default function OrganizationSidebar({ compact = false }) {
           </NavLink>
         </nav>
 
-        <div className="org-plan-card">
-          <p>Support Tier</p>
-          <strong>Pro Plan</strong>
+        {/* Theme Controls */}
+        <div className="org-theme-controls">
+          <p>Display Settings</p>
+          <div className="org-theme-buttons">
+            <button 
+              className={`org-theme-btn ${displayPrefs.darkMode ? 'active' : ''}`}
+              onClick={toggleDarkMode}
+              title="Toggle Dark Mode"
+            >
+              {displayPrefs.darkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button 
+              className={`org-theme-btn ${displayPrefs.highContrast ? 'active' : ''}`}
+              onClick={toggleHighContrast}
+              title="Toggle High Contrast"
+            >
+              <span className="org-theme-icon">Aa</span>
+            </button>
+            <button 
+              className={`org-theme-btn ${displayPrefs.compactView ? 'active' : ''}`}
+              onClick={toggleCompactView}
+              title="Toggle Compact View"
+            >
+              <span className="org-theme-icon">⊡</span>
+            </button>
+          </div>
         </div>
 
         <button className="org-logout-button" type="button" onClick={() => setIsLogoutPopupOpen(true)}>
