@@ -411,17 +411,21 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     let active = true;
-    const token = window.localStorage.getItem('authToken');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const loadRecentOrganizations = async ({ silent = false } = {}) => {
+      const token = window.localStorage.getItem('authToken');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    setRecentOrgsLoading(true);
-    setRecentOrgsError('');
+      if (!silent) {
+        setRecentOrgsLoading(true);
+      }
+      setRecentOrgsError('');
 
-    Promise.all([
-      fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${apiBase}/categories`, { headers }).then((res) => (res.ok ? res.json() : [])),
-    ])
-      .then(([orgsData, categoriesData]) => {
+      try {
+        const [orgsData, categoriesData] = await Promise.all([
+          fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
+          fetch(`${apiBase}/categories`, { headers }).then((res) => (res.ok ? res.json() : [])),
+        ]);
+
         if (!active) return;
         const orgs = Array.isArray(orgsData) ? orgsData : [];
         const categories = Array.isArray(categoriesData) ? categoriesData : [];
@@ -445,18 +449,27 @@ const AdminDashboard = () => {
           .slice(0, 6);
 
         setRecentOrgs(normalized);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!active) return;
         setRecentOrgs([]);
         setRecentOrgsError(err instanceof Error ? err.message : 'Unable to load organizations.');
-      })
-      .finally(() => {
-        if (active) setRecentOrgsLoading(false);
-      });
+      } finally {
+        if (active) {
+          setRecentOrgsLoading(false);
+        }
+      }
+    };
+
+    const handleWindowFocus = () => {
+      loadRecentOrganizations({ silent: true });
+    };
+
+    loadRecentOrganizations();
+    window.addEventListener('focus', handleWindowFocus);
 
     return () => {
       active = false;
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, [apiBase]);
 

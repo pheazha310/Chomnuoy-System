@@ -105,11 +105,12 @@ export default function OrganizationDashboard() {
     setOpenMenuId(null);
     setActionError('');
     if (type === 'edit') {
+      const sourceStatus = org.verified_status || org.status || '';
       setEditDraft({
         name: org.name || '',
         email: org.email || '',
         location: org.location || '',
-        status: org.status || '',
+        status: normalizeStatus(sourceStatus),
       });
     }
     setActionModal({ type, org });
@@ -141,19 +142,23 @@ export default function OrganizationDashboard() {
       const updated = await updateOrganizationProfile(actionModal.org.id, formData);
       const nextStatus = normalizeStatus(updated?.verified_status || updated?.status || editDraft.status);
 
-      setOrganizations((prev) => prev.map((item) => (
-        Number(item.id) === Number(actionModal.org.id)
-          ? {
-              ...item,
-              ...updated,
-              name: updated?.name ?? editDraft.name,
-              email: updated?.email ?? editDraft.email,
-              location: updated?.location ?? editDraft.location,
-              verified_status: updated?.verified_status ?? nextStatus,
-              status: updated?.status ?? nextStatus,
-            }
-          : item
-      )));
+      setOrganizations((prev) => {
+        const nextOrganizations = prev.map((item) => (
+          Number(item.id) === Number(actionModal.org.id)
+            ? {
+                ...item,
+                ...updated,
+                name: updated?.name ?? editDraft.name,
+                email: updated?.email ?? editDraft.email,
+                location: updated?.location ?? editDraft.location,
+                verified_status: updated?.verified_status ?? nextStatus,
+                status: updated?.status ?? nextStatus,
+              }
+            : item
+        ));
+        writeCache(ORGANIZATIONS_CACHE_KEY, nextOrganizations);
+        return nextOrganizations;
+      });
       closeActionModal();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Unable to update organization.');
@@ -286,6 +291,7 @@ export default function OrganizationDashboard() {
           type: normalizeType(typeName),
           location: org.location || '-',
           joined: formatDate(org.created_at),
+          verified_status: org.verified_status || '',
           status: normalizeStatus(org.verified_status || org.status),
         };
       }),
@@ -295,11 +301,12 @@ export default function OrganizationDashboard() {
   const editChangeCount = useMemo(() => {
     if (!actionModal || actionModal.type !== 'edit') return 0;
     const source = actionModal.org;
+    const sourceStatus = normalizeStatus(source?.verified_status || source?.status || '');
     const comparisons = [
       [editDraft.name, source?.name || ''],
       [editDraft.email, source?.email || ''],
       [editDraft.location, source?.location || ''],
-      [editDraft.status, source?.status || ''],
+      [editDraft.status, sourceStatus],
     ];
     return comparisons.filter(([current, original]) => String(current || '').trim() !== String(original || '').trim()).length;
   }, [actionModal, editDraft]);
@@ -307,11 +314,12 @@ export default function OrganizationDashboard() {
   const editChangedFields = useMemo(() => {
     if (!actionModal || actionModal.type !== 'edit') return [];
     const source = actionModal.org;
+    const sourceStatus = normalizeStatus(source?.verified_status || source?.status || '');
     const fields = [
       { label: 'Name', current: editDraft.name, original: source?.name || '' },
       { label: 'Email', current: editDraft.email, original: source?.email || '' },
       { label: 'Location', current: editDraft.location, original: source?.location || '' },
-      { label: 'Status', current: editDraft.status, original: source?.status || '' },
+      { label: 'Status', current: editDraft.status, original: sourceStatus },
     ];
 
     return fields
@@ -775,7 +783,7 @@ export default function OrganizationDashboard() {
                       <span className="admin-org-modal-avatar" aria-hidden="true">
                         {getInitials(editDraft.name)}
                       </span>
-                      <div>
+                      <div className="admin-org-edit-preview-copy">
                         <strong>{editDraft.name || 'Organization'}</strong>
                         <span>{editDraft.email || 'No email set'}</span>
                       </div>
