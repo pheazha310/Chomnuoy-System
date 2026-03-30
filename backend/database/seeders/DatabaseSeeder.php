@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
         Role::firstOrCreate(['role_name' => 'Organization']);
         $adminRole = Role::firstOrCreate(['role_name' => 'Admin']);
 
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'chomnouy168@gmail.com'],
             [
                 'name' => 'Admin',
@@ -46,6 +46,7 @@ class DatabaseSeeder extends Seeder
         Category::firstOrCreate(['category_name' => 'Hospital']);
         Category::firstOrCreate(['category_name' => 'school']);
 
+        $this->call(AdminSettingsSeeder::class);
         $this->call(DonationTrendSeeder::class);
     }
 }

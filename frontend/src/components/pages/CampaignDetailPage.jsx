@@ -157,6 +157,16 @@ function CampaignDetailPage({ campaignId }) {
     };
   }, [resolvedCampaignId]);
 
+  useEffect(() => {
+    if (!campaign) {
+      setIsSaved(false);
+      return;
+    }
+
+    const savedIds = getSavedCampaignIds();
+    setIsSaved(savedIds.includes(campaign.id));
+  }, [campaign]);
+
   if (!campaign && campaignLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -199,12 +209,6 @@ function CampaignDetailPage({ campaignId }) {
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  useEffect(() => {
-    if (!campaign) return;
-    const savedIds = getSavedCampaignIds();
-    setIsSaved(savedIds.includes(campaign.id));
-  }, [campaign]);
 
   function requestRealLocation() {
     if (typeof window !== 'undefined' && window.isSecureContext === false) {

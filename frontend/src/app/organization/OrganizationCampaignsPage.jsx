@@ -6,9 +6,47 @@ import OrganizationSidebar from "./OrganizationSidebar.jsx";
 import "./organization.css";
 
 const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
+const placeholderImage =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FCD9B6"/><stop offset="100%" stop-color="#FFF7ED"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#475569">Campaign Image</text></svg>'
+  );
 
 function formatMoney(value) {
   return `$${value.toLocaleString("en-US")}`;
+}
+
+function resolveCampaignImage(item) {
+  const candidates = [item?.image_url, item?.image, item?.image_path];
+
+  return candidates.find((value) => typeof value === "string" && value.trim())
+    ? candidates
+    : [];
+}
+
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem("chomnuoy_session");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredProfile() {
+  try {
+    const raw = window.localStorage.getItem("chomnuoy_org_profile");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getInitials(name) {
+  const parts = String(name || "Organization").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "OR";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
 export default function OrganizationCampaignsPage() {
@@ -27,13 +65,52 @@ export default function OrganizationCampaignsPage() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const getOrganizationSession = () => {
-    try {
-      const raw = window.localStorage.getItem("chomnuoy_session");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+  const getStorageFileUrl = (path) => {
+    if (!path) return "";
+    const rawPath = String(path).trim();
+    if (
+      rawPath.startsWith("http://") ||
+      rawPath.startsWith("https://") ||
+      rawPath.startsWith("blob:") ||
+      rawPath.startsWith("data:")
+    ) {
+      return rawPath;
     }
+
+    const normalizedPath = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const relativePath = normalizedPath.startsWith("storage/")
+      ? normalizedPath.replace(/^storage\//, "")
+      : normalizedPath;
+    const encodedPath = relativePath
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    return `${apiBase}/files/${encodedPath}`;
+  };
+
+  const getCampaignImageUrl = (item) => {
+    const candidates = resolveCampaignImage(item);
+
+    for (const candidate of candidates) {
+      const rawValue = String(candidate || "").trim();
+      if (!rawValue) continue;
+
+      if (
+        rawValue.startsWith("http://") ||
+        rawValue.startsWith("https://") ||
+        rawValue.startsWith("blob:") ||
+        rawValue.startsWith("data:")
+      ) {
+        return rawValue;
+      }
+
+      return getStorageFileUrl(rawValue);
+    }
+
+    return placeholderImage;
   };
 
   const normalizeStatus = (status) => {
@@ -62,12 +139,11 @@ export default function OrganizationCampaignsPage() {
     Draft: "border-[#1f6fe6] text-[#1f6fe6] hover:bg-[#FFF7ED]",
   };
 
-  const artPalette = [
-    "from-[#FCD9B6] via-[#FDEAD6] to-[#FFF7ED]",
-    "from-[#E2E8F0] via-[#EEF2F7] to-[#F8FAFC]",
-    "from-[#FFE6C7] via-[#FFF1DF] to-[#FFFBF5]",
-    "from-[#FBC7B7] via-[#FBD9CF] to-[#FFECE7]",
-  ];
+  const session = getOrganizationSession();
+  const storedProfile = getStoredProfile();
+  const organizationName = storedProfile?.name || session?.name || "Organization";
+  const organizationLogo = storedProfile?.logo || "";
+  const organizationInitials = getInitials(organizationName);
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -87,7 +163,7 @@ export default function OrganizationCampaignsPage() {
         const filtered = organizationId
           ? items.filter((item) => Number(item.organization_id) === organizationId)
           : items;
-        const mapped = filtered.map((item, index) => {
+        const mapped = filtered.map((item) => {
           const status = normalizeStatus(item.status);
           return {
             id: item.id,
@@ -101,7 +177,7 @@ export default function OrganizationCampaignsPage() {
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
             action: actionLabelMap[status],
             actionTone: actionToneMap[status],
-            art: artPalette[index % artPalette.length],
+            image: getCampaignImageUrl(item),
           };
         });
         setCampaigns(mapped);
@@ -242,8 +318,18 @@ export default function OrganizationCampaignsPage() {
           if (!alive) return;
           const items = Array.isArray(data) ? data : [];
           const filtered = userId
-            ? items.filter((item) => Number(item.user_id) === userId)
-            : items;
+            ? items.filter((item) => {
+                const recipientType = String(item.recipient_type || "").toLowerCase();
+                const recipientId = Number(item.recipient_id || 0);
+                if (recipientType) {
+                  if (recipientType !== "organization" || recipientId !== userId) return false;
+                } else if (Number(item.user_id) !== userId) {
+                  return false;
+                }
+                const type = String(item.type || "").toLowerCase();
+                return type !== "message" && type !== "reply";
+              })
+            : [];
           const mapped = filtered.map((item) => ({
             id: item.id,
             title: item.type === "campaign" ? "Campaign Update" : "Notification",
@@ -298,11 +384,11 @@ export default function OrganizationCampaignsPage() {
             </button>
             <div className="org-cpg-user-card" aria-label="Organization profile">
               <span className="org-cpg-user-avatar" aria-hidden="true">
-                DC
+                {organizationLogo ? <img src={organizationLogo} alt="" /> : organizationInitials}
                 <span className="org-cpg-user-status" />
               </span>
               <div className="org-cpg-user-meta">
-                <p className="org-cpg-user-name">Dr. Chomnuoy</p>
+                <p className="org-cpg-user-name">{organizationName}</p>
                 <p className="org-cpg-user-role">Organization</p>
               </div>
             </div>
@@ -581,9 +667,19 @@ export default function OrganizationCampaignsPage() {
                   key={item.id}
                   className="flex h-full flex-col overflow-hidden rounded-3xl border border-[#E2E8F0] bg-white shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                 >
-                  <div
-                    className={`relative h-40 w-full bg-gradient-to-br ${item.art}`}
-                  >
+                  <div className="relative h-40 w-full overflow-hidden bg-[#F8FAFC]">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      onError={(event) => {
+                        if (event.currentTarget.src !== placeholderImage) {
+                          event.currentTarget.src = placeholderImage;
+                        }
+                      }}
+                    />
                     <span
                       className={`absolute right-4 top-4 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${item.statusTone}`}
                     >

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\AdminSettingsController;
 use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
 use App\Http\Controllers\Api\CampaignImageController;
@@ -40,10 +42,18 @@ use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
+Route::get('/files/{path}', function (string $path) {
+    abort_unless(Storage::disk('public')->exists($path), 404);
+    return Storage::disk('public')->response($path);
+})->where('path', '.*');
+Route::get('/admin/profile/{user}', [AdminProfileController::class, 'show']);
+Route::post('/admin/profile/{user}', [AdminProfileController::class, 'update']);
+Route::post('/admin/profile/{user}/password', [AdminProfileController::class, 'updatePassword']);
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
 Route::get('/health', function (): JsonResponse {
@@ -53,12 +63,14 @@ Route::get('/health', function (): JsonResponse {
     ]);
 });
 
+Route::get('/users/by-email', [UserController::class, 'findByEmail']);
 Route::apiResource('users', UserController::class);
 Route::post('/users/{id}/last-seen', [UserController::class, 'updateLastSeen']);
 Route::apiResource('roles', RoleController::class);
 Route::apiResource('user_roles', UserRoleController::class);
 Route::apiResource('user_credentials', UserCredentialController::class);
 Route::apiResource('user_history', UserHistoryController::class);
+Route::get('/organizations/by-email', [OrganizationController::class, 'findByEmail']);
 Route::apiResource('organizations', OrganizationController::class);
 Route::apiResource('organization_verifications', OrganizationVerificationController::class);
 Route::apiResource('organization_history', OrganizationHistoryController::class);
@@ -91,9 +103,19 @@ Route::apiResource('regional_map_markers', RegionalMapMarkerController::class);
 Route::get('notifications/stream', [NotificationController::class, 'stream']);
 Route::apiResource('notifications', NotificationController::class);
 Route::apiResource('audit_logs', AuditLogController::class);
+Route::get('report/admin-dashboard', [ReportController::class, 'adminDashboard']);
 Route::apiResource('report', ReportController::class);
 Route::apiResource('campaigns', CampaignController::class);
 Route::get('campaigns/{campaign}/donations', [CampaignController::class, 'donations']);
 Route::get('campaigns/{campaign}/velocity', [CampaignController::class, 'velocity']);
 Route::apiResource('campaign_image', CampaignImageController::class);
 Route::apiResource('campaign_update', CampaignUpdateController::class);
+
+// Admin Settings Routes
+Route::get('admin/settings', [AdminSettingsController::class, 'index']);
+Route::get('admin/settings/section/{section}', [AdminSettingsController::class, 'getBySection']);
+Route::get('admin/settings/{key}', [AdminSettingsController::class, 'show']);
+Route::post('admin/settings', [AdminSettingsController::class, 'store']);
+Route::put('admin/settings/{key}', [AdminSettingsController::class, 'update']);
+Route::delete('admin/settings/{key}', [AdminSettingsController::class, 'destroy']);
+

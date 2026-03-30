@@ -3,6 +3,21 @@ import { Link, useLocation } from 'react-router-dom';
 import '../css/Campaigns.css';
 import ROUTES from '@/constants/routes.js';
 
+const fallbackCampaignImage =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
+  );
+
+function getSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -64,6 +79,13 @@ const donorProfileImages = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80',
   'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=96&q=80',
 ];
+const hiddenCampaignStatuses = new Set(['draft', 'completed', 'complete', 'closed', 'archived', 'cancelled']);
+
+function isPublicCampaignStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (!value) return true;
+  return !hiddenCampaignStatuses.has(value);
+}
 
 function campaignCategoryToSidebarCategory(category) {
   if (category === 'Technology' || category === 'Social Good') {
@@ -81,8 +103,25 @@ function campaignCategoryToSidebarCategory(category) {
   return category;
 }
 
+function resolveCampaignImage(item) {
+  const candidates = [item?.image_url, item?.image, item?.image_path];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return '';
+}
+
 function CampaignsPage() {
+<<<<<<< HEAD
   const location = useLocation();
+=======
+  const session = getSession();
+  const isLoggedIn = Boolean(session?.isLoggedIn);
+>>>>>>> 368e64761fc38b6c82439821fe92c0c52a5bfab8
   const [selectedCategory, setSelectedCategory] = useState('All Campaigns');
   const [selectedUrgency, setSelectedUrgency] = useState('Urgent');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -108,11 +147,15 @@ function CampaignsPage() {
     }
     const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const appBase = apiBase.replace(/\/api\/?$/, '');
-    if (normalizedPath.startsWith('storage/')) {
-      return `${appBase}/${normalizedPath}`;
-    }
-    return `${appBase}/storage/${normalizedPath}`;
+    const relativePath = normalizedPath.startsWith('storage/')
+      ? normalizedPath.replace(/^storage\//, '')
+      : normalizedPath;
+    const encodedPath = relativePath
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    return `${apiBase}/files/${encodedPath}`;
   };
 
   useEffect(() => {
@@ -143,18 +186,20 @@ function CampaignsPage() {
         if (!active) return;
         const items = Array.isArray(data) ? data : [];
         const mapped = items
-          .filter((item) => {
-            const status = String(item.status || '').toLowerCase();
-            return !status || status === 'active';
-          })
+          .filter((item) => isPublicCampaignStatus(item.status))
           .map((item) => ({
             id: item.id,
             title: item.title || 'Untitled Campaign',
             summary: item.summary || item.description || 'No description available.',
             category: item.category || 'Environment',
+            organization:
+              item.organization_name ||
+              item.organization ||
+              item.organizationTitle ||
+              (item.organization_id ? `Organization ${item.organization_id}` : 'Verified Organization'),
             raisedAmount: Number(item.current_amount || 0),
             goalAmount: Math.max(1, Number(item.goal_amount || 0)),
-            image: getStorageFileUrl(item.image_path) || '',
+            image: getStorageFileUrl(resolveCampaignImage(item)) || fallbackCampaignImage,
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
           }));
         setCampaigns(mapped);
@@ -220,7 +265,7 @@ function CampaignsPage() {
     }
 
     return baseList;
-  }, [selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
+  }, [campaigns, selectedCategory, selectedUrgency, verifiedOnly, selectedSort]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCampaigns.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -338,13 +383,19 @@ function CampaignsPage() {
           {paginatedCampaigns.map((campaign, index) => {
             const percentRaised = Math.round((campaign.raisedAmount / campaign.goalAmount) * 100);
             const progressWidth = Math.min(percentRaised, 100);
+<<<<<<< HEAD
             const detailPath = ROUTES.CAMPAIGN_DETAILS(campaign.id);
+=======
+            const detailPath = `/campaigns/${campaign.id}`;
+            const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
+>>>>>>> 368e64761fc38b6c82439821fe92c0c52a5bfab8
             const isUrgent = percentRaised < 40;
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
             const mockDonorCount = Math.max(8, Math.round(campaign.raisedAmount / 900));
 
             return (
               <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
+<<<<<<< HEAD
                 <Link
                   to={detailPath}
                   state={{ from: `${location.pathname}${location.search || ''}` }}
@@ -352,6 +403,20 @@ function CampaignsPage() {
                   aria-label={`Open ${campaign.title} details`}
                 >
                   <img src={campaign.image} alt={campaign.title} className="campaign-image campaign-dashboard-image" loading="lazy" />
+=======
+                <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                  <img
+                    src={campaign.image}
+                    alt={campaign.title}
+                    className="campaign-image campaign-dashboard-image"
+                    loading="lazy"
+                    onError={(event) => {
+                      if (event.currentTarget.src !== fallbackCampaignImage) {
+                        event.currentTarget.src = fallbackCampaignImage;
+                      }
+                    }}
+                  />
+>>>>>>> 368e64761fc38b6c82439821fe92c0c52a5bfab8
                   <div className="campaign-card-badges">
                     <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
                     <span className="campaign-badge campaign-badge-verified">Verified</span>
@@ -369,6 +434,7 @@ function CampaignsPage() {
                       {campaign.title}
                     </Link>
                   </h2>
+                  <p className="campaign-organization">Posted by {campaign.organization}</p>
                   <p className="campaign-summary">{campaign.summary}</p>
 
                   <div className="campaign-funding-row">
@@ -392,12 +458,16 @@ function CampaignsPage() {
                       <img className="donor-avatar donor-avatar-image" src={donorProfileImages[1]} alt="" aria-hidden="true" />
                       <span className="donor-avatar donor-avatar-more">+{mockDonorCount}</span>
                     </div>
+<<<<<<< HEAD
                     <Link
                       to={detailPath}
                       state={{ from: `${location.pathname}${location.search || ''}` }}
                       className="donate-button campaign-donate-button"
                       aria-label={`Donate to ${campaign.title}`}
                     >
+=======
+                    <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
+>>>>>>> 368e64761fc38b6c82439821fe92c0c52a5bfab8
                       Donate Now
                     </Link>
                   </div>
@@ -406,7 +476,10 @@ function CampaignsPage() {
             );
           })}
           {!loading && !error && paginatedCampaigns.length === 0 ? (
-            <p className="campaign-empty">No campaigns match your filters.</p>
+            <div className="campaign-empty">
+              <strong>No public campaigns match these filters.</strong>
+              <span>Try All Campaigns or check back after organizations publish more active campaigns.</span>
+            </div>
           ) : null}
         </section>
 

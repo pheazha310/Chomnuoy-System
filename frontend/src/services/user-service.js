@@ -57,20 +57,30 @@ export async function findUserByEmail(email) {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!normalizedEmail) return null;
 
-    const response = await apiClient.get('/users');
-    const users = Array.isArray(response.data) ? response.data : [];
-    const matched = users.find((user) => String(user?.email || '').trim().toLowerCase() === normalizedEmail);
-    return matched || null;
+    try {
+        const response = await apiClient.get('/users/by-email', { params: { email: normalizedEmail } });
+        return response.data || null;
+    } catch (error) {
+        if (error.response?.status === 404) {
+            return null;
+        }
+        throw error;
+    }
 }
 
 export async function findOrganizationByEmail(email) {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!normalizedEmail) return null;
 
-    const response = await apiClient.get('/organizations');
-    const organizations = Array.isArray(response.data) ? response.data : [];
-    const matched = organizations.find((org) => String(org?.email || '').trim().toLowerCase() === normalizedEmail);
-    return matched || null;
+    try {
+        const response = await apiClient.get('/organizations/by-email', { params: { email: normalizedEmail } });
+        return response.data || null;
+    } catch (error) {
+        if (error.response?.status === 404) {
+            return null;
+        }
+        throw error;
+    }
 }
 
 export async function changePassword(payload) {

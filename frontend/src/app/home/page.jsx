@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import './home.css';
 import { Link } from 'react-router-dom';
+import Map from './map';   
 
 const stats = [
   { value: '$2.5M+', label: 'Total donated' },
@@ -54,6 +55,10 @@ const howItWorks = {
 const trustedBy = ['UNICEF', 'Red Cross', 'WWF', 'CARE', 'OXFAM'];
 
 function Home() {
+  const sessionRaw = window.localStorage.getItem('chomnuoy_session');
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const donateHref = session?.isLoggedIn ? '/campaigns' : '/login?redirect=%2Fcampaigns';
+
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const elements = Array.from(document.querySelectorAll('[data-reveal]'));
@@ -127,7 +132,7 @@ function Home() {
             communities in need.
           </p>
           <div className="home-hero-actions">
-            <Link to="/login?redirect=%2F" className="home-btn home-btn-primary">
+            <Link to={donateHref} className="home-btn home-btn-primary">
               Donate Now
             </Link>
             <a href="/campaigns" className="home-btn home-btn-secondary">
@@ -138,12 +143,7 @@ function Home() {
         </div>
 
         <div className="home-hero-visual" aria-hidden="true">
-          <div className="home-hero-art">
-          </div>
-          <div className="home-impact-card">
-            <p>Latest Success</p>
-            <strong>School Supplies for 560 Students</strong>
-          </div>
+          <div className="home-hero-art" />
         </div>
       </section>
 
@@ -267,10 +267,10 @@ function Home() {
           </Link>
         </div>
       </section>
+      <Map/>
     </main>
   );
 }
-
 export default Home;
 
 

@@ -7,8 +7,9 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
@@ -19,6 +20,10 @@ class SocialAuthController extends Controller
     {
         if (!in_array($provider, $this->providers, true)) {
             abort(404);
+        }
+
+        if (!$this->hasProviderConfiguration($provider)) {
+            return $this->redirectToFrontendError(ucfirst($provider) . ' login is not configured yet.');
         }
 
         return Socialite::driver($provider)->stateless()->redirect();
@@ -86,12 +91,23 @@ class SocialAuthController extends Controller
     {
         $frontend = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
         $encoded = base64_encode(json_encode($payload));
-        return redirect()->away("{$frontend}/oauth/callback?payload=" . urlencode($encoded));
+        
+        return redirect("{$frontend}/oauth/callback?payload=" . urlencode($encoded));
     }
 
     protected function redirectToFrontendError(string $message): RedirectResponse
     {
         $frontend = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
-        return redirect()->away("{$frontend}/oauth/callback?error=" . urlencode($message));
+        
+        return redirect("{$frontend}/oauth/callback?error=" . urlencode($message));
+    }
+
+    protected function hasProviderConfiguration(string $provider): bool
+    {
+        $clientId = trim((string) Config::get("services.{$provider}.client_id", ''));
+        $clientSecret = trim((string) Config::get("services.{$provider}.client_secret", ''));
+        $redirect = trim((string) Config::get("services.{$provider}.redirect", ''));
+
+        return $clientId !== '' && $clientSecret !== '' && $redirect !== '';
     }
 }
