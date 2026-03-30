@@ -1,5 +1,5 @@
 import '../css/about.css';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, TrendingUp, Eye, ShieldCheck, HandHeart, Users2 } from 'lucide-react';
@@ -10,13 +10,6 @@ import teamImage4 from '../../images/6147792428195319151_121.jpg';
 import teamImage5 from '../../images/6147792428195319154_121.jpg';
 
 // --- Mock Data ---
-
-const STATS = [
-  { label: 'Total Donated', value: '$2.4M', change: '+12% this month', trend: 'up' },
-  { label: 'Verified Partners', value: '150+', change: '+5% new partners', trend: 'up' },
-  { label: 'Impacted Lives', value: '50K+', change: '+18% growth', trend: 'up' },
-  { label: 'Active Campaigns', value: '85', change: '+10% active', trend: 'up' },
-];
 
 const ORGANIZATIONS = [
   {
@@ -106,7 +99,7 @@ const TEAM = [
 
 // --- Components ---
 // Note: this is the header section of the about page
-const Hero = () => (
+const Hero = ({ donateHref }) => (
   <section className="about-hero">
     <div className="about-header-card">
       <motion.div 
@@ -128,7 +121,7 @@ const Hero = () => (
           Join Chomnuoy to support impactful projects or start your own journey of giving. We connect compassionate donors with grassroots initiatives making a real difference.
         </p>
         <div className="about-header-actions">
-          <Link to="/login" className="about-header-btn about-header-btn-primary group">
+          <Link to={donateHref} className="about-header-btn about-header-btn-primary group">
             Donate Now
             <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
           </Link>
@@ -161,32 +154,156 @@ const Hero = () => (
   </section>
 );
 
+function formatCompactCurrency(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '$0';
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+}
+
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '0';
+
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+}
+
+function useCountUp(targetValue, duration = 1200) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = Math.max(0, Number(targetValue || 0));
+    if (!Number.isFinite(target)) {
+      setDisplayValue(0);
+      return undefined;
+    }
+
+    let frameId = null;
+    let startTime = null;
+
+    const step = (timestamp) => {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress));
+      setDisplayValue(target * eased);
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    setDisplayValue(0);
+    frameId = window.requestAnimationFrame(step);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [duration, targetValue]);
+
+  return displayValue;
+}
+
+function AboutStatCard({ stat, idx }) {
+  const animatedValue = useCountUp(stat.rawValue);
+  const displayValue = stat.type === 'currency'
+    ? formatCompactCurrency(animatedValue)
+    : `${formatCompactNumber(animatedValue)}${stat.suffix || ''}`;
+
+  return (
+    <motion.div 
+      key={stat.label}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: idx * 0.1 }}
+      className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
+    >
+      <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
+      <p className="text-4xl font-black text-slate-900">{displayValue}</p>
+      <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
+        <TrendingUp className="w-4 h-4" />
+        {stat.change}
+      </div>
+    </motion.div>
+  );
+}
+
 //Categorie total 
 
-const Stats = () => (
-  <section className="bg-slate-100/50 py-16 border-y border-slate-200">
-    <div className="mx-auto max-w-7xl px-6">
-      <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-        {STATS.map((stat, idx) => (
-          <motion.div 
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: idx * 0.1 }}
-            className="flex flex-col gap-2 rounded-2xl bg-white p-8 shadow-sm border border-slate-200 card-hover"
-          >
-            <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest">{stat.label}</p>
-            <p className="text-4xl font-black text-slate-900">{stat.value}</p>
-            <div className="flex items-center gap-1 text-emerald-600 font-bold text-sm">
-              <TrendingUp className="w-4 h-4" />
-              {stat.change}
-            </div>
-          </motion.div>
-        ))}
+const Stats = () => {
+  const [campaigns, setCampaigns] = useState([]);
+  const [donations, setDonations] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+
+    Promise.allSettled([
+      fetch(`${apiBase}/campaigns`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
+    ]).then(([campaignResult, donationResult, organizationResult]) => {
+      if (!active) return;
+      setCampaigns(campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : []);
+      setDonations(donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : []);
+      setOrganizations(organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value) ? organizationResult.value : []);
+    }).catch(() => {
+      if (!active) return;
+      setCampaigns([]);
+      setDonations([]);
+      setOrganizations([]);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    const completedDonations = donations.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return !status || status === 'completed' || status === 'confirmed';
+    });
+    const totalDonated = completedDonations.reduce((sum, item) => {
+      if (String(item.donation_type || '').toLowerCase() === 'material') return sum;
+      return sum + Number(item.amount || 0);
+    }, 0);
+    const verifiedPartners = organizations.filter((item) => {
+      const status = String(item.verified_status || '').toLowerCase();
+      return !status || ['verified', 'approved', 'active'].includes(status);
+    }).length;
+    const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+    const impactedLives = new Set(completedDonations.map((item) => Number(item.user_id)).filter(Boolean)).size
+      + new Set(completedDonations.map((item) => Number(item.organization_id)).filter(Boolean)).size;
+
+    return [
+      { label: 'Total Donated', rawValue: totalDonated, type: 'currency', change: 'Live donation total' },
+      { label: 'Verified Partners', rawValue: verifiedPartners, type: 'number', suffix: '+', change: 'Verified organizations' },
+      { label: 'Impacted Lives', rawValue: impactedLives, type: 'number', suffix: '+', change: 'Based on real activity' },
+      { label: 'Active Campaigns', rawValue: activeCampaigns, type: 'number', change: 'Currently running' },
+    ];
+  }, [campaigns, donations, organizations]);
+
+  return (
+    <section className="bg-slate-100/50 py-16 border-y border-slate-200">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+          {stats.map((stat, idx) => (
+            <AboutStatCard key={stat.label} stat={stat} idx={idx} />
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const AboutContent = () => (
   <section className="about-content-sections">
@@ -245,15 +362,82 @@ const AboutContent = () => (
 
 const FeaturedOrgs = () => (
   <section className="mx-auto max-w-7xl px-6 py-24">
-    <div className="flex items-end justify-between mb-12">
-      <div className="max-w-xl">
-         <h2 className="text-3xl font-bold tracking-tight text-white lg:text-4xl mb-6">Featured Organizations</h2>
-      <p className="mt-4 text-white max-w-2xl mx-auto">Discover vetted organizations that are making real measurable impact in their local communities.</p>
+    <div className="relative mb-12 overflow-hidden rounded-[2.25rem] border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-blue-100 px-8 py-10 shadow-[0_24px_80px_rgba(37,99,235,0.12)]">
+      <div className="pointer-events-none absolute inset-y-0 left-[8%] hidden w-64 rounded-full bg-sky-300/20 blur-3xl lg:block" />
+      <div className="pointer-events-none absolute -right-16 top-10 hidden h-56 w-56 rounded-full bg-blue-300/20 blur-3xl lg:block" />
+      <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="space-y-8">
+          <div className="max-w-2xl">
+            <span className="inline-flex rounded-full border border-sky-200 bg-white/90 px-4 py-1 text-xs font-extrabold uppercase tracking-[0.28em] text-sky-700 shadow-sm">
+              Trusted Partners
+            </span>
+            <h2 className="mt-5 text-3xl font-black tracking-tight text-slate-900 lg:text-5xl">
+              Featured Organizations
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-8 text-slate-600 lg:text-lg">
+              Discover vetted organizations that are making real, measurable impact in their local communities.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-sky-700">Verified NGOs</p>
+              <p className="mt-3 text-3xl font-black text-slate-900">150+</p>
+              <p className="mt-2 text-sm text-slate-500">Screened partners with transparent impact reporting.</p>
+            </div>
+            <div className="rounded-2xl border border-white/70 bg-white/80 p-5 shadow-sm backdrop-blur">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-emerald-700">Active Causes</p>
+              <p className="mt-3 text-3xl font-black text-slate-900">24</p>
+              <p className="mt-2 text-sm text-slate-500">Education, health, climate, food security, and more.</p>
+            </div>
+            <div className="rounded-2xl border border-white/70 bg-slate-900 p-5 shadow-[0_20px_40px_rgba(15,23,42,0.18)]">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-sky-300">Donor Trust</p>
+              <p className="mt-3 text-3xl font-black text-white">4.9/5</p>
+              <p className="mt-2 text-sm text-slate-300">Highly rated by supporters for clarity and delivery.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/70 bg-white/70 p-6 shadow-[0_18px_60px_rgba(148,163,184,0.18)] backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.24em] text-slate-500">Partner Snapshot</p>
+              <h3 className="mt-3 text-2xl font-black text-slate-900">Organizations ready for impact</h3>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+              Live now
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {ORGANIZATIONS.map((org) => (
+              <div
+                key={org.id}
+                className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm transition-transform duration-300 hover:-translate-y-0.5"
+              >
+                <img
+                  src={org.image}
+                  alt={org.name}
+                  className="h-16 w-16 rounded-2xl object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className={`inline-flex text-[11px] font-extrabold uppercase tracking-[0.2em] ${org.color}`}>
+                    {org.category}
+                  </div>
+                  <h4 className="mt-1 truncate text-lg font-bold text-slate-900">{org.name}</h4>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-500">{org.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button className="group mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold uppercase tracking-[0.16em] text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-lg hover:shadow-sky-500/20">
+            View All Organizations
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
       </div>
-      <button className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xl text-primary hover:text-white hover:border-primary transition-all duration-300 group shadow-sm hover:shadow-lg hover:shadow-primary/25 transform hover:-translate-y-0.5 whitespace-nowrap mb-4">
-        View All Organizations
-        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-      </button>
     </div>
     <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
       {ORGANIZATIONS.map((org, idx) => (
@@ -301,10 +485,14 @@ const FeaturedOrgs = () => (
 );
 
 export default function AboutPage() {
+  const sessionRaw = window.localStorage.getItem('chomnuoy_session');
+  const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+  const donateHref = session?.isLoggedIn ? '/campaigns' : '/login?redirect=%2Fcampaigns';
+
   return (
     <div className="h-screen w-screen flex flex-col selection:bg-primary/10 selection:text-primary">
       <main className="flex-grow overflow-auto">
-        <Hero />
+        <Hero donateHref={donateHref} />
         <Stats />
         <AboutContent />
         <FeaturedOrgs />

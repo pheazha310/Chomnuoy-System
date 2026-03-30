@@ -1,8 +1,14 @@
 import './css/Navbar.css';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPrivacyPreferences } from '@/utils/user-preferences';
+import {
+  clearAuthState,
+  getAuthToken,
+  getSession,
+  getSessionUpdatedEventName,
+} from '@/services/session-service.js';
 
 const guestNavItems = [
   { label: 'Home', href: '/' },
@@ -23,24 +29,7 @@ const donorNavItems = [
 ];
 
 function getDonorSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (!parsed) return null;
-    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
-      const normalized = { ...parsed, isLoggedIn: true };
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
-      return normalized;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function clearAuthState() {
-  window.localStorage.removeItem('chomnuoy_session');
-  window.localStorage.removeItem('authToken');
+  return getSession();
 }
 
 function isNavItemActive(itemHref, pathname) {
@@ -71,7 +60,6 @@ function isDefaultAvatarUrl(url) {
 }
 
 function Navbar() {
-  const navigate = useNavigate();
   const location = useLocation();
   const pathname = location.pathname;
   const loginRedirectTarget = encodeURIComponent(`${location.pathname}${location.search}`);
@@ -84,7 +72,6 @@ function Navbar() {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [activeNotification, setActiveNotification] = useState(null);
   const [replyDraft, setReplyDraft] = useState('');
@@ -101,18 +88,9 @@ function Navbar() {
     window.location.href = logoutTarget;
   };
 
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-    const query = searchQuery.trim().replace(/\s+/g, ' ');
-    if (!query) return;
-
-    const encoded = encodeURIComponent(query);
-    navigate(`/campaigns?search=${encoded}`);
-  };
-
   const markAllNotificationsRead = () => {
     setNotifications((previous) => previous.map((item) => ({ ...item, isRead: true })));
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     notifications.forEach((item) => {
@@ -129,10 +107,10 @@ function Navbar() {
   useEffect(() => {
     const syncSession = () => setDonorSession(getDonorSession());
     window.addEventListener('storage', syncSession);
-    window.addEventListener('chomnuoy-session-updated', syncSession);
+    window.addEventListener(getSessionUpdatedEventName(), syncSession);
     return () => {
       window.removeEventListener('storage', syncSession);
-      window.removeEventListener('chomnuoy-session-updated', syncSession);
+      window.removeEventListener(getSessionUpdatedEventName(), syncSession);
     };
   }, []);
 
@@ -168,11 +146,6 @@ function Navbar() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isLogoutPopupOpen]);
 
-  useEffect(() => {
-    const urlQuery = new URLSearchParams(location.search).get('search')?.trim() || '';
-    setSearchQuery(urlQuery);
-  }, [location.search]);
-
   const parseMessageDetails = (rawMessage = '') => {
     const lines = String(rawMessage).split('\n').map((line) => line.trim()).filter(Boolean);
     const fromLine = lines.find((line) => line.toLowerCase().startsWith('from:')) || '';
@@ -193,13 +166,22 @@ function Navbar() {
     const session = getDonorSession();
     const userId = Number(session?.userId ?? 0);
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     fetch(`${apiBase}/notifications`, { headers })
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
-        const filtered = userId ? list.filter((item) => Number(item.user_id) === userId) : list;
+        const filtered = userId
+          ? list.filter((item) => {
+              const recipientType = String(item.recipient_type || '').toLowerCase();
+              const recipientId = Number(item.recipient_id || 0);
+              if (recipientType) {
+                return recipientType === 'user' && recipientId === userId;
+              }
+              return Number(item.user_id) === userId;
+            })
+          : [];
         const mapped = filtered
           .filter((item) => {
             const type = String(item.type || '').toLowerCase();
@@ -249,6 +231,24 @@ function Navbar() {
   }, [isDonorLoggedIn]);
 
   useEffect(() => {
+    if (!isDonorLoggedIn) return undefined;
+
+    const timer = window.setInterval(() => {
+      loadNotifications();
+    }, 15000);
+
+    const handleFocus = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isDonorLoggedIn]);
+
+  useEffect(() => {
     if (!isNotificationsOpen) return;
     loadNotifications();
   }, [isNotificationsOpen]);
@@ -258,7 +258,7 @@ function Navbar() {
       item.id === id ? { ...item, isRead: true } : item
     )));
     if (source === 'api') {
-      const token = window.localStorage.getItem('authToken');
+      const token = getAuthToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
       fetch(`${apiBase}/notifications/${id}`, {
@@ -289,13 +289,17 @@ function Navbar() {
     if (!userId) return;
     setIsReplySending(true);
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const subject = activeNotification.subject || activeNotification.title || 'Message';
     const fromName = session?.name || 'Donor';
     const fromEmail = session?.email || 'donor@example.com';
     const payload = {
       user_id: userId,
+      sender_type: 'user',
+      sender_name: fromName,
+      sender_email: fromEmail,
+      recipient_type: 'admin',
       message: `From: ${fromName} <${fromEmail}>\nSubject: Reply: ${subject}\nMessage: ${replyDraft.trim()}`,
       type: 'message',
       is_read: false,
@@ -326,7 +330,6 @@ function Navbar() {
   useEffect(() => {
     setAvatarLoadFailed(false);
   }, [donorSession?.avatar]);
-
   const logoutPopupMarkup = (
     <div className="logout-popup-overlay" role="presentation" onClick={() => setIsLogoutPopupOpen(false)}>
       <div
@@ -399,18 +402,9 @@ function Navbar() {
           ))}
         </ul>
 
-        <form className="donor-search" aria-label="Search causes" onSubmit={handleSearchSubmit}>
-          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor">
-            <circle cx="11" cy="11" r="8" strokeWidth="2" />
-            <path d="m21 21-4.35-4.35" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <input
-            type="search"
-            placeholder="Search causes..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </form>
+        <Link to="/campaigns/donor" className="donor-donate-cta">
+          Donate Now
+        </Link>
 
         <div className="donor-actions">
           <div className="donor-notification" ref={notificationRef}>

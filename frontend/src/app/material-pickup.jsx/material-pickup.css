@@ -115,7 +115,7 @@
   background: #fff;
   border: 1px solid #dbe3ee;
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mp-table-top {
@@ -177,6 +177,13 @@
   gap: 0.65rem;
   align-items: center;
   border-top: 1px solid #ecf1f7;
+  position: relative;
+  z-index: 1;
+}
+
+.mp-row:hover,
+.mp-row:focus-within {
+  z-index: 3;
 }
 
 .mp-row strong {
@@ -218,20 +225,31 @@
 }
 
 .mp-more-btn {
-  border: 0;
-  background: transparent;
-  color: #94a3b8;
-  width: 2rem;
-  height: 2rem;
+  border: 1px solid #d7e2f0;
+  background: #ffffff;
+  color: #64748b;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .mp-more-btn svg {
   width: 1.2rem;
   height: 1.2rem;
+}
+
+.mp-more-btn:hover,
+.mp-more-btn[aria-expanded="true"] {
+  color: #f97316;
+  border-color: #fb923c;
+  box-shadow: 0 12px 28px rgba(249, 115, 22, 0.16);
+  transform: translateY(-1px);
 }
 
 .mp-more-wrap {
@@ -243,13 +261,18 @@
   position: absolute;
   top: 2.2rem;
   right: 0;
-  width: 210px;
+  width: 240px;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 18px;
   background: #fff;
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.18);
-  padding: 0.35rem;
-  z-index: 20;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  padding: 0.45rem;
+  z-index: 40;
+}
+
+.mp-action-menu.up {
+  top: auto;
+  bottom: calc(100% + 0.55rem);
 }
 
 .mp-action-menu button {
@@ -259,22 +282,23 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.72rem 0.68rem;
-  border-radius: 10px;
-  color: #334155;
-  font-weight: 600;
+  padding: 0.82rem 0.8rem;
+  border-radius: 12px;
+  color: #1e3a5f;
+  font-weight: 700;
   cursor: pointer;
   text-align: left;
 }
 
 .mp-action-menu button:hover {
-  background: #f8fafc;
+  background: #f8fbff;
 }
 
 .mp-action-menu button svg {
   width: 1rem;
   height: 1rem;
   color: #94a3b8;
+  flex: 0 0 auto;
 }
 
 .mp-action-menu button.danger {

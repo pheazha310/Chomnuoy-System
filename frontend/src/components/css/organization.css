@@ -779,6 +779,20 @@ body {
   object-fit: cover;
 }
 
+.donor-user-avatar-fallback {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #e8f1ff 0%, #dbe9ff 100%);
+  color: #1f6fe6;
+  font-size: 1rem;
+  font-weight: 800;
+  flex: 0 0 48px;
+}
+
 .donor-user-head p {
   margin: 0;
   color: #64748b;

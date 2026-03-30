@@ -1,9 +1,15 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import ROUTES from '@/constants/routes.js';
 import Navbar from '@/components/Navbar.jsx';
 import Footer from '@/components/Footer.jsx';
 import AuthLayout from '@/auth/AuthLayout.jsx';
+import OAuthCallback from '@/auth/OAuthCallback.jsx';
+import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
+import { OrganizationSettingsProvider } from '@/contexts/OrganizationSettingsContext';
+import { getAuthToken, getSession, isDonorSession, setAuthToken, setSession } from '@/services/session-service.js';
+
 const Home = lazy(() => import('@/app/home/page.jsx'));
 const AfterLoginHome = lazy(() => import('@/app/home/AfterLoginHome.jsx'));
 const CampaignsPage = lazy(() => import('@/components/pages/CampaignsPage.jsx'));
@@ -14,59 +20,74 @@ const OrganizationAfterLogin = lazy(() => import('@/components/pages/Organizatio
 const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
 const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
+const ProfilePage = lazy(() => import('@/components/pages/ProfilePage.jsx'));
 const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
-const OAuthCallback = lazy(() => import('@/auth/OAuthCallback.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
 const MyDonation = lazy(() => import('@/app/donate/myDonation.jsx'));
 const ViewDetail = lazy(() => import('@/app/donate/viewDetail.jsx'));
 const AccountSettings = lazy(() => import('@/app/setting/AccountSettings.jsx'));
 const OrganizationDashboardPage = lazy(() => import('@/app/organization/page.jsx'));
+const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
 const OrganizationDonationsPage = lazy(() => import('@/app/organization/donations.jsx'));
 const OrganizationCampaignsPage = lazy(() => import('@/app/organization/OrganizationCampaignsPage.jsx'));
 const OrganizationCampaignCreatePage = lazy(() => import('@/app/organization/OrganizationCampaignCreatePage.jsx'));
 const OrganizationCampaignDetailPage = lazy(() => import('@/app/organization/OrganizationCampaignDetailPage.jsx'));
 const OrganizationProfilePage = lazy(() => import('@/app/organization/profile.jsx'));
 const OrganizationProfileEditPage = lazy(() => import('@/app/organization/profile-edit.jsx'));
+const OrganizationSettings = lazy(() => import('@/app/organization/OrganizationSettings.jsx'));
 const MaterialPickupPage = lazy(() => import('@/app/material-pickup.jsx/materialPickup.jsx'));
 const PickupViewDetailPage = lazy(() => import('@/app/material-pickup.jsx/pickupViewDetail.jsx'));
 const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickupReschedule.jsx'));
 const AdminPage = lazy(() => import('@/app/admin/page.jsx'));
 const UserDashboard = lazy(() => import('@/app/admin/userDashboard.jsx'));
 const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
+const AdminProfilePage = lazy(() => import('@/app/admin/profile.jsx'));
+const AdminSettingsPage = lazy(() => import('@/app/admin/AdminSettingsPage.jsx'));
 const OrganizationDashboard = lazy(() => import('@/app/admin/organizationDashboard.jsx'));
+const AdminOrganizationProfilePage = lazy(() => import('@/app/admin/organizationProfile.jsx'));
 const MaterialPickupAdminPage = lazy(() => import('@/app/admin/materialPickupAdmin.jsx'));
 const AdminNotificationPage = lazy(() => import('@/app/admin/notification.jsx'));
 const DonationAdminPage = lazy(() => import('@/app/admin/donaionAdmin.jsx'));
 const TransactionAdminPage = lazy(() => import('@/app/admin/transactionAdmin.jsx'));
+const ReportsAdmin = lazy(() => import('@/components/pages/reports/ReportsAdmin.jsx'));
 
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
 const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
+
+function PageLoader() {
+  useEffect(() => {
+    const bar = document.getElementById('nprogress-bar');
+    if (!bar) return;
+    bar.style.width = '30%';
+    const t1 = setTimeout(() => { bar.style.width = '70%'; }, 150);
+    const t2 = setTimeout(() => { bar.style.width = '90%'; }, 400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      bar.style.width = '100%';
+      setTimeout(() => { bar.style.width = '0%'; }, 300);
+    };
+  }, []);
+
+  return (
+    <div className="page-skeleton">
+      <div style={{ width: 220, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="skeleton-pulse" style={{ height: 18, width: '60%' }} />
+        <div className="skeleton-pulse" style={{ height: 14, width: '100%' }} />
+        <div className="skeleton-pulse" style={{ height: 14, width: '80%' }} />
+      </div>
+    </div>
+  );
+}
 
 function getSafeRedirect(search) {
   const redirectParam = new URLSearchParams(search).get('redirect');
   if (!redirectParam || !redirectParam.startsWith('/')) {
     return ROUTES.HOME;
   }
-
   return redirectParam;
-}
-
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (!parsed) return null;
-    if (!parsed.isLoggedIn && (parsed.email || parsed.userId || parsed.role || parsed.accountType)) {
-      const normalized = { ...parsed, isLoggedIn: true };
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(normalized));
-      return normalized;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
 }
 
 function getStorageFileUrl(path) {
@@ -82,12 +103,15 @@ function getStorageFileUrl(path) {
   }
 
   const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'https://chomnuoy-backend-1.onrender.com/api';
+  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
+  if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
-  return `${appBase}/storage/${normalizedPath}`;
+  if (normalizedPath.startsWith('files/')) {
+    return `${apiBase}/${normalizedPath}`;
+  }
+  return `${apiBase}/files/${normalizedPath}`;
 }
 
 function getProfileAvatarOverrides() {
@@ -121,11 +145,9 @@ function normalizeAccountId(value) {
   if (value === null || value === undefined || value === '') {
     return null;
   }
-
   if (!/^\d+$/.test(String(value))) {
     return null;
   }
-
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     return null;
@@ -165,6 +187,7 @@ function RequireOrganizationAuth({ children }) {
 }
 
 function RequireAdminAuth({ children }) {
+  useAdminAutoTranslate();
   const location = useLocation();
   const session = getSession();
   const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
@@ -218,10 +241,10 @@ function LoginRoute() {
       };
 
       if (data?.token) {
-        window.localStorage.setItem('authToken', data.token);
+        setAuthToken(data.token);
       }
 
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+      setSession(sessionData);
       if (isOrganization) {
         navigate(ROUTES.ORGANIZATION_DASHBOARD);
         return;
@@ -259,10 +282,10 @@ function LoginRoute() {
     };
 
     if (data?.token) {
-      window.localStorage.setItem('authToken', data.token);
+      setAuthToken(data.token);
     }
 
-    window.localStorage.setItem('chomnuoy_session', JSON.stringify(sessionData));
+    setSession(sessionData);
     if (isOrganization) {
       navigate(ROUTES.ORGANIZATION_DASHBOARD);
       return;
@@ -301,19 +324,13 @@ function RegisterRoute() {
 }
 
 function OrganizationRoute() {
-  try {
-    const rawSession = window.localStorage.getItem('chomnuoy_session');
-    const parsedSession = rawSession ? JSON.parse(rawSession) : null;
-    const isDonorLoggedIn = Boolean(parsedSession?.isLoggedIn && parsedSession?.role === 'Donor');
-    return isDonorLoggedIn ? <OrganizationAfterLogin /> : <OrganizationBeforeLogin />;
-  } catch {
-    return <OrganizationBeforeLogin />;
-  }
+  const session = getSession();
+  return isDonorSession(session) ? <OrganizationAfterLogin /> : <OrganizationBeforeLogin />;
 }
 
 function HomeRoute() {
   const session = getSession();
-  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  const isDonorLoggedIn = isDonorSession(session);
 
   if (isDonorLoggedIn) {
     return <AfterLoginHome />;
@@ -324,7 +341,7 @@ function HomeRoute() {
 
 function AfterLoginHomeRoute() {
   const session = getSession();
-  const isDonorLoggedIn = session?.isLoggedIn && session?.role === 'Donor';
+  const isDonorLoggedIn = isDonorSession(session);
 
   if (!isDonorLoggedIn) {
     return <Navigate to={ROUTES.HOME} replace />;
@@ -338,25 +355,19 @@ export default function App() {
   const hideShell =
     location.pathname === ROUTES.LOGIN ||
     location.pathname === '/register' ||
+    location.pathname === '/oauth/callback' ||
     location.pathname.startsWith('/organization/') ||
     location.pathname.startsWith('/admin');
   const session = getSession();
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-
-  useEffect(() => {
-    const isPublicTheme = !session?.isLoggedIn;
-    document.body.classList.toggle('public-theme', isPublicTheme);
-    return () => {
-      document.body.classList.remove('public-theme');
-    };
-  }, [location.pathname, session?.isLoggedIn]);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
   useEffect(() => {
     if (!session?.isLoggedIn || !session?.userId) return;
     const roleValue = String(session?.role || session?.accountType || '').toLowerCase();
     if (roleValue === 'admin' || roleValue === 'organization') return;
 
-    const token = window.localStorage.getItem('authToken');
+    const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     const ping = () => {
@@ -368,10 +379,10 @@ export default function App() {
     return () => window.clearInterval(intervalId);
   }, [apiBase, session?.isLoggedIn, session?.role, session?.accountType, session?.userId]);
 
-  return (
+  const appContent = (
     <>
       {!hideShell && <Navbar />}
-      <Suspense fallback={<div style={{ padding: '2rem' }}>Loading...</div>}>
+      <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path={ROUTES.HOME} element={<HomeRoute />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
@@ -391,7 +402,19 @@ export default function App() {
             path={ROUTES.ORGANIZATION_DASHBOARD}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationDashboardPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationDashboardPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_REPORTS}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationReports />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -399,7 +422,9 @@ export default function App() {
             path="/organization/donations"
             element={(
               <RequireOrganizationAuth>
-                <OrganizationDonationsPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationDonationsPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -407,15 +432,9 @@ export default function App() {
             path={ROUTES.ORGANIZATION_CAMPAIGNS}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationCampaignsPage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
-            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationCampaignDetailPage />
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignsPage />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -423,7 +442,49 @@ export default function App() {
             path={ROUTES.ORGANIZATION_CAMPAIGN_CREATE}
             element={(
               <RequireOrganizationAuth>
-                <OrganizationCampaignCreatePage />
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignCreatePage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.ORGANIZATION_CAMPAIGN_DETAIL()}
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationCampaignDetailPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationProfilePage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/profile/edit"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationProfileEditPage />
+                </OrganizationSettingsProvider>
+              </RequireOrganizationAuth>
+            )}
+          />
+          <Route
+            path="/organization/settings"
+            element={(
+              <RequireOrganizationAuth>
+                <OrganizationSettingsProvider>
+                  <OrganizationSettings />
+                </OrganizationSettingsProvider>
               </RequireOrganizationAuth>
             )}
           />
@@ -452,10 +513,42 @@ export default function App() {
             )}
           />
           <Route
+            path="/admin/profile"
+            element={(
+              <RequireAdminAuth>
+                <AdminProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/settings"
+            element={(
+              <RequireAdminAuth>
+                <AdminSettingsPage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
             path="/admin/organizations"
             element={(
               <RequireAdminAuth>
                 <OrganizationDashboard />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/organizations/:id"
+            element={(
+              <RequireAdminAuth>
+                <AdminOrganizationProfilePage />
+              </RequireAdminAuth>
+            )}
+          />
+          <Route
+            path="/admin/reports"
+            element={(
+              <RequireAdminAuth>
+                <ReportsAdmin />
               </RequireAdminAuth>
             )}
           />
@@ -492,22 +585,6 @@ export default function App() {
             )}
           />
           <Route
-            path="/organization/profile"
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationProfilePage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
-            path="/organization/profile/edit"
-            element={(
-              <RequireOrganizationAuth>
-                <OrganizationProfileEditPage />
-              </RequireOrganizationAuth>
-            )}
-          />
-          <Route
             path="/donations"
             element={(
               <RequireAuth>
@@ -538,6 +615,14 @@ export default function App() {
             path="/profile"
             element={(
               <RequireAuth>
+                <ProfilePage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/my-profile"
+            element={(
+              <RequireAuth>
                 <MyProfilePage />
               </RequireAuth>
             )}
@@ -548,4 +633,14 @@ export default function App() {
       {!hideShell && <Footer />}
     </>
   );
+
+  if (googleClientId) {
+    return (
+      <GoogleOAuthProvider clientId={googleClientId}>
+        {appContent}
+      </GoogleOAuthProvider>
+    );
+  }
+
+  return appContent;
 }
