@@ -403,7 +403,7 @@ export default function OrganizationCampaignsPage() {
             : [];
           const mapped = filtered.map((item) => ({
             id: item.id,
-            title: item.type === "campaign" ? "Campaign Update" : "Notification",
+            title: item.type === "campaign" ? "Campaign Update" : item.type === "follow" ? "New Follower" : "Notification",
             detail: item.message || "New update available.",
             time: new Date(item.created_at || Date.now()).toLocaleString(),
             type: item.type || "info",

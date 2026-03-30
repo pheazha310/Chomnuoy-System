@@ -32,6 +32,16 @@ function formatCompactCurrency(value) {
   }).format(number);
 }
 
+function formatCompactNumber(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number <= 0) return '0';
+
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(number);
+}
+
 function getCauseTone(value) {
   const key = String(value || '').trim().toLowerCase();
   if (key === 'education' || key === 'community') return 'green';
@@ -46,24 +56,87 @@ function shortenText(value, maxLength = 140) {
   return `${text.slice(0, maxLength).trimEnd()}...`;
 }
 
+function useCountUp(targetValue, duration = 1200) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = Math.max(0, Number(targetValue || 0));
+    if (!Number.isFinite(target)) {
+      setDisplayValue(0);
+      return undefined;
+    }
+
+    let frameId = null;
+    let startTime = null;
+
+    const step = (timestamp) => {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress));
+      setDisplayValue(target * eased);
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(step);
+      }
+    };
+
+    setDisplayValue(0);
+    frameId = window.requestAnimationFrame(step);
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [duration, targetValue]);
+
+  return displayValue;
+}
+
+function formatAnimatedStat(type, value) {
+  const numericValue = Math.max(0, Number(value || 0));
+
+  if (type === 'currency') {
+    return formatCompactCurrency(numericValue);
+  }
+
+  return `${formatCompactNumber(numericValue)}+`;
+}
+
+function HomeStat({ item }) {
+  const animatedValue = useCountUp(item.rawValue);
+
+  return (
+    <article data-reveal style={{ '--reveal-delay': item.delay }}>
+      <p>{formatAnimatedStat(item.type, animatedValue)}</p>
+      <span>{item.label}</span>
+    </article>
+  );
+}
+
 function Home() {
   const session = getSession();
   const donateHref = session?.isLoggedIn ? '/campaigns/donor' : '/login?redirect=%2Fcampaigns';
   const [campaigns, setCampaigns] = useState([]);
+  const [donations, setDonations] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
     setCampaignsLoading(true);
-    fetchCampaigns()
-      .then((items) => {
+    Promise.allSettled([
+      fetchCampaigns(),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([campaignResult, donationResult]) => {
         if (!active) return;
-        setCampaigns(items);
+        setCampaigns(campaignResult.status === 'fulfilled' ? campaignResult.value : []);
+        setDonations(donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : []);
       })
       .catch(() => {
         if (!active) return;
         setCampaigns([]);
+        setDonations([]);
       })
       .finally(() => {
         if (!active) return;
@@ -76,17 +149,25 @@ function Home() {
   }, []);
 
   const stats = useMemo(() => {
-    const totalDonated = campaigns.reduce((sum, item) => sum + Number(item.raisedAmount || 0), 0);
-    const totalGoal = campaigns.reduce((sum, item) => sum + Number(item.goalAmount || 0), 0);
-    const activeProjects = campaigns.length;
-    const livesTouched = Math.max(activeProjects * 120, Math.round(totalDonated / 18));
+    const activeProjects = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+    const completedDonations = donations.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return !status || status === 'completed' || status === 'confirmed';
+    });
+    const totalDonated = completedDonations.reduce((sum, item) => {
+      if (String(item.donation_type || '').toLowerCase() === 'material') return sum;
+      return sum + Number(item.amount || 0);
+    }, 0);
+    const uniqueDonors = new Set(completedDonations.map((item) => Number(item.user_id)).filter(Boolean)).size;
+    const uniqueOrganizations = new Set(completedDonations.map((item) => Number(item.organization_id)).filter(Boolean)).size;
+    const livesTouched = uniqueDonors + uniqueOrganizations;
 
     return [
-      { value: formatCompactCurrency(totalDonated || totalGoal), label: 'Total donated' },
-      { value: `${Math.max(0, livesTouched).toLocaleString()}+`, label: 'Lives touched' },
-      { value: `${activeProjects.toLocaleString()}+`, label: 'Active projects' },
+      { rawValue: totalDonated, type: 'currency', label: 'Total donated', delay: '100ms' },
+      { rawValue: livesTouched, type: 'number', label: 'Lives touched', delay: '190ms' },
+      { rawValue: activeProjects, type: 'number', label: 'Active projects', delay: '280ms' },
     ];
-  }, [campaigns]);
+  }, [campaigns, donations]);
 
   const featuredCauses = useMemo(() => {
     return campaigns
@@ -201,16 +282,13 @@ function Home() {
         <div className="home-hero-visual" aria-hidden="true">
           <div className="home-hero-art" />
         </div>
-      </section>
+        </section>
 
-      <section className="home-stats" aria-label="Platform stats" data-reveal>
-        {stats.map((item, index) => (
-          <article key={item.label} data-reveal style={{ '--reveal-delay': `${100 + index * 90}ms` }}>
-            <p>{item.value}</p>
-            <span>{item.label}</span>
-          </article>
-        ))}
-      </section>
+        <section className="home-stats" aria-label="Platform stats" data-reveal>
+          {stats.map((item) => (
+            <HomeStat key={item.label} item={item} />
+          ))}
+        </section>
 
       <section className="home-featured" aria-labelledby="featured-title" data-reveal>
         <div className="home-section-head">
