@@ -461,6 +461,11 @@ const AdminDashboard = () => {
   }, [apiBase]);
 
   const totalJoins = useMemo(() => joinCounts.reduce((sum, value) => sum + value, 0), [joinCounts]);
+  const peakJoinCount = useMemo(() => Math.max(...joinCounts, 0), [joinCounts]);
+  const activeDays = useMemo(() => joinCounts.filter((value) => value > 0).length, [joinCounts]);
+  const averageJoins = useMemo(() => (
+    joinCounts.length ? (totalJoins / joinCounts.length).toFixed(totalJoins % joinCounts.length === 0 ? 0 : 1) : '0'
+  ), [joinCounts, totalJoins]);
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -490,7 +495,10 @@ const AdminDashboard = () => {
         <section className="admin-content-grid">
           <div className="admin-panel">
             <div className="admin-panel-header">
-              <h2>User & Organization Joins</h2>
+              <div>
+                <h2>User & Organization Joins</h2>
+                <p className="admin-panel-subtitle">Combined onboarding activity across the selected timeframe.</p>
+              </div>
               <div className="admin-range">
                 <button
                   className="admin-ghost-btn"
@@ -543,6 +551,24 @@ const AdminDashboard = () => {
                 ) : null}
               </div>
             </div>
+            <div className="admin-chart-metrics" aria-hidden="true">
+              <div className="admin-chart-metric">
+                <span>Total joins</span>
+                <strong>{formatCount(totalJoins)}</strong>
+              </div>
+              <div className="admin-chart-metric">
+                <span>Peak day</span>
+                <strong>{formatCount(peakJoinCount)}</strong>
+              </div>
+              <div className="admin-chart-metric">
+                <span>Daily average</span>
+                <strong>{averageJoins}</strong>
+              </div>
+              <div className="admin-chart-metric">
+                <span>Active days</span>
+                <strong>{formatCount(activeDays)}</strong>
+              </div>
+            </div>
             <div className="admin-chart">
               <div className="admin-chart-canvas" role="img" aria-label="New users and organizations joined per weekday">
                 <svg className="admin-chart-svg" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
@@ -552,6 +578,19 @@ const AdminDashboard = () => {
                       <stop offset="100%" stopColor="#2e5cff" stopOpacity="0" />
                     </linearGradient>
                   </defs>
+                  {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                    const y = chartPadding.top + innerHeight * ratio;
+                    return (
+                      <line
+                        key={ratio}
+                        className="admin-chart-grid-line"
+                        x1={chartPadding.left}
+                        y1={y}
+                        x2={chartPadding.left + innerWidth}
+                        y2={y}
+                      />
+                    );
+                  })}
                   <polygon className="admin-chart-area" points={chartAreaPoints} />
                   <polyline className="admin-chart-line" points={chartPoints} />
                   {joinCounts.map((value, index) => {
@@ -588,7 +627,11 @@ const AdminDashboard = () => {
                     <span>{chartLabels[tooltip.index]}</span>
                   </div>
                 ) : null}
-                <div className="admin-chart-labels" aria-hidden="true">
+                <div
+                  className="admin-chart-labels"
+                  aria-hidden="true"
+                  style={{ gridTemplateColumns: `repeat(${chartLabels.length}, minmax(0, 1fr))` }}
+                >
                   {chartLabels.map((label, index) => (
                     <span key={`${label}-${index}`}>
                       {rangeDays === 30 && index % 5 !== 0 ? '' : label}
@@ -598,7 +641,7 @@ const AdminDashboard = () => {
               </div>
               {!joinLoading ? (
                 <p className="admin-chart-footnote">
-                  {totalJoins.toLocaleString()} new joins (users + organizations)
+                  {totalJoins.toLocaleString()} new joins across {rangeLabel.toLowerCase()}
                 </p>
               ) : null}
             </div>

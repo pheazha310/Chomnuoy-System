@@ -8,6 +8,7 @@ import './organization.css';
 const ORGANIZATIONS_CACHE_KEY = 'admin_organization_dashboard_orgs_cache';
 const CATEGORIES_CACHE_KEY = 'admin_organization_dashboard_categories_cache';
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const ORGANIZATION_STATUS_OPTIONS = ['Pending', 'Verified', 'Inactive'];
 
 function formatDate(value) {
   if (!value) return '-';
@@ -290,6 +291,53 @@ export default function OrganizationDashboard() {
       }),
     [organizations, categoryLookup]
   );
+
+  const editChangeCount = useMemo(() => {
+    if (!actionModal || actionModal.type !== 'edit') return 0;
+    const source = actionModal.org;
+    const comparisons = [
+      [editDraft.name, source?.name || ''],
+      [editDraft.email, source?.email || ''],
+      [editDraft.location, source?.location || ''],
+      [editDraft.status, source?.status || ''],
+    ];
+    return comparisons.filter(([current, original]) => String(current || '').trim() !== String(original || '').trim()).length;
+  }, [actionModal, editDraft]);
+
+  const editChangedFields = useMemo(() => {
+    if (!actionModal || actionModal.type !== 'edit') return [];
+    const source = actionModal.org;
+    const fields = [
+      { label: 'Name', current: editDraft.name, original: source?.name || '' },
+      { label: 'Email', current: editDraft.email, original: source?.email || '' },
+      { label: 'Location', current: editDraft.location, original: source?.location || '' },
+      { label: 'Status', current: editDraft.status, original: source?.status || '' },
+    ];
+
+    return fields
+      .filter(({ current, original }) => String(current || '').trim() !== String(original || '').trim())
+      .map(({ label }) => label);
+  }, [actionModal, editDraft]);
+
+  const editStatusMeta = useMemo(() => {
+    const status = editDraft.status || 'Pending';
+    if (status === 'Verified') {
+      return {
+        headline: 'Ready for public visibility',
+        description: 'This organization will appear as approved and active across the platform.',
+      };
+    }
+    if (status === 'Inactive') {
+      return {
+        headline: 'Access will stay restricted',
+        description: 'The organization remains disabled until an admin restores access later.',
+      };
+    }
+    return {
+      headline: 'Still waiting for review',
+      description: 'The organization remains in the verification queue until approval is completed.',
+    };
+  }, [editDraft.status]);
 
   const filteredOrgs = useMemo(() => {
     let result = normalizedOrgs;
@@ -659,51 +707,133 @@ export default function OrganizationDashboard() {
             {actionModal.type === 'edit' ? (
               <>
                 <h3 id="admin-org-action-title">Edit Organization</h3>
-                <div className="admin-org-form">
-                  <label>
-                    Name
-                    <input
-                      type="text"
-                      value={editDraft.name}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Email
-                    <input
-                      type="email"
-                      value={editDraft.email}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, email: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Location
-                    <input
-                      type="text"
-                      value={editDraft.location}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, location: event.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      value={editDraft.status}
-                      onChange={(event) => setEditDraft((prev) => ({ ...prev, status: event.target.value }))}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Verified">Verified</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </label>
+                <div className="admin-org-edit-topline">
+                  <div>
+                    <p className="admin-org-edit-kicker">Live editor</p>
+                    <span className="admin-org-edit-subtitle">
+                      {editChangeCount > 0
+                        ? `${editChangeCount} field${editChangeCount === 1 ? '' : 's'} changed`
+                        : 'No pending changes'}
+                    </span>
+                  </div>
+                  <span className={`admin-org-status admin-org-status-${String(editDraft.status || '').toLowerCase()}`}>
+                    {editDraft.status || 'Pending'}
+                  </span>
+                </div>
+
+                <div className="admin-org-form admin-org-form-enhanced">
+                  <div className="admin-org-form-main">
+                    <div className="admin-org-edit-change-row">
+                      {editChangedFields.length > 0 ? (
+                        editChangedFields.map((field) => (
+                          <span key={field} className="admin-org-edit-change-chip">{field}</span>
+                        ))
+                      ) : (
+                        <span className="admin-org-edit-change-chip is-muted">No edited fields yet</span>
+                      )}
+                    </div>
+                    <label className="admin-org-form-span-2">
+                      Name
+                      <input
+                        type="text"
+                        value={editDraft.name}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, name: event.target.value }))}
+                      />
+                    </label>
+                    <label className="admin-org-form-span-2">
+                      Email
+                      <input
+                        type="email"
+                        value={editDraft.email}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, email: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Location
+                      <input
+                        type="text"
+                        value={editDraft.location}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, location: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Status
+                      <select
+                        value={editDraft.status}
+                        onChange={(event) => setEditDraft((prev) => ({ ...prev, status: event.target.value }))}
+                      >
+                        {ORGANIZATION_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>{status}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <aside className="admin-org-edit-preview">
+                    <p className="admin-org-edit-preview-kicker">Preview</p>
+                    <div className="admin-org-edit-preview-card">
+                      <span className="admin-org-modal-avatar" aria-hidden="true">
+                        {getInitials(editDraft.name)}
+                      </span>
+                      <div>
+                        <strong>{editDraft.name || 'Organization'}</strong>
+                        <span>{editDraft.email || 'No email set'}</span>
+                      </div>
+                    </div>
+                    <div className="admin-org-edit-live-card">
+                      <span className="admin-org-edit-live-label">Live status</span>
+                      <strong>{editStatusMeta.headline}</strong>
+                      <p>{editStatusMeta.description}</p>
+                    </div>
+                    <div className="admin-org-edit-status-grid">
+                      {ORGANIZATION_STATUS_OPTIONS.map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          className={`admin-org-edit-status-card${editDraft.status === status ? ' is-active' : ''}`}
+                          onClick={() => setEditDraft((prev) => ({ ...prev, status }))}
+                        >
+                          <strong>{status}</strong>
+                          <span>
+                            {status === 'Verified'
+                              ? 'Public and approved'
+                              : status === 'Pending'
+                                ? 'Waiting for review'
+                                : 'Access disabled'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="admin-org-edit-meta">
+                      <div>
+                        <span>Current location</span>
+                        <strong>{editDraft.location || 'Not provided'}</strong>
+                      </div>
+                      <div>
+                        <span>Profile ID</span>
+                        <strong>ORG-{String(actionModal.org.id).padStart(4, '0')}</strong>
+                      </div>
+                      <div>
+                        <span>Save state</span>
+                        <strong>{editChangeCount > 0 ? `${editChangeCount} change${editChangeCount === 1 ? '' : 's'} ready` : 'No changes to save'}</strong>
+                      </div>
+                    </div>
+                  </aside>
                 </div>
                 {actionError ? <p className="admin-org-warning">{actionError}</p> : null}
-                <div className="admin-modal-actions">
-                  <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
-                    Cancel
-                  </button>
-                  <button type="button" className="admin-user-save" onClick={handleEditSave} disabled={actionSaving}>
-                    {actionSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
+                <div className="admin-modal-actions admin-org-edit-actions">
+                  <div className="admin-org-edit-actions-copy">
+                    <strong>{editChangeCount > 0 ? 'Ready to update organization' : 'Waiting for edits'}</strong>
+                    <span>{editStatusMeta.headline}</span>
+                  </div>
+                  <div className="admin-org-edit-actions-buttons">
+                    <button type="button" className="admin-modal-cancel" onClick={closeActionModal}>
+                      Cancel
+                    </button>
+                    <button type="button" className="admin-user-save" onClick={handleEditSave} disabled={actionSaving || editChangeCount === 0}>
+                      {actionSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : null}
