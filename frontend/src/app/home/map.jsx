@@ -47,43 +47,43 @@ export default function Map() {
     )
   }
 
-  return (
-    <div className="container mx-auto p-10" style={{ height: '500px' }}>
-      <MapContainer
-        center={mapCenter}
-        zoom={13}
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {/* Default marker showing current location */}
-        <Marker position={mapCenter}>
-          <Popup>
-            <strong>Current Location</strong><br />
-            Lat: {mapCenter[0]}, Lng: {mapCenter[1]}
-          </Popup>
-        </Marker>
-      </MapContainer>
-      <div style={{ padding: '20px' }}>
-        <h2>Get Current Latitude and Longitude</h2>
+  // return (
+  //   <div className="container mx-auto p-10" style={{ height: '500px' }}>
+  //     <MapContainer
+  //       center={mapCenter}
+  //       zoom={13}
+  //       style={{ height: '100%', width: '100%' }}
+  //     >
+  //       <TileLayer
+  //         attribution='&copy; OpenStreetMap contributors'
+  //         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+  //       />
+  //       {/* Default marker showing current location */}
+  //       <Marker position={mapCenter}>
+  //         <Popup>
+  //           <strong>Current Location</strong><br />
+  //           Lat: {mapCenter[0]}, Lng: {mapCenter[1]}
+  //         </Popup>
+  //       </Marker>
+  //     </MapContainer>
+  //     <div style={{ padding: '20px' }}>
+  //       <h2>Get Current Latitude and Longitude</h2>
 
-        <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={getCurrentLocation}>Get Location</button>
+  //       <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={getCurrentLocation}>Get Location</button>
 
-        {location && (
-            <div style={{ marginTop: '20px' }}>
-            <p><strong>Latitude:</strong> {location.latitude}</p>
-            <p><strong>Longitude:</strong> {location.longitude}</p>
-            </div>
-        )}
+  //       {location && (
+  //           <div style={{ marginTop: '20px' }}>
+  //           <p><strong>Latitude:</strong> {location.latitude}</p>
+  //           <p><strong>Longitude:</strong> {location.longitude}</p>
+  //           </div>
+  //       )}
 
-        {error && (
-            <p style={{ color: 'red', marginTop: '20px' }}>
-            {error}
-            </p>
-        )}
-      </div>
-    </div>
-  )
+  //       {error && (
+  //           <p style={{ color: 'red', marginTop: '20px' }}>
+  //           {error}
+  //           </p>
+  //       )}
+  //     </div>
+  //   </div>
+  // )
 }

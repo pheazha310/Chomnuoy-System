@@ -326,18 +326,6 @@ export default function RegisterPage({ onToggleMode }) {
               )}
             </div>
 
-            <div>
-              <label className="text-sm font-bold text-[#101828]">Description</label>
-              <div className="relative mt-2">
-                <textarea
-                  rows={3}
-                  placeholder="Tell us about your organization"
-                  className="block w-full rounded-2xl border border-[#D0D5DD] bg-white px-4 py-3 text-base text-[#101828] placeholder:text-[#98A2B3] focus:border-[#2563EB] focus:outline-none"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-            </div>
           </>
         )}
 
