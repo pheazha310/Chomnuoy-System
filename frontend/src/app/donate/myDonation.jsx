@@ -20,11 +20,11 @@ import {
 } from 'lucide-react';
 import { getSession } from '@/services/session-service';
 import { getDonationHistoryResources } from '@/services/donation-service';
-import { buildMaterialWorkflowRows } from '@/services/material-workflow-service.js';
 import './myDonation.css';
 
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
 const DONATION_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+const USD_TO_KHR_RATE = 4100;
 
 const SUMMARY_META = [
   {
@@ -69,6 +69,19 @@ const isSuccessfulPaymentStatus = (status) => {
   return ['COMPLETED', 'SUCCESS', 'CONFIRMED', 'PAID'].includes(value);
 };
 
+const isSuccessfulDonationStatus = (status) => {
+  const value = String(status || '').trim().toUpperCase();
+  return ['COMPLETED', 'SUCCESS', 'CONFIRMED', 'PAID', 'RECURRING'].includes(value);
+};
+
+const normalizeCurrency = (currency) => (String(currency || 'USD').trim().toUpperCase() === 'KHR' ? 'KHR' : 'USD');
+
+const convertToUsdAmount = (amount, currency = 'USD') => {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount)) return 0;
+  return normalizeCurrency(currency) === 'KHR' ? numericAmount / USD_TO_KHR_RATE : numericAmount;
+};
+
 const formatMoney = (amount) => `$${Number(amount || 0).toLocaleString('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -78,6 +91,32 @@ const extractCampaignIdFromBillNumber = (billNumber) => {
   const raw = String(billNumber || '').trim();
   const match = raw.match(/^DON-(\d+)-/i);
   return match ? Number(match[1]) : 0;
+};
+
+const findBestMatchingPayment = ({ donation, payments, matchedPaymentIds }) => {
+  const donationAmount = Number(donation?.amount || 0);
+  const donationUserId = Number(donation?.user_id || 0);
+  const donationCampaignId = Number(donation?.campaign_id || 0);
+  const donationTime = toDate(donation?.created_at)?.getTime() ?? 0;
+
+  return payments
+    .filter((payment) => !matchedPaymentIds.has(Number(payment.id)))
+    .filter((payment) => isSuccessfulPaymentStatus(payment.status))
+    .filter((payment) => Number(payment.user_id || 0) === donationUserId)
+    .filter((payment) => Number(payment.amount || 0) === donationAmount)
+    .filter((payment) => {
+      const paymentCampaignId = extractCampaignIdFromBillNumber(payment.bill_number);
+      return !donationCampaignId || !paymentCampaignId || paymentCampaignId === donationCampaignId;
+    })
+    .map((payment) => {
+      const paymentTime = toDate(payment.paid_at || payment.created_at)?.getTime() ?? 0;
+      return {
+        payment,
+        timeDifference: Math.abs(paymentTime - donationTime),
+      };
+    })
+    .filter(({ timeDifference }) => timeDifference <= 60 * 60 * 1000)
+    .sort((a, b) => a.timeDifference - b.timeDifference)[0]?.payment ?? null;
 };
 
 const getIconByCategory = (category = '') => {
@@ -248,22 +287,9 @@ export default function MyDonation() {
     };
   }, [cachedData, userId]);
 
-  const materialWorkflowMap = useMemo(() => {
-    const rows = buildMaterialWorkflowRows({
-      donations,
-      materialItems,
-      pickups,
-      campaigns,
-      organizations,
-      users,
-    });
-    return new Map(rows.map((row) => [Number(row.donationId), row]));
-  }, [campaigns, donations, materialItems, organizations, pickups, users]);
-
   const donationItems = useMemo(() => {
     const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
     const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
-    const materialMap = new Map(materialItems.map((item) => [Number(item.donation_id), item]));
     const paymentMap = new Map();
     const matchedPaymentIds = new Set();
 
@@ -274,81 +300,77 @@ export default function MyDonation() {
       }
     });
 
-    const donationRows = donations.map((item) => {
-      const campaign = campaignMap.get(Number(item.campaign_id));
-      const organization = organizationMap.get(Number(item.organization_id));
-      const materialItem = materialMap.get(Number(item.id));
-      const payment = paymentMap.get(Number(item.id));
-      if (payment?.id) {
-        matchedPaymentIds.add(Number(payment.id));
-      }
-      const workflow = materialWorkflowMap.get(Number(item.id));
-      const status = normalizeStatus(item.status);
-      const category = campaign?.category || item.category || campaign?.type || 'General';
-      const iconMeta = getIconByCategory(category);
-      const amountText =
-        item.donation_type === 'material'
-          ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
-          : formatMoney(item.amount);
-      const dateValue = toDate(item.created_at);
+    const donationRows = donations
+      .filter((item) => String(item.donation_type || '').toLowerCase() === 'money')
+      .map((item) => {
+        const campaign = campaignMap.get(Number(item.campaign_id));
+        const organization = organizationMap.get(Number(item.organization_id));
+        const payment = paymentMap.get(Number(item.id)) || findBestMatchingPayment({
+          donation: item,
+          payments,
+          matchedPaymentIds,
+        });
+        if (payment?.id) {
+          matchedPaymentIds.add(Number(payment.id));
+        }
+        const status = normalizeStatus(item.status);
+        const category = campaign?.category || item.category || campaign?.type || 'General';
+        const iconMeta = getIconByCategory(category);
+        const dateValue = toDate(item.created_at);
+        const currency = normalizeCurrency(payment?.currency);
+        const amountUsd = convertToUsdAmount(item.amount, currency);
 
-      const effectiveStatus = item.donation_type === 'material' && workflow
-        ? { label: workflow.organizationStatusLabel.toUpperCase(), className: workflow.statusKey === 'completed' ? 'my-donation-status-completed' : 'my-donation-status-pending' }
-        : status;
-
-      return {
-        id: item.id,
-        date: dateValue ? dateValue.toLocaleDateString() : '-',
-        dateValue: dateValue ? dateValue.getTime() : 0,
-        amount: amountText,
-        recipient:
-          campaign?.title ||
-          organization?.name ||
-          item.recipient ||
-          'Organization',
-        subCause:
-          item.sub_cause ||
-          campaign?.title ||
-          campaign?.category ||
-          item.notes ||
-          'General Support',
-        status: effectiveStatus.label,
-        statusClass: effectiveStatus.className,
-        icon: iconMeta.icon,
-        iconBg: iconMeta.bg,
-        detailState: {
-          donationId: item.id,
-          amount: item.donation_type === 'material'
-            ? (workflow?.quantityLabel || `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`)
-            : Number(item.amount || 0).toFixed(2),
-          date: dateValue
-            ? dateValue.toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })
-            : '-',
-          transactionId: payment?.transaction_id ? `#${payment.transaction_id}` : `#DON-${item.id}`,
-          paymentMethod: item.donation_type === 'material'
-            ? (workflow?.pickup?.status || 'pending')
-            : (payment?.store_label || payment?.payment_method || item.payment_method || 'Bakong KHQR'),
-          campaignTitle: campaign?.title || organization?.name || item.recipient || 'Campaign',
-          campaignImage:
-            getStorageFileUrl(campaign?.image_path) ||
-            campaign?.image ||
-            organization?.avatar_url ||
-            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-          campaignLocation: campaign?.location || organization?.location || 'Cambodia',
-          organizationName: organization?.name || campaign?.organization_name || 'Organization',
-          receiptMessage: campaign?.receipt_message || '',
-          status: workflow?.statusKey || item.status || 'completed',
-          isMaterial: item.donation_type === 'material',
-          quantity: workflow?.quantity || materialItem?.quantity || 1,
-          itemName: workflow?.itemName || materialItem?.item_name || 'Items',
-          pickupAddress: workflow?.pickupAddress || '',
-        },
-      };
-    });
+        return {
+          id: item.id,
+          date: dateValue ? dateValue.toLocaleDateString() : '-',
+          dateValue: dateValue ? dateValue.getTime() : 0,
+          amount: formatMoney(amountUsd),
+          amountUsd,
+          currency: 'USD',
+          recipient:
+            campaign?.title ||
+            organization?.name ||
+            item.recipient ||
+            'Organization',
+          subCause:
+            item.sub_cause ||
+            campaign?.title ||
+            campaign?.category ||
+            item.notes ||
+            'General Support',
+          status: status.label,
+          statusClass: status.className,
+          icon: iconMeta.icon,
+          iconBg: iconMeta.bg,
+          isSuccessful: isSuccessfulDonationStatus(item.status),
+          organizationId: Number(item.organization_id || campaign?.organization_id || 0),
+          detailState: {
+            donationId: item.id,
+            amount: amountUsd.toFixed(2),
+            currency: 'USD',
+            date: dateValue
+              ? dateValue.toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : '-',
+            transactionId: payment?.transaction_id ? `#${payment.transaction_id}` : `#DON-${item.id}`,
+            paymentMethod: payment?.store_label || payment?.payment_method || item.payment_method || 'Bakong KHQR',
+            campaignTitle: campaign?.title || organization?.name || item.recipient || 'Campaign',
+            campaignImage:
+              getStorageFileUrl(campaign?.image_path) ||
+              campaign?.image ||
+              organization?.avatar_url ||
+              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+            campaignLocation: campaign?.location || organization?.location || 'Cambodia',
+            organizationName: organization?.name || campaign?.organization_name || 'Organization',
+            receiptMessage: campaign?.receipt_message || '',
+            status: item.status || 'completed',
+            isMaterial: false,
+          },
+        };
+      });
 
     const directPaymentRows = payments
       .filter((payment) => !matchedPaymentIds.has(Number(payment.id)))
@@ -361,22 +383,27 @@ export default function MyDonation() {
         const category = campaign?.category || 'General';
         const iconMeta = getIconByCategory(category);
         const dateValue = toDate(payment.paid_at || payment.created_at);
-        const amountValue = Number(payment.amount || 0);
+        const amountValue = convertToUsdAmount(payment.amount, payment.currency);
 
         return {
           id: `payment-${payment.id}`,
           date: dateValue ? dateValue.toLocaleDateString() : '-',
           dateValue: dateValue ? dateValue.getTime() : 0,
           amount: formatMoney(amountValue),
+          amountUsd: amountValue,
+          currency: 'USD',
           recipient: campaign?.title || organization?.name || 'Organization',
           subCause: campaign?.category || campaign?.title || 'General Support',
           status: status.label,
           statusClass: status.className,
           icon: iconMeta.icon,
           iconBg: iconMeta.bg,
+          isSuccessful: true,
+          organizationId: Number(campaign?.organization_id || organization?.id || 0),
           detailState: {
             donationId: null,
             amount: amountValue.toFixed(2),
+            currency: 'USD',
             date: dateValue
               ? dateValue.toLocaleDateString('en-US', {
                   month: 'long',
@@ -395,12 +422,13 @@ export default function MyDonation() {
             organizationName: organization?.name || 'Organization',
             receiptMessage: campaign?.receipt_message || '',
             status: payment.status || 'success',
+            isMaterial: false,
           },
         };
       });
 
     return [...donationRows, ...directPaymentRows];
-  }, [campaigns, donations, materialItems, materialWorkflowMap, organizations, payments]);
+  }, [campaigns, donations, organizations, payments]);
 
   const latestDonationTime = donationItems.reduce((latest, item) => {
     return item.dateValue > latest ? item.dateValue : latest;
@@ -412,39 +440,21 @@ export default function MyDonation() {
     const startThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const successfulDonationItems = donationItems.filter((row) => row.isSuccessful);
 
-    const moneyDonations = donations.filter((row) => row.donation_type !== 'material');
-    const successfulDirectPayments = payments.filter((row) => {
-      if (Number(row.donation_id || 0)) return false;
-      return isSuccessfulPaymentStatus(row.status);
-    });
-
-    const totalFunds = moneyDonations.reduce((sum, row) => sum + Number(row.amount || 0), 0)
-      + successfulDirectPayments.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    const thisMonthFunds = moneyDonations
+    const totalFunds = successfulDonationItems.reduce((sum, row) => sum + Number(row.amountUsd || 0), 0);
+    const thisMonthFunds = successfulDonationItems
       .filter((row) => {
-        const date = toDate(row.created_at);
+        const date = toDate(row.dateValue);
         return date && date >= startThisMonth;
       })
-      .reduce((sum, row) => sum + Number(row.amount || 0), 0)
-      + successfulDirectPayments
-        .filter((row) => {
-          const date = toDate(row.paid_at || row.created_at);
-          return date && date >= startThisMonth;
-        })
-        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    const lastMonthFunds = moneyDonations
+      .reduce((sum, row) => sum + Number(row.amountUsd || 0), 0);
+    const lastMonthFunds = successfulDonationItems
       .filter((row) => {
-        const date = toDate(row.created_at);
+        const date = toDate(row.dateValue);
         return date && date >= startLastMonth && date <= endLastMonth;
       })
-      .reduce((sum, row) => sum + Number(row.amount || 0), 0)
-      + successfulDirectPayments
-        .filter((row) => {
-          const date = toDate(row.paid_at || row.created_at);
-          return date && date >= startLastMonth && date <= endLastMonth;
-        })
-        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      .reduce((sum, row) => sum + Number(row.amountUsd || 0), 0);
 
     const percentChange = (current, previous) => {
       if (!previous) return '0.0% increase from last month';
@@ -453,26 +463,9 @@ export default function MyDonation() {
       return `${Math.abs(change).toFixed(1)}% ${label} from last month`;
     };
 
-    const organizationIds = new Set(
-      [
-        ...donations.map((row) => Number(row.organization_id)).filter(Boolean),
-        ...payments
-          .filter((row) => !Number(row.donation_id || 0) && isSuccessfulPaymentStatus(row.status))
-          .map((row) => {
-            const campaignId = extractCampaignIdFromBillNumber(row.bill_number);
-            const campaign = campaigns.find((item) => Number(item.id) === campaignId);
-            return Number(campaign?.organization_id || 0);
-          })
-          .filter(Boolean),
-      ],
-    );
+    const organizationIds = new Set(successfulDonationItems.map((row) => Number(row.organizationId || 0)).filter(Boolean));
     const uniqueOrganizations = organizationIds.size;
-
-    const totalItems = materialItems.reduce(
-      (sum, item) => sum + Number(item.quantity || 0),
-      0,
-    );
-    const impactCount = totalItems + donationItems.length;
+    const impactCount = successfulDonationItems.length;
 
     return [
       {
@@ -491,7 +484,7 @@ export default function MyDonation() {
         subtitle: 'Across environmental & social sectors',
       },
     ];
-  }, [campaigns, donationItems.length, donations, materialItems, payments]);
+  }, [donationItems]);
 
   const isInTimeRange = useCallback((itemDateValue) => {
     if (timeFilterLabel === 'All Time') return true;

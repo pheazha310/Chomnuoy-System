@@ -197,6 +197,11 @@ function normalizePaymentAmountToUsd(amount, currency) {
   return String(currency || 'USD').toUpperCase() === 'KHR' ? numericAmount / USD_TO_KHR_RATE : numericAmount;
 }
 
+function formatProgressLabel(progress, suffix) {
+  if (progress > 0 && progress < 1) return `<1% ${suffix}`;
+  return `${Math.round(progress)}% ${suffix}`;
+}
+
 function isSuccessfulPaymentStatus(value) {
   const status = String(value || '').trim().toLowerCase();
   return ['success', 'completed', 'paid', 'confirmed'].includes(status);
@@ -707,7 +712,10 @@ function CampaignDetailPage({ campaignId }) {
     campaign?.image ||
     'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
   const goalAmount = Number(campaign?.goalAmount ?? 0);
-  const raisedAmount = Number(campaignPaymentSummary.raisedAmount ?? campaign?.raisedAmount ?? 0);
+  const raisedAmount = Math.max(
+    Number(campaign?.raisedAmount ?? 0),
+    Number(campaignPaymentSummary.raisedAmount ?? 0),
+  );
   const rawPercentRaised = goalAmount > 0 ? (raisedAmount / goalAmount) * 100 : 0;
   const percentRaised = goalAmount > 0 ? Math.round(rawPercentRaised) : 0;
   const progressWidth = Math.min(100, raisedAmount > 0 ? Math.max(rawPercentRaised, 1) : 0);
@@ -725,7 +733,9 @@ function CampaignDetailPage({ campaignId }) {
   const progressPercent = isMaterialCampaign ? materialProgressPercent : progressWidth;
   const daysToGo = typeof campaign?.daysLeft === 'number' ? Math.max(0, campaign.daysLeft) : null;
   const supportTimelineLabel = campaign?.timeLeft || 'Ongoing';
-  const progressStatusLabel = isMaterialCampaign ? `${materialProgressPercent}% pledged` : `${percentRaised}% funded`;
+  const progressStatusLabel = isMaterialCampaign
+    ? formatProgressLabel(materialProgressPercent, 'pledged')
+    : formatProgressLabel(rawPercentRaised, 'funded');
   const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
   const campaignBadgeCategory = campaignCategoryToSidebarCategory(safeCategory).toUpperCase();
   const progressPrimaryLabel = isMaterialCampaign ? 'Pledged' : 'Raised';

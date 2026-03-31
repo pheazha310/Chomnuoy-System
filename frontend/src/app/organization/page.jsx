@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
-import { normalizeCampaign } from '@/services/campaign-service.js';
+import { fetchCampaigns } from '@/services/campaign-service.js';
 
 function formatMoney(value) {
   return new Intl.NumberFormat('en-US', {
@@ -203,7 +203,7 @@ export default function OrganizationDashboardPage() {
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     Promise.all([
-      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+      fetchCampaigns().catch(() => []),
       fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
       fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
       fetch(`${apiBase}/material_pickups`).then((r) => (r.ok ? r.json() : [])),
@@ -217,7 +217,7 @@ export default function OrganizationDashboardPage() {
         const userList = Array.isArray(userData) ? userData : [];
 
         const filteredCampaigns = organizationId
-          ? campaignsList.filter((item) => Number(item.organization_id) === organizationId)
+          ? campaignsList.filter((item) => Number(item.organizationId) === organizationId)
           : campaignsList;
         const filteredDonations = organizationId
           ? donationList.filter((item) => Number(item.organization_id) === organizationId)
@@ -343,8 +343,7 @@ export default function OrganizationDashboardPage() {
 
   const summaryCards = useMemo(() => {
     const totalRaised = campaigns.reduce((sum, item) => {
-      const normalizedCampaign = normalizeCampaign(item);
-      return sum + Number(normalizedCampaign?.raisedAmount || 0);
+      return sum + Number(item.raisedAmount || 0);
     }, 0);
     const activeCount = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
     const materialDonationIds = new Set(
@@ -399,9 +398,8 @@ export default function OrganizationDashboardPage() {
       const haystack = `${item.title || ''} ${item.status || ''} ${item.end_date || ''}`.toLowerCase();
       return haystack.includes(query);
     }).slice(0, 2).map((item) => {
-      const normalizedCampaign = normalizeCampaign(item);
-      const goal = Number(normalizedCampaign?.goalAmount || 0);
-      const raised = Number(normalizedCampaign?.raisedAmount || 0);
+      const goal = Number(item.goalAmount || 0);
+      const raised = Number(item.raisedAmount || 0);
       const percent = goal ? Math.round((raised / goal) * 100) : 0;
       return {
         name: item.title || 'Untitled Campaign',

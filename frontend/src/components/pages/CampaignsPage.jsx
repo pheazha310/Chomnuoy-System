@@ -58,6 +58,11 @@ function getContributionPercent(value, goal) {
   return Math.min(100, Math.round((Math.max(0, Number(value || 0)) / safeGoal) * 100));
 }
 
+function formatProgressLabel(progress, suffix) {
+  if (progress > 0 && progress < 1) return `<1% ${suffix}`;
+  return `${Math.round(progress)}% ${suffix}`;
+}
+
 function CampaignsPage() {
   const location = useLocation();
   const session = getSession();
@@ -96,8 +101,9 @@ function CampaignsPage() {
       fetchCampaigns(),
       fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/material_items`).then((response) => (response.ok ? response.json() : [])),
     ])
-      .then(([campaignResult, organizationResult, donationResult]) => {
+      .then(([campaignResult, organizationResult, donationResult, materialItemsResult]) => {
         if (!active) return;
         if (campaignResult.status !== 'fulfilled') {
           throw campaignResult.reason instanceof Error ? campaignResult.reason : new Error('Failed to load campaigns.');
@@ -117,6 +123,13 @@ function CampaignsPage() {
           donationResult.status === 'fulfilled' && Array.isArray(donationResult.value)
             ? donationResult.value
             : [];
+        const materialItems =
+          materialItemsResult.status === 'fulfilled' && Array.isArray(materialItemsResult.value)
+            ? materialItemsResult.value
+            : [];
+        const materialQuantityByDonationId = new Map(
+          materialItems.map((item) => [Number(item.donation_id), Math.max(1, Number(item.quantity || 1))]),
+        );
         const campaignDonationTotals = donations.reduce((map, item) => {
           const campaignId = Number(item.campaign_id || 0);
           if (!campaignId) return map;
@@ -132,7 +145,7 @@ function CampaignsPage() {
           const amount = Math.max(0, Number(item.amount || 0));
           const donationType = normalizeDonationType(item.donation_type);
           if (donationType === 'material' && isSuccessful) {
-            current.material += amount;
+            current.material += materialQuantityByDonationId.get(Number(item.id)) || Math.max(1, amount);
           } else if (donationType === 'money' && isSuccessful) {
             current.money += amount;
           }
@@ -142,7 +155,7 @@ function CampaignsPage() {
           }
           if (currentUserId && donorUserId === currentUserId && isSuccessful) {
             if (donationType === 'material') {
-              current.currentUserMaterial += amount;
+              current.currentUserMaterial += materialQuantityByDonationId.get(Number(item.id)) || Math.max(1, amount);
             } else {
               current.currentUserMoney += amount;
             }
@@ -163,7 +176,7 @@ function CampaignsPage() {
             : Number(item.goalAmount || 0);
           const liveRaisedAmount = isMaterialCampaign
             ? Number(donationTotals?.material || 0)
-            : Number(donationTotals?.money ?? item.raisedAmount ?? 0);
+            : Number(item.raisedAmount ?? 0);
           const currentUserContribution = isMaterialCampaign
             ? Number(donationTotals?.currentUserMaterial || 0)
             : Number(donationTotals?.currentUserMoney || 0);
@@ -352,8 +365,14 @@ function CampaignsPage() {
             const isMaterialCampaign = String(campaign.campaignType || '').toLowerCase().includes('material');
             const requestedItems = Math.max(1, Number(campaign.materialItem?.quantity || campaign.goalAmount || 1));
             const pledgedItems = Math.max(0, Number(campaign.raisedAmount || 0));
+            const rawProgress = isMaterialCampaign
+              ? (pledgedItems / requestedItems) * 100
+              : (Number(campaign.goalAmount || 0) > 0
+                ? (Number(campaign.raisedAmount || 0) / Number(campaign.goalAmount || 0)) * 100
+                : 0);
             const percentRaised = getFundingProgress(campaign);
             const progressWidth = Math.min(percentRaised, 100);
+            const visibleProgressWidth = rawProgress > 0 ? Math.max(Math.min(rawProgress, 100), 1) : 0;
             const detailPath = `/campaigns/${campaign.id}`;
             const detailState = {
               from: '/campaigns',
@@ -363,7 +382,9 @@ function CampaignsPage() {
             const isUrgent = Boolean(campaign.isUrgent);
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
             const timelineLabel = campaign.timeLeft || 'Ongoing';
-            const progressLabel = isMaterialCampaign ? `${Math.round(progressWidth)}% pledged` : `${Math.round(progressWidth)}% funded`;
+            const progressLabel = isMaterialCampaign
+              ? formatProgressLabel(rawProgress, 'pledged')
+              : formatProgressLabel(rawProgress, 'funded');
             const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
             const donorContribution = Math.max(0, Number(campaign.currentUserContribution || 0));
             const donorContributionPercent = Math.max(0, Number(campaign.currentUserContributionPercent || 0));
@@ -438,7 +459,7 @@ function CampaignsPage() {
                       aria-valuemax="100"
                       aria-valuenow={progressWidth}
                     >
-                      <span style={{ width: `${progressWidth}%` }} />
+                      <span style={{ width: `${visibleProgressWidth}%` }} />
                     </div>
                     {isLoggedIn ? (
                       <div className="campaign-progress-donor-note">

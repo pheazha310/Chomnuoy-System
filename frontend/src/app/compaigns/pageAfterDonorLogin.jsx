@@ -20,6 +20,11 @@ function formatMoney(value) {
   }).format(Number(value || 0));
 }
 
+function formatProgressLabel(progress, suffix) {
+  if (progress > 0 && progress < 1) return `<1% ${suffix}`;
+  return `${Math.round(progress)}% ${suffix}`;
+}
+
 export default function CampaignCard({
   id,
   title,
@@ -44,12 +49,15 @@ export default function CampaignCard({
   const safeGoal = isMaterialCampaign ? requestedItems : (goal > 0 ? goal : 1);
   const progressBase = isMaterialCampaign ? pledgedItems : raised;
   const progress = Math.min((progressBase / safeGoal) * 100, 100);
+  const visibleProgress = progress > 0 ? Math.max(progress, 1) : 0;
   const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
   const primaryMetricLabel = isMaterialCampaign ? 'Pledged' : 'Raised';
   const secondaryMetricLabel = isMaterialCampaign ? 'Needed' : 'Goal';
   const primaryMetricValue = isMaterialCampaign ? pledgedItems.toLocaleString() : formatMoney(raised);
   const secondaryMetricValue = isMaterialCampaign ? requestedItems.toLocaleString() : formatMoney(goal);
-  const progressLabel = isMaterialCampaign ? `${Math.round(progress)}% pledged` : `${Math.round(progress)}% funded`;
+  const progressLabel = isMaterialCampaign
+    ? formatProgressLabel(progress, 'pledged')
+    : formatProgressLabel(progress, 'funded');
   const footerHeadline = isMaterialCampaign ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items left` : timeLeft;
   const footerEyebrow = isMaterialCampaign ? 'Items Remaining' : 'Campaign Closes';
   const remainingValue = isMaterialCampaign
@@ -184,7 +192,7 @@ export default function CampaignCard({
             >
               <motion.div
                 initial={{ width: 0 }}
-                whileInView={{ width: `${progress}%` }}
+                whileInView={{ width: `${visibleProgress}%` }}
                 transition={{ duration: 1, ease: 'easeOut' }}
                 className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-[#1f7de2]"
               />

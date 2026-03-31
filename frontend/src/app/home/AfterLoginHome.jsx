@@ -15,6 +15,7 @@ import { getSession } from '@/services/session-service.js';
 const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
 const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const USD_TO_KHR_RATE = 4100;
 
 function getLoggedInUserName() {
   const session = getSession();
@@ -26,6 +27,58 @@ function formatMoney(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number)) return '$0.00';
   return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function isSuccessfulPaymentStatus(status) {
+  const value = String(status || '').trim().toUpperCase();
+  return ['COMPLETED', 'SUCCESS', 'CONFIRMED', 'PAID'].includes(value);
+}
+
+function isSuccessfulDonationStatus(status) {
+  const value = String(status || '').trim().toUpperCase();
+  return ['COMPLETED', 'SUCCESS', 'CONFIRMED', 'PAID', 'RECURRING'].includes(value);
+}
+
+function normalizeCurrency(currency) {
+  return String(currency || 'USD').trim().toUpperCase() === 'KHR' ? 'KHR' : 'USD';
+}
+
+function convertToUsdAmount(amount, currency = 'USD') {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount)) return 0;
+  return normalizeCurrency(currency) === 'KHR' ? numericAmount / USD_TO_KHR_RATE : numericAmount;
+}
+
+function extractCampaignIdFromBillNumber(billNumber) {
+  const raw = String(billNumber || '').trim();
+  const match = raw.match(/^DON-(\d+)-/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function findBestMatchingPayment({ donation, payments, matchedPaymentIds }) {
+  const donationAmount = Number(donation?.amount || 0);
+  const donationUserId = Number(donation?.user_id || 0);
+  const donationCampaignId = Number(donation?.campaign_id || 0);
+  const donationTime = new Date(donation?.created_at || 0).getTime();
+
+  return payments
+    .filter((payment) => !matchedPaymentIds.has(Number(payment.id)))
+    .filter((payment) => isSuccessfulPaymentStatus(payment.status))
+    .filter((payment) => Number(payment.user_id || 0) === donationUserId)
+    .filter((payment) => Number(payment.amount || 0) === donationAmount)
+    .filter((payment) => {
+      const paymentCampaignId = extractCampaignIdFromBillNumber(payment.bill_number);
+      return !donationCampaignId || !paymentCampaignId || paymentCampaignId === donationCampaignId;
+    })
+    .map((payment) => {
+      const paymentTime = new Date(payment.paid_at || payment.created_at || 0).getTime();
+      return {
+        payment,
+        timeDifference: Math.abs(paymentTime - donationTime),
+      };
+    })
+    .filter(({ timeDifference }) => Number.isFinite(timeDifference) && timeDifference <= 60 * 60 * 1000)
+    .sort((a, b) => a.timeDifference - b.timeDifference)[0]?.payment ?? null;
 }
 
 function getImpactLevel(totalDonated) {
@@ -127,19 +180,61 @@ function mapUrgentCampaigns(campaignsData) {
     .slice(0, 2);
 }
 
-function mapDonationMetrics(donationsData, userId) {
+function mapDonationMetrics(donationsData, paymentsData, userId) {
   const donations = Array.isArray(donationsData) ? donationsData : [];
+  const payments = Array.isArray(paymentsData) ? paymentsData : [];
   const myDonations = userId
-    ? donations.filter((item) => Number(item.user_id) === userId)
+    ? donations.filter((item) => Number(item.user_id) === userId && String(item.donation_type || '').toLowerCase() === 'money')
     : [];
-  const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const myPayments = userId
+    ? payments.filter((item) => Number(item.user_id) === userId)
+    : [];
+  const paymentMap = new Map();
+  const matchedPaymentIds = new Set();
+
+  myPayments.forEach((item) => {
+    const donationId = Number(item.donation_id || 0);
+    if (donationId) {
+      paymentMap.set(donationId, item);
+    }
+  });
+
+  const successfulDonationRows = myDonations
+    .filter((item) => isSuccessfulDonationStatus(item.status))
+    .map((item) => {
+      const payment = paymentMap.get(Number(item.id)) || findBestMatchingPayment({
+        donation: item,
+        payments: myPayments,
+        matchedPaymentIds,
+      });
+
+      if (payment?.id) {
+        matchedPaymentIds.add(Number(payment.id));
+      }
+
+      return {
+        amountUsd: convertToUsdAmount(item.amount, payment?.currency),
+        createdAt: new Date(item.created_at || 0).getTime(),
+      };
+    });
+
+  const successfulDirectPaymentRows = myPayments
+    .filter((item) => !matchedPaymentIds.has(Number(item.id)))
+    .filter((item) => !Number(item.donation_id || 0))
+    .filter((item) => isSuccessfulPaymentStatus(item.status))
+    .map((item) => ({
+      amountUsd: convertToUsdAmount(item.amount, item.currency),
+      createdAt: new Date(item.paid_at || item.created_at || 0).getTime(),
+    }));
+
+  const successfulMoneyRows = [...successfulDonationRows, ...successfulDirectPaymentRows];
+  const total = successfulMoneyRows.reduce((sum, item) => sum + item.amountUsd, 0);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const monthTotal = myDonations.reduce((sum, item) => {
-    const created = new Date(item.created_at || 0).getTime();
-    if (!Number.isNaN(created) && created >= monthStart) {
-      return sum + Number(item.amount || 0);
+  const monthTotal = successfulMoneyRows.reduce((sum, item) => {
+    if (!Number.isNaN(item.createdAt) && item.createdAt >= monthStart) {
+      return sum + item.amountUsd;
     }
     return sum;
   }, 0);
@@ -225,11 +320,13 @@ function AfterLoginHome() {
       })
       .finally(finishRequest);
 
-    fetch(`${apiBase}/donations`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((donationsData) => {
+    Promise.all([
+      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`${apiBase}/payments`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([donationsData, paymentsData]) => {
         if (!active) return;
-        const metrics = mapDonationMetrics(donationsData, userId);
+        const metrics = mapDonationMetrics(donationsData, paymentsData, userId);
         setTotalDonated(metrics.totalDonated);
         setMonthlyTotal(metrics.monthlyTotal);
         nextCache.totalDonated = metrics.totalDonated;

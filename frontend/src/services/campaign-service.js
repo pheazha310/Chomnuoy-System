@@ -13,6 +13,16 @@ function getApiBase() {
   return import.meta.env.VITE_API_URL || DEFAULT_API_BASE;
 }
 
+function normalizeDonationType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return key === 'material' || key === 'materials' ? 'material' : 'money';
+}
+
+function isSuccessfulDonationStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ['completed', 'success', 'confirmed', 'paid'].includes(key);
+}
+
 function parsePossibleJson(value) {
   if (!value) return null;
   if (typeof value === 'object') return value;
@@ -185,6 +195,57 @@ export function normalizeCampaign(item) {
   };
 }
 
+function buildCampaignTotals(donations, materialItems) {
+  const materialQuantityByDonationId = new Map(
+    (Array.isArray(materialItems) ? materialItems : []).map((item) => [
+      Number(item.donation_id),
+      Math.max(1, Number(item.quantity || 1)),
+    ]),
+  );
+
+  return (Array.isArray(donations) ? donations : []).reduce((map, item) => {
+    const campaignId = Number(item.campaign_id || 0);
+    if (!campaignId || !isSuccessfulDonationStatus(item.status)) return map;
+
+    const current = map.get(campaignId) || { money: 0, material: 0, supporters: new Set() };
+    const donationType = normalizeDonationType(item.donation_type);
+    const amount = Math.max(0, Number(item.amount || 0));
+
+    if (donationType === 'material') {
+      current.material += materialQuantityByDonationId.get(Number(item.id)) || Math.max(1, amount);
+    } else {
+      current.money += amount;
+    }
+
+    const donorUserId = Number(item.user_id || 0);
+    if (donorUserId) {
+      current.supporters.add(donorUserId);
+    }
+
+    map.set(campaignId, current);
+    return map;
+  }, new Map());
+}
+
+function applyCampaignTotals(campaigns, donations, materialItems) {
+  const totalsByCampaignId = buildCampaignTotals(donations, materialItems);
+
+  return campaigns.map((campaign) => {
+    const campaignTotals = totalsByCampaignId.get(Number(campaign.id || 0));
+    const isMaterialCampaign = String(campaign.campaignType || '').toLowerCase().includes('material');
+    const liveRaisedAmount = isMaterialCampaign
+      ? Number(campaignTotals?.material || 0)
+      : Number(campaign.raisedAmount || 0);
+
+    return {
+      ...campaign,
+      raisedAmount: liveRaisedAmount,
+      raised: liveRaisedAmount,
+      supporterCount: campaignTotals?.supporters?.size ?? campaign.supporterCount,
+    };
+  });
+}
+
 export function mapCampaigns(items, options = {}) {
   const includeHidden = options.includeHidden === true;
 
@@ -195,21 +256,39 @@ export function mapCampaigns(items, options = {}) {
 }
 
 export async function fetchCampaigns(options = {}) {
-  const response = await fetch(`${getApiBase()}/campaigns`, options);
-  if (!response.ok) {
-    throw new Error(`Failed to load campaigns (${response.status})`);
+  const apiBase = getApiBase();
+  const [campaignResponse, donationResponse, materialItemsResponse] = await Promise.all([
+    fetch(`${apiBase}/campaigns`, options),
+    fetch(`${apiBase}/donations`, options),
+    fetch(`${apiBase}/material_items`, options),
+  ]);
+
+  if (!campaignResponse.ok) {
+    throw new Error(`Failed to load campaigns (${campaignResponse.status})`);
   }
 
-  const data = await response.json();
-  return mapCampaigns(data);
+  const campaignsData = await campaignResponse.json();
+  const donationsData = donationResponse.ok ? await donationResponse.json() : [];
+  const materialItemsData = materialItemsResponse.ok ? await materialItemsResponse.json() : [];
+
+  return applyCampaignTotals(mapCampaigns(campaignsData), donationsData, materialItemsData);
 }
 
 export async function fetchCampaignById(id, options = {}) {
-  const response = await fetch(`${getApiBase()}/campaigns/${id}`, options);
-  if (!response.ok) {
-    throw new Error(`Failed to load campaign (${response.status})`);
+  const apiBase = getApiBase();
+  const [campaignResponse, donationResponse, materialItemsResponse] = await Promise.all([
+    fetch(`${apiBase}/campaigns/${id}`, options),
+    fetch(`${apiBase}/donations`, options),
+    fetch(`${apiBase}/material_items`, options),
+  ]);
+
+  if (!campaignResponse.ok) {
+    throw new Error(`Failed to load campaign (${campaignResponse.status})`);
   }
 
-  const data = await response.json();
-  return normalizeCampaign(data);
+  const campaignData = await campaignResponse.json();
+  const donationsData = donationResponse.ok ? await donationResponse.json() : [];
+  const materialItemsData = materialItemsResponse.ok ? await materialItemsResponse.json() : [];
+
+  return applyCampaignTotals([normalizeCampaign(campaignData)], donationsData, materialItemsData)[0] ?? null;
 }

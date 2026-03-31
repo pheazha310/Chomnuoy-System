@@ -23,6 +23,16 @@ import { getSession } from '@/services/session-service.js';
 const DONOR_METRICS_CACHE_KEY = 'donor_campaign_metrics_cache_v1';
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
+const normalizeDonationType = (value) => {
+  const key = String(value || '').trim().toLowerCase();
+  return key === 'material' || key === 'materials' ? 'material' : 'money';
+};
+
+const isSuccessfulDonationStatus = (value) => {
+  const key = String(value || '').trim().toLowerCase();
+  return ['completed', 'success', 'confirmed', 'paid'].includes(key);
+};
+
 const readCache = (key) => {
   try {
     const raw = window.sessionStorage.getItem(key);
@@ -82,12 +92,56 @@ export default function App() {
     const name = typeof session?.name === 'string' ? session.name.trim() : '';
     setDonorName(name || 'Donor');
     setDonorAvatar(typeof session?.avatar === 'string' ? session.avatar.trim() : '');
-    fetchCampaigns()
-      .then((data) => {
-        const mapped = data.filter((item) => {
-          const status = String(item.status || '').toLowerCase();
-          return !status || status === 'active';
-        });
+    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+
+    Promise.all([
+      fetchCampaigns(),
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/material_items`).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([campaignData, donationsData, materialItemsData]) => {
+        const donations = Array.isArray(donationsData) ? donationsData : [];
+        const materialItems = Array.isArray(materialItemsData) ? materialItemsData : [];
+        const materialQuantityByDonationId = new Map(
+          materialItems.map((item) => [Number(item.donation_id), Math.max(1, Number(item.quantity || 1))]),
+        );
+
+        const campaignTotals = donations.reduce((map, item) => {
+          const campaignId = Number(item.campaign_id || 0);
+          if (!campaignId || !isSuccessfulDonationStatus(item.status)) return map;
+
+          const current = map.get(campaignId) || { money: 0, material: 0 };
+          const donationType = normalizeDonationType(item.donation_type);
+
+          if (donationType === 'material') {
+            current.material += materialQuantityByDonationId.get(Number(item.id)) || Math.max(1, Number(item.amount || 1));
+          } else {
+            current.money += Number(item.amount || 0);
+          }
+
+          map.set(campaignId, current);
+          return map;
+        }, new Map());
+
+        const mapped = campaignData
+          .filter((item) => {
+            const status = String(item.status || '').toLowerCase();
+            return !status || status === 'active';
+          })
+          .map((item) => {
+            const isMaterialCampaign = String(item.campaignType || '').toLowerCase().includes('material');
+            const totals = campaignTotals.get(Number(item.id || 0));
+            const liveRaisedAmount = isMaterialCampaign
+              ? Number(totals?.material || 0)
+              : Number(item.raisedAmount ?? 0);
+
+            return {
+              ...item,
+              raisedAmount: liveRaisedAmount,
+              raised: liveRaisedAmount,
+            };
+          });
+
         setCampaigns(mapped);
         writeCache(CAMPAIGNS_CACHE_KEY, mapped);
       })
@@ -102,7 +156,6 @@ export default function App() {
         setIsRefreshing(false);
       });
 
-    const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
     fetch(`${apiBase}/donations`)
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
