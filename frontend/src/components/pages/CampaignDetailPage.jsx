@@ -25,8 +25,8 @@ import { createBakongTransaction, getPaymentStatus } from '../../services/user-s
 import { getCampaignById } from '../../data/campaigns';
 import {
   CAMPAIGNS_CACHE_KEY as DONOR_CAMPAIGNS_CACHE_KEY,
+  fetchCampaignByKey,
   campaignCategoryToSidebarCategory,
-  fetchCampaignById,
   normalizeCampaign,
 } from '../../services/campaign-service';
 import { getAuthToken, getSession } from '../../services/session-service';
@@ -67,10 +67,23 @@ function readSessionCache(key) {
 }
 
 function getCachedCampaignById(id) {
+  const normalizedKey = String(id || '').trim().toLowerCase();
+  const slugify = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
   try {
     const rawLastOpened = window.localStorage.getItem(LAST_OPENED_CAMPAIGN_KEY);
     const lastOpened = rawLastOpened ? JSON.parse(rawLastOpened) : null;
-    if (lastOpened && String(lastOpened.id) === String(id)) {
+    if (
+      lastOpened
+      && (
+        String(lastOpened.id) === String(id)
+        || slugify(lastOpened.slug || lastOpened.title || lastOpened.id) === slugify(normalizedKey)
+      )
+    ) {
       return normalizeCampaign(lastOpened);
     }
   } catch {
@@ -79,13 +92,19 @@ function getCachedCampaignById(id) {
 
   const donorCampaigns = readSessionCache(DONOR_CAMPAIGNS_CACHE_KEY);
   if (Array.isArray(donorCampaigns)) {
-    const match = donorCampaigns.find((item) => String(item?.id) === String(id));
+    const match = donorCampaigns.find((item) => (
+      String(item?.id) === String(id)
+      || slugify(item?.slug || item?.title || item?.id) === slugify(normalizedKey)
+    ));
     if (match) return normalizeCampaign(match);
   }
 
   const donorHome = readSessionCache(DONOR_HOME_CACHE_KEY);
   const donorHomeCampaigns = Array.isArray(donorHome?.campaigns) ? donorHome.campaigns : [];
-  const homeMatch = donorHomeCampaigns.find((item) => String(item?.id) === String(id));
+  const homeMatch = donorHomeCampaigns.find((item) => (
+    String(item?.id) === String(id)
+    || slugify(item?.slug || item?.title || item?.id) === slugify(normalizedKey)
+  ));
   if (homeMatch) return normalizeCampaign(homeMatch);
 
   return null;
@@ -467,18 +486,10 @@ function CampaignDetailPage({ campaignId }) {
       }
     }
 
-    if (!isNumericCampaignId) {
-      // No numeric campaign ID provided and no campaign resolved from route/local cache.
-      setCampaignData(null);
-      return () => {
-        mounted = false;
-      };
-    }
-
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 8000);
     setCampaignLoading(true);
-    fetchCampaignById(resolvedCampaignId, { signal: controller.signal })
+    fetchCampaignByKey(resolvedCampaignId, { signal: controller.signal })
       .then((data) => {
         if (!mounted) return;
         setCampaignData(data);

@@ -215,6 +215,23 @@ export const campaigns = [
   },
 ];
 
+function toCampaignSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export function getCampaignById(idOrSlug) {
-  return campaigns.find((campaign) => campaign.id === idOrSlug) ?? null;
+  const key = String(idOrSlug || '').trim();
+  if (!key) return null;
+
+  const normalizedKey = toCampaignSlug(key);
+
+  return campaigns.find((campaign) => (
+    String(campaign.id) === key ||
+    toCampaignSlug(campaign.id) === normalizedKey ||
+    toCampaignSlug(campaign.title) === normalizedKey
+  )) ?? null;
 }

@@ -1,5 +1,6 @@
 // Import apiClient (Axios instance with baseURL and config)
 import apiClient from './api-client';
+import { getSession } from './session-service';
 
 function normalizeResourceId(value) {
     if (value === null || value === undefined || value === '') {
@@ -134,12 +135,24 @@ export async function getUserById(userId) {
 }
 
 export async function getMyUserProfile() {
-    const response = await apiClient.get('/profile/me');
+    const session = getSession();
+    const normalizedId = normalizeResourceId(session?.userId);
+    if (!normalizedId) {
+        throw new Error('Missing session user id.');
+    }
+
+    const response = await apiClient.get(`/users/${normalizedId}`);
     return response.data;
 }
 
 export async function updateMyUserProfile(formData) {
-    const response = await apiClient.post('/profile/me?_method=PUT', formData, {
+    const session = getSession();
+    const normalizedId = normalizeResourceId(session?.userId);
+    if (!normalizedId) {
+        throw new Error('Missing session user id.');
+    }
+
+    const response = await apiClient.post(`/users/${normalizedId}?_method=PUT`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;

@@ -240,6 +240,68 @@ function mapActivity(notificationsData, userId) {
   });
 }
 
+function OrganizationPostCard({ item, index, onOpen }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(item.image) && !imageFailed;
+  const statusLabel = String(item.chip || '').trim() || 'Live campaign';
+  const previewLabel = item.rawCampaign?.campaignType === 'material' ? 'Material drive' : 'Fundraising campaign';
+
+  return (
+    <article
+      className={`dashboard-org-post ${index === 0 ? 'is-featured' : ''}`}
+    >
+      <div className="dashboard-org-post-head-row">
+        <div className="dashboard-org-post-brand">
+          {item.organizationAvatar ? (
+            <img src={item.organizationAvatar} alt={item.organizationName} />
+          ) : (
+            <span className="dashboard-org-post-avatar-fallback" aria-hidden="true">
+              {item.organizationInitials}
+            </span>
+          )}
+          <div>
+            <strong>{item.organizationName}</strong>
+            <span>{item.postDate}</span>
+          </div>
+        </div>
+        <span className="dashboard-org-post-chip">{statusLabel}</span>
+      </div>
+
+      <div className="dashboard-org-post-content">
+        <div className="dashboard-org-post-copy">
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </div>
+
+        <div className={`dashboard-org-post-media ${showImage ? 'has-image' : 'is-placeholder'}`}>
+          {showImage ? (
+            <img
+              src={item.image}
+              alt={item.title}
+              className="dashboard-org-post-image"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <div className="dashboard-org-post-image-placeholder" aria-hidden="true">
+              <span className="dashboard-org-post-image-badge">{previewLabel}</span>
+              <strong>{item.organizationInitials}</strong>
+              <p>{item.organizationName}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className="dashboard-org-post-action"
+        onClick={() => onOpen({ rawCampaign: item.rawCampaign, id: item.id })}
+      >
+        View Campaign
+      </button>
+    </article>
+  );
+}
+
 function AfterLoginHome() {
   const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
@@ -465,46 +527,12 @@ function AfterLoginHome() {
 
               <div className="dashboard-org-posts">
                 {organizationPosts.map((item, index) => (
-                  <article
+                  <OrganizationPostCard
                     key={item.id}
-                    className={`dashboard-org-post ${index === 0 ? 'is-featured' : ''}`}
-                  >
-                    <div className="dashboard-org-post-head-row">
-                      <div className="dashboard-org-post-brand">
-                        {item.organizationAvatar ? (
-                          <img src={item.organizationAvatar} alt={item.organizationName} />
-                        ) : (
-                          <span className="dashboard-org-post-avatar-fallback" aria-hidden="true">
-                            {item.organizationInitials}
-                          </span>
-                        )}
-                        <div>
-                          <strong>{item.organizationName}</strong>
-                          <span>{item.postDate}</span>
-                        </div>
-                      </div>
-                      <span className="dashboard-org-post-chip">{item.chip}</span>
-                    </div>
-
-                    <h3>{item.title}</h3>
-                    <p>{item.body}</p>
-
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="dashboard-org-post-image"
-                      />
-                    ) : null}
-
-                    <button
-                      type="button"
-                      className="dashboard-org-post-action"
-                      onClick={() => openCampaignDetail({ rawCampaign: item.rawCampaign, id: item.id })}
-                    >
-                      View Campaign
-                    </button>
-                  </article>
+                    item={item}
+                    index={index}
+                    onOpen={openCampaignDetail}
+                  />
                 ))}
                 {!loading && organizationPosts.length === 0 ? (
                   <p className="text-sm text-[#64748B]">No organization posts available yet.</p>
@@ -575,11 +603,16 @@ function AfterLoginHome() {
             </section>
 
             <section className="cta-card">
+              <span className="cta-card-eyebrow">CREATE A CAMPAIGN</span>
               <h3>Want to do more?</h3>
               <p>
                 Start your own fundraising campaign for a cause
                 you care about.
               </p>
+              <div className="cta-card-highlights">
+                <span>Tell your story</span>
+                <span>Reach donors faster</span>
+              </div>
               <Link to="/campaigns/donor" className="cta-start-link">
                 Start Campaign
               </Link>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Campaign;
 use App\Models\Donation;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
@@ -74,13 +75,23 @@ class PaymentController extends Controller
 
     private function createPendingDonationIfNeeded(array $validated): ?Donation
     {
-        if (empty($validated['user_id']) || empty($validated['organization_id'])) {
+        $organizationId = !empty($validated['organization_id'])
+            ? (int) $validated['organization_id']
+            : null;
+
+        if (!$organizationId && !empty($validated['campaign_id'])) {
+            $organizationId = Campaign::query()
+                ->whereKey((int) $validated['campaign_id'])
+                ->value('organization_id');
+        }
+
+        if (empty($validated['user_id']) || empty($organizationId)) {
             return null;
         }
 
         return Donation::create([
             'user_id' => (int) $validated['user_id'],
-            'organization_id' => (int) $validated['organization_id'],
+            'organization_id' => (int) $organizationId,
             'campaign_id' => !empty($validated['campaign_id']) ? (int) $validated['campaign_id'] : null,
             'amount' => $validated['amount'],
             'donation_type' => 'money',
@@ -316,6 +327,18 @@ class PaymentController extends Controller
                 'method_name' => 'Bakong KHQR',
             ]);
             $paymentColumns = $this->paymentColumns();
+
+            if (isset($paymentColumns['donation_id']) && !$donation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A donor session and campaign organization are required before generating a QR payment.',
+                    'errors' => [
+                        'donation_id' => [
+                            'Unable to create the donation record required for this payment.',
+                        ],
+                    ],
+                ], 422);
+            }
 
             $paymentPayload = [
                 'md5' => $result['data']['md5'],

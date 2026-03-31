@@ -28,6 +28,14 @@ function parsePossibleJson(value) {
   return null;
 }
 
+export function buildCampaignSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export function getCampaignStorageFileUrl(path) {
   if (!path) return '';
 
@@ -138,6 +146,7 @@ export function normalizeCampaign(item) {
 
   return {
     id: item.id,
+    slug: buildCampaignSlug(item.slug || item.title || item.name || item.id),
     organizationId: Number(item.organization_id ?? item.organizationId ?? 0) || null,
     campaignType: isMaterialCampaign ? 'material' : 'monetary',
     title: item.title || 'Untitled Campaign',
@@ -212,4 +221,28 @@ export async function fetchCampaignById(id, options = {}) {
 
   const data = await response.json();
   return normalizeCampaign(data);
+}
+
+export async function fetchCampaignByKey(idOrSlug, options = {}) {
+  const key = String(idOrSlug || '').trim();
+  if (!key) {
+    throw new Error('Missing campaign id.');
+  }
+
+  if (/^\d+$/.test(key)) {
+    return fetchCampaignById(key, options);
+  }
+
+  const campaigns = await fetchCampaigns(options);
+  const normalizedKey = buildCampaignSlug(key);
+  const match = campaigns.find((item) => (
+    String(item?.id) === key ||
+    buildCampaignSlug(item?.slug || item?.title || item?.id) === normalizedKey
+  ));
+
+  if (!match) {
+    throw new Error('Failed to load campaign (404)');
+  }
+
+  return match;
 }
