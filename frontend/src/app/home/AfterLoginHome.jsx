@@ -9,7 +9,7 @@ import {
   Leaf
 } from 'lucide-react';
 import './afterLoginHome.css';
-import { fetchCampaigns } from '@/services/campaign-service.js';
+import { fetchCampaigns, getCampaignStorageFileUrl } from '@/services/campaign-service.js';
 import { getSession } from '@/services/session-service.js';
 
 const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
@@ -74,6 +74,44 @@ function getActivityIcon(iconType) {
   }
 }
 
+function getInitials(name) {
+  return String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'OR';
+}
+
+function formatRelativePostDate(value) {
+  if (!value) return 'Recently';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Recently';
+
+  const diffMs = Date.now() - parsed.getTime();
+  const diffHours = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+
+  if (diffHours < 1) return 'Just now';
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function resolveOrganizationAvatar(organization) {
+  return (
+    organization?.avatar_url ||
+    getCampaignStorageFileUrl(organization?.avatar_path) ||
+    organization?.image_url ||
+    ''
+  );
+}
+
 function normalizeCachedActivity(activityData) {
   if (!Array.isArray(activityData)) return [];
 
@@ -120,6 +158,38 @@ function mapUrgentCampaigns(campaignsData) {
       };
     })
     .slice(0, 2);
+}
+
+function mapOrganizationPosts(campaignsData, organizationsData) {
+  const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
+  const organizationMap = new Map(
+    (Array.isArray(organizationsData) ? organizationsData : []).map((item) => [Number(item.id), item])
+  );
+
+  return campaignItems
+    .slice()
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .map((item) => {
+      const organization = organizationMap.get(Number(item.organizationId));
+      const organizationName =
+        organization?.name ||
+        item.organization ||
+        'Verified Organization';
+      const organizationAvatar = resolveOrganizationAvatar(organization);
+      return {
+        id: item.id,
+        organizationName,
+        organizationAvatar,
+        organizationInitials: getInitials(organizationName),
+        postDate: formatRelativePostDate(item.createdAt || item.startDate),
+        chip: item.goalAmount ? `${formatMoney(item.goalAmount)} goal` : (item.timeLeft || 'Live campaign'),
+        title: item.title || 'Untitled Campaign',
+        body: item.summary || item.description || 'No description provided.',
+        image: item.image || '',
+        rawCampaign: item,
+      };
+    })
+    .slice(0, 3);
 }
 
 function mapDonationMetrics(donationsData, userId) {
@@ -175,6 +245,7 @@ function AfterLoginHome() {
   const donorName = useMemo(() => getLoggedInUserName(), []);
   const cachedDashboard = useMemo(() => readDashboardCache(), []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
+  const [organizationPosts, setOrganizationPosts] = useState(Array.isArray(cachedDashboard?.organizationPosts) ? cachedDashboard.organizationPosts : []);
   const [activity, setActivity] = useState(normalizeCachedActivity(cachedDashboard?.activity));
   const [totalDonated, setTotalDonated] = useState(Number(cachedDashboard?.totalDonated || 0));
   const [monthlyTotal, setMonthlyTotal] = useState(Number(cachedDashboard?.monthlyTotal || 0));
@@ -193,6 +264,7 @@ function AfterLoginHome() {
 
     const nextCache = {
       campaigns: Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : [],
+      organizationPosts: Array.isArray(cachedDashboard?.organizationPosts) ? cachedDashboard.organizationPosts : [],
       activity: normalizeCachedActivity(cachedDashboard?.activity),
       totalDonated: Number(cachedDashboard?.totalDonated || 0),
       monthlyTotal: Number(cachedDashboard?.monthlyTotal || 0),
@@ -206,12 +278,18 @@ function AfterLoginHome() {
       }
     };
 
-    fetchCampaigns()
-      .then((campaignsData) => {
+    Promise.all([
+      fetchCampaigns(),
+      fetch(`${apiBase}/organizations`).then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([campaignsData, organizationsData]) => {
         if (!active) return;
         const urgent = mapUrgentCampaigns(campaignsData);
+        const posts = mapOrganizationPosts(campaignsData, organizationsData);
         setCampaigns(urgent);
+        setOrganizationPosts(posts);
         nextCache.campaigns = urgent;
+        nextCache.organizationPosts = posts;
         writeDashboardCache(nextCache);
       })
       .catch(() => {
@@ -378,6 +456,61 @@ function AfterLoginHome() {
                 <p className="text-sm text-[#64748B]">No urgent campaigns available.</p>
               ) : null}
             </div>
+
+            <section className="dashboard-org-posts-section">
+              <div className="section-head dashboard-post-head">
+                <h2>Latest From Organizations</h2>
+                <Link to="/organizations">See organizations</Link>
+              </div>
+
+              <div className="dashboard-org-posts">
+                {organizationPosts.map((item, index) => (
+                  <article
+                    key={item.id}
+                    className={`dashboard-org-post ${index === 0 ? 'is-featured' : ''}`}
+                  >
+                    <div className="dashboard-org-post-head-row">
+                      <div className="dashboard-org-post-brand">
+                        {item.organizationAvatar ? (
+                          <img src={item.organizationAvatar} alt={item.organizationName} />
+                        ) : (
+                          <span className="dashboard-org-post-avatar-fallback" aria-hidden="true">
+                            {item.organizationInitials}
+                          </span>
+                        )}
+                        <div>
+                          <strong>{item.organizationName}</strong>
+                          <span>{item.postDate}</span>
+                        </div>
+                      </div>
+                      <span className="dashboard-org-post-chip">{item.chip}</span>
+                    </div>
+
+                    <h3>{item.title}</h3>
+                    <p>{item.body}</p>
+
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="dashboard-org-post-image"
+                      />
+                    ) : null}
+
+                    <button
+                      type="button"
+                      className="dashboard-org-post-action"
+                      onClick={() => openCampaignDetail({ rawCampaign: item.rawCampaign, id: item.id })}
+                    >
+                      View Campaign
+                    </button>
+                  </article>
+                ))}
+                {!loading && organizationPosts.length === 0 ? (
+                  <p className="text-sm text-[#64748B]">No organization posts available yet.</p>
+                ) : null}
+              </div>
+            </section>
 
             <section className="personalized">
               <h2>Personalized For You</h2>

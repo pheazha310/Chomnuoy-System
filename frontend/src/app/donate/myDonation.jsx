@@ -64,6 +64,22 @@ const normalizeStatus = (status) => {
   return { label: 'PENDING', className: 'my-donation-status-pending' };
 };
 
+const isSuccessfulPaymentStatus = (status) => {
+  const value = String(status || '').trim().toUpperCase();
+  return ['COMPLETED', 'SUCCESS', 'CONFIRMED', 'PAID'].includes(value);
+};
+
+const formatMoney = (amount) => `$${Number(amount || 0).toLocaleString('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})}`;
+
+const extractCampaignIdFromBillNumber = (billNumber) => {
+  const raw = String(billNumber || '').trim();
+  const match = raw.match(/^DON-(\d+)-/i);
+  return match ? Number(match[1]) : 0;
+};
+
 const getIconByCategory = (category = '') => {
   const key = String(category).toLowerCase();
   if (key.includes('water') || key.includes('environment')) {
@@ -198,7 +214,7 @@ export default function MyDonation() {
         const donationList = data.donations.filter((item) => Number(item.user_id) === userId);
         const donationIds = new Set(donationList.map((item) => Number(item.id)));
         const materialList = data.materialItems.filter((item) => donationIds.has(Number(item.donation_id)));
-        const paymentList = data.payments.filter((item) => donationIds.has(Number(item.donation_id)));
+        const paymentList = data.payments.filter((item) => Number(item.user_id) === userId);
 
         setDonations(donationList);
         setMaterialItems(materialList);
@@ -248,13 +264,24 @@ export default function MyDonation() {
     const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
     const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
     const materialMap = new Map(materialItems.map((item) => [Number(item.donation_id), item]));
-    const paymentMap = new Map(payments.map((item) => [Number(item.donation_id), item]));
+    const paymentMap = new Map();
+    const matchedPaymentIds = new Set();
 
-    return donations.map((item) => {
+    payments.forEach((item) => {
+      const donationId = Number(item.donation_id || 0);
+      if (donationId) {
+        paymentMap.set(donationId, item);
+      }
+    });
+
+    const donationRows = donations.map((item) => {
       const campaign = campaignMap.get(Number(item.campaign_id));
       const organization = organizationMap.get(Number(item.organization_id));
       const materialItem = materialMap.get(Number(item.id));
       const payment = paymentMap.get(Number(item.id));
+      if (payment?.id) {
+        matchedPaymentIds.add(Number(payment.id));
+      }
       const workflow = materialWorkflowMap.get(Number(item.id));
       const status = normalizeStatus(item.status);
       const category = campaign?.category || item.category || campaign?.type || 'General';
@@ -262,7 +289,7 @@ export default function MyDonation() {
       const amountText =
         item.donation_type === 'material'
           ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
-          : `$${Number(item.amount || 0).toLocaleString()}`;
+          : formatMoney(item.amount);
       const dateValue = toDate(item.created_at);
 
       const effectiveStatus = item.donation_type === 'material' && workflow
@@ -301,10 +328,10 @@ export default function MyDonation() {
                 year: 'numeric',
               })
             : '-',
-          transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${item.id}`,
+          transactionId: payment?.transaction_id ? `#${payment.transaction_id}` : `#DON-${item.id}`,
           paymentMethod: item.donation_type === 'material'
             ? (workflow?.pickup?.status || 'pending')
-            : (payment?.payment_method || payment?.payment_status || item.payment_method || 'Bakong KHQR'),
+            : (payment?.store_label || payment?.payment_method || item.payment_method || 'Bakong KHQR'),
           campaignTitle: campaign?.title || organization?.name || item.recipient || 'Campaign',
           campaignImage:
             getStorageFileUrl(campaign?.image_path) ||
@@ -322,6 +349,57 @@ export default function MyDonation() {
         },
       };
     });
+
+    const directPaymentRows = payments
+      .filter((payment) => !matchedPaymentIds.has(Number(payment.id)))
+      .filter((payment) => isSuccessfulPaymentStatus(payment.status))
+      .map((payment) => {
+        const campaignId = extractCampaignIdFromBillNumber(payment.bill_number);
+        const campaign = campaignMap.get(campaignId);
+        const organization = organizationMap.get(Number(campaign?.organization_id || 0));
+        const status = normalizeStatus(payment.status);
+        const category = campaign?.category || 'General';
+        const iconMeta = getIconByCategory(category);
+        const dateValue = toDate(payment.paid_at || payment.created_at);
+        const amountValue = Number(payment.amount || 0);
+
+        return {
+          id: `payment-${payment.id}`,
+          date: dateValue ? dateValue.toLocaleDateString() : '-',
+          dateValue: dateValue ? dateValue.getTime() : 0,
+          amount: formatMoney(amountValue),
+          recipient: campaign?.title || organization?.name || 'Organization',
+          subCause: campaign?.category || campaign?.title || 'General Support',
+          status: status.label,
+          statusClass: status.className,
+          icon: iconMeta.icon,
+          iconBg: iconMeta.bg,
+          detailState: {
+            donationId: null,
+            amount: amountValue.toFixed(2),
+            date: dateValue
+              ? dateValue.toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : '-',
+            transactionId: payment?.transaction_id ? `#${payment.transaction_id}` : `#PAY-${payment.id}`,
+            paymentMethod: payment?.store_label || 'Bakong KHQR',
+            campaignTitle: campaign?.title || 'Campaign',
+            campaignImage:
+              getStorageFileUrl(campaign?.image_path) ||
+              campaign?.image ||
+              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+            campaignLocation: campaign?.location || organization?.location || 'Cambodia',
+            organizationName: organization?.name || 'Organization',
+            receiptMessage: campaign?.receipt_message || '',
+            status: payment.status || 'success',
+          },
+        };
+      });
+
+    return [...donationRows, ...directPaymentRows];
   }, [campaigns, donations, materialItems, materialWorkflowMap, organizations, payments]);
 
   const latestDonationTime = donationItems.reduce((latest, item) => {
@@ -336,19 +414,37 @@ export default function MyDonation() {
     const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
 
     const moneyDonations = donations.filter((row) => row.donation_type !== 'material');
-    const totalFunds = moneyDonations.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    const successfulDirectPayments = payments.filter((row) => {
+      if (Number(row.donation_id || 0)) return false;
+      return isSuccessfulPaymentStatus(row.status);
+    });
+
+    const totalFunds = moneyDonations.reduce((sum, row) => sum + Number(row.amount || 0), 0)
+      + successfulDirectPayments.reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const thisMonthFunds = moneyDonations
       .filter((row) => {
         const date = toDate(row.created_at);
         return date && date >= startThisMonth;
       })
-      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0)
+      + successfulDirectPayments
+        .filter((row) => {
+          const date = toDate(row.paid_at || row.created_at);
+          return date && date >= startThisMonth;
+        })
+        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const lastMonthFunds = moneyDonations
       .filter((row) => {
         const date = toDate(row.created_at);
         return date && date >= startLastMonth && date <= endLastMonth;
       })
-      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0)
+      + successfulDirectPayments
+        .filter((row) => {
+          const date = toDate(row.paid_at || row.created_at);
+          return date && date >= startLastMonth && date <= endLastMonth;
+        })
+        .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
     const percentChange = (current, previous) => {
       if (!previous) return '0.0% increase from last month';
@@ -358,7 +454,17 @@ export default function MyDonation() {
     };
 
     const organizationIds = new Set(
-      donations.map((row) => Number(row.organization_id)).filter(Boolean),
+      [
+        ...donations.map((row) => Number(row.organization_id)).filter(Boolean),
+        ...payments
+          .filter((row) => !Number(row.donation_id || 0) && isSuccessfulPaymentStatus(row.status))
+          .map((row) => {
+            const campaignId = extractCampaignIdFromBillNumber(row.bill_number);
+            const campaign = campaigns.find((item) => Number(item.id) === campaignId);
+            return Number(campaign?.organization_id || 0);
+          })
+          .filter(Boolean),
+      ],
     );
     const uniqueOrganizations = organizationIds.size;
 
@@ -366,12 +472,12 @@ export default function MyDonation() {
       (sum, item) => sum + Number(item.quantity || 0),
       0,
     );
-    const impactCount = totalItems + donations.length;
+    const impactCount = totalItems + donationItems.length;
 
     return [
       {
         ...SUMMARY_META[0],
-        value: `$${totalFunds.toLocaleString()}`,
+        value: formatMoney(totalFunds),
         subtitle: percentChange(thisMonthFunds, lastMonthFunds),
       },
       {
@@ -385,7 +491,7 @@ export default function MyDonation() {
         subtitle: 'Across environmental & social sectors',
       },
     ];
-  }, [donations, materialItems]);
+  }, [campaigns, donationItems.length, donations, materialItems, payments]);
 
   const isInTimeRange = useCallback((itemDateValue) => {
     if (timeFilterLabel === 'All Time') return true;
@@ -881,7 +987,7 @@ export default function MyDonation() {
           ) : null}
           {!loading && !error
             ? visibleDonations.map((item) => (
-                <article key={`${item.recipient}-${item.amount}`} className="my-donation-row">
+                <article key={item.id} className="my-donation-row">
                   <div>
                     <p className="my-donation-label">DATE</p>
                     <p className="my-donation-date">{item.date}</p>

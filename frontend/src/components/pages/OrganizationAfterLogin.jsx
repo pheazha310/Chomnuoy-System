@@ -1207,9 +1207,6 @@ function OrganizationAfterLogin() {
                           </div>
                         </div>
                         <div className="donor-org-actions">
-                          <button type="button" className="donor-donate-btn" onClick={() => navigateToDonatePage(organization)}>
-                            Donate
-                          </button>
                           <button
                             type="button"
                             className={`donor-follow-btn ${isFollowing ? 'is-following' : ''}`}

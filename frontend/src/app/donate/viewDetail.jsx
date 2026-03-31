@@ -55,10 +55,27 @@ function getStorageFileUrl(path) {
 
 function getPaymentMeta(method = '') {
   const normalized = String(method).toLowerCase();
-  if (normalized.includes('bakong') || normalized.includes('khqr') || normalized.includes('qr')) {
+  if (
+    normalized.includes('bakong') ||
+    normalized.includes('khqr') ||
+    normalized.includes('qr') ||
+    normalized.includes('chomnuoy donation') ||
+    normalized.includes('online donation')
+  ) {
     return { icon: ScanQrCode, label: 'Bakong KHQR' };
   }
   return { icon: Wallet, label: 'ABA Pay' };
+}
+
+function isSuccessfulPaymentStatus(status = '') {
+  const normalized = String(status || '').trim().toUpperCase();
+  return ['SUCCESS', 'COMPLETED', 'CONFIRMED', 'PAID'].includes(normalized);
+}
+
+function extractCampaignIdFromBillNumber(billNumber) {
+  const raw = String(billNumber || '').trim();
+  const match = raw.match(/^DON-(\d+)-/i);
+  return match ? Number(match[1]) : 0;
 }
 
 export default function ViewDetail() {
@@ -113,40 +130,79 @@ export default function ViewDetail() {
         const donations = Array.isArray(donationsData) ? donationsData : [];
         const latestDonation = donations
           .filter((item) => Number(item.user_id) === userId)
-          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
 
-        if (!latestDonation) {
+        const campaignList = Array.isArray(campaignsData) ? campaignsData : [];
+        const paymentList = Array.isArray(paymentsData) ? paymentsData : [];
+        const organizationList = Array.isArray(organizationsData) ? organizationsData : [];
+        const latestDirectPayment = paymentList
+          .filter((item) => Number(item.user_id) === userId && !Number(item.donation_id || 0) && isSuccessfulPaymentStatus(item.status))
+          .sort((a, b) => new Date(b.paid_at || b.created_at || 0).getTime() - new Date(a.paid_at || a.created_at || 0).getTime())[0] || null;
+
+        const latestDonationTime = latestDonation ? new Date(latestDonation.created_at || 0).getTime() : 0;
+        const latestPaymentTime = latestDirectPayment ? new Date(latestDirectPayment.paid_at || latestDirectPayment.created_at || 0).getTime() : 0;
+
+        if (!latestDonation && !latestDirectPayment) {
           setError('No donation details available yet.');
           setLoading(false);
           return;
         }
 
-        const campaignList = Array.isArray(campaignsData) ? campaignsData : [];
-        const paymentList = Array.isArray(paymentsData) ? paymentsData : [];
-        const organizationList = Array.isArray(organizationsData) ? organizationsData : [];
-        const campaign = campaignList.find((item) => Number(item.id) === Number(latestDonation.campaign_id));
-        const payment = paymentList.find((item) => Number(item.donation_id) === Number(latestDonation.id));
-        const organization = organizationList.find((item) => Number(item.id) === Number(latestDonation.organization_id));
+        if (latestDonation && latestDonationTime >= latestPaymentTime) {
+          const campaign = campaignList.find((item) => Number(item.id) === Number(latestDonation.campaign_id));
+          const payment = paymentList.find((item) => Number(item.donation_id) === Number(latestDonation.id));
+          const organization = organizationList.find((item) => Number(item.id) === Number(latestDonation.organization_id));
+
+          const nextDetail = {
+            donationId: latestDonation.id,
+            amount: Number(latestDonation.amount || 0).toFixed(2),
+            date: new Date(latestDonation.created_at || Date.now()).toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            transactionId: payment?.transaction_id ? `#${payment.transaction_id}` : `#DON-${latestDonation.id}`,
+            paymentMethod: payment?.store_label || payment?.terminal_label || 'Bakong KHQR',
+            campaignTitle: campaign?.title || 'Campaign',
+            campaignImage:
+              getStorageFileUrl(campaign?.image_path) ||
+              campaign?.image ||
+              'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+            campaignLocation: campaign?.location || organization?.location || 'Cambodia',
+            organizationName: organization?.name || campaign?.organization_name || 'Organization',
+            receiptMessage: campaign?.receipt_message || '',
+            status: latestDonation.status || 'completed',
+          };
+
+          setDetail(nextDetail);
+          window.sessionStorage.setItem(LAST_DONATION_DETAIL_KEY, JSON.stringify(nextDetail));
+          setLoading(false);
+          return;
+        }
+
+        const campaignId = extractCampaignIdFromBillNumber(latestDirectPayment?.bill_number);
+        const campaign = campaignList.find((item) => Number(item.id) === campaignId);
+        const organization = organizationList.find((item) => Number(item.id) === Number(campaign?.organization_id || 0));
 
         const nextDetail = {
-          donationId: latestDonation.id,
-          amount: Number(latestDonation.amount || 0).toFixed(2),
-          date: new Date(latestDonation.created_at || Date.now()).toLocaleDateString('en-US', {
+          donationId: null,
+          amount: Number(latestDirectPayment?.amount || 0).toFixed(2),
+          date: new Date(latestDirectPayment?.paid_at || latestDirectPayment?.created_at || Date.now()).toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
             year: 'numeric',
           }),
-          transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${latestDonation.id}`,
-          paymentMethod: payment?.payment_method || payment?.payment_status || 'Bakong KHQR',
+          transactionId: latestDirectPayment?.transaction_id ? `#${latestDirectPayment.transaction_id}` : `#PAY-${latestDirectPayment?.id || ''}`,
+          paymentMethod: latestDirectPayment?.store_label || latestDirectPayment?.terminal_label || 'Bakong KHQR',
           campaignTitle: campaign?.title || 'Campaign',
           campaignImage:
             getStorageFileUrl(campaign?.image_path) ||
             campaign?.image ||
             'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
           campaignLocation: campaign?.location || organization?.location || 'Cambodia',
-          organizationName: organization?.name || campaign?.organization_name || 'Organization',
+          organizationName: organization?.name || 'Organization',
           receiptMessage: campaign?.receipt_message || '',
-          status: latestDonation.status || 'completed',
+          status: latestDirectPayment?.status || 'success',
         };
 
         setDetail(nextDetail);
@@ -244,7 +300,7 @@ export default function ViewDetail() {
               <div className="donation-detail-summary-grid">
                 <div>
                   <p className="donation-detail-key">Transaction ID</p>
-                  <p className="donation-detail-value">{detail.transactionId}</p>
+                  <p className="donation-detail-value transaction-id">{detail.transactionId}</p>
                 </div>
                 <div>
                   <p className="donation-detail-key">Date</p>

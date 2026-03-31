@@ -26,6 +26,7 @@ const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
 const MyDonation = lazy(() => import('@/app/donate/myDonation.jsx'));
 const ViewDetail = lazy(() => import('@/app/donate/viewDetail.jsx'));
+const DonationThankYouPage = lazy(() => import('@/app/donate/thankYou.jsx'));
 const AccountSettings = lazy(() => import('@/app/setting/AccountSettings.jsx'));
 const OrganizationDashboardPage = lazy(() => import('@/app/organization/page.jsx'));
 const OrganizationReports = lazy(() => import('@/app/organization/OrganizationReports.jsx'));
@@ -665,6 +666,14 @@ export default function App() {
             element={(
               <RequireAuth>
                 <ViewDetail />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path={ROUTES.DONATION_THANK_YOU}
+            element={(
+              <RequireAuth>
+                <DonationThankYouPage />
               </RequireAuth>
             )}
           />
