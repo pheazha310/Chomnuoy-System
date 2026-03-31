@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProfileActivity;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -18,10 +18,12 @@ class ProfileController extends Controller
      */
     public function show(User $user): JsonResponse
     {
-        $activities = ProfileActivity::where('user_id', $user->id)
-            ->orderByDesc('occurred_at')
-            ->limit(10)
-            ->get();
+        $activities = $this->profileActivityModel()
+            ? $this->profileActivityModel()::where('user_id', $user->id)
+                ->orderByDesc('occurred_at')
+                ->limit(10)
+                ->get()
+            : collect();
 
         return response()->json([
             'profile' => [
@@ -79,20 +81,48 @@ class ProfileController extends Controller
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
+        $persistableColumns = array_flip([
+            'name',
+            'title',
+            'email',
+            'phone',
+            'location',
+            'bio',
+            'website',
+            'linkedin_url',
+            'skills',
+            'avatar_path',
+        ]);
+        foreach (array_keys($persistableColumns) as $column) {
+            if (!Schema::hasColumn('users', $column)) {
+                unset($persistableColumns[$column]);
+            }
+        }
+
         // Handle avatar upload
         if ($request->hasFile('avatar')) {
-            if ($user->avatar_path) {
+            if (Schema::hasColumn('users', 'avatar_path') && $user->avatar_path) {
                 Storage::disk('public')->delete($user->avatar_path);
             }
-            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            if (isset($persistableColumns['avatar_path'])) {
+                $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+            }
         }
 
         // Convert skills array to JSON
         if (isset($data['skills'])) {
-            $data['skills'] = json_encode($data['skills']);
+            if (is_string($data['skills'])) {
+                $decodedSkills = json_decode($data['skills'], true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decodedSkills)) {
+                    $data['skills'] = $decodedSkills;
+                } else {
+                    $data['skills'] = array_values(array_filter(array_map('trim', explode(',', $data['skills']))));
+                }
+            }
+            $data['skills'] = json_encode(array_values((array) $data['skills']));
         }
 
-        $user->update($data);
+        $user->update(array_intersect_key($data, $persistableColumns));
 
         return $this->show($user->fresh());
     }
@@ -169,6 +199,13 @@ class ProfileController extends Controller
      */
     public function addActivity(Request $request, User $user): JsonResponse
     {
+        $activityModel = $this->profileActivityModel();
+        if ($activityModel === null) {
+            return response()->json([
+                'message' => 'Profile activity tracking is not available.',
+            ], 404);
+        }
+
         $data = $request->validate([
             'type' => ['required', 'string', 'in:upload,review,certification,project,update,achievement'],
             'title' => ['required', 'string', 'max:255'],
@@ -178,7 +215,7 @@ class ProfileController extends Controller
             'occurred_at' => ['nullable', 'date'],
         ]);
 
-        $activity = ProfileActivity::create([
+        $activity = $activityModel::create([
             'user_id' => $user->id,
             'type' => $data['type'],
             'title' => $data['title'],
@@ -199,7 +236,14 @@ class ProfileController extends Controller
      */
     public function deleteActivity(Request $request, User $user, int $activityId): JsonResponse
     {
-        $activity = ProfileActivity::where('user_id', $user->id)
+        $activityModel = $this->profileActivityModel();
+        if ($activityModel === null) {
+            return response()->json([
+                'message' => 'Profile activity tracking is not available.',
+            ], 404);
+        }
+
+        $activity = $activityModel::where('user_id', $user->id)
             ->where('id', $activityId)
             ->first();
 
@@ -223,5 +267,16 @@ class ProfileController extends Controller
     {
         $diff = $datetime->diffForHumans();
         return str_replace([' ago', 'from now'], ['', ''], $diff);
+    }
+
+    private function profileActivityModel(): ?string
+    {
+        $modelClass = \App\Models\ProfileActivity::class;
+
+        if (!class_exists($modelClass) || !Schema::hasTable('profile_activities')) {
+            return null;
+        }
+
+        return $modelClass;
     }
 }

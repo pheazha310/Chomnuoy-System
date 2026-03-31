@@ -1,28 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import '../css/Campaigns.css';
+import {
+  campaignCategoryToSidebarCategory,
+  CAMPAIGN_FALLBACK_IMAGE,
+  fetchCampaigns,
+} from '@/services/campaign-service.js';
+import { getSession } from '@/services/session-service.js';
 
-const fallbackCampaignImage =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="34" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
-  );
-
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign_v2';
 
 function formatCurrency(amount) {
+  const numericAmount = Number(amount || 0);
+  const minimumFractionDigits = !Number.isInteger(numericAmount) || (numericAmount > 0 && numericAmount < 1)
+    ? 2
+    : 0;
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits,
+    maximumFractionDigits: minimumFractionDigits,
+  }).format(numericAmount);
 }
 
 const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
@@ -47,6 +46,11 @@ function normalizeDonationType(value) {
   const key = String(value || '').trim().toLowerCase();
   if (key === 'material' || key === 'materials') return 'material';
   return 'money';
+}
+
+function isSuccessfulDonationStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ['completed', 'success', 'confirmed', 'paid'].includes(key);
 }
 
 function getContributionPercent(value, goal) {
@@ -124,18 +128,19 @@ function CampaignsPage() {
             currentUserMoney: 0,
             currentUserMaterial: 0,
           };
+          const isSuccessful = isSuccessfulDonationStatus(item.status);
           const amount = Math.max(0, Number(item.amount || 0));
           const donationType = normalizeDonationType(item.donation_type);
-          if (donationType === 'material') {
+          if (donationType === 'material' && isSuccessful) {
             current.material += amount;
-          } else {
+          } else if (donationType === 'money' && isSuccessful) {
             current.money += amount;
           }
           const donorUserId = Number(item.user_id || 0);
-          if (donorUserId) {
+          if (donorUserId && isSuccessful) {
             current.supporters.add(donorUserId);
           }
-          if (currentUserId && donorUserId === currentUserId) {
+          if (currentUserId && donorUserId === currentUserId && isSuccessful) {
             if (donationType === 'material') {
               current.currentUserMaterial += amount;
             } else {
@@ -168,7 +173,7 @@ function CampaignsPage() {
             isVerified: isVerifiedOrganizationStatus(organization?.verified_status || organization?.status),
             raisedAmount: liveRaisedAmount,
             raised: liveRaisedAmount,
-            supporterCount: donationTotals?.supporters?.size || 0,
+            supporterCount: donationTotals?.supporters?.size ?? Number(item.supporterCount || 0),
             currentUserContribution,
             currentUserContributionPercent: getContributionPercent(currentUserContribution, campaignGoal),
           };
@@ -351,6 +356,10 @@ function CampaignsPage() {
             const percentRaised = getFundingProgress(campaign);
             const progressWidth = Math.min(percentRaised, 100);
             const detailPath = `/campaigns/${campaign.id}`;
+            const detailState = {
+              from: '/campaigns',
+              campaign,
+            };
             const donatePath = isLoggedIn ? detailPath : `/login?redirect=${encodeURIComponent(detailPath)}`;
             const isUrgent = Boolean(campaign.isUrgent);
             const badgeCategory = campaignCategoryToSidebarCategory(campaign.category).toUpperCase();
@@ -372,7 +381,13 @@ function CampaignsPage() {
 
             return (
               <article key={campaign.id} className="campaign-card campaign-dashboard-card" style={{ '--card-index': index }}>
-                <a href={detailPath} className="campaign-media-link" aria-label={`Open ${campaign.title} details`}>
+                <Link
+                  to={detailPath}
+                  state={detailState}
+                  className="campaign-media-link"
+                  aria-label={`Open ${campaign.title} details`}
+                  onClick={persistCampaign}
+                >
                   <img
                     src={campaign.image}
                     alt={campaign.title}
@@ -387,11 +402,14 @@ function CampaignsPage() {
                   <div className="campaign-card-badges">
                     {isUrgent ? <span className="campaign-badge campaign-badge-urgent">Urgent</span> : null}
                   </div>
-                </a>
+                  <div className="campaign-card-category">
+                    <span className="campaign-badge campaign-badge-category">{badgeCategory}</span>
+                  </div>
+                </Link>
 
                 <div className="campaign-content campaign-dashboard-content">
                   <h2>
-                    <a href={detailPath} className="campaign-title-link">
+                    <Link to={detailPath} state={detailState} className="campaign-title-link" onClick={persistCampaign}>
                       {campaign.title}
                     </Link>
                   </h2>
@@ -444,9 +462,21 @@ function CampaignsPage() {
                         <small>Time remaining</small>
                       </span>
                     </div>
-                    <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Donate to ${campaign.title}`}>
-                      Donate Now
-                    </a>
+                    {isLoggedIn ? (
+                      <Link
+                        to={detailPath}
+                        state={detailState}
+                        className="donate-button campaign-donate-button"
+                        aria-label={`Support ${campaign.title}`}
+                        onClick={persistCampaign}
+                      >
+                        {isMaterialCampaign ? 'Pledge Support' : 'Support'}
+                      </Link>
+                    ) : (
+                      <a href={donatePath} className="donate-button campaign-donate-button" aria-label={`Support ${campaign.title}`}>
+                        {isMaterialCampaign ? 'Pledge Support' : 'Support'}
+                      </a>
+                    )}
                   </div>
                 </div>
               </article>

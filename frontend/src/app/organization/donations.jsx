@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, CalendarDays, Download, Eye, FileText, Filter, Ma
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ROUTES from '@/constants/routes.js';
+import { buildMaterialWorkflowRows, getMaterialWorkflowResources, normalizeMaterialWorkflowStatus, updateMaterialWorkflowStatus } from '@/services/material-workflow-service.js';
 
 function getOrganizationSession() {
   try {
@@ -51,17 +52,8 @@ function formatStatusLabel(value) {
   return 'Pending';
 }
 
-function normalizePickupStage(value) {
-  const key = String(value || '').trim().toLowerCase();
-  if (['completed', 'success', 'delivered'].includes(key)) return 'completed';
-  if (['in transit', 'in_transit', 'transit', 'enroute', 'en route'].includes(key)) return 'in_transit';
-  if (['confirmed', 'assigned', 'driver assigned', 'scheduled'].includes(key)) return 'confirmed';
-  if (['cancelled', 'canceled'].includes(key)) return 'cancelled';
-  return 'pending';
-}
-
 function formatPickupStageLabel(value) {
-  const key = normalizePickupStage(value);
+  const key = normalizeMaterialWorkflowStatus(value).key;
   if (key === 'completed') return 'Delivered';
   if (key === 'in_transit') return 'In Transit';
   if (key === 'confirmed') return 'Confirmed';
@@ -76,25 +68,6 @@ function formatPickupSchedule(value) {
     dateLabel: date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
     timeLabel: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
   };
-}
-
-function getPickupTimeline(stage) {
-  const normalizedStage = normalizePickupStage(stage);
-  const stageOrder = {
-    pending: 1,
-    confirmed: 2,
-    in_transit: 3,
-    completed: 4,
-    cancelled: 0,
-  };
-  const activeStep = stageOrder[normalizedStage] ?? 1;
-
-  return [
-    { key: 'requested', label: 'Pickup requested', done: activeStep >= 1 },
-    { key: 'confirmed', label: 'Driver assigned', done: activeStep >= 2 },
-    { key: 'transit', label: 'In transit', done: activeStep >= 3 },
-    { key: 'completed', label: 'Delivered', done: activeStep >= 4 },
-  ];
 }
 
 export default function OrganizationDonationsPage() {
@@ -119,25 +92,18 @@ export default function OrganizationDonationsPage() {
   const organizationName = session?.name || 'Organization';
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
     const load = () => {
       setLoading(true);
       setError('');
-      Promise.all([
-        fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`${apiBase}/material_items`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`${apiBase}/material_pickups`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
-        fetch(`${apiBase}/users`).then((r) => (r.ok ? r.json() : [])),
-      ])
-        .then(([donationData, materialData, pickupData, campaignData, userData]) => {
+      getMaterialWorkflowResources()
+        .then((resources) => {
           if (!alive) return;
-          const donationList = Array.isArray(donationData) ? donationData : [];
-          const materialList = Array.isArray(materialData) ? materialData : [];
-          const pickupList = Array.isArray(pickupData) ? pickupData : [];
-          const campaignList = Array.isArray(campaignData) ? campaignData : [];
-          const userList = Array.isArray(userData) ? userData : [];
+          const donationList = Array.isArray(resources.donations) ? resources.donations : [];
+          const materialList = Array.isArray(resources.materialItems) ? resources.materialItems : [];
+          const pickupList = Array.isArray(resources.pickups) ? resources.pickups : [];
+          const campaignList = Array.isArray(resources.campaigns) ? resources.campaigns : [];
+          const userList = Array.isArray(resources.users) ? resources.users : [];
 
           const filteredDonations = organizationId
             ? donationList.filter((item) => Number(item.organization_id) === organizationId)
@@ -175,64 +141,85 @@ export default function OrganizationDonationsPage() {
   const donationRows = useMemo(() => {
     const userMap = new Map(users.map((user) => [Number(user.id), user.name]));
     const campaignMap = new Map(campaigns.map((campaign) => [Number(campaign.id), campaign]));
-    return donations.map((row) => {
-      const donationTypeKey = normalizeDonationType(row.donation_type);
-      const donorName = userMap.get(Number(row.user_id)) || `Donor #${row.user_id || 'N/A'}`;
-      const linkedItems = materialItems.filter((item) => Number(item.donation_id) === Number(row.id));
-      const primaryItem = linkedItems[0];
-      const totalQuantity = linkedItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0);
-      const amountText = donationTypeKey === 'material'
-        ? `${totalQuantity || 1}x ${primaryItem?.item_name || 'Items'}`
-        : `$${Number(row.amount || 0).toLocaleString()}`;
-      const pickup = pickups.find((item) => Number(item.donation_id) === Number(row.id));
-      const statusKey = donationTypeKey === 'material' && pickup?.status
-        ? normalizeDonationStatus(pickup.status)
-        : normalizeDonationStatus(row.status);
-      const dateValue = toDate(row.created_at);
-      const campaign = campaignMap.get(Number(row.campaign_id));
-      const pickupSchedule = formatPickupSchedule(pickup?.schedule_date);
-      const pickupStage = normalizePickupStage(pickup?.status);
-      const itemNames = linkedItems.map((item) => item.item_name).filter(Boolean);
-      const pickupAddress =
-        pickup?.pickup_address ||
-        row.pickup_address ||
-        campaign?.pickup_location ||
-        campaign?.location ||
-        'Pickup address pending';
-      return {
-        id: row.id,
-        campaignId: Number(row.campaign_id || 0) || null,
-        donorUserId: Number(row.user_id || 0) || null,
-        donor: donorName,
-        initials: getInitials(donorName),
-        donationType: donationTypeKey === 'material' ? 'Material' : 'Money',
-        donationTypeKey,
-        amount: amountText,
-        project: campaign?.title || row.project_name || row.title || 'Campaign',
-        itemSummary:
-          donationTypeKey === 'material'
-            ? linkedItems.map((item) => item.item_name).filter(Boolean).join(', ') || 'Material request'
-            : row.payment_method || row.method || 'Online donation',
-        status: formatStatusLabel(statusKey),
-        statusKey,
-        date: dateValue ? dateValue.toLocaleDateString() : '-',
-        dateValue: dateValue ? dateValue.getTime() : 0,
-        pickupId: Number(pickup?.id || 0) || null,
-        pickupAddress,
-        pickupSchedule: pickupSchedule.dateLabel,
-        pickupScheduleTime: pickupSchedule.timeLabel,
-        pickupScheduleRaw: pickup?.schedule_date || null,
-        pickupStatus: pickup?.status || 'pending',
-        pickupStage,
-        pickupStageLabel: formatPickupStageLabel(pickup?.status),
-        primaryItemName: primaryItem?.item_name || 'Requested items',
-        totalQuantity: totalQuantity || 1,
-        itemSummaryFull: itemNames.join(', ') || primaryItem?.description || 'Material request',
-        organizationName: campaign?.organization_name || row.organization_name || organizationName,
-        timeline: getPickupTimeline(pickup?.status),
-      };
-    });
-  }, [campaigns, donations, materialItems, organizationName, pickups, users]);
+    const materialWorkflowRows = buildMaterialWorkflowRows({
+      donations,
+      materialItems,
+      pickups,
+      campaigns,
+      users,
+    })
+      .filter((row) => !organizationId || Number(row.organizationId) === organizationId)
+      .map((row) => ({
+        id: row.donationId,
+        campaignId: row.campaignId,
+        donorUserId: row.donorUserId,
+        donor: row.donorName,
+        initials: row.donorInitials,
+        donationType: 'Material',
+        donationTypeKey: 'material',
+        amount: row.quantityLabel,
+        project: row.campaignTitle,
+        itemSummary: row.itemSummary || row.itemName,
+        status: row.organizationStatusLabel,
+        statusKey: row.statusKey,
+        date: row.scheduleDateLabel,
+        dateValue: row.createdAtValue,
+        pickupId: row.pickupId,
+        pickupAddress: row.pickupAddress,
+        pickupSchedule: row.scheduleDateLabel,
+        pickupScheduleTime: row.scheduleTimeLabel,
+        pickupScheduleRaw: row.scheduleDateRaw,
+        pickupStatus: row.statusKey,
+        pickupStage: row.statusKey,
+        pickupStageLabel: row.organizationStatusLabel,
+        primaryItemName: row.itemName,
+        totalQuantity: row.quantity,
+        itemSummaryFull: row.itemSummary,
+        organizationName: row.organizationName,
+        timeline: row.timeline,
+      }));
+
+    const moneyRows = donations
+      .filter((row) => normalizeDonationType(row.donation_type) !== 'material')
+      .map((row) => {
+        const donorName = userMap.get(Number(row.user_id)) || `Donor #${row.user_id || 'N/A'}`;
+        const statusKey = normalizeDonationStatus(row.status);
+        const dateValue = toDate(row.created_at);
+        const campaign = campaignMap.get(Number(row.campaign_id));
+
+        return {
+          id: row.id,
+          campaignId: Number(row.campaign_id || 0) || null,
+          donorUserId: Number(row.user_id || 0) || null,
+          donor: donorName,
+          initials: getInitials(donorName),
+          donationType: 'Money',
+          donationTypeKey: 'money',
+          amount: `$${Number(row.amount || 0).toLocaleString()}`,
+          project: campaign?.title || row.project_name || row.title || 'Campaign',
+          itemSummary: row.payment_method || row.method || 'Online donation',
+          status: formatStatusLabel(statusKey),
+          statusKey,
+          date: dateValue ? dateValue.toLocaleDateString() : '-',
+          dateValue: dateValue ? dateValue.getTime() : 0,
+          pickupId: null,
+          pickupAddress: '',
+          pickupSchedule: '',
+          pickupScheduleTime: '',
+          pickupScheduleRaw: null,
+          pickupStatus: '',
+          pickupStage: 'pending',
+          pickupStageLabel: 'Pending',
+          primaryItemName: '',
+          totalQuantity: 0,
+          itemSummaryFull: row.payment_method || row.method || 'Online donation',
+          organizationName: campaign?.organization_name || row.organization_name || organizationName,
+          timeline: [],
+        };
+      });
+
+    return [...moneyRows, ...materialWorkflowRows].sort((a, b) => b.dateValue - a.dateValue);
+  }, [campaigns, donations, materialItems, organizationId, organizationName, pickups, users]);
 
   const filteredRows = useMemo(() => {
     let nextRows = donationRows;
@@ -403,46 +390,24 @@ export default function OrganizationDonationsPage() {
       return;
     }
 
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     setConfirmingPickup(true);
 
     try {
-      const pickupResponse = await fetch(`${apiBase}/material_pickups/${selectedPickupRequest.pickupId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await updateMaterialWorkflowStatus({
+        pickupId: selectedPickupRequest.pickupId,
+        donationId: selectedPickupRequest.id,
+        pickupPatch: {
           status: 'confirmed',
           pickup_address: selectedPickupRequest.pickupAddress,
           schedule_date: selectedPickupRequest.pickupScheduleRaw,
-        }),
+        },
+        donationStatus: 'confirmed',
+        notification: selectedPickupRequest.donorUserId ? {
+          user_id: selectedPickupRequest.donorUserId,
+          message: `Your material donation for "${selectedPickupRequest.project}" has been confirmed by the organization for pickup.`,
+          type: 'pickup-confirmed',
+        } : null,
       });
-
-      if (!pickupResponse.ok) {
-        throw new Error(`Failed to confirm pickup (${pickupResponse.status})`);
-      }
-
-      const donationResponse = await fetch(`${apiBase}/donations/${selectedPickupRequest.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'confirmed' }),
-      });
-
-      if (!donationResponse.ok) {
-        throw new Error(`Failed to update donation (${donationResponse.status})`);
-      }
-
-      if (selectedPickupRequest.donorUserId) {
-        await fetch(`${apiBase}/notifications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: selectedPickupRequest.donorUserId,
-            message: `Your material donation for "${selectedPickupRequest.project}" has been confirmed by the organization for pickup.`,
-            type: 'pickup-confirmed',
-            is_read: false,
-          }),
-        }).catch(() => null);
-      }
 
       setPickups((prev) => prev.map((item) => (
         Number(item.id) === Number(selectedPickupRequest.pickupId)

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
+import { normalizeCampaign } from "@/services/campaign-service.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
 import OrganizationIdentityPill from "./OrganizationIdentityPill.jsx";
 import { useGlobalTheme } from "@/hooks/useOrganizationSettings";
@@ -15,7 +16,12 @@ const placeholderImage =
   );
 
 function formatMoney(value) {
-  return `$${value.toLocaleString("en-US")}`;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
 }
 
 function escapeCsvCell(value) {
@@ -176,6 +182,7 @@ export default function OrganizationCampaignsPage() {
           ? items.filter((item) => Number(item.organization_id) === organizationId)
           : items;
         const mapped = filtered.map((item) => {
+          const normalizedCampaign = normalizeCampaign(item);
           const status = normalizeStatus(item.status);
           const materialItem = (() => {
             if (item.material_item && typeof item.material_item === "object") return item.material_item;
@@ -197,8 +204,8 @@ export default function OrganizationCampaignsPage() {
             description: item.description || "No description provided.",
             campaignType: item.campaign_type || (materialItem ? "material" : "monetary"),
             materialItem,
-            raised: Number(item.current_amount || 0),
-            goal: Number(item.goal_amount || 0),
+            raised: Number(normalizedCampaign?.raisedAmount || 0),
+            goal: Number(normalizedCampaign?.goalAmount || 0),
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
             action: actionLabelMap[status],
             actionTone: actionToneMap[status],
@@ -785,9 +792,9 @@ export default function OrganizationCampaignsPage() {
                         </span>
                         <span>{metricRightValue}</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs font-semibold text-[#94A3B8]">
-                        <span>{progressLabel}</span>
-                        <span>{remainingLabel}</span>
+                      <div className="flex items-center justify-between text-xs font-semibold">
+                        <span className="text-[#1f6fe6]">{progressLabel}</span>
+                        <span className="text-[#94A3B8]">{remainingLabel}</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-[#E2E8F0]">
                         <div

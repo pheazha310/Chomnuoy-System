@@ -1,6 +1,12 @@
 import './style.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from './adminsidebar';
+import { getCachedBundle, getCachedJson } from '@/services/request-cache.js';
+
+const ADMIN_DASHBOARD_CACHE_TTL_MS = 60 * 1000;
+let adminDashboardCache = null;
+let adminDashboardCacheTime = 0;
+let adminDashboardInFlight = null;
 
 const CHART_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -99,6 +105,81 @@ const formatCurrency = (value) => `$${toNumber(value).toLocaleString(undefined, 
 
 const formatCount = (value) => toNumber(value).toLocaleString();
 
+const createErrorFromResponse = (response, fallbackMessage) => {
+  if (response.status === 429) {
+    return new Error('Too many dashboard requests were sent to the server. Please wait a moment and refresh.');
+  }
+
+  if (response.status === 401) {
+    return new Error('Your session has expired. Please log in again.');
+  }
+
+  if (response.status === 403) {
+    return new Error('You do not have permission to access this admin data.');
+  }
+
+  return new Error(`${fallbackMessage} (${response.status})`);
+};
+
+const getAdminDashboardResources = async (apiBase, headers) => {
+  const now = Date.now();
+  if (adminDashboardCache && now - adminDashboardCacheTime < ADMIN_DASHBOARD_CACHE_TTL_MS) {
+    return adminDashboardCache;
+  }
+
+  if (adminDashboardInFlight) {
+    return adminDashboardInFlight;
+  }
+
+  adminDashboardInFlight = getCachedBundle(
+    'admin:dashboard:resources',
+    [
+      () => getCachedJson(`${apiBase}/users`, { cacheKey: 'shared:users', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Unable to load users' }).then((users) => ({ users })),
+      () => getCachedJson(`${apiBase}/organizations`, { cacheKey: 'shared:organizations', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Unable to load organizations' }).then((organizations) => ({ organizations })),
+      () => getCachedJson(`${apiBase}/categories`, { cacheKey: 'shared:categories', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Unable to load categories' }).then((categories) => ({ categories })),
+      () => getCachedJson(`${apiBase}/donations`, { cacheKey: 'shared:donations', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Unable to load donations' }).then((donations) => ({ donations })),
+      () => getCachedJson(`${apiBase}/material_items`, { cacheKey: 'shared:material-items', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Unable to load material items' }).then((materialItems) => ({ materialItems })),
+      () => getCachedJson(`${apiBase}/material_pickups`, { cacheKey: 'shared:material-pickups', ttlMs: 60 * 1000, cooldownMs: 45 * 1000, headers, fallbackMessage: 'Unable to load material pickups' }).then((materialPickups) => ({ materialPickups })),
+      () => getCachedJson(`${apiBase}/notifications`, { cacheKey: 'shared:notifications', ttlMs: 30 * 1000, cooldownMs: 45 * 1000, headers, allowStatuses: [404], defaultValue: [], fallbackMessage: 'Unable to load notifications' }).then((notifications) => ({ notifications })),
+    ],
+    { ttlMs: ADMIN_DASHBOARD_CACHE_TTL_MS },
+  )
+    .then(({
+      users,
+      organizations,
+      categories,
+      donations,
+      materialItems,
+      materialPickups,
+      notifications,
+    }) => {
+      const payload = {
+        users: Array.isArray(users) ? users : [],
+        organizations: Array.isArray(organizations) ? organizations : [],
+        categories: Array.isArray(categories) ? categories : [],
+        donations: Array.isArray(donations) ? donations : [],
+        materialItems: Array.isArray(materialItems) ? materialItems : [],
+        materialPickups: Array.isArray(materialPickups) ? materialPickups : [],
+        notifications: Array.isArray(notifications) ? notifications : [],
+      };
+
+      adminDashboardCache = payload;
+      adminDashboardCacheTime = Date.now();
+      return payload;
+    })
+    .catch((error) => {
+      if (error?.status === 429) {
+        throw createErrorFromResponse({ status: 429 }, 'Unable to load admin dashboard data');
+      }
+      throw error;
+    })
+    .finally(() => {
+      adminDashboardInFlight = null;
+    });
+
+  return adminDashboardInFlight;
+};
+
 const formatDeltaPercent = (current, previous) => {
   const currentValue = toNumber(current);
   const previousValue = toNumber(previous);
@@ -148,24 +229,12 @@ const formatTaskDue = (value) => {
 const AdminDashboard = () => {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
   const [isAllTasksOpen, setIsAllTasksOpen] = useState(false);
-  const [joinCounts, setJoinCounts] = useState([0, 0, 0, 0, 0, 0, 0]);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardError, setDashboardError] = useState('');
   const [joinLoading, setJoinLoading] = useState(true);
   const [rangeDays, setRangeDays] = useState(7);
   const [isRangeOpen, setIsRangeOpen] = useState(false);
   const [tooltip, setTooltip] = useState(null);
-  const [recentOrgs, setRecentOrgs] = useState([]);
-  const [recentOrgsLoading, setRecentOrgsLoading] = useState(true);
-  const [recentOrgsError, setRecentOrgsError] = useState('');
-  const [overviewLoading, setOverviewLoading] = useState(true);
-  const [overviewError, setOverviewError] = useState('');
-  const [overviewStats, setOverviewStats] = useState([
-    { id: 'funds', label: 'Total Funds Raised', value: '$0.00', change: 'Loading...', tone: 'success' },
-    { id: 'items', label: 'Total Items Donated', value: '0', change: 'Loading...', tone: 'info' },
-    { id: 'tasks', label: 'Urgent Tasks', value: '0', change: 'Loading...', tone: 'warning' },
-  ]);
-  const [urgentTasks, setUrgentTasks] = useState([]);
-  const [allUrgentTasks, setAllUrgentTasks] = useState([]);
-  const [urgentTaskTotal, setUrgentTaskTotal] = useState(0);
   const sessionRaw = window.localStorage.getItem('chomnuoy_session');
   const session = sessionRaw ? JSON.parse(sessionRaw) : null;
   const adminName = session?.name || 'Admin';
@@ -183,6 +252,213 @@ const AdminDashboard = () => {
     }
     return labels;
   }, [rangeDays]);
+
+  const weekdayIndex = (date) => {
+    const day = date.getDay(); // 0=Sun
+    return (day + 6) % 7; // shift so Mon=0 ... Sun=6
+  };
+
+  useEffect(() => {
+    let active = true;
+    const token = window.localStorage.getItem('authToken');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    setJoinLoading(true);
+    setDashboardError('');
+
+    getAdminDashboardResources(apiBase, headers)
+      .then((data) => {
+        if (!active) return;
+        setDashboardData(data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setDashboardData(null);
+        setDashboardError(err instanceof Error ? err.message : 'Unable to load admin dashboard data.');
+      })
+      .finally(() => {
+        if (active) setJoinLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [apiBase]);
+
+  const joinCounts = useMemo(() => {
+    const counts = Array.from({ length: rangeDays }, () => 0);
+    if (!dashboardData) {
+      return counts;
+    }
+
+    const now = new Date();
+    const rangeStart = new Date(now);
+    rangeStart.setDate(now.getDate() - (rangeDays - 1));
+    rangeStart.setHours(0, 0, 0, 0);
+
+    const addIfInRange = (dateValue) => {
+      if (!dateValue) return;
+      const createdAt = new Date(dateValue);
+      if (Number.isNaN(createdAt.getTime()) || createdAt < rangeStart || createdAt > now) return;
+
+      if (rangeDays === 7) {
+        counts[weekdayIndex(createdAt)] += 1;
+        return;
+      }
+
+      const createdDay = new Date(createdAt);
+      createdDay.setHours(0, 0, 0, 0);
+      const dayDiff = Math.floor((createdDay.getTime() - rangeStart.getTime()) / 86400000);
+      if (dayDiff >= 0 && dayDiff < rangeDays) {
+        counts[dayDiff] += 1;
+      }
+    };
+
+    dashboardData.users.forEach((user) => addIfInRange(user?.created_at));
+    dashboardData.organizations.forEach((organization) => addIfInRange(organization?.created_at));
+
+    return counts;
+  }, [dashboardData, rangeDays]);
+
+  const recentOrgs = useMemo(() => {
+    if (!dashboardData) return [];
+
+    const categoryMap = new Map();
+    dashboardData.categories.forEach((category) => {
+      if (category?.id) {
+        categoryMap.set(Number(category.id), category.category_name || category.name || '');
+      }
+    });
+
+    return dashboardData.organizations
+      .map((org) => ({
+        id: org.id,
+        name: org.name || 'Organization',
+        category: categoryMap.get(Number(org.category_id)) || 'Uncategorized',
+        status: normalizeStatus(org.verified_status || org.status),
+        date: formatDate(org.created_at),
+        createdAt: org.created_at ? new Date(org.created_at).getTime() : 0,
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 6);
+  }, [dashboardData]);
+
+  const {
+    overviewStats,
+    urgentTasks,
+    allUrgentTasks,
+    urgentTaskTotal,
+  } = useMemo(() => {
+    if (!dashboardData) {
+      return {
+        overviewStats: [
+          { id: 'funds', label: 'Total Funds Raised', value: '$0.00', change: joinLoading ? 'Loading...' : 'Unavailable', tone: 'success' },
+          { id: 'items', label: 'Total Items Donated', value: '0', change: joinLoading ? 'Loading...' : 'Unavailable', tone: 'info' },
+          { id: 'tasks', label: 'Urgent Tasks', value: '0', change: joinLoading ? 'Loading...' : 'Unavailable', tone: 'warning' },
+        ],
+        urgentTasks: [],
+        allUrgentTasks: [],
+        urgentTaskTotal: 0,
+      };
+    }
+
+    const completedMoneyDonations = dashboardData.donations.filter((item) => isMoneyDonation(item) && isCompletedDonation(item));
+    const completedMaterialDonations = dashboardData.donations.filter((item) => isMaterialDonation(item) && isCompletedDonation(item));
+
+    const totalFundsRaised = completedMoneyDonations.reduce((sum, item) => sum + toNumber(item.amount), 0);
+    const totalItemsDonated = dashboardData.materialItems.length > 0
+      ? dashboardData.materialItems.reduce((sum, item) => sum + Math.max(0, toNumber(item.quantity) || 1), 0)
+      : completedMaterialDonations.length;
+
+    const now = new Date();
+    const currentWindowStart = new Date(now);
+    currentWindowStart.setDate(now.getDate() - 29);
+    currentWindowStart.setHours(0, 0, 0, 0);
+
+    const previousWindowEnd = new Date(currentWindowStart);
+    previousWindowEnd.setMilliseconds(-1);
+
+    const previousWindowStart = new Date(currentWindowStart);
+    previousWindowStart.setDate(currentWindowStart.getDate() - 30);
+
+    const currentFunds = sumInDateWindow(completedMoneyDonations, (item) => item.amount, (item) => item.created_at, currentWindowStart, now);
+    const previousFunds = sumInDateWindow(completedMoneyDonations, (item) => item.amount, (item) => item.created_at, previousWindowStart, previousWindowEnd);
+
+    const currentItems = dashboardData.materialItems.length > 0
+      ? sumInDateWindow(dashboardData.materialItems, (item) => item.quantity || 1, (item) => item.created_at, currentWindowStart, now)
+      : countInDateWindow(completedMaterialDonations, (item) => item.created_at, currentWindowStart, now);
+
+    const previousItems = dashboardData.materialItems.length > 0
+      ? sumInDateWindow(dashboardData.materialItems, (item) => item.quantity || 1, (item) => item.created_at, previousWindowStart, previousWindowEnd)
+      : countInDateWindow(completedMaterialDonations, (item) => item.created_at, previousWindowStart, previousWindowEnd);
+
+    const pendingOrganizations = dashboardData.organizations.filter((item) => isPendingLike(item?.verified_status || item?.status));
+    const pendingPickups = dashboardData.materialPickups.filter((item) => isPendingLike(item?.status));
+    const unreadNotifications = dashboardData.notifications.filter((item) => !item?.is_read);
+
+    const dynamicTasks = [
+      pendingOrganizations.length > 0
+        ? {
+          title: 'Verify Organization Documents',
+          description: `${pendingOrganizations.length} organization${pendingOrganizations.length === 1 ? '' : 's'} waiting for review.`,
+          due: 'Needs review',
+          tone: 'danger',
+        }
+        : null,
+      pendingPickups.length > 0
+        ? {
+          title: 'Schedule Material Pickups',
+          description: `${pendingPickups.length} pickup request${pendingPickups.length === 1 ? '' : 's'} still pending.`,
+          due: 'Pending scheduling',
+          tone: 'info',
+        }
+        : null,
+      unreadNotifications.length > 0
+        ? {
+          title: 'Check Unread Notifications',
+          description: `${unreadNotifications.length} unread alert${unreadNotifications.length === 1 ? '' : 's'} require attention.`,
+          due: 'Action required',
+          tone: 'warning',
+        }
+        : null,
+    ].filter(Boolean);
+
+    const urgentCount = pendingOrganizations.length + pendingPickups.length + unreadNotifications.length;
+
+    return {
+      overviewStats: [
+        {
+          id: 'funds',
+          label: 'Total Funds Raised',
+          value: formatCurrency(totalFundsRaised),
+          change: formatDeltaPercent(currentFunds, previousFunds),
+          tone: 'success',
+        },
+        {
+          id: 'items',
+          label: 'Total Items Donated',
+          value: formatCount(totalItemsDonated),
+          change: formatDeltaPercent(currentItems, previousItems),
+          tone: 'info',
+        },
+        {
+          id: 'tasks',
+          label: 'Urgent Tasks',
+          value: formatCount(urgentCount),
+          change: urgentCount > 0 ? 'Action required' : 'All clear',
+          tone: 'warning',
+        },
+      ],
+      urgentTasks: dynamicTasks.slice(0, 3),
+      allUrgentTasks: dynamicTasks,
+      urgentTaskTotal: urgentCount,
+    };
+  }, [dashboardData, joinLoading]);
+
+  const overviewLoading = joinLoading;
+  const recentOrgsLoading = joinLoading;
+  const overviewError = dashboardError;
+  const recentOrgsError = dashboardError;
   const maxValue = Math.max(...joinCounts, 1);
   const minValue = Math.min(...joinCounts, 0);
   const chartWidth = 560;
@@ -199,268 +475,12 @@ const AdminDashboard = () => {
   }).join(' ');
   const chartAreaPoints = `${chartPoints} ${chartPadding.left + innerWidth},${chartPadding.top + innerHeight} ${chartPadding.left},${chartPadding.top + innerHeight}`;
 
-  const weekdayIndex = (date) => {
-    const day = date.getDay(); // 0=Sun
-    return (day + 6) % 7; // shift so Mon=0 ... Sun=6
-  };
-
-  useEffect(() => {
-    let active = true;
-    const token = window.localStorage.getItem('authToken');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-    const fetchUsers = fetch(`${apiBase}/users`, { headers }).then((res) => (res.ok ? res.json() : []));
-    const fetchOrgs = fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : []));
-
-    Promise.all([fetchUsers, fetchOrgs])
-      .then(([users, orgs]) => {
-        if (!active) return;
-        const safeUsers = Array.isArray(users) ? users : [];
-        const safeOrgs = Array.isArray(orgs) ? orgs : [];
-        const counts = Array.from({ length: rangeDays }, () => 0);
-        const now = new Date();
-        const last7 = new Date(now);
-        last7.setDate(now.getDate() - (rangeDays - 1));
-
-        const addIfInRange = (dateValue) => {
-          if (!dateValue) return;
-          const createdAt = new Date(dateValue);
-          if (Number.isNaN(createdAt.getTime())) return;
-          if (createdAt < last7 || createdAt > now) return;
-          if (rangeDays === 7) {
-            const idx = weekdayIndex(createdAt);
-            counts[idx] += 1;
-            return;
-          }
-          const dayDiff = Math.floor((createdAt.setHours(0, 0, 0, 0) - last7.setHours(0, 0, 0, 0)) / 86400000);
-          if (dayDiff >= 0 && dayDiff < rangeDays) {
-            counts[dayDiff] += 1;
-          }
-        };
-
-        safeUsers.forEach((user) => addIfInRange(user?.created_at));
-        safeOrgs.forEach((org) => addIfInRange(org?.created_at));
-
-        setJoinCounts(counts);
-      })
-      .catch(() => {
-        if (!active) return;
-        setJoinCounts(Array.from({ length: rangeDays }, () => 0));
-      })
-      .finally(() => {
-        if (active) setJoinLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [apiBase, rangeDays]);
-
-  useEffect(() => {
-    let active = true;
-    const token = window.localStorage.getItem('authToken');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-    setOverviewLoading(true);
-    setOverviewError('');
-
-    Promise.all([
-      fetch(`${apiBase}/donations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${apiBase}/material_items`, { headers }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${apiBase}/material_pickups`, { headers }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${apiBase}/notifications`, { headers }).then((res) => (res.ok ? res.json() : [])),
-    ])
-      .then(([donationsData, materialItemsData, pickupsData, organizationsData, notificationsData]) => {
-        if (!active) return;
-
-        const donations = Array.isArray(donationsData) ? donationsData : [];
-        const materialItems = Array.isArray(materialItemsData) ? materialItemsData : [];
-        const pickups = Array.isArray(pickupsData) ? pickupsData : [];
-        const organizations = Array.isArray(organizationsData) ? organizationsData : [];
-        const notifications = Array.isArray(notificationsData) ? notificationsData : [];
-
-        const completedMoneyDonations = donations.filter((item) => isMoneyDonation(item) && isCompletedDonation(item));
-        const completedMaterialDonations = donations.filter((item) => isMaterialDonation(item) && isCompletedDonation(item));
-
-        const totalFundsRaised = completedMoneyDonations.reduce((sum, item) => sum + toNumber(item.amount), 0);
-        const totalItemsDonated = materialItems.length > 0
-          ? materialItems.reduce((sum, item) => sum + Math.max(0, toNumber(item.quantity) || 1), 0)
-          : completedMaterialDonations.length;
-
-        const now = new Date();
-        const currentWindowStart = new Date(now);
-        currentWindowStart.setDate(now.getDate() - 29);
-        currentWindowStart.setHours(0, 0, 0, 0);
-
-        const previousWindowEnd = new Date(currentWindowStart);
-        previousWindowEnd.setMilliseconds(-1);
-
-        const previousWindowStart = new Date(currentWindowStart);
-        previousWindowStart.setDate(currentWindowStart.getDate() - 30);
-
-        const currentFunds = sumInDateWindow(completedMoneyDonations, (item) => item.amount, (item) => item.created_at, currentWindowStart, now);
-        const previousFunds = sumInDateWindow(completedMoneyDonations, (item) => item.amount, (item) => item.created_at, previousWindowStart, previousWindowEnd);
-
-        const currentItems = materialItems.length > 0
-          ? sumInDateWindow(materialItems, (item) => item.quantity || 1, (item) => item.created_at, currentWindowStart, now)
-          : countInDateWindow(completedMaterialDonations, (item) => item.created_at, currentWindowStart, now);
-
-        const previousItems = materialItems.length > 0
-          ? sumInDateWindow(materialItems, (item) => item.quantity || 1, (item) => item.created_at, previousWindowStart, previousWindowEnd)
-          : countInDateWindow(completedMaterialDonations, (item) => item.created_at, previousWindowStart, previousWindowEnd);
-
-        const pendingOrganizations = organizations.filter((item) => isPendingLike(item?.verified_status || item?.status));
-        const pendingPickups = pickups.filter((item) => isPendingLike(item?.status));
-        const unreadNotifications = notifications.filter((item) => !item?.is_read);
-
-        const dynamicTasks = [
-          pendingOrganizations.length > 0
-            ? {
-              title: 'Verify Organization Documents',
-              description: `${pendingOrganizations.length} organization${pendingOrganizations.length === 1 ? '' : 's'} waiting for review.`,
-              due: 'Needs review',
-              tone: 'danger',
-            }
-            : null,
-          pendingPickups.length > 0
-            ? {
-              title: 'Schedule Material Pickups',
-              description: `${pendingPickups.length} pickup request${pendingPickups.length === 1 ? '' : 's'} still pending.`,
-              due: 'Pending scheduling',
-              tone: 'info',
-            }
-            : null,
-          unreadNotifications.length > 0
-            ? {
-              title: 'Check Unread Notifications',
-              description: `${unreadNotifications.length} unread alert${unreadNotifications.length === 1 ? '' : 's'} require attention.`,
-              due: 'Action required',
-              tone: 'warning',
-            }
-            : null,
-        ].filter(Boolean);
-
-        const urgentCount = pendingOrganizations.length + pendingPickups.length + unreadNotifications.length;
-
-        setOverviewStats([
-          {
-            id: 'funds',
-            label: 'Total Funds Raised',
-            value: formatCurrency(totalFundsRaised),
-            change: formatDeltaPercent(currentFunds, previousFunds),
-            tone: 'success',
-          },
-          {
-            id: 'items',
-            label: 'Total Items Donated',
-            value: formatCount(totalItemsDonated),
-            change: formatDeltaPercent(currentItems, previousItems),
-            tone: 'info',
-          },
-          {
-            id: 'tasks',
-            label: 'Urgent Tasks',
-            value: formatCount(urgentCount),
-            change: urgentCount > 0 ? 'Action required' : 'All clear',
-            tone: 'warning',
-          },
-        ]);
-        setUrgentTasks(dynamicTasks.slice(0, 3));
-        setAllUrgentTasks(dynamicTasks);
-        setUrgentTaskTotal(urgentCount);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setOverviewStats([
-          {
-            id: 'funds',
-            label: 'Total Funds Raised',
-            value: '$0.00',
-            change: 'Unavailable',
-            tone: 'success',
-          },
-          {
-            id: 'items',
-            label: 'Total Items Donated',
-            value: '0',
-            change: 'Unavailable',
-            tone: 'info',
-          },
-          {
-            id: 'tasks',
-            label: 'Urgent Tasks',
-            value: '0',
-            change: 'Unavailable',
-            tone: 'warning',
-          },
-        ]);
-        setUrgentTasks([]);
-        setAllUrgentTasks([]);
-        setUrgentTaskTotal(0);
-        setOverviewError(err instanceof Error ? err.message : 'Unable to load overview data.');
-      })
-      .finally(() => {
-        if (active) setOverviewLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [apiBase]);
-
-  useEffect(() => {
-    let active = true;
-    const token = window.localStorage.getItem('authToken');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-    setRecentOrgsLoading(true);
-    setRecentOrgsError('');
-
-    Promise.all([
-      fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-      fetch(`${apiBase}/categories`, { headers }).then((res) => (res.ok ? res.json() : [])),
-    ])
-      .then(([orgsData, categoriesData]) => {
-        if (!active) return;
-        const orgs = Array.isArray(orgsData) ? orgsData : [];
-        const categories = Array.isArray(categoriesData) ? categoriesData : [];
-        const categoryMap = new Map();
-        categories.forEach((cat) => {
-          if (cat?.id) {
-            categoryMap.set(Number(cat.id), cat.category_name || cat.name || '');
-          }
-        });
-
-        const normalized = orgs
-          .map((org) => ({
-            id: org.id,
-            name: org.name || 'Organization',
-            category: categoryMap.get(Number(org.category_id)) || 'Uncategorized',
-            status: normalizeStatus(org.verified_status || org.status),
-            date: formatDate(org.created_at),
-            createdAt: org.created_at ? new Date(org.created_at).getTime() : 0,
-          }))
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, 6);
-
-        setRecentOrgs(normalized);
-      })
-      .catch((err) => {
-        if (!active) return;
-        setRecentOrgs([]);
-        setRecentOrgsError(err instanceof Error ? err.message : 'Unable to load organizations.');
-      })
-      .finally(() => {
-        if (active) setRecentOrgsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [apiBase]);
-
   const totalJoins = useMemo(() => joinCounts.reduce((sum, value) => sum + value, 0), [joinCounts]);
+  const peakJoinCount = useMemo(() => Math.max(...joinCounts, 0), [joinCounts]);
+  const activeDays = useMemo(() => joinCounts.filter((value) => value > 0).length, [joinCounts]);
+  const averageJoins = useMemo(() => (
+    joinCounts.length ? (totalJoins / joinCounts.length).toFixed(totalJoins % joinCounts.length === 0 ? 0 : 1) : '0'
+  ), [joinCounts, totalJoins]);
 
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
@@ -478,12 +498,6 @@ const AdminDashboard = () => {
             <p className="admin-header-kicker">Admin Dashboard Hub</p>
             <h1>Overview</h1>
           </div>
-          <div className="admin-header-actions">
-            <button className="admin-icon-btn" type="button" aria-label="Toggle theme">
-              <span className="admin-icon" />
-            </button>
-            <button className="admin-primary-btn" type="button">+ New Task</button>
-          </div>
         </header>
 
       <section className="admin-stats">
@@ -496,7 +510,10 @@ const AdminDashboard = () => {
         <section className="admin-content-grid">
           <div className="admin-panel">
             <div className="admin-panel-header">
-              <h2>User & Organization Joins</h2>
+              <div>
+                <h2>User & Organization Joins</h2>
+                <p className="admin-panel-subtitle">Combined onboarding activity across the selected timeframe.</p>
+              </div>
               <div className="admin-range">
                 <button
                   className="admin-ghost-btn"
@@ -549,6 +566,24 @@ const AdminDashboard = () => {
                 ) : null}
               </div>
             </div>
+            <div className="admin-chart-metrics" aria-hidden="true">
+              <div className="admin-chart-metric">
+                <span>Total joins</span>
+                <strong>{formatCount(totalJoins)}</strong>
+              </div>
+              <div className="admin-chart-metric">
+                <span>Peak day</span>
+                <strong>{formatCount(peakJoinCount)}</strong>
+              </div>
+              <div className="admin-chart-metric">
+                <span>Daily average</span>
+                <strong>{averageJoins}</strong>
+              </div>
+              <div className="admin-chart-metric">
+                <span>Active days</span>
+                <strong>{formatCount(activeDays)}</strong>
+              </div>
+            </div>
             <div className="admin-chart">
               <div className="admin-chart-canvas" role="img" aria-label="New users and organizations joined per weekday">
                 <svg className="admin-chart-svg" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
@@ -558,6 +593,19 @@ const AdminDashboard = () => {
                       <stop offset="100%" stopColor="#2e5cff" stopOpacity="0" />
                     </linearGradient>
                   </defs>
+                  {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                    const y = chartPadding.top + innerHeight * ratio;
+                    return (
+                      <line
+                        key={ratio}
+                        className="admin-chart-grid-line"
+                        x1={chartPadding.left}
+                        y1={y}
+                        x2={chartPadding.left + innerWidth}
+                        y2={y}
+                      />
+                    );
+                  })}
                   <polygon className="admin-chart-area" points={chartAreaPoints} />
                   <polyline className="admin-chart-line" points={chartPoints} />
                   {joinCounts.map((value, index) => {
@@ -594,7 +642,11 @@ const AdminDashboard = () => {
                     <span>{chartLabels[tooltip.index]}</span>
                   </div>
                 ) : null}
-                <div className="admin-chart-labels" aria-hidden="true">
+                <div
+                  className="admin-chart-labels"
+                  aria-hidden="true"
+                  style={{ gridTemplateColumns: `repeat(${chartLabels.length}, minmax(0, 1fr))` }}
+                >
                   {chartLabels.map((label, index) => (
                     <span key={`${label}-${index}`}>
                       {rangeDays === 30 && index % 5 !== 0 ? '' : label}
@@ -604,7 +656,7 @@ const AdminDashboard = () => {
               </div>
               {!joinLoading ? (
                 <p className="admin-chart-footnote">
-                  {totalJoins.toLocaleString()} new joins (users + organizations)
+                  {totalJoins.toLocaleString()} new joins across {rangeLabel.toLowerCase()}
                 </p>
               ) : null}
             </div>
@@ -768,4 +820,3 @@ const AdminDashboard = () => {
 export default function AdminPage() {
   return <AdminDashboard />;
 }
-

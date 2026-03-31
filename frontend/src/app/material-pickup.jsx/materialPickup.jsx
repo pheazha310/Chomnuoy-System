@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarPlus2, CircleCheckBig, Package, Search, EllipsisVertical, Info, MapPinned, ChevronLeft, ChevronRight, Eye, CalendarDays, XCircle } from 'lucide-react';
+import { buildMaterialWorkflowRows, getMaterialWorkflowResources, updateMaterialWorkflowStatus } from '@/services/material-workflow-service.js';
 import './material-pickup.css';
 
 const PAGE_SIZE = 6;
@@ -78,34 +79,6 @@ export default function MaterialPickupPage() {
     address: '',
   });
 
-  const normalizeStatus = (value) => {
-    const status = String(value || '').toLowerCase();
-    if (['delivered', 'completed', 'complete'].includes(status)) {
-      return { label: 'Delivered', tone: 'delivered' };
-    }
-    if (['in transit', 'transit', 'in_transit', 'enroute', 'en route'].includes(status)) {
-      return { label: 'In Transit', tone: 'transit' };
-    }
-    return { label: 'Pending', tone: 'pending' };
-  };
-
-  const formatTimeRange = (fromValue, toValue, fallback) => {
-    if (fromValue || toValue) {
-      const fromLabel = fromValue || '';
-      const toLabel = toValue ? ` - ${toValue}` : '';
-      return `${fromLabel}${toLabel}`.trim();
-    }
-    return fallback || 'Pending confirmation';
-  };
-
-  const formatDateLabel = (rawDate) => {
-    if (!rawDate) return '';
-    const parsedDate = new Date(rawDate);
-    return Number.isNaN(parsedDate.getTime())
-      ? rawDate
-      : parsedDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-  };
-
   useEffect(() => {
     const handleCloseMenu = () => setOpenMenuKey(null);
     window.addEventListener('click', handleCloseMenu);
@@ -113,131 +86,38 @@ export default function MaterialPickupPage() {
   }, []);
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
-    const token = window.localStorage.getItem('authToken');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     setError('');
     if (!Array.isArray(cachedRows)) {
       setLoading(true);
     }
 
-    Promise.allSettled([
-      fetch(`${apiBase}/material_pickups`, { headers }).then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load pickups (${response.status})`);
-        }
-        return response.json();
-      }),
-      fetch(`${apiBase}/donations`, { headers }).then((response) => (response.ok ? response.json() : [])),
-      fetch(`${apiBase}/material_items`, { headers }).then((response) => (response.ok ? response.json() : [])),
-      fetch(`${apiBase}/campaigns`, { headers }).then((response) => (response.ok ? response.json() : [])),
-      fetch(`${apiBase}/organizations`, { headers }).then((response) => (response.ok ? response.json() : [])),
-      fetch(`${apiBase}/users`, { headers }).then((response) => (response.ok ? response.json() : [])),
-    ])
-      .then(([pickupResult, donationResult, materialResult, campaignResult, organizationResult, userResult]) => {
+    getMaterialWorkflowResources()
+      .then((resources) => {
         if (!alive) return;
-        if (pickupResult.status !== 'fulfilled') {
-          throw pickupResult.reason instanceof Error ? pickupResult.reason : new Error('Failed to load pickups.');
-        }
+        const mapped = buildMaterialWorkflowRows(resources)
+          .filter((row) => !donorId || Number(row.donorUserId) === donorId)
+          .map((row) => ({
+            id: row.pickupId || row.id,
+            date: row.scheduleDateLabel,
+            time: row.scheduleTimeLabel,
+            org: row.organizationName,
+            donor: row.donorName,
+            donorInitials: row.donorInitials || getInitials(row.donorName, 'DN'),
+            items: row.itemName,
+            detail: row.itemSummary,
+            address: row.pickupAddress,
+            status: row.donorStatusLabel,
+            statusTone: row.donorStatusTone,
+            createdAt: row.createdAtValue,
+            quantity: row.quantity,
+            donationId: row.donationId,
+            pickupId: row.pickupId,
+            campaignId: row.campaignId,
+            scheduleDateRaw: row.scheduleDateRaw,
+            timeline: row.timeline,
+          }));
 
-        const list = Array.isArray(pickupResult.value) ? pickupResult.value : [];
-        const donations = donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : [];
-        const materialItems = materialResult.status === 'fulfilled' && Array.isArray(materialResult.value) ? materialResult.value : [];
-        const campaigns = campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : [];
-        const organizations = organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value) ? organizationResult.value : [];
-        const users = userResult.status === 'fulfilled' && Array.isArray(userResult.value) ? userResult.value : [];
-
-        const donationMap = new Map(donations.map((item) => [Number(item.id), item]));
-        const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
-        const organizationMap = new Map(organizations.map((item) => [Number(item.id), item]));
-        const organizationByUserMap = new Map(
-          organizations
-            .map((item) => [Number(item.user_id), item])
-            .filter(([userId]) => Number.isFinite(userId) && userId > 0)
-        );
-        const userMap = new Map(users.map((item) => [Number(item.id), item]));
-        const materialItemsByDonation = materialItems.reduce((map, item) => {
-          const key = Number(item.donation_id);
-          if (!map.has(key)) {
-            map.set(key, []);
-          }
-          map.get(key).push(item);
-          return map;
-        }, new Map());
-
-        const donorScopedList = donorId
-          ? list.filter((item) => {
-            const donation = donationMap.get(Number(item.donation_id));
-            return (
-              Number(item.user_id) === donorId ||
-              Number(item.donor_id) === donorId ||
-              Number(donation?.user_id) === donorId
-            );
-          })
-          : list;
-
-        const mapped = donorScopedList.map((item) => {
-          const status = normalizeStatus(item.status);
-          const dateValue = item.pickup_date || item.date || item.created_at || '';
-          const donation = donationMap.get(Number(item.donation_id));
-          const campaign = campaignMap.get(Number(item.campaign_id || donation?.campaign_id));
-          const organization =
-            organizationMap.get(Number(item.organization_id || donation?.organization_id || campaign?.organization_id)) ||
-            organizationByUserMap.get(Number(item.organization_id || donation?.organization_id || campaign?.organization_id)) ||
-            null;
-          const donor =
-            userMap.get(Number(item.user_id || item.donor_id || donation?.user_id)) ||
-            null;
-          const linkedItems = materialItemsByDonation.get(Number(item.donation_id)) || [];
-          const primaryItem = linkedItems[0];
-          const itemCount = linkedItems.reduce((sum, linkedItem) => sum + Math.max(1, Number(linkedItem.quantity) || 1), 0);
-          const itemNames = linkedItems.map((linkedItem) => linkedItem.item_name).filter(Boolean);
-          const organizationName =
-            item.organization_name ||
-            item.organization ||
-            item.org ||
-            campaign?.organization_name ||
-            organization?.name ||
-            organization?.organization_name ||
-            (campaign?.title ? `${campaign.title} Organizer` : '') ||
-            (donation?.organization_id ? `Organization #${donation.organization_id}` : 'Unknown Organization');
-          const address =
-            item.address ||
-            item.pickup_address ||
-            campaign?.pickup_location ||
-            campaign?.location ||
-            donation?.pickup_address ||
-            item.location ||
-            'Pickup address not provided';
-
-          return {
-            id: item.id ?? `${organizationName}-${dateValue}`,
-            date: formatDateLabel(dateValue),
-            time: formatTimeRange(
-              item.time_from || item.timeFrom,
-              item.time_to || item.timeTo,
-              item.time || item.schedule_time || (item.schedule_date ? 'Pickup scheduled' : 'Pending confirmation')
-            ),
-            org: organizationName,
-            donor: donor?.name || item.donor_name || item.user_name || 'Donor',
-            donorInitials: getInitials(donor?.name || item.donor_name || item.user_name || 'Donor'),
-            items: item.items || primaryItem?.item_name || item.item_name || item.item || 'Material items',
-            detail:
-              item.detail ||
-              item.notes ||
-              item.description ||
-              (itemNames.length > 1 ? itemNames.join(', ') : primaryItem?.description) ||
-              'No additional details',
-            address,
-            status: status.label,
-            statusTone: status.tone,
-            createdAt: new Date(dateValue || Date.now()).getTime(),
-            quantity: Number(item.quantity || item.item_count || item.items_count || item.total_items || itemCount || 1),
-            donationId: Number(item.donation_id || donation?.id || 0) || null,
-            campaignId: Number(item.campaign_id || donation?.campaign_id || 0) || null,
-          };
-        });
         setPickupRows(mapped);
         writePickupCache(donorId, mapped);
         setCurrentPage(1);
@@ -269,16 +149,15 @@ export default function MaterialPickupPage() {
   const handleScheduleSubmit = (event) => {
     event.preventDefault();
 
-    const status = normalizeStatus('pending');
     const nextRow = {
-      date: formatDateLabel(newPickupForm.date),
+      date: newPickupForm.date,
       time: `${newPickupForm.timeFrom} - ${newPickupForm.timeTo}`,
       org: newPickupForm.organization,
       items: newPickupForm.items,
       detail: newPickupForm.detail || 'No additional details',
       address: newPickupForm.address,
-      status: status.label,
-      statusTone: status.tone,
+      status: 'Pending',
+      statusTone: 'pending',
       id: `local-${Date.now()}`,
       createdAt: new Date(newPickupForm.date || Date.now()).getTime(),
       quantity: 1,
@@ -484,7 +363,19 @@ export default function MaterialPickupPage() {
                               type="button"
                               role="menuitem"
                               className="danger"
-                              onClick={() => {
+                              onClick={async () => {
+                                if (row.pickupId && row.donationId) {
+                                  await updateMaterialWorkflowStatus({
+                                    pickupId: row.pickupId,
+                                    donationId: row.donationId,
+                                    pickupPatch: {
+                                      status: 'cancelled',
+                                      pickup_address: row.address,
+                                      schedule_date: row.scheduleDateRaw,
+                                    },
+                                    donationStatus: 'cancelled',
+                                  }).catch(() => null);
+                                }
                                 setPickupRows((prev) => {
                                   const nextRows = prev.filter(
                                     (item) => (item.id ?? `${item.org}-${item.date}`) !== rowKey,

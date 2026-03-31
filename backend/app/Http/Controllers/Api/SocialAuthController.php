@@ -7,9 +7,7 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -17,29 +15,10 @@ class SocialAuthController extends Controller
 {
     protected array $providers = ['google', 'facebook'];
 
-    public function status(): JsonResponse
-    {
-        $providers = [];
-
-        foreach ($this->providers as $provider) {
-            $providers[$provider] = [
-                'configured' => $this->hasProviderConfiguration($provider),
-            ];
-        }
-
-        return response()->json([
-            'providers' => $providers,
-        ]);
-    }
-
     public function redirect(string $provider): RedirectResponse
     {
         if (!in_array($provider, $this->providers, true)) {
             abort(404);
-        }
-
-        if (!$this->hasProviderConfiguration($provider)) {
-            return $this->redirectToFrontendError(ucfirst($provider) . ' login is not configured yet.');
         }
 
         return Socialite::driver($provider)->stateless()->redirect();
@@ -116,14 +95,5 @@ class SocialAuthController extends Controller
         $frontend = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
         
         return redirect("{$frontend}/oauth/callback?error=" . urlencode($message));
-    }
-
-    protected function hasProviderConfiguration(string $provider): bool
-    {
-        $clientId = trim((string) Config::get("services.{$provider}.client_id", ''));
-        $clientSecret = trim((string) Config::get("services.{$provider}.client_secret", ''));
-        $redirect = trim((string) Config::get("services.{$provider}.redirect", ''));
-
-        return $clientId !== '' && $clientSecret !== '' && $redirect !== '';
     }
 }

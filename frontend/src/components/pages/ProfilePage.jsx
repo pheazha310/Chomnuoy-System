@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   MapPin,
   Mail,
@@ -53,12 +53,61 @@ const iconMap = {
   achievement: TrendingUp,
 };
 
+const FALLBACK_PROFILE = {
+  profile: {
+    id: 1,
+    name: 'Alex Rivera',
+    title: 'Senior Architectural Consultant & Urban Planner',
+    email: 'a.rivera@architectpro.com',
+    location: 'San Francisco, CA',
+    bio: 'Architect with over 12 years of experience specializing in sustainable urban infrastructure and biophilic design. I lead cross-functional teams at ArchitectPro to deliver high-impact commercial projects that integrate cutting-edge technology with environmental stewardship.',
+    website: 'alexrivera.design',
+    linkedin_url: 'linkedin.com/in/alexrivera',
+    avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
+    skills: ['Urban Planning', 'BIM Management', 'Sustainability', 'Client Relations', 'AutoCAD Expert'],
+    status: 'active',
+    created_at: '2020-01-15T00:00:00Z',
+  },
+  network_stats: {
+    rank: 'Top 1%',
+    connections_count: 500,
+    project_reviews_count: 142,
+  },
+  recent_activities: [
+    {
+      id: 1,
+      type: 'upload',
+      title: 'Final Blueprints Uploaded',
+      description: 'The "Skyline Plaza" commercial project phase 3 has been finalized.',
+      icon: 'upload',
+      time_ago: '2 hours ago',
+    },
+    {
+      id: 2,
+      type: 'review',
+      title: 'New Review from Client',
+      description: 'Metropolitan Heights project received a 5-star review for execution.',
+      icon: 'review',
+      time_ago: 'Yesterday',
+    },
+    {
+      id: 3,
+      type: 'certification',
+      title: 'Certification Renewed',
+      description: 'LEED Accredited Professional credential successfully updated.',
+      icon: 'certification',
+      time_ago: '3 days ago',
+    },
+  ],
+};
+
 export default function ProfilePage() {
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(FALLBACK_PROFILE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState({});
+  const [editedProfile, setEditedProfile] = useState(FALLBACK_PROFILE.profile);
+  const fileInputRef = useRef(null);
 
   const session = getSession();
 
@@ -147,10 +196,25 @@ export default function ProfilePage() {
   const handleSave = async () => {
     try {
       const userId = session?.userId || 1;
+      const formData = new FormData();
+      formData.append('_method', 'PUT');
+      formData.append('name', editedProfile.name || '');
+      formData.append('title', editedProfile.title || '');
+      formData.append('email', editedProfile.email || '');
+      formData.append('location', editedProfile.location || '');
+      formData.append('bio', editedProfile.bio || '');
+      formData.append('website', editedProfile.website || '');
+      formData.append('linkedin_url', editedProfile.linkedin_url || '');
+      (editedProfile.skills || []).forEach((skill) => {
+        formData.append('skills[]', skill);
+      });
+      if (editedProfile.avatar instanceof File) {
+        formData.append('avatar', editedProfile.avatar);
+      }
+
       const response = await fetch(`http://localhost:8000/api/profile/${userId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editedProfile),
+        method: 'POST',
+        body: formData,
       });
 
       if (!response.ok) {
@@ -159,12 +223,17 @@ export default function ProfilePage() {
 
       const data = await response.json();
       setProfile(data);
+      setEditedProfile(data.profile);
       setIsEditing(false);
     } catch (err) {
       // For development, just update local state
       setProfile((prev) => ({
         ...prev,
-        profile: { ...prev.profile, ...editedProfile },
+        profile: {
+          ...prev.profile,
+          ...editedProfile,
+          avatar_url: editedProfile.avatar_url || prev.profile.avatar_url,
+        },
       }));
       setIsEditing(false);
     }
@@ -184,14 +253,18 @@ export default function ProfilePage() {
     setEditedProfile((prev) => ({ ...prev, skills }));
   };
 
-  if (loading) {
-    return (
-      <div className="profile-page loading">
-        <div className="spinner" />
-        <p>Loading profile...</p>
-      </div>
-    );
-  }
+  const handleAvatarChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setEditedProfile((prev) => ({
+      ...prev,
+      avatar: file,
+      avatar_url: previewUrl,
+    }));
+    event.target.value = '';
+  };
 
   if (error && !profile) {
     return (
@@ -215,13 +288,26 @@ export default function ProfilePage() {
               <div className="profile-avatar-section">
                 <div className="profile-avatar">
                   <img
-                    src={profileData.avatar_url || '/default-avatar.png'}
+                    src={editedProfile.avatar_url || profileData.avatar_url || '/default-avatar.png'}
                     alt={profileData.name}
                   />
                   {isEditing && (
-                    <button className="avatar-edit-btn">
-                      <Upload size={16} />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="avatar-edit-btn"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload size={16} />
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={handleAvatarChange}
+                        hidden
+                      />
+                    </>
                   )}
                 </div>
                 <button

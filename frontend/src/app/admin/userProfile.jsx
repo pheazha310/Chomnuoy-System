@@ -14,6 +14,20 @@ function normalizeRoleLabel(raw) {
   return raw || 'User';
 }
 
+function normalizeStatusLabel(raw) {
+  if (!raw) return 'Active';
+  const text = String(raw).trim();
+  if (!text) return 'Active';
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+}
+
+function statusTone(raw) {
+  const value = String(raw || '').toLowerCase();
+  if (value.includes('pending')) return 'pending';
+  if (value.includes('inactive') || value.includes('suspend')) return 'inactive';
+  return 'active';
+}
+
 export default function AdminUserProfilePage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -119,6 +133,9 @@ export default function AdminUserProfilePage() {
     return normalizeRoleLabel(raw);
   }, [roleLookup, user]);
 
+  const userStatus = useMemo(() => normalizeStatusLabel(user?.status), [user]);
+  const userStatusTone = useMemo(() => statusTone(user?.status), [user]);
+
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
@@ -132,8 +149,9 @@ export default function AdminUserProfilePage() {
       <main className="admin-main admin-user-main">
         <header className="admin-user-header">
           <div>
+            <p className="admin-user-kicker">User Directory</p>
             <h1>User Profile</h1>
-            <p>View account profile details.</p>
+            <p>Review account details, contact information, and account state.</p>
           </div>
           <div className="admin-user-header-actions">
             <button type="button" className="admin-user-ghost-btn" onClick={() => navigate('/admin/users')}>
@@ -142,18 +160,43 @@ export default function AdminUserProfilePage() {
           </div>
         </header>
 
-        {loading ? <div className="admin-user-empty">Loading user...</div> : null}
-        {!loading && error ? <div className="admin-user-empty is-error">{error}</div> : null}
+        {loading ? (
+          <div className="admin-user-empty admin-user-state-card">
+            <strong>Loading user</strong>
+            <span>Fetching account information and profile details.</span>
+          </div>
+        ) : null}
+
+        {!loading && error ? (
+          <div className="admin-user-empty admin-user-state-card is-error">
+            <strong>Unable to load user</strong>
+            <span>{error}</span>
+          </div>
+        ) : null}
+
         {!loading && !error && user ? (
           <section className="admin-user-profile-card">
-            <div className="admin-user-profile-header">
-              <div className="admin-user-profile-avatar">
-                {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initials}</span>}
+            <div className="admin-user-profile-hero">
+              <div className="admin-user-profile-header">
+                <div className="admin-user-profile-avatar">
+                  {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{initials}</span>}
+                </div>
+                <div className="admin-user-profile-heading">
+                  <span className="admin-user-profile-eyebrow">Account Overview</span>
+                  <h2>{user.name || 'Unknown'}</h2>
+                  <p>{user.email || '-'}</p>
+                  <div className="admin-user-profile-badges">
+                    <span className="admin-user-profile-badge">{roleName}</span>
+                    <span className={`admin-user-profile-badge is-${userStatusTone}`}>{userStatus}</span>
+                    <span className="admin-user-profile-badge is-muted">Joined {formatDate(user.created_at)}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h2>{user.name || 'Unknown'}</h2>
-                <p>{user.email || '-'}</p>
-                {user.phone ? <small>{user.phone}</small> : null}
+
+              <div className="admin-user-profile-hero-note">
+                <span>Profile Snapshot</span>
+                <strong>{user.phone || 'No phone number saved'}</strong>
+                <p>Use this page to verify identity, role assignment, and overall account readiness.</p>
               </div>
             </div>
 
@@ -164,7 +207,7 @@ export default function AdminUserProfilePage() {
               </div>
               <div>
                 <span>Status</span>
-                <p>{user.status || 'Active'}</p>
+                <p className={`admin-user-profile-status is-${userStatusTone}`}>{userStatus}</p>
               </div>
               <div>
                 <span>Joined</span>
@@ -176,10 +219,10 @@ export default function AdminUserProfilePage() {
               </div>
             </div>
 
-            <div className="admin-user-profile-sections">
+            <div className="admin-user-profile-layout">
               <div className="admin-user-profile-section">
                 <div className="admin-user-profile-section-title">
-                  <span className="admin-user-profile-section-icon" aria-hidden="true">i</span>
+                  <span className="admin-user-profile-section-icon" aria-hidden="true">PI</span>
                   <span>Personal Information</span>
                 </div>
                 <div className="admin-user-profile-info-list">
@@ -188,38 +231,48 @@ export default function AdminUserProfilePage() {
                     <strong>{user.name || 'Unknown'}</strong>
                   </div>
                   <div className="admin-user-profile-info-row">
-                    <span>Time Zone</span>
-                    <strong>UTC+07:00 (ICT)</strong>
+                    <span>Email Address</span>
+                    <strong>{user.email || '-'}</strong>
                   </div>
                   <div className="admin-user-profile-info-row">
-                    <span>Last Login</span>
-                    <strong>Yesterday, 14:22</strong>
+                    <span>Phone Number</span>
+                    <strong>{user.phone || 'Not provided'}</strong>
                   </div>
                 </div>
               </div>
 
               <div className="admin-user-profile-section">
                 <div className="admin-user-profile-section-title">
-                  <span className="admin-user-profile-section-icon" aria-hidden="true">⏱</span>
-                  <span>Recent Activity</span>
+                  <span className="admin-user-profile-section-icon" aria-hidden="true">AC</span>
+                  <span>Account Details</span>
                 </div>
-                <div className="admin-user-profile-activity">
-                  <div className="admin-user-profile-activity-item">
-                    <span className="admin-user-profile-activity-icon" aria-hidden="true">💳</span>
-                    <div>
-                      <strong>Processed Donation</strong>
-                      <small>$500.00 to Ocean Clean-up</small>
-                    </div>
+                <div className="admin-user-profile-info-list">
+                  <div className="admin-user-profile-info-row">
+                    <span>Account ID</span>
+                    <strong>{user.id}</strong>
                   </div>
-                  <div className="admin-user-profile-activity-item">
-                    <span className="admin-user-profile-activity-icon" aria-hidden="true">🔒</span>
-                    <div>
-                      <strong>Updated Security</strong>
-                      <small>2FA enabled successfully</small>
-                    </div>
+                  <div className="admin-user-profile-info-row">
+                    <span>Role Assignment</span>
+                    <strong>{roleName}</strong>
+                  </div>
+                  <div className="admin-user-profile-info-row">
+                    <span>Profile Image</span>
+                    <strong>{avatarUrl ? 'Uploaded' : 'Not uploaded'}</strong>
                   </div>
                 </div>
               </div>
+
+              <aside className="admin-user-profile-sidecard">
+                <div className="admin-user-profile-sidecard-head">
+                  <span>Admin Notes</span>
+                  <strong>Quick review</strong>
+                </div>
+                <ul className="admin-user-profile-checklist">
+                  <li>{user.email ? 'Email address is available.' : 'Email address is missing.'}</li>
+                  <li>{user.phone ? 'Phone number is on file.' : 'Phone number still needs to be added.'}</li>
+                  <li>{userStatusTone === 'active' ? 'Account is ready for normal access.' : 'Account may need admin attention.'}</li>
+                </ul>
+              </aside>
             </div>
           </section>
         ) : null}
@@ -250,4 +303,3 @@ export default function AdminUserProfilePage() {
     </div>
   );
 }
-

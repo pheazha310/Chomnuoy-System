@@ -4,6 +4,12 @@ import { normalizeLanguageValue, useLanguage } from '@/i18n/language.jsx';
 import './style.css';
 import './admin-settings.css';
 
+let adminSettingsEndpointUnavailable = false;
+const resolvedAdminUsersByEmail = new Map();
+const ADMIN_SETTINGS_ENDPOINT_FLAG = 'admin_settings_endpoint_unavailable';
+const ADMIN_SETTINGS_ENDPOINT_ENABLED =
+  String(import.meta.env.VITE_ENABLE_ADMIN_SETTINGS_ENDPOINT || '').toLowerCase() === 'true';
+
 const DEFAULT_FORM = {
   fullName: 'Administrator Name',
   email: 'admin@chomnuoy.com',
@@ -44,6 +50,30 @@ function getSession() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function setSession(nextSession) {
+  window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+  window.dispatchEvent(new Event('chomnuoy-session-updated'));
+}
+
+function readAdminSettingsEndpointUnavailable() {
+  if (!ADMIN_SETTINGS_ENDPOINT_ENABLED) return true;
+  if (adminSettingsEndpointUnavailable) return true;
+  try {
+    return window.sessionStorage.getItem(ADMIN_SETTINGS_ENDPOINT_FLAG) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markAdminSettingsEndpointUnavailable() {
+  adminSettingsEndpointUnavailable = true;
+  try {
+    window.sessionStorage.setItem(ADMIN_SETTINGS_ENDPOINT_FLAG, '1');
+  } catch {
+    // Ignore storage failures.
   }
 }
 
@@ -120,6 +150,48 @@ export default function AdminSettingsPage() {
     return fallback;
   };
 
+  const resolveAdminUser = async (headers) => {
+    const normalizedEmail = String(session?.email || '').trim().toLowerCase();
+
+    if (session?.userId) {
+      const directResponse = await fetch(`${apiBase}/users/${session.userId}`, { headers });
+      if (directResponse.ok) {
+        return directResponse.json();
+      }
+
+      if (directResponse.status !== 404 || !normalizedEmail) {
+        return null;
+      }
+    }
+
+    if (!normalizedEmail) {
+      return null;
+    }
+
+    if (resolvedAdminUsersByEmail.has(normalizedEmail)) {
+      return resolvedAdminUsersByEmail.get(normalizedEmail);
+    }
+
+    const fallbackResponse = await fetch(`${apiBase}/users/by-email?email=${encodeURIComponent(normalizedEmail)}`, { headers });
+    if (!fallbackResponse.ok) {
+      return null;
+    }
+
+    const resolvedUser = await fallbackResponse.json();
+    resolvedAdminUsersByEmail.set(normalizedEmail, resolvedUser);
+    const resolvedUserId = Number(resolvedUser?.id);
+    if (Number.isInteger(resolvedUserId) && resolvedUserId > 0) {
+      setSession({
+        ...(getSession() || {}),
+        userId: resolvedUserId,
+        name: resolvedUser?.name || session?.name,
+        email: resolvedUser?.email || session?.email,
+      });
+    }
+
+    return resolvedUser;
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -127,11 +199,11 @@ export default function AdminSettingsPage() {
       setIsLoading(true);
       try {
         const headers = getAuthHeaders();
-        const [settingsResponse, userResponse] = await Promise.all([
-          fetch(`${apiBase}/admin/settings`, { headers }),
-          session?.userId
-            ? fetch(`${apiBase}/users/${session.userId}`, { headers })
-            : Promise.resolve(null),
+        const [settingsResponse, user] = await Promise.all([
+          readAdminSettingsEndpointUnavailable()
+            ? Promise.resolve({ ok: false, status: 404 })
+            : fetch(`${apiBase}/admin/settings`, { headers }),
+          resolveAdminUser(headers),
         ]);
 
         let nextValues = {};
@@ -144,11 +216,14 @@ export default function AdminSettingsPage() {
             }
             return acc;
           }, {});
+        } else if (settingsResponse.status !== 404) {
+          throw new Error(await parseErrorMessage(settingsResponse, 'Unable to load saved settings from server.'));
+        } else {
+          markAdminSettingsEndpointUnavailable();
         }
 
         let profileValues = {};
-        if (userResponse?.ok) {
-          const user = await userResponse.json();
+        if (user) {
           const nextAvatarUrl =
             user?.avatar_url ||
             user?.profile_image ||
@@ -162,6 +237,8 @@ export default function AdminSettingsPage() {
             email: user?.email || undefined,
           };
           setAvatarUrl(nextAvatarUrl || session?.avatar || '');
+        } else {
+          setAvatarUrl(session?.avatar || '');
         }
 
         if (!active) return;
@@ -220,6 +297,8 @@ export default function AdminSettingsPage() {
         ...getAuthHeaders(),
         'Content-Type': 'application/json',
       };
+      const resolvedUser = await resolveAdminUser(headers);
+      const resolvedUserId = Number(resolvedUser?.id || session?.userId);
 
       const settingsPayload = SETTING_DEFINITIONS.map((item) => ({
         key: item.key,
@@ -231,15 +310,20 @@ export default function AdminSettingsPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({ settings: settingsPayload }),
+      }).catch((error) => {
+        throw error;
       });
 
-      if (!saveSettingsResponse.ok) {
+      if (!saveSettingsResponse.ok && saveSettingsResponse.status !== 404) {
         const errorMessage = await parseErrorMessage(saveSettingsResponse, 'Failed to save settings.');
         throw new Error(errorMessage);
       }
+      if (saveSettingsResponse.status === 404) {
+        markAdminSettingsEndpointUnavailable();
+      }
 
-      if (session?.userId) {
-        const updateUserResponse = await fetch(`${apiBase}/users/${session.userId}`, {
+      if (Number.isInteger(resolvedUserId) && resolvedUserId > 0) {
+        const updateUserResponse = await fetch(`${apiBase}/users/${resolvedUserId}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify({
@@ -258,12 +342,16 @@ export default function AdminSettingsPage() {
         ...(getSession() || {}),
         name: sourceForm.fullName,
         email: sourceForm.email,
+        ...(Number.isInteger(resolvedUserId) && resolvedUserId > 0 ? { userId: resolvedUserId } : {}),
       };
-      window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
-      window.dispatchEvent(new Event('chomnuoy-session-updated'));
+      setSession(nextSession);
 
       if (showSuccess) {
-        setMessage('Settings saved successfully.');
+        setMessage(
+          saveSettingsResponse.status === 404
+            ? 'Profile updated, but admin settings are unavailable on the current backend deployment.'
+            : 'Settings saved successfully.',
+        );
         setMessageType('success');
       }
     } catch (error) {
@@ -363,17 +451,6 @@ export default function AdminSettingsPage() {
     window.localStorage.removeItem('authToken');
     window.location.href = '/login';
   };
-
-  if (isLoading) {
-    return (
-      <div className="admin-shell">
-        <AdminSidebar onLogout={() => setIsLogoutOpen(true)} userName={adminName} userRole={adminRole} />
-        <main className="admin-main">
-          <div className="admin-panel">Loading settings...</div>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="admin-shell">

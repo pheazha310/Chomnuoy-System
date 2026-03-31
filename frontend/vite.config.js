@@ -4,7 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   server: {
-    host: 'localhost',
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
   },

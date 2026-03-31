@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  findOrganizationByEmail,
+  getOrganizationById,
+  updateOrganizationProfile,
+} from '@/services/user-service.js';
+import { DEFAULT_MAP_CENTER, getCurrentCoordinates } from '@/utils/geolocation.js';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
@@ -26,7 +32,10 @@ export default function OrganizationProfileEditPage() {
   const navigate = useNavigate();
   const session = useMemo(() => getOrganizationSession(), []);
   const storedProfile = useMemo(() => getStoredProfile(), []);
-  const organizationId = Number(session?.userId ?? 0);
+  const [resolvedOrganizationId, setResolvedOrganizationId] = useState(
+    Number(session?.organizationId ?? session?.userId ?? 0),
+  );
+  const loadKeyRef = useRef('');
   const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
   const [error, setError] = useState('');
@@ -62,13 +71,70 @@ export default function OrganizationProfileEditPage() {
   });
 
   useEffect(() => {
-    if (!organizationId) {
-      return;
-    }
-
     let active = true;
+    const loadKey = `${resolvedOrganizationId || 0}:${String(session?.email || '').trim().toLowerCase()}`;
+    if (loadKeyRef.current === loadKey) {
+      return undefined;
+    }
+    loadKeyRef.current = loadKey;
 
-    getOrganizationById(organizationId)
+    const persistResolvedOrganization = (organization) => {
+      const nextId = Number(organization?.id || 0);
+      if (!nextId) return;
+
+      setResolvedOrganizationId((previous) => (previous === nextId ? previous : nextId));
+      window.localStorage.setItem(
+        'chomnuoy_session',
+        JSON.stringify({
+          ...(getOrganizationSession() || {}),
+          userId: nextId,
+          organizationId: nextId,
+          name: organization?.name || session?.name,
+          email: organization?.email || session?.email,
+        })
+      );
+      window.dispatchEvent(new Event('chomnuoy-session-updated'));
+    };
+
+    const resolveOrganization = async () => {
+      const normalizedEmail = String(session?.email || '').trim().toLowerCase();
+
+      if (normalizedEmail) {
+        const matchedOrganization = await findOrganizationByEmail(normalizedEmail).catch(() => null);
+        if (matchedOrganization?.id) {
+          const resolvedOrganization = await getOrganizationById(matchedOrganization.id).catch(() => matchedOrganization);
+          persistResolvedOrganization(resolvedOrganization);
+          return resolvedOrganization;
+        }
+
+        window.localStorage.setItem(
+          'chomnuoy_session',
+          JSON.stringify({
+            ...(getOrganizationSession() || {}),
+            organizationId: null,
+          })
+        );
+        window.dispatchEvent(new Event('chomnuoy-session-updated'));
+        setResolvedOrganizationId(0);
+        return null;
+      }
+
+      if (resolvedOrganizationId > 0) {
+        try {
+          const directOrganization = await getOrganizationById(resolvedOrganizationId);
+          persistResolvedOrganization(directOrganization);
+          return directOrganization;
+        } catch (error) {
+          if (Number(error?.response?.status) !== 404) {
+            throw error;
+          }
+        }
+      }
+
+      return null;
+    };
+
+    resolveOrganization()
       .then((organization) => {
         if (!active || !organization) {
           return;
@@ -89,7 +155,7 @@ export default function OrganizationProfileEditPage() {
     return () => {
       active = false;
     };
-  }, [organizationId]);
+  }, [resolvedOrganizationId, session?.email, session?.name]);
 
   const handleChange = (field) => (event) => {
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
@@ -157,7 +223,19 @@ export default function OrganizationProfileEditPage() {
     setError('');
 
     try {
-      if (organizationId) {
+      let effectiveOrganizationId = resolvedOrganizationId;
+
+      if (formData.email) {
+        const matchedOrganization = await findOrganizationByEmail(formData.email).catch(() => null);
+        if (matchedOrganization?.id) {
+          effectiveOrganizationId = Number(matchedOrganization.id);
+          setResolvedOrganizationId(effectiveOrganizationId);
+        } else {
+          effectiveOrganizationId = 0;
+        }
+      }
+
+      if (effectiveOrganizationId) {
         const payload = new FormData();
         payload.append('name', formData.name);
         payload.append('email', formData.email);
@@ -170,7 +248,10 @@ export default function OrganizationProfileEditPage() {
           payload.append('avatar', selectedLogoFile);
         }
 
-        await updateOrganizationProfile(organizationId, payload);
+        await updateOrganizationProfile(effectiveOrganizationId, payload);
+      } else {
+        setError('No organization record was found for this email on the backend.');
+        return;
       }
 
       window.localStorage.setItem(

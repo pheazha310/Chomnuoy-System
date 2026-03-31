@@ -4,6 +4,8 @@ import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
 import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
+import { findOrganizationByEmail } from '@/services/user-service.js';
+import { getCachedBundle, getCachedJson } from '@/services/request-cache.js';
 
 function getOrganizationSession() {
   try {
@@ -94,6 +96,10 @@ function sanitizeSocialLink(label, value) {
   };
 }
 
+function isNotFoundResponse(response) {
+  return Number(response?.status) === 404;
+}
+
 export default function OrganizationProfilePage() {
   const { displayPrefs } = useGlobalTheme();
   const session = useMemo(() => getOrganizationSession(), []);
@@ -164,8 +170,9 @@ export default function OrganizationProfilePage() {
 
   useEffect(() => {
     const sessionData = getOrganizationSession();
-    const organizationId = Number(sessionData?.userId ?? 0);
-    if (!organizationId) {
+    const sessionOrganizationId = Number(sessionData?.organizationId ?? sessionData?.userId ?? 0);
+    const sessionEmail = String(sessionData?.email || '').trim().toLowerCase();
+    if (!sessionOrganizationId && !sessionEmail) {
       setError('Your session is missing an account id. Please sign in again.');
       setLoading(false);
       return;
@@ -176,13 +183,89 @@ export default function OrganizationProfilePage() {
     setLoading(true);
     setError('');
 
-    Promise.all([
-      fetch(`${apiBase}/organizations/${organizationId}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
-    ])
-      .then(([organization, campaignsData, donationsData]) => {
+    const resolveOrganization = async () => {
+      if (sessionEmail) {
+        const matchedOrganization = await findOrganizationByEmail(sessionEmail).catch(() => null);
+        if (matchedOrganization?.id) {
+          const resolvedOrganization = await getCachedJson(`${apiBase}/organizations/${matchedOrganization.id}`, {
+            cacheKey: `organization:profile:${matchedOrganization.id}`,
+            ttlMs: 60 * 1000,
+            allowStatuses: [404],
+            defaultValue: null,
+            fallbackMessage: 'Failed to load organization profile',
+          });
+
+          if (resolvedOrganization?.id && Number(resolvedOrganization.id) !== sessionOrganizationId) {
+            window.localStorage.setItem(
+              'chomnuoy_session',
+              JSON.stringify({
+                ...(getOrganizationSession() || {}),
+                userId: Number(resolvedOrganization.id),
+                organizationId: Number(resolvedOrganization.id),
+              }),
+            );
+            window.dispatchEvent(new Event('chomnuoy-session-updated'));
+          }
+
+          if (resolvedOrganization) {
+            return resolvedOrganization;
+          }
+        }
+
+        window.localStorage.setItem(
+          'chomnuoy_session',
+          JSON.stringify({
+            ...(getOrganizationSession() || {}),
+            organizationId: null,
+          }),
+        );
+        window.dispatchEvent(new Event('chomnuoy-session-updated'));
+        return null;
+      }
+
+      if (sessionOrganizationId > 0) {
+        const directOrganization = await getCachedJson(`${apiBase}/organizations/${sessionOrganizationId}`, {
+          cacheKey: `organization:profile:${sessionOrganizationId}`,
+          ttlMs: 60 * 1000,
+          allowStatuses: [404],
+          defaultValue: null,
+          fallbackMessage: 'Failed to load organization profile',
+        });
+        if (directOrganization) {
+          return directOrganization;
+        }
+      }
+
+      return null;
+    };
+
+    getCachedBundle(
+      `organization:profile:bundle:${sessionOrganizationId || sessionEmail}`,
+      [
+        () => resolveOrganization().then((organization) => ({ organization })),
+        () => getCachedJson(`${apiBase}/campaigns`, {
+          cacheKey: 'shared:campaigns',
+          ttlMs: 60 * 1000,
+          fallbackMessage: 'Failed to load campaigns',
+        }).then((campaignsData) => ({ campaignsData: Array.isArray(campaignsData) ? campaignsData : [] })),
+        () => getCachedJson(`${apiBase}/donations`, {
+          cacheKey: 'shared:donations',
+          ttlMs: 60 * 1000,
+          fallbackMessage: 'Failed to load donations',
+        }).then((donationsData) => ({ donationsData: Array.isArray(donationsData) ? donationsData : [] })),
+      ],
+      { ttlMs: 60 * 1000 },
+    )
+      .then(({ organization, campaignsData, donationsData }) => {
         if (!active) return;
+        if (!organization) {
+          setError('Organization profile was not found for the current session.');
+          setOrgData(null);
+          setCampaigns([]);
+          setStats({ totalCampaigns: 0, totalDonations: 0, totalDonors: 0 });
+          return;
+        }
+
         setOrgData(organization);
         if (!storedProfile?.latitude && organization?.latitude) {
           setLatitude(organization.latitude);
@@ -195,6 +278,7 @@ export default function OrganizationProfilePage() {
 
         const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
         const donations = Array.isArray(donationsData) ? donationsData : [];
+        const organizationId = Number(organization.id || 0);
         const filteredCampaigns = campaigns.filter(
           (item) => Number(item.organization_id) === organizationId,
         );
@@ -216,9 +300,13 @@ export default function OrganizationProfilePage() {
           totalDonors: donorIds.size,
         });
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
-        setError('Failed to load organization profile.');
+        if (isNotFoundResponse(err)) {
+          setError('Organization profile was not found for the current session.');
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Failed to load organization profile.');
       })
       .finally(() => {
         if (!active) return;

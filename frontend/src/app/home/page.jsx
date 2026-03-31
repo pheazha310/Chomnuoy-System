@@ -18,8 +18,6 @@ const howItWorks = {
   ],
 };
 
-const trustedBy = ['UNICEF', 'Red Cross', 'WWF', 'CARE', 'OXFAM'];
-
 function formatCompactCurrency(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return '$0';
@@ -117,6 +115,7 @@ function Home() {
   const donateHref = session?.isLoggedIn ? '/campaigns/donor' : '/login?redirect=%2Fcampaigns';
   const [campaigns, setCampaigns] = useState([]);
   const [donations, setDonations] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
 
   useEffect(() => {
@@ -127,16 +126,19 @@ function Home() {
     Promise.allSettled([
       fetchCampaigns(),
       fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/organizations`).then((response) => (response.ok ? response.json() : [])),
     ])
-      .then(([campaignResult, donationResult]) => {
+      .then(([campaignResult, donationResult, organizationResult]) => {
         if (!active) return;
         setCampaigns(campaignResult.status === 'fulfilled' ? campaignResult.value : []);
         setDonations(donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : []);
+        setOrganizations(organizationResult.status === 'fulfilled' && Array.isArray(organizationResult.value) ? organizationResult.value : []);
       })
       .catch(() => {
         if (!active) return;
         setCampaigns([]);
         setDonations([]);
+        setOrganizations([]);
       })
       .finally(() => {
         if (!active) return;
@@ -195,6 +197,58 @@ function Home() {
         };
       });
   }, [campaigns]);
+
+  const trustedPartners = useMemo(() => {
+    const verifiedOrganizations = organizations
+      .filter((item) => {
+        const status = String(item.verified_status || item.status || '').toLowerCase();
+        return !status || status.includes('verified') || status.includes('approved') || status.includes('active');
+      })
+      .slice(0, 5)
+      .map((item) => item.name)
+      .filter(Boolean);
+
+    return verifiedOrganizations.length > 0
+      ? verifiedOrganizations
+      : ['Verified NGOs', 'Health Relief', 'Education Funds', 'Community Care', 'Emergency Aid'];
+  }, [organizations]);
+
+  const ctaMetrics = useMemo(() => {
+    const verifiedOrganizations = organizations.filter((item) => {
+      const status = String(item.verified_status || item.status || '').toLowerCase();
+      return !status || status.includes('verified') || status.includes('approved') || status.includes('active');
+    }).length;
+
+    const completedDonations = donations.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return !status || status === 'completed' || status === 'confirmed';
+    }).length;
+
+    const activeCampaigns = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
+
+    return [
+      { label: 'Verified organizations', value: formatCompactNumber(verifiedOrganizations) },
+      { label: 'Completed donations', value: formatCompactNumber(completedDonations) },
+      { label: 'Active campaigns', value: formatCompactNumber(activeCampaigns) },
+    ];
+  }, [campaigns, donations, organizations]);
+
+  const ctaSummary = useMemo(() => {
+    const totalRaised = donations.reduce((sum, item) => {
+      const status = String(item.status || '').toLowerCase();
+      const isMaterial = String(item.donation_type || '').toLowerCase() === 'material';
+      if (isMaterial || (status && status !== 'completed' && status !== 'confirmed')) return sum;
+      return sum + Number(item.amount || 0);
+    }, 0);
+
+    const leadCause = featuredCauses[0];
+
+    return {
+      totalRaised: formatCompactCurrency(totalRaised),
+      featuredTitle: leadCause?.title || 'New community campaigns launching now',
+      featuredProgress: leadCause ? `${leadCause.progress}% funded` : 'Fresh opportunities for donors and organizations',
+    };
+  }, [donations, featuredCauses]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -432,9 +486,9 @@ function Home() {
       </section>
 
       <section className="home-trusted" aria-label="Trusted organizations" data-reveal>
-        <p>Trusted by global organizations</p>
-        <div>
-          {trustedBy.map((org, index) => (
+        <p>Trusted by active partners on Chomnuoy</p>
+        <div className="home-trusted-list">
+          {trustedPartners.map((org, index) => (
             <span key={org} data-reveal style={{ '--reveal-delay': `${160 + index * 60}ms` }}>
               {org}
             </span>
@@ -443,13 +497,36 @@ function Home() {
       </section>
 
       <section className="home-cta" aria-labelledby="cta-title" data-reveal>
-        <h2 id="cta-title">Ready to make a difference?</h2>
-        <p>Whether you want to give or start a campaign, Chomnuoy is here to support your journey.</p>
-        <div className="home-hero-actions">
-          <Link to="/campaigns" className="home-btn home-btn-light">
-            Start Your Journey
-          </Link>
-          <Link to="/contact" className="home-btn home-btn-outline-light">
+        <div className="home-cta-copy">
+          <span className="home-cta-kicker">Platform momentum</span>
+          <h2 id="cta-title">Turn generosity into visible progress.</h2>
+          <p>
+            Support verified organizations, fund live campaigns, and track a platform that has already moved {ctaSummary.totalRaised} in support.
+          </p>
+          <div className="home-hero-actions">
+            <Link to="/campaigns" className="home-btn home-btn-light">
+              Explore Live Campaigns
+            </Link>
+            <Link to="/organizations" className="home-btn home-btn-outline-light">
+              Browse Organizations
+            </Link>
+          </div>
+        </div>
+
+        <div className="home-cta-panel">
+          <div className="home-cta-panel-head">
+            <strong>{ctaSummary.featuredTitle}</strong>
+            <span>{ctaSummary.featuredProgress}</span>
+          </div>
+          <div className="home-cta-metrics">
+            {ctaMetrics.map((item) => (
+              <article key={item.label}>
+                <strong>{item.value}</strong>
+                <span>{item.label}</span>
+              </article>
+            ))}
+          </div>
+          <Link to="/contact" className="home-cta-support-link">
             Contact Support
           </Link>
         </div>

@@ -44,6 +44,11 @@ export async function loginUser(payload) {
     return response.data;
 }
 
+export async function loginWithGoogleCredential(credential) {
+    const response = await apiClient.post('/auth/google/token', { credential });
+    return response.data;
+}
+
 /**
  * Get all categories
  * Send GET request to fetch category list
@@ -128,6 +133,18 @@ export async function getUserById(userId) {
     return response.data;
 }
 
+export async function getMyUserProfile() {
+    const response = await apiClient.get('/profile/me');
+    return response.data;
+}
+
+export async function updateMyUserProfile(formData) {
+    const response = await apiClient.post('/profile/me?_method=PUT', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+}
+
 export async function getOrganizationById(orgId) {
     const normalizedId = requireResourceId(orgId, 'organization');
     const response = await apiClient.get(`/organizations/${normalizedId}`);
@@ -140,6 +157,38 @@ export async function createBakongTransaction(payload) {
 }
 
 export async function verifyBakongTransaction(tranId) {
-    const response = await apiClient.post(`/bakong/transactions/${encodeURIComponent(tranId)}/verify`);
+    const response = await apiClient.post(`/verify-qr`, {
+        "tranId": tranId
+    });
     return response.data;
+}
+
+export async function checkPayment(payload) {
+    const response = await apiClient.post(`/payment/check`, payload);
+    return response.data;
+}
+
+export async function getPaymentStatus(payload) {
+    const response = await apiClient.post(`/payment/status`, payload);
+    return response.data;
+}
+
+export async function verifyQR(payload) {
+    const response = await apiClient.post(`/payment/verify`, payload);
+    return response.data;
+}
+
+export async function decodeQR(payload) {
+    const response = await apiClient.post(`/payment/decode`, payload);
+    return response.data;
+}
+
+export async function generateDeepLink(payload) {
+    const response = await apiClient.post(`/payment/deep-link`, payload);
+    return response.data;
+}
+
+export async function generateAbaQr(payload) {
+  const response = await apiClient.post(`/payment/generate`, payload);
+  return response.data;
 }

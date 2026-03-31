@@ -16,6 +16,7 @@ import {
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { buildMaterialWorkflowRows, getMaterialWorkflowResources, updateMaterialWorkflowStatus } from '@/services/material-workflow-service.js';
 import './PickupsTableAdmin.css';
 
 const PAGE_SIZE = 5;
@@ -25,6 +26,7 @@ const statusClasses = {
   Assigned: 'pickup-status-assigned',
   'In Transit': 'pickup-status-transit',
   Completed: 'pickup-status-completed',
+  Cancelled: 'pickup-status-pending',
 };
 const categoryClasses = {
   Clothing: 'pickup-tag-clothing',
@@ -55,29 +57,6 @@ function getInitials(name) {
   if (parts.length === 0) return 'NA';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
-}
-
-function normalizeStatus(value) {
-  const status = String(value || '').trim().toLowerCase();
-  if (['assigned', 'accepted'].includes(status)) {
-    return 'Assigned';
-  }
-  if (['in transit', 'transit', 'in_transit', 'enroute', 'en route'].includes(status)) {
-    return 'In Transit';
-  }
-  if (['delivered', 'completed', 'complete', 'done'].includes(status)) {
-    return 'Completed';
-  }
-  return 'Pending';
-}
-
-function normalizeCategory(value) {
-  const text = String(value || '').trim().toLowerCase();
-  if (text.includes('cloth')) return 'Clothing';
-  if (text.includes('educ')) return 'Education';
-  if (text.includes('food')) return 'Food Supply';
-  if (text.includes('house')) return 'Household';
-  return 'Other';
 }
 
 function parseDate(value) {
@@ -148,6 +127,7 @@ export default function PickupsTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
+  const [updatingId, setUpdatingId] = useState(null);
   const [filters, setFilters] = useState({
     status: 'All',
     date: 'This Week',
@@ -156,91 +136,32 @@ export default function PickupsTable() {
 
   useEffect(() => {
     let active = true;
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-    const token = window.localStorage.getItem('authToken');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
     async function load() {
       setLoading(true);
       setError('');
       try {
-        const [pickupResult, orgResult, userResult] = await Promise.allSettled([
-          fetch(`${apiBase}/material_pickups`, { headers }).then((res) => {
-            if (!res.ok) throw new Error(`Failed to load pickups (${res.status})`);
-            return res.json();
-          }),
-          fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/users`, { headers }).then((res) => (res.ok ? res.json() : [])),
-        ]);
-
+        const resources = await getMaterialWorkflowResources();
         if (!active) return;
-        if (pickupResult.status !== 'fulfilled') {
-          throw pickupResult.reason instanceof Error ? pickupResult.reason : new Error('Failed to load pickups.');
-        }
-
-        const organizations = orgResult.status === 'fulfilled' && Array.isArray(orgResult.value) ? orgResult.value : [];
-        const users = userResult.status === 'fulfilled' && Array.isArray(userResult.value) ? userResult.value : [];
-        const orgMap = new Map(organizations.map((item) => [Number(item.id), item]));
-        const orgByUserMap = new Map(
-          organizations
-            .map((item) => [Number(item.user_id), item])
-            .filter(([userId]) => Number.isFinite(userId) && userId > 0)
-        );
-        const userMap = new Map(users.map((item) => [Number(item.id), item]));
-        const pickups = Array.isArray(pickupResult.value) ? pickupResult.value : [];
-
-        const mapped = pickups.map((item, index) => {
-          const donor =
-            userMap.get(Number(item.user_id)) ||
-            userMap.get(Number(item.donor_id)) ||
-            null;
-          const organization =
-            orgMap.get(Number(item.organization_id)) ||
-            orgByUserMap.get(Number(item.organization_id)) ||
-            orgByUserMap.get(Number(item.org_user_id)) ||
-            null;
-          const donorName =
-            item.donor_name ||
-            item.user_name ||
-            item.name ||
-            donor?.name ||
-            `Donor #${index + 1}`;
-          const address =
-            item.address ||
-            item.pickup_address ||
-            item.location ||
-            item.destination_address ||
-            '';
-          const organizationName =
-            item.organization_name ||
-            item.organization ||
-            item.org ||
-            organization?.name ||
-            organization?.organization_name ||
-            (item.organization_id ? `Organization #${item.organization_id}` : 'Unassigned Organization');
-          const rawCategory = item.category || item.item_category || item.items || item.item_name || item.item;
-          const normalizedStatus = normalizeStatus(item.status);
-          const pickupDateRaw = item.pickup_date || item.date || item.scheduled_at || item.created_at || '';
-          const pickupDate = parseDate(pickupDateRaw);
-          const latitude = Number(item.lat ?? item.latitude ?? item.pickup_latitude);
-          const longitude = Number(item.lng ?? item.longitude ?? item.pickup_longitude);
-
-          return {
-            id: item.id || `pickup-${index + 1}`,
-            initials: getInitials(donorName),
-            name: donorName,
-            org: organizationName,
-            category: normalizeCategory(rawCategory),
-            date: formatDateLabel(pickupDateRaw),
-            pickupDate,
-            status: normalizedStatus,
-            province: extractProvince(item, address),
-            quantity: Number(item.quantity || item.item_count || item.items_count || item.total_items || 1),
-            lat: Number.isFinite(latitude) ? latitude : null,
-            lng: Number.isFinite(longitude) ? longitude : null,
-            address: address || 'Pickup address not provided',
-          };
-        });
+        const mapped = buildMaterialWorkflowRows(resources).map((row) => ({
+          id: row.pickupId || row.id,
+          pickupId: row.pickupId,
+          donationId: row.donationId,
+          donorUserId: row.donorUserId,
+          initials: row.donorInitials || getInitials(row.donorName, 'DN'),
+          name: row.donorName,
+          org: row.organizationName,
+          category: row.category,
+          date: row.scheduleDateLabel,
+          pickupDate: parseDate(row.scheduleDateRaw),
+          status: row.adminStatusLabel,
+          province: extractProvince(row.pickup || {}, row.pickupAddress),
+          quantity: row.quantity,
+          lat: Number.isFinite(row.lat) ? row.lat : null,
+          lng: Number.isFinite(row.lng) ? row.lng : null,
+          address: row.pickupAddress,
+          scheduleDateRaw: row.scheduleDateRaw,
+          campaignTitle: row.campaignTitle,
+        }));
 
         setRows(mapped);
         setCurrentPage(1);
@@ -330,6 +251,22 @@ export default function PickupsTable() {
       .slice(0, 4);
   }, [rows]);
 
+  const pickupSummary = useMemo(() => {
+    const total = rows.length;
+    const mapped = mapMarkers.length;
+    const organizations = new Set(rows.map((row) => row.org).filter(Boolean)).size;
+    const pending = rows.filter((row) => row.status === 'Pending').length;
+    const completionRate = total ? Math.round((rows.filter((row) => row.status === 'Completed').length / total) * 100) : 0;
+
+    return {
+      total,
+      mapped,
+      organizations,
+      pending,
+      completionRate,
+    };
+  }, [mapMarkers.length, rows]);
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by this browser.');
@@ -359,6 +296,40 @@ export default function PickupsTable() {
 
   const toggleMenu = (id) => {
     setOpenMenuId((prev) => (prev === id ? null : id));
+  };
+
+  const handleStatusUpdate = async (pickup, nextStatus) => {
+    if (!pickup.pickupId || !pickup.donationId) return;
+    setUpdatingId(pickup.id);
+    try {
+      await updateMaterialWorkflowStatus({
+        pickupId: pickup.pickupId,
+        donationId: pickup.donationId,
+        pickupPatch: {
+          status: nextStatus,
+          pickup_address: pickup.address,
+          schedule_date: pickup.scheduleDateRaw,
+        },
+        donationStatus: nextStatus,
+        notification: pickup.donorUserId ? {
+          user_id: pickup.donorUserId,
+          message: `Your material donation for "${pickup.campaignTitle}" is now ${nextStatus.replaceAll('_', ' ')}.`,
+          type: 'material-workflow-update',
+        } : null,
+      });
+      const labelMap = {
+        confirmed: 'Assigned',
+        in_transit: 'In Transit',
+        completed: 'Completed',
+        cancelled: 'Cancelled',
+      };
+      setRows((prev) => prev.map((item) => (
+        item.id === pickup.id ? { ...item, status: labelMap[nextStatus] || item.status } : item
+      )));
+      setOpenMenuId(null);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const toggleFilter = (key) => {
@@ -406,17 +377,58 @@ export default function PickupsTable() {
         </div>
       </header>
 
-      <div className="pickup-title-row">
-        <div>
-          <p className="pickup-kicker">Pickups Management</p>
-          <h1 className="pickup-title">
-            Live overview of all material collection and distribution requests for {session?.name || 'the admin team'}
-          </h1>
+      <div className="pickup-hero">
+        <div className="pickup-hero-copy">
+          <p className="pickup-kicker">Admin Logistics Desk</p>
+          <h1 className="pickup-title">Pickups Management</h1>
+          <p className="pickup-subtitle">
+            Live overview of material collection and distribution requests for {session?.name || 'the admin team'}.
+          </p>
+          <div className="pickup-hero-chips">
+            <span className="pickup-hero-chip">
+              <ClipboardCheck size={14} />
+              {pickupSummary.pending} awaiting dispatch
+            </span>
+            <span className="pickup-hero-chip is-info">
+              <Truck size={14} />
+              {pickupSummary.mapped} mapped pickups
+            </span>
+            <span className="pickup-hero-chip is-neutral">
+              <PackageCheck size={14} />
+              {pickupSummary.organizations} active organizations
+            </span>
+          </div>
+          <div className="pickup-hero-actions">
+            <button className="pickup-primary-btn" type="button">
+              <Plus size={16} />
+              New Pickup Request
+            </button>
+          </div>
         </div>
-        <button className="pickup-primary-btn" type="button">
-          <Plus size={16} />
-          New Pickup Request
-        </button>
+
+        <div className="pickup-hero-panel">
+          <div className="pickup-hero-panel-top">
+            <span className="pickup-hero-panel-label">Delivery completion</span>
+            <strong>{pickupSummary.completionRate}%</strong>
+          </div>
+          <div className="pickup-hero-progress" aria-hidden="true">
+            <span style={{ width: `${pickupSummary.completionRate}%` }} />
+          </div>
+          <div className="pickup-hero-metrics">
+            <div>
+              <strong>{pickupSummary.total}</strong>
+              <span>Total requests</span>
+            </div>
+            <div>
+              <strong>{pickupSummary.mapped}</strong>
+              <span>Geo tagged</span>
+            </div>
+            <div>
+              <strong>{pickupSummary.organizations}</strong>
+              <span>Partner orgs</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="pickup-stats">
@@ -566,9 +578,9 @@ export default function PickupsTable() {
                     </td>
                     <td className="pickup-text-right">
                       {pickup.status === 'Pending' ? (
-                        <button className="pickup-assign-btn" type="button">
+                        <button className="pickup-assign-btn" type="button" onClick={() => handleStatusUpdate(pickup, 'confirmed')} disabled={updatingId === pickup.id}>
                           <UserPlus size={14} />
-                          Assign Team
+                          {updatingId === pickup.id ? 'Updating...' : 'Assign Team'}
                         </button>
                       ) : (
                         <div className="pickup-actions">
@@ -585,9 +597,10 @@ export default function PickupsTable() {
                           </button>
                           {openMenuId === pickup.id ? (
                             <div className="pickup-menu" role="menu" onClick={(event) => event.stopPropagation()}>
-                              <button type="button" role="menuitem">View Details</button>
-                              <button type="button" role="menuitem">Assign Team</button>
-                              <button type="button" role="menuitem" className="danger">Cancel Pickup</button>
+                              <button type="button" role="menuitem" onClick={() => handleStatusUpdate(pickup, 'confirmed')}>Mark Assigned</button>
+                              <button type="button" role="menuitem" onClick={() => handleStatusUpdate(pickup, 'in_transit')}>Mark In Transit</button>
+                              <button type="button" role="menuitem" onClick={() => handleStatusUpdate(pickup, 'completed')}>Mark Completed</button>
+                              <button type="button" role="menuitem" className="danger" onClick={() => handleStatusUpdate(pickup, 'cancelled')}>Cancel Pickup</button>
                             </div>
                           ) : null}
                         </div>

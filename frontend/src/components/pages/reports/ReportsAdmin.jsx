@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '@/app/admin/adminsidebar.jsx';
+import { getCachedJson } from '@/services/request-cache.js';
 import '@/app/admin/style.css';
 import './ReportsAdmin.css';
+
+let adminReportEndpointError = '';
+const ADMIN_REPORTS_ENDPOINT_ENABLED =
+  String(import.meta.env.VITE_ENABLE_ADMIN_REPORTS_ENDPOINT || '').toLowerCase() === 'true';
 
 const RANGE_OPTIONS = [
   { days: 7, label: 'Last 7 Days' },
@@ -136,13 +141,30 @@ export default function ReportsAdmin() {
     setLoading(true);
     setError('');
 
-    fetch(`${apiBase}/report/admin-dashboard?${params.toString()}`, { headers })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load report data (${response.status})`);
-        }
-        return response.json();
-      })
+    if (!ADMIN_REPORTS_ENDPOINT_ENABLED) {
+      setReportData(DEFAULT_REPORT_DATA);
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    if (adminReportEndpointError) {
+      setError(adminReportEndpointError);
+      setReportData(DEFAULT_REPORT_DATA);
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    getCachedJson(`${apiBase}/report/admin-dashboard?${params.toString()}`, {
+      cacheKey: `admin:report:${rangeDays}:${filters.includePending}`,
+      ttlMs: 60 * 1000,
+      cooldownMs: 60 * 1000,
+      headers,
+      fallbackMessage: 'Failed to load report data',
+    })
       .then((payload) => {
         if (!active) return;
         setReportData({
@@ -155,7 +177,9 @@ export default function ReportsAdmin() {
       })
       .catch((fetchError) => {
         if (!active) return;
-        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load admin report data.');
+        const nextError = fetchError instanceof Error ? fetchError.message : 'Failed to load admin report data.';
+        adminReportEndpointError = nextError;
+        setError(nextError);
         setReportData(DEFAULT_REPORT_DATA);
       })
       .finally(() => {
@@ -215,6 +239,10 @@ export default function ReportsAdmin() {
   const topCampaigns = reportData.top_campaigns || [];
   const categoryBreakdown = reportData.category_breakdown || [];
   const placeholderNotes = reportData.placeholders || {};
+  const totalDonors = useMemo(() => (series.donors || []).reduce((sum, value) => sum + Number(value || 0), 0), [series.donors]);
+  const totalOrganizations = useMemo(() => (series.organizations || []).reduce((sum, value) => sum + Number(value || 0), 0), [series.organizations]);
+  const totalCampaigns = useMemo(() => (series.campaigns || []).reduce((sum, value) => sum + Number(value || 0), 0), [series.campaigns]);
+  const peakGrowth = useMemo(() => Math.max(...chartValues, 0), [chartValues]);
 
   const handleDownloadCsv = () => {
     const rows = [];
@@ -505,6 +533,24 @@ export default function ReportsAdmin() {
               </div>
             </div>
             <div className="admin-report-chart">
+              <div className="admin-report-chart-overview" aria-hidden="true">
+                <div className="admin-report-chart-stat">
+                  <span>Total donations</span>
+                  <strong>{totalDonors.toLocaleString()}</strong>
+                </div>
+                <div className="admin-report-chart-stat">
+                  <span>Organizations</span>
+                  <strong>{totalOrganizations.toLocaleString()}</strong>
+                </div>
+                <div className="admin-report-chart-stat">
+                  <span>Campaigns</span>
+                  <strong>{totalCampaigns.toLocaleString()}</strong>
+                </div>
+                <div className="admin-report-chart-stat">
+                  <span>Peak point</span>
+                  <strong>{peakGrowth.toLocaleString()}</strong>
+                </div>
+              </div>
               <div className="admin-report-legend">
                 <span style={{ '--legend-color': '#2563eb' }}>Donations</span>
                 <span style={{ '--legend-color': '#10b981' }}>Organizations</span>
@@ -557,12 +603,21 @@ export default function ReportsAdmin() {
                   </svg>
                   <div className="admin-report-labels" style={{ '--label-count': series.labels.length }}>
                     {series.labels.map((label, index) => (
-                      <span key={`${label}-${index}`}>{label}</span>
+                      <span key={`${label}-${index}`}>
+                        {rangeDays >= 30 && index % Math.ceil(series.labels.length / 8) !== 0 ? '' : label}
+                      </span>
                     ))}
                   </div>
                 </>
               ) : (
-                <div className="admin-report-message">{loading ? 'Loading chart data...' : 'No chart data available.'}</div>
+                <div className="admin-report-message admin-report-chart-message">
+                  <strong>{loading ? 'Loading chart data' : 'No chart data available'}</strong>
+                  <span>
+                    {loading
+                      ? 'Collecting donation, organization, and campaign trends for this range.'
+                      : 'Try a different date range or wait for more platform activity to be recorded.'}
+                  </span>
+                </div>
               )}
             </div>
           </div>

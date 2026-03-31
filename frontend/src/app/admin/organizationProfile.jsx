@@ -44,6 +44,67 @@ function getInitials(name) {
     .toUpperCase();
 }
 
+function LoadingProfileSkeleton() {
+  return (
+    <section className="admin-org-profile-card admin-org-profile-card-loading" aria-hidden="true">
+      <div className="admin-org-profile-hero admin-org-profile-hero-loading">
+        <div className="admin-org-profile-avatar admin-org-skeleton-block admin-org-skeleton-avatar" />
+        <div className="admin-org-profile-summary admin-org-profile-summary-loading">
+          <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-title" />
+          <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-subtitle" />
+          <div className="admin-org-profile-badges">
+            <span className="admin-org-skeleton-block admin-org-skeleton-pill" />
+            <span className="admin-org-skeleton-block admin-org-skeleton-pill" />
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-org-profile-highlights admin-org-profile-highlights-loading">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="admin-org-highlight-card">
+            <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-label" />
+            <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-value" />
+          </div>
+        ))}
+      </div>
+
+      <div className="admin-org-profile-sections">
+        <article className="admin-org-profile-section admin-org-profile-section-loading">
+          <div className="admin-org-profile-section-title">
+            <span className="admin-org-profile-section-icon admin-org-skeleton-block" />
+            <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-section" />
+          </div>
+          <span className="admin-org-skeleton-block admin-org-skeleton-paragraph" />
+          <span className="admin-org-skeleton-block admin-org-skeleton-paragraph is-short" />
+          <div className="admin-org-profile-info-list">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="admin-org-profile-info-row">
+                <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-label" />
+                <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-inline-value" />
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="admin-org-profile-section admin-org-profile-section-loading">
+          <div className="admin-org-profile-section-title">
+            <span className="admin-org-profile-section-icon admin-org-skeleton-block" />
+            <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-section" />
+          </div>
+          <div className="admin-org-profile-metrics">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="admin-org-profile-metric">
+                <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-label" />
+                <span className="admin-org-skeleton-block admin-org-skeleton-line admin-org-skeleton-line-inline-value" />
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export default function AdminOrganizationProfilePage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -173,6 +234,12 @@ export default function AdminOrganizationProfilePage() {
       campaigns: relatedCampaigns.length,
       donors: donorCount,
       totalRaised,
+      verificationNote:
+        normalizeStatus(organization.verified_status || organization.status) === 'Verified'
+          ? 'Approved for public visibility and donor discovery.'
+          : normalizeStatus(organization.verified_status || organization.status) === 'Inactive'
+            ? 'Currently hidden from active platform participation.'
+            : 'Still waiting for admin review and verification approval.',
     };
   }, [campaigns, categoryLookup, donations, financialSummary, organization]);
 
@@ -199,7 +266,7 @@ export default function AdminOrganizationProfilePage() {
           </div>
         </header>
 
-        {loading ? <div className="admin-org-empty">Loading organization...</div> : null}
+        {loading ? <LoadingProfileSkeleton /> : null}
         {!loading && error ? <div className="admin-org-empty is-error">{error}</div> : null}
         {!loading && !error && profile ? (
           <section className="admin-org-profile-card">
@@ -217,22 +284,22 @@ export default function AdminOrganizationProfilePage() {
               </div>
             </div>
 
-            <div className="admin-org-profile-grid">
-              <div>
+            <div className="admin-org-profile-highlights">
+              <div className="admin-org-highlight-card">
                 <span>Organization ID</span>
-                <p>ORG-{String(profile.id).padStart(4, '0')}</p>
+                <strong>ORG-{String(profile.id).padStart(4, '0')}</strong>
               </div>
-              <div>
+              <div className="admin-org-highlight-card">
                 <span>Joined</span>
-                <p>{profile.joined}</p>
+                <strong>{profile.joined}</strong>
               </div>
-              <div>
-                <span>Location</span>
-                <p>{profile.location}</p>
+              <div className="admin-org-highlight-card">
+                <span>Campaigns</span>
+                <strong>{profile.campaigns}</strong>
               </div>
-              <div>
-                <span>Phone</span>
-                <p>{profile.phone}</p>
+              <div className="admin-org-highlight-card">
+                <span>Total Raised</span>
+                <strong>{formatMoney(profile.totalRaised)}</strong>
               </div>
             </div>
 
@@ -249,8 +316,16 @@ export default function AdminOrganizationProfilePage() {
                     <strong>{profile.email}</strong>
                   </div>
                   <div className="admin-org-profile-info-row">
+                    <span>Phone</span>
+                    <strong>{profile.phone}</strong>
+                  </div>
+                  <div className="admin-org-profile-info-row">
                     <span>Website</span>
                     <strong>{profile.website}</strong>
+                  </div>
+                  <div className="admin-org-profile-info-row">
+                    <span>Location</span>
+                    <strong>{profile.location}</strong>
                   </div>
                 </div>
               </article>
@@ -272,6 +347,32 @@ export default function AdminOrganizationProfilePage() {
                   <div className="admin-org-profile-metric">
                     <span>Total Raised</span>
                     <strong>{formatMoney(profile.totalRaised)}</strong>
+                  </div>
+                  <div className="admin-org-profile-metric">
+                    <span>Verification State</span>
+                    <strong>{profile.status}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <article className="admin-org-profile-section admin-org-profile-section-wide">
+                <div className="admin-org-profile-section-title">
+                  <span className="admin-org-profile-section-icon" aria-hidden="true">!</span>
+                  <span>Admin Review Note</span>
+                </div>
+                <p className="admin-org-profile-description">{profile.verificationNote}</p>
+                <div className="admin-org-profile-info-list">
+                  <div className="admin-org-profile-info-row">
+                    <span>Type</span>
+                    <strong>{profile.type}</strong>
+                  </div>
+                  <div className="admin-org-profile-info-row">
+                    <span>Status</span>
+                    <strong>{profile.status}</strong>
+                  </div>
+                  <div className="admin-org-profile-info-row">
+                    <span>Registered</span>
+                    <strong>{profile.joined}</strong>
                   </div>
                 </div>
               </article>

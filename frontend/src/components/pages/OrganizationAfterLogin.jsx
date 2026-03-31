@@ -18,9 +18,12 @@ const ORG_IMAGE_POOL = [
   'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=960&q=80',
   'https://images.unsplash.com/photo-1551836022-deb4988cc6c0?auto=format&fit=crop&w=960&q=80',
 ];
+const MIN_USD_DONATION = 0.001;
 const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
 const FOLLOWED_ORGANIZATIONS_KEY = 'chomnuoy_followed_organizations_v1';
 const ORGANIZATION_FOLLOW_COUNTS_KEY = 'chomnuoy_organization_follow_counts_v1';
+const USD_TO_KHR_RATE = 4100;
+const DONATION_CURRENCIES = ['USD', 'KHR'];
 
 function getApiErrorMessage(error, fallbackMessage) {
   const validationErrors = error?.response?.data?.errors;
@@ -59,6 +62,43 @@ function formatRelativeLabel(value) {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function convertUsdToKhrAmount(amount) {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return 0;
+  return Math.round((numericAmount * USD_TO_KHR_RATE) / 100) * 100;
+}
+
+function convertKhrToUsdAmount(amount) {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return 0;
+  return numericAmount / USD_TO_KHR_RATE;
+}
+
+function isQrExpired(expiresAt) {
+  if (!expiresAt) return false;
+  const expiryTime = new Date(expiresAt).getTime();
+  return Number.isFinite(expiryTime) && expiryTime <= Date.now();
+}
+
+function getRemainingSeconds(expiresAt) {
+  if (!expiresAt) return 0;
+  const expiryTime = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expiryTime)) return 0;
+  return Math.max(0, Math.ceil((expiryTime - Date.now()) / 1000));
+}
+
+function formatCountdown(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds || 0));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function isSuccessfulPaymentStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  return ['success', 'completed', 'paid', 'confirmed'].includes(status);
 }
 
 function OrganizationAfterLogin() {
@@ -121,26 +161,64 @@ function OrganizationAfterLogin() {
   const [donorCausesSupported, setDonorCausesSupported] = useState(0);
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
+  const [selectedDonationCurrency, setSelectedDonationCurrency] = useState('USD');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('khqr');
   const [donationMessage, setDonationMessage] = useState('');
   const [donationStatusMessage, setDonationStatusMessage] = useState('');
   const [isSubmittingDonation, setIsSubmittingDonation] = useState(false);
   const [donationQrData, setDonationQrData] = useState(null);
+  const [qrCountdownSeconds, setQrCountdownSeconds] = useState(0);
 
   const donorSortMenuRef = useRef(null);
   const donorCategoryMenuRef = useRef(null);
   const donorRegionMenuRef = useRef(null);
 
+  useEffect(() => {
+    if (!donationQrData?.expiresAt || ['completed', 'success', 'failed', 'expired'].includes(donationQrData?.status)) {
+      setQrCountdownSeconds(0);
+      return undefined;
+    }
+
+    setQrCountdownSeconds(getRemainingSeconds(donationQrData.expiresAt));
+    const intervalId = window.setInterval(() => {
+      setQrCountdownSeconds(getRemainingSeconds(donationQrData.expiresAt));
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [donationQrData?.expiresAt, donationQrData?.status]);
+
+  const minimumDonationAmount = selectedDonationCurrency === 'USD' ? MIN_USD_DONATION : 1;
   const parsedCustomAmount = Number(customDonationAmount);
   const hasCustomInput = customDonationAmount.trim() !== '';
-  const hasValidCustomAmount = hasCustomInput && Number.isFinite(parsedCustomAmount) && parsedCustomAmount > 0;
+  const hasValidCustomAmount =
+    hasCustomInput && Number.isFinite(parsedCustomAmount) && parsedCustomAmount >= minimumDonationAmount;
   const hasInvalidCustomAmount = hasCustomInput && !hasValidCustomAmount;
   const donationAmount = hasValidCustomAmount ? parsedCustomAmount : selectedDonationAmount;
+  const donationPresetAmounts = DONATION_PRESET_AMOUNTS.map((amount) => (
+    selectedDonationCurrency === 'KHR' ? convertUsdToKhrAmount(amount) : amount
+  ));
 
   const formatMoney = (value) => {
     const number = Number(value || 0);
     if (!Number.isFinite(number)) return '$0.00';
-    return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fractionDigits = !Number.isInteger(number) || (number > 0 && number < 1) ? 2 : 0;
+    return `$${number.toLocaleString('en-US', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    })}`;
+  };
+
+  const formatDonationMoney = (value, currency = selectedDonationCurrency) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return currency === 'KHR' ? '0 KHR' : '$0.00';
+    if (currency === 'KHR') {
+      return `${Math.round(number).toLocaleString('en-US')} KHR`;
+    }
+    const fractionDigits = 2;
+    return `$${number.toLocaleString('en-US', {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    })}`;
   };
 
   const donorCategories = useMemo(
@@ -238,6 +316,17 @@ function OrganizationAfterLogin() {
 
     let active = true;
     const intervalId = window.setInterval(async () => {
+      if (isQrExpired(donationQrData?.expiresAt)) {
+        if (!active) return;
+        setDonationQrData((previous) => (
+          previous ? { ...previous, status: 'expired' } : previous
+        ));
+        setDonationStatusMessage('Payment expired after 5 minutes. Please go back and donate again.');
+        setIsSubmittingDonation(false);
+        window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+        return;
+      }
+
       try {
         const result = await verifyBakongTransaction(donationQrData.tranId);
         if (!active) return;
@@ -249,8 +338,8 @@ function OrganizationAfterLogin() {
           previous ? { ...previous, status } : previous
         ));
 
-        if (status === 'completed') {
-          setDonationStatusMessage('Payment confirmed. The donation was recorded successfully.');
+        if (isSuccessfulPaymentStatus(status)) {
+          setDonationStatusMessage('Your payment was successful.');
           setIsSubmittingDonation(false);
           window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
           return;
@@ -436,6 +525,7 @@ function OrganizationAfterLogin() {
   }, []);
 
   const navigateToDonatePage = (organization) => {
+    setSelectedDonationCurrency('USD');
     setSelectedDonationAmount(10);
     setCustomDonationAmount('');
     setSelectedPaymentMethod('khqr');
@@ -530,6 +620,7 @@ function OrganizationAfterLogin() {
         user_id: Number(donorSession.userId),
         organization_id: Number(selectedDonationOrg.id),
         amount: donationAmount,
+        currency: selectedDonationCurrency,
         customer_name: donorSession.name || '',
         customer_email: donorSession.email || '',
         customer_phone: donorSession.phone || '',
@@ -547,6 +638,8 @@ function OrganizationAfterLogin() {
         donationId: result?.donation?.id || null,
         organizationId: selectedDonationOrg.id,
         amount: donationAmount,
+        currency: selectedDonationCurrency,
+        expiresAt: result?.checkout?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         paymentOption: result?.checkout?.meta?.payment_option || '',
         environment: result?.checkout?.meta?.environment || 'sandbox',
         createdAt: new Date().toISOString(),
@@ -558,7 +651,8 @@ function OrganizationAfterLogin() {
         deeplink: qr?.deeplink || '',
         checkoutUrl: qr?.checkout_url || '',
         amount: qr?.amount || donationAmount,
-        currency: qr?.currency || 'USD',
+        currency: qr?.currency || selectedDonationCurrency,
+        expiresAt: result?.checkout?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         paymentLabel: result?.checkout?.meta?.payment_label || selectedPaymentLabel,
         tranId: result?.transaction?.tran_id || '',
         status: 'pending',
@@ -660,9 +754,40 @@ function OrganizationAfterLogin() {
                 </section>
 
                 <section className="donation-section">
+                  <h3>Select Currency</h3>
+                  <div className="donation-currency-grid">
+                    {DONATION_CURRENCIES.map((currency) => (
+                      <button
+                        key={currency}
+                        type="button"
+                        className={selectedDonationCurrency === currency ? 'is-active' : ''}
+                        onClick={() => {
+                          if (currency === selectedDonationCurrency) return;
+
+                          const usdEquivalent = selectedDonationCurrency === 'KHR'
+                            ? convertKhrToUsdAmount(donationAmount)
+                            : donationAmount;
+                          const nextAmount = currency === 'KHR'
+                            ? convertUsdToKhrAmount(usdEquivalent)
+                            : Math.max(MIN_USD_DONATION, Number(usdEquivalent.toFixed(3)));
+
+                          setSelectedDonationCurrency(currency);
+                          setSelectedDonationAmount(nextAmount);
+                          setCustomDonationAmount('');
+                          setDonationStatusMessage('');
+                          setDonationQrData(null);
+                        }}
+                      >
+                        {currency}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="donation-section">
                   <h3>Select Donation Amount</h3>
                   <div className="donation-amount-grid">
-                    {DONATION_PRESET_AMOUNTS.map((amount) => (
+                    {donationPresetAmounts.map((amount) => (
                       <button
                         key={amount}
                         type="button"
@@ -673,7 +798,7 @@ function OrganizationAfterLogin() {
                           setDonationStatusMessage('');
                         }}
                       >
-                        ${amount}
+                        {formatDonationMoney(amount)}
                       </button>
                     ))}
                   </div>
@@ -691,19 +816,25 @@ function OrganizationAfterLogin() {
                     </span>
                     <input
                       type="number"
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      placeholder="Enter amount in USD"
+                      min={selectedDonationCurrency === 'USD' ? '0.001' : '1'}
+                      step={selectedDonationCurrency === 'USD' ? '0.001' : '1'}
+                      inputMode="decimal"
+                      placeholder={`Enter amount in ${selectedDonationCurrency}`}
                       value={customDonationAmount}
                       onChange={(event) => {
                         setCustomDonationAmount(event.target.value);
                         setDonationStatusMessage('');
                       }}
                     />
-                    <span className="donation-input-suffix">USD</span>
+                    <span className="donation-input-suffix">{selectedDonationCurrency}</span>
                   </label>
-                  {hasInvalidCustomAmount ? <p className="donation-field-error">Enter a valid amount greater than 0.</p> : null}
+                  {hasInvalidCustomAmount ? (
+                    <p className="donation-field-error">
+                      {selectedDonationCurrency === 'USD'
+                        ? `Enter a valid amount of at least ${MIN_USD_DONATION} USD.`
+                        : 'Enter a valid amount of at least 1.'}
+                    </p>
+                  ) : null}
                 </section>
 
                 <section className="donation-section">
@@ -747,7 +878,7 @@ function OrganizationAfterLogin() {
                   onClick={handleConfirmDonation}
                   disabled={hasInvalidCustomAmount || donationAmount <= 0 || isSubmittingDonation}
                 >
-                  <span aria-hidden="true">&#10084;</span> {isSubmittingDonation ? 'Generating KHQR...' : `Confirm Donation ($${donationAmount.toLocaleString()})`}
+                  <span aria-hidden="true">&#10084;</span> {isSubmittingDonation ? 'Generating KHQR...' : `Confirm Donation (${formatDonationMoney(donationAmount)})`}
                 </button>
                 {donationStatusMessage ? <p className="donation-status-note">{donationStatusMessage}</p> : null}
                 {donationQrData ? (
@@ -760,8 +891,19 @@ function OrganizationAfterLogin() {
                       />
                     ) : null}
                     <p>Transaction: {donationQrData.tranId}</p>
-                    <p>Amount: ${Number(donationQrData.amount).toFixed(2)} {donationQrData.currency}</p>
-                    <p>Status: {String(donationQrData.status || 'pending').toUpperCase()}</p>
+                    <p>Amount: {formatDonationMoney(donationQrData.amount, donationQrData.currency)}</p>
+                    <p>Status: {isSuccessfulPaymentStatus(donationQrData.status) ? 'SUCCESS' : String(donationQrData.status || 'pending').toUpperCase()}</p>
+                    {isSuccessfulPaymentStatus(donationQrData.status) ? (
+                      <p>Your payment was successful. Thank you for your donation.</p>
+                    ) : null}
+                    {!isSuccessfulPaymentStatus(donationQrData.status) ? (
+                      <p>
+                        Time remaining: {String(donationQrData.status || '').toLowerCase() === 'expired' ? '00:00' : formatCountdown(qrCountdownSeconds)}
+                      </p>
+                    ) : null}
+                    {donationQrData.expiresAt ? (
+                      <p>Expires at {new Date(donationQrData.expiresAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.</p>
+                    ) : null}
                     {donationQrData.deeplink ? <a href={donationQrData.deeplink}>Open banking app</a> : null}
                     {!donationQrData.deeplink && donationQrData.checkoutUrl ? (
                       <a href={donationQrData.checkoutUrl} target="_blank" rel="noreferrer">Open checkout page</a>
@@ -786,7 +928,7 @@ function OrganizationAfterLogin() {
                 <p>{selectedDonationOrg.category} - {selectedDonationOrg.region}</p>
                 <div className="donation-summary-item">
                   <span>Amount</span>
-                  <strong>${donationAmount.toLocaleString()}</strong>
+                  <strong>{formatDonationMoney(donationAmount)}</strong>
                 </div>
                 <div className="donation-summary-item">
                   <span>Payment Method</span>
