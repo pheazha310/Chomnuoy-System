@@ -1,14 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   PAGE_SIZE,
   RATING_OPTIONS,
   SORT_OPTIONS,
   getPaginationItems,
 } from './organizationShared';
+import ROUTES from '@/constants/routes.js';
 import '../css/organization.css';
 
 const FALLBACK_ORGANIZATION_IMAGE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="%23EAF2FF"/><circle cx="120" cy="110" r="44" fill="%232563EB" opacity="0.16"/><circle cx="535" cy="82" r="58" fill="%232563EB" opacity="0.1"/><circle cx="500" cy="282" r="74" fill="%232563EB" opacity="0.08"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="%231E3A5F">Organization</text></svg>';
+
+function getStoredOrganizationProfile() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_org_profile');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 function buildCandidateApiBases() {
   const configuredApiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
@@ -44,13 +63,43 @@ function getStorageFileUrl(path, apiBase) {
   return `${appBase}/storage/${normalizedPath}`;
 }
 
-function mapOrganizations(items, apiBase) {
-  return items.map((item) => {
+function mapOrganizations(items, apiBase, campaigns = []) {
+  const storedProfile = getStoredOrganizationProfile();
+  const session = getOrganizationSession();
+  const sessionOrganizationId = Number(session?.organizationId ?? session?.userId ?? 0);
+  const storedProfileName = String(storedProfile?.name || session?.name || '').trim().toLowerCase();
+  const storedProfileEmail = String(storedProfile?.email || session?.email || '').trim().toLowerCase();
+  const storedProfileLogo = String(storedProfile?.logo || storedProfile?.logoUrl || '').trim();
+  const campaignImageMap = new Map();
+
+  (Array.isArray(campaigns) ? campaigns : []).forEach((campaign) => {
+    const organizationId = Number(campaign?.organization_id || campaign?.organizationId || 0);
+    if (!organizationId || campaignImageMap.has(organizationId)) return;
+
+    const image = getStorageFileUrl(
+      campaign?.image_path || campaign?.image || campaign?.image_url,
+      apiBase,
+    );
+
+    if (image) {
+      campaignImageMap.set(organizationId, image);
+    }
+  });
+
+  return (Array.isArray(items) ? items : []).map((item) => {
     const rating = Number(item.rating ?? 4.5);
     const reviews = item.reviews ?? item.review_count ?? '\u2014';
     const tags = Array.isArray(item.tags)
       ? item.tags
       : [item.category_name || item.category || item.type || item.location || 'General'].filter(Boolean);
+    const itemId = Number(item.id || 0);
+    const itemName = String(item.name || '').trim().toLowerCase();
+    const itemEmail = String(item.email || '').trim().toLowerCase();
+    const matchesStoredProfile =
+      Boolean(storedProfileLogo) &&
+      ((sessionOrganizationId > 0 && itemId === sessionOrganizationId) ||
+        (storedProfileEmail && itemEmail && storedProfileEmail === itemEmail) ||
+        (storedProfileName && itemName && storedProfileName === itemName));
 
     return {
       id: item.id,
@@ -63,13 +112,34 @@ function mapOrganizations(items, apiBase) {
         getStorageFileUrl(
           item.avatar_url || item.avatar_path || item.logo || item.logo_path || item.image_path || item.cover_image,
           apiBase,
-        ) || FALLBACK_ORGANIZATION_IMAGE,
+        ) ||
+        (matchesStoredProfile ? storedProfileLogo : '') ||
+        campaignImageMap.get(Number(item.id)) ||
+        getStorageFileUrl(item.banner_path || item.photo || item.image_url, apiBase) ||
+        FALLBACK_ORGANIZATION_IMAGE,
     };
   });
 }
 
+function buildCampaignSearchPath(organization) {
+  const params = new URLSearchParams();
+  if (organization?.name) {
+    params.set('search', organization.name);
+  }
+  const query = params.toString();
+  return query ? `${ROUTES.CAMPAIGNS}?${query}` : ROUTES.CAMPAIGNS;
+}
+
+function buildViewProfileLoginPath(organization) {
+  const redirectTarget = organization?.name
+    ? `${ROUTES.ORGANIZATIONS}?search=${encodeURIComponent(organization.name)}`
+    : ROUTES.ORGANIZATIONS;
+  return `${ROUTES.LOGIN}?redirect=${encodeURIComponent(redirectTarget)}`;
+}
+
 function OrganizationBeforeLogin() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -157,17 +227,25 @@ function OrganizationBeforeLogin() {
 
       for (const apiBase of candidateApiBases) {
         try {
-          const response = await fetch(`${apiBase}/organizations`);
-          if (!response.ok) {
-            throw new Error(`Failed to load organizations (${response.status}) from ${apiBase}`);
+          const [organizationsResponse, campaignsResponse] = await Promise.all([
+            fetch(`${apiBase}/organizations`),
+            fetch(`${apiBase}/campaigns`).catch(() => null),
+          ]);
+
+          if (!organizationsResponse.ok) {
+            throw new Error(`Failed to load organizations (${organizationsResponse.status}) from ${apiBase}`);
           }
 
-          const data = await response.json();
-          const items = Array.isArray(data) ? data : [];
+          const organizationsData = await organizationsResponse.json();
+          const campaignsData =
+            campaignsResponse && campaignsResponse.ok
+              ? await campaignsResponse.json()
+              : [];
+          const items = Array.isArray(organizationsData) ? organizationsData : [];
 
           if (!active) return;
 
-          setOrganizations(mapOrganizations(items, apiBase));
+          setOrganizations(mapOrganizations(items, apiBase, campaignsData));
           setError(items.length === 0 ? `No organizations were returned from ${apiBase}.` : '');
           return;
         } catch (err) {
@@ -429,10 +507,18 @@ function OrganizationBeforeLogin() {
                 ))}
               </div>
               <div className="card-actions">
-                <button type="button" className="btn-primary">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => navigate(buildCampaignSearchPath(organization))}
+                >
                   Donate
                 </button>
-                <button type="button" className="btn-outline">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => navigate(buildViewProfileLoginPath(organization))}
+                >
                   View Profile
                 </button>
               </div>
