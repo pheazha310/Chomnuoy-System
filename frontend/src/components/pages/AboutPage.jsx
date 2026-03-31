@@ -176,46 +176,10 @@ function formatCompactNumber(value) {
   }).format(number);
 }
 
-function useCountUp(targetValue, duration = 1200) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    const target = Math.max(0, Number(targetValue || 0));
-    if (!Number.isFinite(target)) {
-      setDisplayValue(0);
-      return undefined;
-    }
-
-    let frameId = null;
-    let startTime = null;
-
-    const step = (timestamp) => {
-      if (startTime === null) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress));
-      setDisplayValue(target * eased);
-
-      if (progress < 1) {
-        frameId = window.requestAnimationFrame(step);
-      }
-    };
-
-    setDisplayValue(0);
-    frameId = window.requestAnimationFrame(step);
-
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-    };
-  }, [duration, targetValue]);
-
-  return displayValue;
-}
-
 function AboutStatCard({ stat, idx }) {
-  const animatedValue = useCountUp(stat.rawValue);
   const displayValue = stat.type === 'currency'
-    ? formatCompactCurrency(animatedValue)
-    : `${formatCompactNumber(animatedValue)}${stat.suffix || ''}`;
+    ? formatCompactCurrency(stat.rawValue)
+    : `${formatCompactNumber(stat.rawValue)}${stat.suffix || ''}`;
 
   return (
     <motion.div 

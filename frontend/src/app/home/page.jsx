@@ -350,30 +350,6 @@ function Home() {
           <Link to="/campaigns">View All Causes</Link>
         </div>
         <div className="home-cards-grid">
-          {campaignsLoading
-            ? Array.from({ length: 3 }).map((_, index) => (
-                <article
-                  key={`featured-skeleton-${index}`}
-                  className="home-cause-card home-cause-card-skeleton"
-                  aria-hidden="true"
-                  data-reveal
-                  style={{ '--reveal-delay': `${150 + index * 100}ms` }}
-                >
-                  <div className="home-cause-media home-cause-media-skeleton" />
-                  <div className="home-cause-body">
-                    <span className="home-skeleton-line home-skeleton-line-title" />
-                    <span className="home-skeleton-line home-skeleton-line-text" />
-                    <span className="home-skeleton-line home-skeleton-line-text short" />
-                    <div className="home-cause-amounts">
-                      <span className="home-skeleton-line home-skeleton-line-amount" />
-                      <span className="home-skeleton-line home-skeleton-line-goal" />
-                    </div>
-                    <div className="home-progress home-progress-skeleton" />
-                  </div>
-                </article>
-              ))
-            : null}
-
           {!campaignsLoading && featuredCauses.length === 0 ? (
             <article className="home-featured-empty" data-reveal>
               <span className="home-featured-empty-kicker">Featured campaigns</span>

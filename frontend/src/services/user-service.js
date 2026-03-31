@@ -152,8 +152,7 @@ export async function getOrganizationById(orgId) {
 }
 
 export async function createBakongTransaction(payload) {
-    const response = await apiClient.post('/bakong/transactions', payload);
-    return response.data;
+    return "";
 }
 
 export async function verifyBakongTransaction(tranId) {

@@ -970,11 +970,6 @@ export default function MyDonation() {
         </section>
 
         <section className="my-donation-list">
-          {loading ? (
-            <div className="my-donation-row">
-              <p className="my-donation-date">Loading donations...</p>
-            </div>
-          ) : null}
           {error ? (
             <div className="my-donation-row">
               <p className="my-donation-date">{error}</p>

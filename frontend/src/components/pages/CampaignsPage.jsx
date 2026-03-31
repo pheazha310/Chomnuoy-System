@@ -345,7 +345,6 @@ function CampaignsPage() {
           </div>
         </section>
 
-        {loading ? <p className="campaign-loading">Loading campaigns...</p> : null}
         {error ? <p className="campaign-error">{error}</p> : null}
 
         <section key={gridAnimationKey} className="campaign-grid campaign-grid-dashboard" aria-label="Campaign list">

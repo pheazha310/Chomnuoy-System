@@ -490,7 +490,6 @@ function OrganizationBeforeLogin() {
       </section>
 
       <section className="organization-grid" aria-label="Organization List">
-        {loading ? <p>Loading organizations...</p> : null}
         {error ? <p className="text-red-500">{error}</p> : null}
         {paginatedOrganizations.map((organization) => (
           <article key={organization.id} className="organization-card">
