@@ -182,6 +182,11 @@ class ProfileController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
+        if (!$user instanceof User) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
         return $this->show($user);
     }
 
@@ -191,6 +196,11 @@ class ProfileController extends Controller
     public function updateMe(Request $request): JsonResponse
     {
         $user = $request->user();
+        if (!$user instanceof User) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
         return $this->update($request, $user);
     }
 

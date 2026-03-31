@@ -139,7 +139,7 @@ export async function getMyUserProfile() {
 }
 
 export async function updateMyUserProfile(formData) {
-    const response = await apiClient.post('/profile/me?_method=PUT', formData, {
+    const response = await apiClient.post('/profile/me', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;

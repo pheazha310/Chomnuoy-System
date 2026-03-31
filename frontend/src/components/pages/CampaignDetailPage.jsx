@@ -30,6 +30,7 @@ import {
   normalizeCampaign,
 } from '../../services/campaign-service';
 import { getAuthToken, getSession } from '../../services/session-service';
+import ROUTES from '@/constants/routes.js';
 import '../css/Campaigns.css';
 import { generateAbaQr } from '../../services/user-service';
 
@@ -1547,6 +1548,7 @@ function CampaignDetailPage({ campaignId }) {
       } catch {
         // Ignore persistence failures.
       }
+      setShowCheckout(false);
       navigate(ROUTES.DONATION_THANK_YOU, { state: { donation: nextReceiptDetails } });
     } catch (error) {
       setDonationMessage(getApiErrorMessage(error, 'Failed to complete donation.'));
@@ -1712,9 +1714,9 @@ function CampaignDetailPage({ campaignId }) {
           </div>
 
           <p className="donation-success-kicker">
-            {receiptDetails?.isMaterial ? 'Material Donation Confirmed' : 'Donation Complete'}
+            {receiptDetails?.isMaterial ? 'Material Donation Confirmed' : 'Payment Successful'}
           </p>
-          <h1>{receiptDetails?.isMaterial ? 'Your kindness is on its way!' : 'Thank You for Your Donation!'}</h1>
+          <h1>{receiptDetails?.isMaterial ? 'Your kindness is on its way!' : 'Your Payment Was Successful. Thank You!'}</h1>
           <p className="donation-success-campaign">
             {receiptDetails?.isMaterial
               ? 'Thank you for contributing to the community. Your donation will be collected as scheduled and delivered to those in need.'

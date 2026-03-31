@@ -29,6 +29,7 @@ import {
   updateMyUserProfile,
   updateUserProfile,
 } from '@/services/user-service.js';
+import { getAuthToken } from '@/services/session-service';
 import { getPrivacyPreferences, setPrivacyPreferences } from '@/utils/user-preferences';
 
 const DONOR_PROFILE_PREFS_KEY = 'chomnuoy_donor_profile_preferences';
@@ -79,10 +80,15 @@ function getStorageFileUrl(path) {
   }
 
   const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const appBase = apiBase.replace(/\/api\/?$/, '');
   const normalizedPath = value.replace(/\\/g, '/').replace(/^\/+/, '');
-  return normalizedPath.startsWith('files/')
-    ? `${apiBase}/${normalizedPath}`
-    : `${apiBase}/files/${normalizedPath}`;
+  if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+  if (normalizedPath.startsWith('files/')) {
+    return `${apiBase}/${normalizedPath}`;
+  }
+  return `${appBase}/storage/${normalizedPath}`;
 }
 
 function withCacheBust(url) {
@@ -104,6 +110,11 @@ function getInitials(name) {
 
 function isNotFoundError(error) {
   return Number(error?.response?.status) === 404;
+}
+
+function isProfileMeUnavailable(error) {
+  const status = Number(error?.response?.status);
+  return status === 401 || status === 403 || status === 404;
 }
 
 function readDonorProfilePreferences() {
@@ -199,6 +210,7 @@ export default function MyProfilePage() {
   const webcamCanvasRef = useRef(null);
   const loadedProfileKeyRef = useRef('');
   const session = useMemo(() => getSession(), []);
+  const hasAuthToken = Boolean(getAuthToken());
 
   const [saving, setSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -283,7 +295,7 @@ export default function MyProfilePage() {
       try {
         let data;
 
-        if (!isOrganization) {
+        if (!isOrganization && hasAuthToken) {
           try {
             const profileResponse = await getMyUserProfile();
             const profile = profileResponse?.profile || {};
@@ -302,7 +314,7 @@ export default function MyProfilePage() {
               avatar_path: profile?.avatar_path || profile?.avatar_url,
             };
           } catch (err) {
-            if (!isNotFoundError(err)) {
+            if (!isProfileMeUnavailable(err)) {
               throw err;
             }
           }
@@ -335,7 +347,7 @@ export default function MyProfilePage() {
           name: data?.name || session?.name || '',
           email: data?.email || session?.email || '',
           phone: data?.phone || session?.phone || '',
-          avatar: getStorageFileUrl(data?.avatar_path) || session?.avatar || '',
+          avatar: data?.avatar_url || getStorageFileUrl(data?.avatar_path) || session?.avatar || '',
         });
         setError('');
       } catch {
@@ -547,12 +559,14 @@ export default function MyProfilePage() {
 
       const updatedResponse = isOrganization
         ? await updateOrganizationProfile(effectiveAccountId, payload)
-        : await updateMyUserProfile(payload).catch(async (error) => {
-            if (isNotFoundError(error)) {
-              return updateUserProfile(effectiveAccountId, payload);
-            }
-            throw error;
-          });
+        : !hasAuthToken
+          ? await updateUserProfile(effectiveAccountId, payload)
+          : await updateMyUserProfile(payload).catch(async (error) => {
+              if (isProfileMeUnavailable(error)) {
+                return updateUserProfile(effectiveAccountId, payload);
+              }
+              throw error;
+            });
       const updated = updatedResponse?.profile || updatedResponse;
       const updatedId = Number(updated?.id || effectiveAccountId || 0);
 
@@ -561,7 +575,7 @@ export default function MyProfilePage() {
         effectiveAccountId = updatedId;
       }
 
-      const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
+      const savedAvatarUrl = withCacheBust(updated?.avatar_url || getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';
       const nextSession = {
         ...(getSession() || {}),
