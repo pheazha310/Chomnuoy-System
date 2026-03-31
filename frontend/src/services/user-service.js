@@ -152,27 +152,27 @@ export async function verifyBakongTransaction(tranId) {
 }
 
 export async function checkPayment(payload) {
-    const response = await apiClient.post(`/check-payment`, payload);
+    const response = await apiClient.post(`/payment/check`, payload);
     return response.data;
 }
 
 export async function getPaymentStatus(payload) {
-    const response = await apiClient.post(`/get-payment-status`, payload);
+    const response = await apiClient.post(`/payment/status`, payload);
     return response.data;
 }
 
 export async function verifyQR(payload) {
-    const response = await apiClient.post(`/verify-qr`, payload);
+    const response = await apiClient.post(`/payment/verify`, payload);
     return response.data;
 }
 
 export async function decodeQR(payload) {
-    const response = await apiClient.post(`/decode-qr`, payload);
+    const response = await apiClient.post(`/payment/decode`, payload);
     return response.data;
 }
 
 export async function generateDeepLink(payload) {
-    const response = await apiClient.post(`/generate-deep-link`, payload);
+    const response = await apiClient.post(`/payment/deep-link`, payload);
     return response.data;
 }
 

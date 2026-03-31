@@ -17,10 +17,11 @@ import {
   Circle,
   Clock3,
 } from 'lucide-react';
-import { createBakongTransaction, verifyBakongTransaction } from '../../services/user-service';
+import { createBakongTransaction, getPaymentStatus } from '../../services/user-service';
 import { getCampaignById } from '../../data/campaigns';
 import {
   CAMPAIGNS_CACHE_KEY as DONOR_CAMPAIGNS_CACHE_KEY,
+  campaignCategoryToSidebarCategory,
   fetchCampaignById,
   normalizeCampaign,
 } from '../../services/campaign-service';
@@ -29,11 +30,14 @@ import '../css/Campaigns.css';
 import { generateAbaQr } from '../../services/user-service';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
-const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v1';
-const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v2';
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign_v2';
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
 const LAST_DONATION_DETAIL_KEY = 'chomnuoy_last_donation_detail';
 const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
+const USD_TO_KHR_RATE = 4100;
+const DONATION_CURRENCIES = ['USD', 'KHR'];
+const MIN_USD_DONATION = 0.001;
 
 function getSavedCampaignIds() {
   try {
@@ -85,11 +89,132 @@ function getCachedCampaignById(id) {
 }
 
 function formatCurrency(amount) {
+  const numericAmount = Number(amount || 0);
+  const minimumFractionDigits = !Number.isInteger(numericAmount) || (numericAmount > 0 && numericAmount < 1)
+    ? 2
+    : 0;
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits,
+    maximumFractionDigits: minimumFractionDigits,
+  }).format(numericAmount);
+}
+
+function convertUsdToKhrAmount(amount) {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return 0;
+  return Math.round((numericAmount * USD_TO_KHR_RATE) / 100) * 100;
+}
+
+function convertKhrToUsdAmount(amount) {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) return 0;
+  return numericAmount / USD_TO_KHR_RATE;
+}
+
+function convertAmountToCurrency(amount, currency) {
+  return currency === 'KHR' ? convertUsdToKhrAmount(amount) : Number(amount || 0);
+}
+
+function formatDonationAmount(amount, currency) {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount)) {
+    return currency === 'KHR' ? '0 KHR' : '$0';
+  }
+
+  if (currency === 'KHR') {
+    return `${Math.round(numericAmount).toLocaleString('en-US')} KHR`;
+  }
+
+  const fractionDigits = 2;
+  return `$${numericAmount.toLocaleString('en-US', {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`;
+}
+
+function isCompletedPayment(payment) {
+  const status = String(payment?.payment_status || payment?.status || '').toLowerCase();
+  return ['success', 'completed', 'paid', 'confirmed'].includes(status);
+}
+
+function paymentMatchesCampaign(payment, campaignId) {
+  const normalizedCampaignId = Number(campaignId || 0);
+  if (!normalizedCampaignId) return false;
+
+  const billNumber = String(payment?.bill_number || '').trim();
+  if (billNumber.startsWith(`DON-${normalizedCampaignId}-`)) {
+    return true;
+  }
+
+  return false;
+}
+
+function extractBankDonorName(payment) {
+  let response = payment?.bakong_response;
+  if (typeof response === 'string') {
+    try {
+      response = JSON.parse(response);
+    } catch {
+      response = null;
+    }
+  }
+
+  const candidates = [
+    response?.customer_name,
+    response?.customerName,
+    response?.sender_name,
+    response?.senderName,
+    response?.account_name,
+    response?.accountName,
+    response?.payer_name,
+    response?.payerName,
+    response?.data?.customer_name,
+    response?.data?.customerName,
+    response?.data?.sender_name,
+    response?.data?.senderName,
+    response?.data?.account_name,
+    response?.data?.accountName,
+    response?.data?.payer_name,
+    response?.data?.payerName,
+  ];
+
+  return candidates
+    .map((value) => String(value || '').trim())
+    .find(Boolean) || '';
+}
+
+function normalizePaymentAmountToUsd(amount, currency) {
+  const numericAmount = Number(amount || 0);
+  if (!Number.isFinite(numericAmount)) return 0;
+  return String(currency || 'USD').toUpperCase() === 'KHR' ? numericAmount / USD_TO_KHR_RATE : numericAmount;
+}
+
+function isSuccessfulPaymentStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  return ['success', 'completed', 'paid', 'confirmed'].includes(status);
+}
+
+function isQrExpired(expiresAt) {
+  if (!expiresAt) return false;
+  const expiryTime = new Date(expiresAt).getTime();
+  return Number.isFinite(expiryTime) && expiryTime <= Date.now();
+}
+
+function getRemainingSeconds(expiresAt) {
+  if (!expiresAt) return 0;
+  const expiryTime = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expiryTime)) return 0;
+  return Math.max(0, Math.ceil((expiryTime - Date.now()) / 1000));
+}
+
+function formatCountdown(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds || 0));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
 function clearDonationCaches() {
@@ -115,6 +240,18 @@ function getApiErrorMessage(error, fallbackMessage) {
     || fallbackMessage;
 }
 
+function getFetchHeaders() {
+  const token = getAuthToken();
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      }
+    : {
+        Accept: 'application/json',
+      };
+}
+
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
@@ -125,6 +262,7 @@ function CampaignDetailPage({ campaignId }) {
   const [isSaved, setIsSaved] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(25);
   const [customAmountInput, setCustomAmountInput] = useState('');
+  const [selectedDonationCurrency, setSelectedDonationCurrency] = useState('USD');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Bakong KHQR');
   const [donationMessage, setDonationMessage] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
@@ -138,6 +276,11 @@ function CampaignDetailPage({ campaignId }) {
   const [donorCoordinates, setDonorCoordinates] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [recentDonors, setRecentDonors] = useState([]);
+  const [campaignPaymentSummary, setCampaignPaymentSummary] = useState({
+    raisedAmount: null,
+    supporterCount: null,
+    donors: [],
+  });
   const [campaignUpdates, setCampaignUpdates] = useState([]);
   const [campaignComments, setCampaignComments] = useState([]);
   const [activeTab, setActiveTab] = useState('about');
@@ -169,13 +312,15 @@ function CampaignDetailPage({ campaignId }) {
     const normalizedRouteCampaign = normalizeCampaign(routeCampaign);
     const normalizedLocalCampaign = normalizeCampaign(getCampaignById(resolvedCampaignId));
 
-    if (normalizedRouteCampaign && String(normalizedRouteCampaign.id) === String(resolvedCampaignId)) {
-      setCampaignData(normalizedRouteCampaign);
-      if (!isNumericCampaignId) {
-        setCampaignLoading(false);
-        return () => {
-          mounted = false;
-        };
+    if (normalizedRouteCampaign) {
+      if (String(normalizedRouteCampaign.id) === String(resolvedCampaignId) || !isNumericCampaignId) {
+        setCampaignData(normalizedRouteCampaign);
+        if (!isNumericCampaignId) {
+          setCampaignLoading(false);
+          return () => {
+            mounted = false;
+          };
+        }
       }
     }
 
@@ -201,6 +346,7 @@ function CampaignDetailPage({ campaignId }) {
     }
 
     if (!isNumericCampaignId) {
+      // No numeric campaign ID provided and no campaign resolved from route/local cache.
       setCampaignData(null);
       return () => {
         mounted = false;
@@ -245,21 +391,89 @@ function CampaignDetailPage({ campaignId }) {
   useEffect(() => {
     if (!resolvedCampaignId || !/^\d+$/.test(String(resolvedCampaignId))) {
       setRecentDonors([]);
+      setCampaignPaymentSummary({ raisedAmount: null, supporterCount: null, donors: [] });
       return;
     }
 
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     let alive = true;
 
-    fetch(`${apiBase}/campaigns/${resolvedCampaignId}/donations`)
-      .then((response) => (response.ok ? response.json() : []))
-      .then((data) => {
+    const fetchOptions = {
+      headers: getFetchHeaders(),
+    };
+
+    Promise.all([
+      fetch(`${apiBase}/campaigns/${resolvedCampaignId}/donations`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/payments`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/donations`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/users`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([campaignDonationData, paymentData, donationData, userData]) => {
         if (!alive) return;
-        setRecentDonors(Array.isArray(data) ? data : []);
+
+        const campaignDonations = Array.isArray(campaignDonationData) ? campaignDonationData : [];
+        const payments = Array.isArray(paymentData) ? paymentData : [];
+        const donations = Array.isArray(donationData) ? donationData : [];
+        const users = Array.isArray(userData) ? userData : [];
+
+        const donationMap = new Map(donations.map((item) => [Number(item.id), item]));
+        const campaignDonationMap = new Map(campaignDonations.map((item) => [Number(item.id), item]));
+        const userMap = new Map(users.map((item) => [Number(item.id), item]));
+
+        const paidPaymentsForCampaign = payments
+          .filter((payment) => isCompletedPayment(payment))
+          .map((payment) => {
+            const linkedDonation = donationMap.get(Number(payment?.donation_id));
+            const linkedUser = userMap.get(Number(payment?.user_id || linkedDonation?.user_id));
+            return {
+              payment,
+              donation: linkedDonation,
+              user: linkedUser || null,
+            };
+          })
+          .filter(({ payment, donation }) =>
+            Number(donation?.campaign_id) === Number(resolvedCampaignId)
+            || paymentMatchesCampaign(payment, resolvedCampaignId)
+          )
+          .sort((left, right) => new Date(right.payment?.paid_at || right.payment?.created_at || right.donation?.created_at || 0).getTime() - new Date(left.payment?.paid_at || left.payment?.created_at || left.donation?.created_at || 0).getTime());
+
+        const paidDonorRows = paidPaymentsForCampaign.map(({ payment, donation, user }, index) => ({
+          id: payment?.id || donation?.id || `paid-${index}`,
+          donor_name:
+            user?.name
+            || campaignDonationMap.get(Number(donation?.id))?.donor_name
+            || donation?.donor_name
+            || extractBankDonorName(payment)
+            || payment?.customer_name
+            || payment?.sender_name
+            || payment?.payer_name
+            || 'Anonymous Donor',
+          amount: Number(payment?.amount ?? donation?.amount ?? 0),
+          created_at: payment?.paid_at || payment?.created_at || donation?.created_at || new Date().toISOString(),
+          currency: payment?.currency || 'USD',
+        }));
+
+        const totalPaidAmount = paidDonorRows.reduce(
+          (sum, item) => sum + normalizePaymentAmountToUsd(item.amount, item.currency),
+          0,
+        );
+        const uniquePaidDonors = new Set(
+          paidPaymentsForCampaign
+            .map(({ payment, donation, user }) => String(user?.id || donation?.user_id || `payment-${payment?.id || ''}`))
+            .filter(Boolean),
+        ).size;
+
+        setCampaignPaymentSummary({
+          raisedAmount: paidDonorRows.length > 0 ? totalPaidAmount : null,
+          supporterCount: paidDonorRows.length > 0 ? uniquePaidDonors : null,
+          donors: paidDonorRows,
+        });
+        setRecentDonors(paidDonorRows.length > 0 ? paidDonorRows : campaignDonations);
       })
       .catch(() => {
         if (!alive) return;
         setRecentDonors([]);
+        setCampaignPaymentSummary({ raisedAmount: null, supporterCount: null, donors: [] });
       });
 
     return () => {
@@ -368,14 +582,19 @@ function CampaignDetailPage({ campaignId }) {
         .filter((amount) => Number.isFinite(amount) && amount > 0)
         .slice(0, 5)
     : [10, 25, 50, 100, 250];
+  const presetDisplayAmounts = presetAmounts.map((amount) => convertAmountToCurrency(amount, selectedDonationCurrency));
   const safeImage =
     campaign?.image ||
     'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80';
   const goalAmount = Number(campaign?.goalAmount ?? 0);
-  const raisedAmount = Number(campaign?.raisedAmount ?? 0);
-  const percentRaised = goalAmount > 0 ? Math.round((raisedAmount / goalAmount) * 100) : 0;
-  const progressWidth = Math.min(percentRaised, 100);
-  const supporterCount = Math.max(recentDonors.length, 0);
+  const raisedAmount = Number(campaignPaymentSummary.raisedAmount ?? campaign?.raisedAmount ?? 0);
+  const rawPercentRaised = goalAmount > 0 ? (raisedAmount / goalAmount) * 100 : 0;
+  const percentRaised = goalAmount > 0 ? Math.round(rawPercentRaised) : 0;
+  const progressWidth = Math.min(100, raisedAmount > 0 ? Math.max(rawPercentRaised, 1) : 0);
+  const supporterCount = Math.max(
+    Number(campaignPaymentSummary.supporterCount ?? recentDonors.length ?? campaign?.supporterCount ?? 0),
+    0,
+  );
   const pledgedItems = recentDonors.reduce(
     (sum, item) => sum + Math.max(1, Number(item?.quantity || item?.amount || 1)),
     0,
@@ -386,6 +605,7 @@ function CampaignDetailPage({ campaignId }) {
   const supportTimelineLabel = campaign?.timeLeft || 'Ongoing';
   const progressStatusLabel = isMaterialCampaign ? `${materialProgressPercent}% pledged` : `${percentRaised}% funded`;
   const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
+  const campaignBadgeCategory = campaignCategoryToSidebarCategory(safeCategory).toUpperCase();
   const progressPrimaryLabel = isMaterialCampaign ? 'Pledged' : 'Raised';
   const progressSecondaryLabel = isMaterialCampaign ? 'Needed' : 'Goal';
   const progressPrimaryValue = isMaterialCampaign ? pledgedItems.toLocaleString() : formatCurrency(raisedAmount);
@@ -492,19 +712,50 @@ function CampaignDetailPage({ campaignId }) {
   const donorMapUrl = `https://www.google.com/maps?q=${receiptDonorMapQuery}`;
   const processingFee = 0;
   const totalDonation = selectedAmount + processingFee;
+  const selectedAmountLabel = formatDonationAmount(selectedAmount, selectedDonationCurrency);
+  const totalDonationLabel = formatDonationAmount(totalDonation, selectedDonationCurrency);
+  const [qrCountdownSeconds, setQrCountdownSeconds] = useState(0);
 
   useEffect(() => {
-    if (!abaQrCheckout?.tranId || abaQrCheckout?.status === 'completed' || abaQrCheckout?.status === 'failed') {
+    if (!abaQrCheckout?.expiresAt || ['completed', 'success', 'failed', 'expired'].includes(abaQrCheckout?.status)) {
+      setQrCountdownSeconds(0);
+      return undefined;
+    }
+
+    setQrCountdownSeconds(getRemainingSeconds(abaQrCheckout.expiresAt));
+    const intervalId = window.setInterval(() => {
+      setQrCountdownSeconds(getRemainingSeconds(abaQrCheckout.expiresAt));
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [abaQrCheckout?.expiresAt, abaQrCheckout?.status]);
+
+  useEffect(() => {
+    if (!abaQrCheckout?.tranId || ['completed', 'success', 'failed', 'expired'].includes(abaQrCheckout?.status)) {
       return undefined;
     }
 
     let active = true;
     const intervalId = window.setInterval(async () => {
+      if (isQrExpired(abaQrCheckout?.expiresAt)) {
+        if (!active) return;
+        setAbaQrCheckout((previous) => (
+          previous ? { ...previous, status: 'expired' } : previous
+        ));
+        setDonationSubmitting(false);
+        setDonationMessage('Payment expired after 5 minutes. Please go back and donate again.');
+        window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+        return;
+      }
+
       try {
-        const verification = await verifyBakongTransaction(abaQrCheckout.tranId);
+        const verification = await getPaymentStatus({
+          payment_id: Number(abaQrCheckout.tranId),
+          user_id: Number(session?.userId ?? 0) || undefined,
+        });
         if (!active) return;
 
-        const transaction = verification?.transaction;
+        const transaction = verification?.payment;
         const normalizedStatus = String(transaction?.status || '').toLowerCase();
         if (!normalizedStatus) return;
 
@@ -512,27 +763,51 @@ function CampaignDetailPage({ campaignId }) {
           previous ? { ...previous, status: normalizedStatus } : previous
         ));
 
-        if (normalizedStatus === 'completed') {
+        if (isSuccessfulPaymentStatus(normalizedStatus)) {
+          active = false;
+          window.clearInterval(intervalId);
+          const userId = Number(session?.userId ?? 0);
+          const organizationId =
+            Number(
+              routeCampaign?.organizationId ??
+              routeCampaign?.organization_id ??
+              campaignData?.organizationId ??
+              campaignData?.organization_id ??
+              campaign?.organizationId ??
+              campaign?.organization_id ??
+              0
+            ) || undefined;
+
+          const persisted = await persistSuccessfulQrDonation({
+            userId,
+            organizationId,
+            paymentAmount: Number(transaction?.amount ?? totalDonation),
+            paymentCurrency: transaction?.currency || abaQrCheckout.currency || selectedDonationCurrency,
+            paymentReference: transaction?.transaction_id || transaction?.md5 || `PAY-${abaQrCheckout.tranId}`,
+          });
+
           const nextReceiptDetails = {
-            amount: Number(transaction?.amount ?? totalDonation).toFixed(2),
+            amount: Number(transaction?.amount ?? totalDonation),
+            currency: transaction?.currency || abaQrCheckout.currency || selectedDonationCurrency,
             date: new Date(transaction?.paid_at || Date.now()).toLocaleDateString('en-US', {
               month: 'long',
               day: 'numeric',
               year: 'numeric',
             }),
-            donationId: transaction?.donation_id ?? null,
-            transactionId: transaction?.tran_id ? `#${transaction.tran_id}` : '',
+            donationId: persisted?.donation?.id ?? null,
+            transactionId: transaction?.transaction_id ? `#${transaction.transaction_id}` : `#PAY-${abaQrCheckout.tranId}`,
             paymentMethod: abaQrCheckout.paymentLabel,
             campaignTitle: safeTitle,
             campaignImage: safeImage,
             campaignLocation: safeLocation,
             organizationName,
             receiptMessage: campaign?.receiptMessage || '',
-            status: normalizedStatus,
+            status: 'completed',
           };
 
           clearDonationCaches();
           setReceiptDetails(nextReceiptDetails);
+          setDonationMessage('Your payment was successful.');
           try {
             window.sessionStorage.setItem(LAST_DONATION_DETAIL_KEY, JSON.stringify(nextReceiptDetails));
           } catch {
@@ -546,6 +821,7 @@ function CampaignDetailPage({ campaignId }) {
 
         if (['failed', 'cancelled', 'expired'].includes(normalizedStatus)) {
           setDonationMessage(`Payment ${normalizedStatus}. Please generate a new KHQR and try again.`);
+          setDonationSubmitting(false);
           window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
         }
       } catch {
@@ -557,7 +833,7 @@ function CampaignDetailPage({ campaignId }) {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [abaQrCheckout, totalDonation, safeTitle, safeImage, safeLocation, organizationName, campaign?.receiptMessage]);
+  }, [abaQrCheckout, totalDonation, safeTitle, safeImage, safeLocation, organizationName, campaign, selectedDonationCurrency, session?.userId, routeCampaign, campaignData, recentDonors.length]);
 
   useEffect(() => {
     if (!showCheckout || !autoStartAbaQr || donationSubmitting || abaQrCheckout) {
@@ -645,14 +921,38 @@ function CampaignDetailPage({ campaignId }) {
   function handleCustomAmountApply(event) {
     event.preventDefault();
     const parsed = Number(customAmountInput.replace(/[^\d.]/g, ''));
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setDonationMessage('Please enter a valid custom amount greater than $0.');
+    const minimumAmount = selectedDonationCurrency === 'USD' ? MIN_USD_DONATION : 1;
+    if (!Number.isFinite(parsed) || parsed < minimumAmount) {
+      setDonationMessage(
+        selectedDonationCurrency === 'USD'
+          ? `Please enter a valid custom amount of at least ${MIN_USD_DONATION} USD.`
+          : `Please enter a valid custom amount of at least 1 ${selectedDonationCurrency}.`,
+      );
       return;
     }
 
-    const roundedAmount = Math.round(parsed);
+    const roundedAmount = selectedDonationCurrency === 'KHR'
+      ? Math.round(parsed)
+      : Math.max(MIN_USD_DONATION, Number(parsed.toFixed(3)));
     setSelectedAmount(roundedAmount);
-    setDonationMessage(`Custom amount applied: $${roundedAmount.toLocaleString()}.`);
+    setDonationMessage(`Custom amount applied: ${formatDonationAmount(roundedAmount, selectedDonationCurrency)}.`);
+  }
+
+  function handleDonationCurrencyChange(nextCurrency) {
+    if (nextCurrency === selectedDonationCurrency) return;
+
+    const usdEquivalent = selectedDonationCurrency === 'KHR'
+      ? convertKhrToUsdAmount(selectedAmount)
+      : selectedAmount;
+    const nextAmount = nextCurrency === 'KHR'
+      ? convertUsdToKhrAmount(usdEquivalent)
+      : Math.max(MIN_USD_DONATION, Number(usdEquivalent.toFixed(3)));
+
+    setSelectedDonationCurrency(nextCurrency);
+    setSelectedAmount(nextAmount);
+    setCustomAmountInput('');
+    setDonationMessage('');
+    setAbaQrCheckout(null);
   }
 
   async function handleDonateNow() {
@@ -666,7 +966,7 @@ function CampaignDetailPage({ campaignId }) {
     // Generate ABA QR code
     const payload = {
       "amount": totalDonation,
-      "currency": "USD", 
+      "currency": selectedDonationCurrency,
       "bill_number": `DON-${campaign.id}-${Date.now()}`,
       "mobile_number": "",
       "store_label": "Chomnuoy Donation",
@@ -696,6 +996,7 @@ function CampaignDetailPage({ campaignId }) {
             paymentLabel: 'Bakong KHQR',
             status: 'pending',
             amount: payload.amount,
+            currency: selectedDonationCurrency,
             expiresAt: generateQR.expires_at,
             md5: generateQR.md5
           });
@@ -710,6 +1011,7 @@ function CampaignDetailPage({ campaignId }) {
             paymentLabel: 'Bakong KHQR',
             status: 'pending',
             amount: payload.amount,
+            currency: selectedDonationCurrency,
             expiresAt: generateQR.expires_at,
             md5: generateQR.md5
           });
@@ -930,6 +1232,7 @@ function CampaignDetailPage({ campaignId }) {
           ...(organizationId ? { organization_id: organizationId } : {}),
           campaign_id: Number(campaign.id),
           amount: totalDonation,
+          currency: selectedDonationCurrency,
           customer_name: donorName,
           customer_email: donorEmail,
         });
@@ -946,6 +1249,8 @@ function CampaignDetailPage({ campaignId }) {
           campaignId: Number(campaign.id),
           organizationId,
           amount: totalDonation,
+          currency: selectedDonationCurrency,
+          expiresAt: bakongTransaction?.checkout?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           paymentOption: checkoutMeta?.payment_option || '',
           environment: checkoutMeta?.environment || 'sandbox',
           createdAt: new Date().toISOString(),
@@ -960,8 +1265,9 @@ function CampaignDetailPage({ campaignId }) {
           checkoutUrl: qrData?.checkout_url || '',
           appStore: qrData?.app_store || '',
           playStore: qrData?.play_store || '',
-          amount: Number(qrData?.amount ?? totalDonation).toFixed(2),
-          currency: qrData?.currency || 'USD',
+          amount: Number(qrData?.amount ?? totalDonation),
+          currency: qrData?.currency || selectedDonationCurrency,
+          expiresAt: bakongTransaction?.checkout?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           environment: checkoutMeta?.environment || 'sandbox',
           status: 'pending',
           paymentLabel: checkoutMeta?.payment_label || 'Bakong KHQR',
@@ -1035,7 +1341,8 @@ function CampaignDetailPage({ campaignId }) {
 
       clearDonationCaches();
       const nextReceiptDetails = {
-        amount: Number(donation?.amount ?? totalDonation).toFixed(2),
+        amount: Number(donation?.amount ?? totalDonation),
+        currency: selectedDonationCurrency,
         date: new Date(donation?.created_at || Date.now()).toLocaleDateString('en-US', {
           month: 'long',
           day: 'numeric',
@@ -1065,10 +1372,113 @@ function CampaignDetailPage({ campaignId }) {
     }
   }
 
+  async function persistSuccessfulQrDonation({ userId, organizationId, paymentAmount, paymentCurrency, paymentReference }) {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const token = getAuthToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    const response = await fetch(`${apiBase}/donations`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        user_id: userId,
+        organization_id: organizationId,
+        campaign_id: Number(campaign.id),
+        amount: paymentAmount,
+        donation_type: 'money',
+        status: 'completed',
+        payment_method: 'Bakong KHQR',
+        transaction_reference: paymentReference,
+        is_monthly: monthlyDonation,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message =
+        payload?.message ||
+        payload?.errors?.organization_id?.[0] ||
+        payload?.errors?.amount?.[0] ||
+        `Failed to record donation (${response.status})`;
+      throw new Error(message);
+    }
+
+    const donation = payload?.donation ?? null;
+    const payment = payload?.payment ?? null;
+    const updatedCampaign = payload?.campaign ?? null;
+
+    if (updatedCampaign) {
+      setCampaignData((previous) => ({
+        ...(previous || campaign),
+        id: updatedCampaign.id ?? previous?.id ?? campaign.id,
+        organizationId: Number(updatedCampaign.organization_id ?? previous?.organizationId ?? campaign.organizationId ?? 0) || null,
+        campaignType: updatedCampaign.campaign_type || previous?.campaignType || campaign.campaignType || 'monetary',
+        title: updatedCampaign.title || previous?.title || campaign.title,
+        category: updatedCampaign.category || previous?.category || campaign.category,
+        organization:
+          updatedCampaign.organization_name ||
+          previous?.organization ||
+          campaign.organization,
+        summary: updatedCampaign.description || previous?.summary || campaign.summary,
+        location: updatedCampaign.organization_location || updatedCampaign.location || previous?.location || campaign.location,
+        latitude: Number(updatedCampaign.organization_latitude ?? updatedCampaign.latitude ?? previous?.latitude ?? campaign.latitude ?? 0) || null,
+        longitude: Number(updatedCampaign.organization_longitude ?? updatedCampaign.longitude ?? previous?.longitude ?? campaign.longitude ?? 0) || null,
+        receiptMessage: updatedCampaign.receipt_message || previous?.receiptMessage || campaign.receiptMessage,
+        donationTiers: previous?.donationTiers || campaign.donationTiers || null,
+        materialItem: previous?.materialItem || campaign.materialItem || null,
+        goalAmount: Number(updatedCampaign.goal_amount ?? previous?.goalAmount ?? campaign.goalAmount ?? 0),
+        raisedAmount: Number(updatedCampaign.current_amount ?? previous?.raisedAmount ?? campaign.raisedAmount ?? 0),
+        image:
+          getStorageFileUrl(updatedCampaign.image_path) ||
+          previous?.image ||
+          campaign.image,
+      }));
+    }
+
+    const donorDisplay = donorName || 'Donor';
+    setRecentDonors((previous) => [
+      {
+        id: donation?.id ?? `paid-${Date.now()}`,
+        donor_name: donorDisplay,
+        amount: paymentAmount,
+        currency: paymentCurrency,
+        created_at: donation?.created_at || new Date().toISOString(),
+      },
+      ...previous,
+    ]);
+
+    setCampaignPaymentSummary((previous) => ({
+      raisedAmount: Number(previous.raisedAmount ?? campaign?.raisedAmount ?? 0) + normalizePaymentAmountToUsd(paymentAmount, paymentCurrency),
+      supporterCount: Math.max(1, Number(previous.supporterCount ?? recentDonors.length ?? 0) + 1),
+      donors: [
+        {
+          id: donation?.id ?? `paid-${Date.now()}`,
+          donor_name: donorDisplay,
+          amount: paymentAmount,
+          currency: paymentCurrency,
+          created_at: donation?.created_at || new Date().toISOString(),
+        },
+        ...(previous.donors || []),
+      ],
+    }));
+
+    clearDonationCaches();
+
+    return {
+      donation,
+      payment,
+    };
+  }
+
   function handleDownloadReceipt() {
     if (!receiptDetails) return;
     const amountLabel = receiptDetails?.isMaterial ? 'Items' : 'Amount';
-    const amountValue = receiptDetails?.isMaterial ? receiptDetails.amount : `$${receiptDetails.amount}`;
+    const amountValue = receiptDetails?.isMaterial
+      ? receiptDetails.amount
+      : formatDonationAmount(receiptDetails.amount, receiptDetails.currency || selectedDonationCurrency);
     const referenceLabel = receiptDetails?.isMaterial ? 'Reference' : 'Transaction ID';
     const receiptCampaignTitle = receiptDetails?.campaignTitle || safeTitle;
 
@@ -1138,7 +1548,11 @@ function CampaignDetailPage({ campaignId }) {
           <div className="donation-success-receipt">
             <div>
               <span>{receiptDetails?.isMaterial ? 'Items' : 'Amount'}</span>
-              <strong>{receiptDetails?.isMaterial ? receiptDetails?.amount : `$${receiptDetails?.amount ?? totalDonation.toFixed(2)}`}</strong>
+              <strong>
+                {receiptDetails?.isMaterial
+                  ? receiptDetails?.amount
+                  : formatDonationAmount(receiptDetails?.amount ?? totalDonation, receiptDetails?.currency || selectedDonationCurrency)}
+              </strong>
             </div>
             <div>
               <span>{receiptDetails?.isMaterial ? 'Reference' : 'Transaction ID'}</span>
@@ -1497,12 +1911,28 @@ function CampaignDetailPage({ campaignId }) {
                   </div>
                   <strong>{abaQrCheckout.paymentLabel} Ready</strong>
                   <p>
-                    Amount: ${abaQrCheckout.amount} {abaQrCheckout.currency}. Scan with Bakong or any KHQR-supported banking app.
+                    Amount: {formatDonationAmount(abaQrCheckout.amount, abaQrCheckout.currency || selectedDonationCurrency)}. Scan with Bakong or any KHQR-supported banking app.
                   </p>
                   <div className="donation-qr-badges" aria-label="Supported apps">
                     <span>{abaQrCheckout.paymentLabel}</span>
-                    <span>{abaQrCheckout.status === 'completed' ? 'Paid' : 'Waiting'}</span>
+                    <span>{isSuccessfulPaymentStatus(abaQrCheckout.status) ? 'Paid' : 'Waiting'}</span>
                   </div>
+                    {isSuccessfulPaymentStatus(abaQrCheckout.status) ? (
+                      <p className="donation-inline-message donation-inline-message-success">
+                        Your payment was successful. Thank you for your donation.
+                      </p>
+                    ) : null}
+                  {!isSuccessfulPaymentStatus(abaQrCheckout.status) ? (
+                    <div className={`donation-countdown-card ${abaQrCheckout.status === 'expired' ? 'is-expired' : ''}`}>
+                      <span className="donation-countdown-label">Time Remaining</span>
+                      <strong>{abaQrCheckout.status === 'expired' ? '00:00' : formatCountdown(qrCountdownSeconds)}</strong>
+                      <p>
+                        {abaQrCheckout.status === 'expired'
+                          ? 'This payment session expired. Please go back and donate again.'
+                          : 'Complete payment before the timer ends.'}
+                      </p>
+                    </div>
+                  ) : null}
                   {abaQrCheckout.deeplink ? (
                     <a className="detail-share-btn" href={abaQrCheckout.deeplink}>
                       Open in banking app
@@ -1513,14 +1943,19 @@ function CampaignDetailPage({ campaignId }) {
                       Open checkout page
                     </a>
                   ) : null}
-                  {!abaQrCheckout.image && abaQrCheckout.qrString ? (
-                    <p className="donation-inline-message">KHQR string received from gateway. If your app cannot scan here, use the checkout link.</p>
-                  ) : null}
-                  {abaQrCheckout.status !== 'completed' ? (
-                    <p className="donation-inline-message">
-                      Waiting for payment confirmation. Transaction ID: {abaQrCheckout.tranId}
-                    </p>
-                  ) : null}
+                    {!abaQrCheckout.image && abaQrCheckout.qrString ? (
+                      <p className="donation-inline-message">KHQR string received from gateway. If your app cannot scan here, use the checkout link.</p>
+                    ) : null}
+                    {!isSuccessfulPaymentStatus(abaQrCheckout.status) ? (
+                      <p className="donation-inline-message">
+                        Waiting for payment confirmation. Transaction ID: {abaQrCheckout.tranId}
+                      </p>
+                    ) : null}
+                    {abaQrCheckout.expiresAt ? (
+                      <p className={`donation-inline-message donation-inline-message-expiry ${isSuccessfulPaymentStatus(abaQrCheckout.status) ? 'is-success-state' : ''}`}>
+                        Expires at {new Date(abaQrCheckout.expiresAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.
+                      </p>
+                    ) : null}
                 </div>
               </article>
             </div>
@@ -1549,7 +1984,7 @@ function CampaignDetailPage({ campaignId }) {
 
               <div className="donation-summary-total">
                 <span>Total to Donate</span>
-                <strong>${abaQrCheckout.amount}</strong>
+                <strong>{formatDonationAmount(abaQrCheckout.amount, abaQrCheckout.currency || selectedDonationCurrency)}</strong>
               </div>
 
               {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
@@ -1616,20 +2051,29 @@ function CampaignDetailPage({ campaignId }) {
                 <div className="donation-qr-badges" aria-label="Supported apps">
                   <span>KHQR</span>
                   <span>Bakong</span>
-                  <span>{totalDonation.toFixed(2)} USD</span>
+                  <span>{totalDonationLabel}</span>
                 </div>
                 <div className="donation-qr-help-list" aria-label="Payment status details">
-                  <p><strong>Status:</strong> {qrPendingState ? 'Connecting to payment gateway' : 'Awaiting retry'}</p>
+                  <p><strong>Status:</strong> {qrPendingState ? 'Connecting to payment gateway' : abaQrCheckout?.status === 'expired' ? 'Expired' : 'Awaiting retry'}</p>
                   <p><strong>Method:</strong> Bakong KHQR</p>
-                  <p><strong>Amount:</strong> ${totalDonation.toFixed(2)}</p>
+                  <p><strong>Amount:</strong> {totalDonationLabel}</p>
+                  <p><strong>Time Limit:</strong> 5 minutes</p>
                 </div>
                 <button
                   type="button"
                   className="donation-complete-button"
-                  onClick={handleCompleteDonation}
+                  onClick={() => {
+                    if (abaQrCheckout?.status === 'expired') {
+                      setShowCheckout(false);
+                      setAbaQrCheckout(null);
+                      setDonationSubmitting(false);
+                      return;
+                    }
+                    handleCompleteDonation();
+                  }}
                   disabled={donationSubmitting}
                 >
-                  <Lock size={16} /> {qrPendingState ? 'Preparing...' : 'Try Again'}
+                  <Lock size={16} /> {qrPendingState ? 'Preparing...' : abaQrCheckout?.status === 'expired' ? 'Back to Donate Again' : 'Try Again'}
                 </button>
                 {donationMessage ? <p className="donation-inline-message">{donationMessage}</p> : null}
               </div>
@@ -1654,7 +2098,7 @@ function CampaignDetailPage({ campaignId }) {
               </div>
               <div>
                 <span>Donation Amount</span>
-                <strong>${selectedAmount.toFixed(2)}</strong>
+                <strong>{selectedAmountLabel}</strong>
               </div>
               <div>
                 <span>Payment Method</span>
@@ -1668,7 +2112,7 @@ function CampaignDetailPage({ campaignId }) {
 
             <div className="donation-summary-total">
               <span>Total to Donate</span>
-              <strong>${totalDonation.toFixed(2)}</strong>
+              <strong>{totalDonationLabel}</strong>
             </div>
           </aside>
         </section>
@@ -1698,8 +2142,9 @@ function CampaignDetailPage({ campaignId }) {
             </div>
             <div className="campaign-hero-body">
               <div className="campaign-hero-copy">
-                <p className="campaign-hero-eyebrow">{campaignTypeLabel}</p>
+                <p className="campaign-hero-eyebrow">{campaignBadgeCategory}</p>
                 <h1>{safeTitle}</h1>
+                <p className="campaign-hero-organization">{organizationName}</p>
                 <p className="campaign-hero-summary">{safeSummary}</p>
               </div>
 
@@ -1793,7 +2238,7 @@ function CampaignDetailPage({ campaignId }) {
                           <p>
                             {isMaterialCampaign
                               ? `Pledged ${Number(donor.amount || 0)} item${Number(donor.amount || 0) > 1 ? 's' : ''} - ${new Date(donor.created_at).toLocaleDateString()}`
-                              : `Donated $${Number(donor.amount || 0).toFixed(2)} - ${new Date(donor.created_at).toLocaleDateString()}`}
+                              : `Donated ${formatDonationAmount(donor.amount || 0, donor.currency || 'USD')} - ${new Date(donor.created_at).toLocaleDateString()}`}
                           </p>
                         </div>
                         <Heart size={14} className="liked" />
@@ -1921,44 +2366,57 @@ function CampaignDetailPage({ campaignId }) {
                   <p><strong>{percentRaised}%</strong><span>Reached</span></p>
                 </div>
                 <div className="quick-amount-grid">
-                  {presetAmounts.map((amount) => (
+                  {DONATION_CURRENCIES.map((currency) => (
+                    <button
+                      key={currency}
+                      type="button"
+                      className={selectedDonationCurrency === currency ? 'is-selected' : ''}
+                      onClick={() => handleDonationCurrencyChange(currency)}
+                    >
+                      {currency}
+                    </button>
+                  ))}
+                </div>
+                <div className="quick-amount-grid">
+                  {presetDisplayAmounts.map((amount) => (
                     <button
                       key={amount}
                       type="button"
                       className={amount === selectedAmount ? 'is-selected' : ''}
                       onClick={() => {
                         setSelectedAmount(amount);
+                        setCustomAmountInput('');
                         setDonationMessage('');
                       }}
                     >
-                      ${amount}
+                      {formatDonationAmount(amount, selectedDonationCurrency)}
                     </button>
                   ))}
                   <button
                     type="button"
-                    className={!presetAmounts.includes(selectedAmount) ? 'is-selected' : ''}
-                    onClick={() => setDonationMessage('Enter a custom amount below, then press Apply.')}
+                    className={!presetDisplayAmounts.includes(selectedAmount) ? 'is-selected' : ''}
+                    onClick={() => setDonationMessage(`Enter a custom amount in ${selectedDonationCurrency}, then press Apply.`)}
                   >
                     Custom
                   </button>
                 </div>
                 <form className="custom-amount-form" onSubmit={handleCustomAmountApply}>
-                  <label htmlFor="custom-amount-input">Custom amount (USD)</label>
+                  <label htmlFor="custom-amount-input">Custom amount ({selectedDonationCurrency})</label>
                   <div className="custom-amount-controls">
                     <input
                       id="custom-amount-input"
                       type="number"
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      placeholder="Enter amount"
+                      min={selectedDonationCurrency === 'USD' ? '0.001' : '1'}
+                      step={selectedDonationCurrency === 'USD' ? '0.001' : '1'}
+                      inputMode="decimal"
+                      placeholder={`Enter amount in ${selectedDonationCurrency}`}
                       value={customAmountInput}
                       onChange={(event) => setCustomAmountInput(event.target.value)}
                     />
                     <button type="submit">Apply</button>
                   </div>
                 </form>
-                <p className="selected-amount">$ {selectedAmount.toLocaleString()}</p>
+                <p className="selected-amount">{selectedAmountLabel}</p>
                 <button
                   type="button"
                   className="donate-button detail-donate-button"
