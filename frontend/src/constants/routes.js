@@ -12,6 +12,7 @@ const ROUTES = {
   LOGOUT: '/logout',
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
+  DONATION_THANK_YOU: '/donations/thank-you',
   ORGANIZATION_DASHBOARD: '/organization/dashboard',
   ORGANIZATION_REPORTS: '/organization/reports',
   ORGANIZATION_CAMPAIGNS: '/organization/campaigns',

@@ -984,7 +984,7 @@ function CampaignDetailPage({ campaignId }) {
             // Ignore persistence failures.
           }
           setShowCheckout(false);
-          setShowDonationSuccess(true);
+          navigate(ROUTES.DONATION_THANK_YOU, { state: { donation: nextReceiptDetails } });
           window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
           return;
         }
@@ -1329,7 +1329,7 @@ function CampaignDetailPage({ campaignId }) {
         // Ignore persistence failures.
       }
       setShowCheckout(false);
-      setShowDonationSuccess(true);
+      navigate(ROUTES.DONATION_THANK_YOU, { state: { donation: nextReceiptDetails } });
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -1547,7 +1547,7 @@ function CampaignDetailPage({ campaignId }) {
       } catch {
         // Ignore persistence failures.
       }
-      setShowDonationSuccess(true);
+      navigate(ROUTES.DONATION_THANK_YOU, { state: { donation: nextReceiptDetails } });
     } catch (error) {
       setDonationMessage(getApiErrorMessage(error, 'Failed to complete donation.'));
     } finally {
