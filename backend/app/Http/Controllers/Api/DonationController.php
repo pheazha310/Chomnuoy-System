@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -74,17 +75,34 @@ class DonationController extends Controller
             $payment = null;
             if ($validated['donation_type'] === 'money') {
                 $paymentMethodName = trim((string) ($validated['payment_method'] ?? 'Credit Card'));
-                $paymentMethod = PaymentMethod::query()->firstOrCreate([
+                PaymentMethod::query()->firstOrCreate([
                     'method_name' => $paymentMethodName,
                 ]);
 
-                $payment = Payment::create([
-                    'donation_id' => $donation->id,
-                    'payment_method_id' => $paymentMethod->id,
-                    'transaction_reference' => $validated['transaction_reference'] ?? sprintf('CNY-%06d', $donation->id),
-                    'amount' => $validated['amount'],
-                    'payment_status' => $status,
-                ]);
+                $transactionReference = trim((string) ($validated['transaction_reference'] ?? sprintf('CNY-%06d', $donation->id)));
+                $existingPayment = null;
+
+                if ($transactionReference !== '') {
+                    $existingPayment = Payment::query()
+                        ->where('transaction_id', $transactionReference)
+                        ->orWhere('bill_number', $transactionReference)
+                        ->orWhere('md5', Str::lower($transactionReference))
+                        ->first();
+                }
+
+                $payment = $existingPayment
+                    ? array_merge($existingPayment->toArray(), [
+                        'transaction_reference' => $transactionReference,
+                        'payment_method' => $paymentMethodName,
+                        'payment_status' => $existingPayment->status,
+                    ])
+                    : [
+                        'id' => null,
+                        'transaction_reference' => $transactionReference,
+                        'payment_method' => $paymentMethodName,
+                        'payment_status' => $status,
+                        'amount' => (float) $validated['amount'],
+                    ];
             }
 
             if ($campaign && $validated['donation_type'] === 'money' && $status === 'completed') {

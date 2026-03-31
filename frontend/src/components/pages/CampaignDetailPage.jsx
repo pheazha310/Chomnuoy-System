@@ -940,13 +940,21 @@ function CampaignDetailPage({ campaignId }) {
               0
             ) || undefined;
 
-          const persisted = await persistSuccessfulQrDonation({
-            userId,
-            organizationId,
-            paymentAmount: Number(transaction?.amount ?? totalDonation),
-            paymentCurrency: transaction?.currency || abaQrCheckout.currency || selectedDonationCurrency,
-            paymentReference: transaction?.transaction_id || transaction?.md5 || `PAY-${abaQrCheckout.tranId}`,
-          });
+          let persisted;
+          try {
+            persisted = await persistSuccessfulQrDonation({
+              userId,
+              organizationId,
+              paymentAmount: Number(transaction?.amount ?? totalDonation),
+              paymentCurrency: transaction?.currency || abaQrCheckout.currency || selectedDonationCurrency,
+              paymentReference: transaction?.transaction_id || transaction?.md5 || `PAY-${abaQrCheckout.tranId}`,
+            });
+          } catch (error) {
+            setDonationSubmitting(false);
+            setDonationMessage(getApiErrorMessage(error, 'Payment was received, but saving the donation failed.'));
+            window.sessionStorage.removeItem(PENDING_BAKONG_TRANSACTION_KEY);
+            return;
+          }
 
           const nextReceiptDetails = {
             amount: Number(transaction?.amount ?? totalDonation),
