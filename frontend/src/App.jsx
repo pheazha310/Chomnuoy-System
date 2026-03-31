@@ -37,6 +37,7 @@ const OrganizationSettings = lazy(() => import('@/app/organization/OrganizationS
 const MaterialPickupPage = lazy(() => import('@/app/material-pickup.jsx/materialPickup.jsx'));
 const PickupViewDetailPage = lazy(() => import('@/app/material-pickup.jsx/pickupViewDetail.jsx'));
 const PickupReschedulePage = lazy(() => import('@/app/material-pickup.jsx/pickupReschedule.jsx'));
+const OrganizationPublicProfile = lazy(() => import('@/components/pages/OrganizationProfile.jsx'));
 const AdminPage = lazy(() => import('@/app/admin/page.jsx'));
 const UserDashboard = lazy(() => import('@/app/admin/userDashboard.jsx'));
 const AdminUserProfilePage = lazy(() => import('@/app/admin/userProfile.jsx'));
@@ -384,6 +385,7 @@ export default function App() {
           <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="/AfterLoginHome" element={<AfterLoginHomeRoute />} />
           <Route path={ROUTES.ABOUT} element={<AboutPage />} />
+          <Route path={ROUTES.ORGANIZATION_PUBLIC_PROFILE()} element={<OrganizationPublicProfile />} />
           <Route path={ROUTES.ORGANIZATIONS} element={<OrganizationRoute />} />
           <Route path={ROUTES.ORGANIZATION_DONATE()} element={<OrganizationRoute />} />
           <Route path={ROUTES.CAMPAIGNS} element={<CampaignsPage />} />
