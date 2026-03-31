@@ -21,7 +21,7 @@ import {
   Truck,
   MessageCircle,
 } from 'lucide-react';
-import { createBakongTransaction, getPaymentStatus } from '../../services/user-service';
+import { getPaymentStatus } from '../../services/user-service';
 import { getCampaignById } from '../../data/campaigns';
 import {
   CAMPAIGNS_CACHE_KEY as DONOR_CAMPAIGNS_CACHE_KEY,
@@ -1014,6 +1014,18 @@ function CampaignDetailPage({ campaignId }) {
     handleCompleteDonation();
   }, [showCheckout, autoStartAbaQr, donationSubmitting, abaQrCheckout]);
 
+  useEffect(() => {
+    if (!showDonationSuccess || receiptDetails?.isMaterial) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      navigate(backTarget, { replace: true });
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [showDonationSuccess, receiptDetails?.isMaterial, navigate, backTarget]);
+
   if (!campaign && campaignLoading) {
     return (
       <main className="campaign-detail-loading-screen" aria-busy="true">
@@ -1151,41 +1163,19 @@ function CampaignDetailPage({ campaignId }) {
       console.log('QR response:', generateQR);
       
       if (generateQR.success && generateQR.qr_code) {
-        try {
-          // Import qrcode dynamically to avoid SSR issues
-          const QRCode = await import('qrcode');
-          console.log('QR Code library loaded');
-          
-          const qrImage = await QRCode.toDataURL(generateQR.qr_code);
-          console.log('QR Image generated:', qrImage.substring(0, 50) + '...');
-          
-          setAbaQrCheckout({
-            tranId: generateQR.payment_id?.toString() || '',
-            donationId: null,
-            image: qrImage,
-            paymentLabel: 'Bakong KHQR',
-            status: 'pending',
-            amount: payload.amount,
-            currency: selectedDonationCurrency,
-            expiresAt: generateQR.expires_at,
-            md5: generateQR.md5
-          });
-          console.log('abaQrCheckout set successfully');
-        } catch (qrError) {
-          console.error('Error generating QR image:', qrError);
-          // Fallback: set the QR data without image
-          setAbaQrCheckout({
-            tranId: generateQR.payment_id?.toString() || '',
-            donationId: null,
-            image: null,
-            paymentLabel: 'Bakong KHQR',
-            status: 'pending',
-            amount: payload.amount,
-            currency: selectedDonationCurrency,
-            expiresAt: generateQR.expires_at,
-            md5: generateQR.md5
-          });
-        }
+        const qrImage = `https://quickchart.io/qr?text=${encodeURIComponent(generateQR.qr_code)}&size=360`;
+        setAbaQrCheckout({
+          tranId: generateQR.payment_id?.toString() || '',
+          donationId: null,
+          image: qrImage,
+          paymentLabel: 'Bakong KHQR',
+          status: 'pending',
+          amount: payload.amount,
+          currency: selectedDonationCurrency,
+          expiresAt: generateQR.expires_at,
+          md5: generateQR.md5
+        });
+        console.log('abaQrCheckout set successfully');
       } else {
         console.error('Invalid QR response:', generateQR);
         const errorMessage = generateQR?.message || 'Failed to generate QR code. Please try again.';
@@ -1410,50 +1400,54 @@ function CampaignDetailPage({ campaignId }) {
 
     try {
       if (selectedPaymentMethod === 'Bakong KHQR') {
-        const bakongTransaction = await createBakongTransaction({
-          user_id: userId,
-          ...(organizationId ? { organization_id: organizationId } : {}),
-          campaign_id: Number(campaign.id),
+        const qrPayload = {
           amount: totalDonation,
           currency: selectedDonationCurrency,
-          customer_name: donorName,
-          customer_email: donorEmail,
-        });
+          bill_number: `DON-${campaign.id}-${Date.now()}`,
+          mobile_number: '',
+          store_label: 'Chomnuoy Donation',
+          terminal_label: 'Online Donation',
+          type: 'individual',
+          campaign_id: Number(campaign.id),
+          user_id: userId,
+        };
 
-        const checkoutMeta = bakongTransaction?.checkout?.meta ?? {};
-        const qrData = bakongTransaction?.checkout?.qr;
-        if (!qrData?.image && !qrData?.string) {
-          throw new Error('The Bakong QR payload is incomplete.');
+        const generateQR = await generateAbaQr(qrPayload);
+        if (!generateQR?.success || !generateQR?.qr_code) {
+          throw new Error(generateQR?.message || 'The Bakong QR payload is incomplete.');
         }
 
+        const qrImage = `https://quickchart.io/qr?text=${encodeURIComponent(generateQR.qr_code)}&size=360`;
+
         window.sessionStorage.setItem(PENDING_BAKONG_TRANSACTION_KEY, JSON.stringify({
-          tranId: bakongTransaction?.transaction?.tran_id || '',
-          donationId: bakongTransaction?.donation?.id || null,
+          tranId: generateQR?.payment_id?.toString() || '',
+          donationId: null,
           campaignId: Number(campaign.id),
           organizationId,
           amount: totalDonation,
           currency: selectedDonationCurrency,
-          expiresAt: bakongTransaction?.checkout?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-          paymentOption: checkoutMeta?.payment_option || '',
-          environment: checkoutMeta?.environment || 'sandbox',
+          expiresAt: generateQR?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          paymentOption: 'abapay_khqr',
+          environment: 'sandbox',
           createdAt: new Date().toISOString(),
         }));
 
         setAbaQrCheckout({
-          tranId: bakongTransaction?.transaction?.tran_id || '',
-          donationId: bakongTransaction?.donation?.id || null,
-          image: qrData?.image || '',
-          qrString: qrData?.string || '',
-          deeplink: qrData?.deeplink || '',
-          checkoutUrl: qrData?.checkout_url || '',
-          appStore: qrData?.app_store || '',
-          playStore: qrData?.play_store || '',
-          amount: Number(qrData?.amount ?? totalDonation),
-          currency: qrData?.currency || selectedDonationCurrency,
-          expiresAt: bakongTransaction?.checkout?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-          environment: checkoutMeta?.environment || 'sandbox',
+          tranId: generateQR?.payment_id?.toString() || '',
+          donationId: null,
+          image: qrImage,
+          qrString: generateQR?.qr_code || '',
+          deeplink: '',
+          checkoutUrl: '',
+          appStore: '',
+          playStore: '',
+          amount: Number(totalDonation),
+          currency: selectedDonationCurrency,
+          expiresAt: generateQR?.expires_at || new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          environment: 'sandbox',
           status: 'pending',
-          paymentLabel: checkoutMeta?.payment_label || 'Bakong KHQR',
+          paymentLabel: 'Bakong KHQR',
+          md5: generateQR?.md5 || '',
         });
         return;
       }

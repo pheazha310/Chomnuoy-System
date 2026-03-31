@@ -264,17 +264,11 @@ function AfterLoginHome() {
   const openCampaignDetail = (campaign) => {
     const persistedCampaign = campaign.rawCampaign || null;
     if (!persistedCampaign) return;
-    const isMaterialCampaign = String(
-      persistedCampaign.campaignType || persistedCampaign.campaign_type || (persistedCampaign.materialItem || persistedCampaign.material_item ? 'material' : '')
-    )
-      .toLowerCase()
-      .includes('material');
     window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(persistedCampaign));
     navigate(`/campaigns/${campaign.id}`, {
       state: {
         from: '/AfterLoginHome',
         campaign: persistedCampaign,
-        openCheckout: isMaterialCampaign,
       },
     });
   };

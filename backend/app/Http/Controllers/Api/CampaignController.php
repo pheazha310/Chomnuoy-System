@@ -20,8 +20,32 @@ class CampaignController extends Controller
     private const SUCCESSFUL_PAYMENT_STATUSES = ['completed', 'success', 'confirmed', 'paid'];
     private const USD_TO_KHR_RATE = 4100;
 
+    private function hasTableColumns(string $table, array $columns): bool
+    {
+        if (!Schema::hasTable($table)) {
+            return false;
+        }
+
+        foreach ($columns as $column) {
+            if (!Schema::hasColumn($table, $column)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function zeroSubquery()
+    {
+        return DB::query()->selectRaw('0');
+    }
+
     private function successfulDonationAmountSubquery()
     {
+        if (!$this->hasTableColumns('donations', ['campaign_id', 'donation_type', 'status', 'amount'])) {
+            return $this->zeroSubquery();
+        }
+
         $statusList = "'" . implode("','", self::SUCCESSFUL_PAYMENT_STATUSES) . "'";
 
         return DB::table('donations')
@@ -38,6 +62,10 @@ class CampaignController extends Controller
 
     private function successfulTransactionAmountSubquery()
     {
+        if (!$this->hasTableColumns('transactions', ['campaign_id', 'donation_id', 'status', 'currency', 'amount'])) {
+            return $this->zeroSubquery();
+        }
+
         $statusList = "'" . implode("','", self::SUCCESSFUL_PAYMENT_STATUSES) . "'";
         $rate = self::USD_TO_KHR_RATE;
 
@@ -60,6 +88,10 @@ class CampaignController extends Controller
 
     private function successfulDirectPaymentAmountSubquery()
     {
+        if (!$this->hasTableColumns('payments', ['status', 'currency', 'amount', 'bill_number'])) {
+            return $this->zeroSubquery();
+        }
+
         $rate = self::USD_TO_KHR_RATE;
 
         return DB::table('payments')
@@ -81,31 +113,46 @@ class CampaignController extends Controller
     private function successfulSupporterCountExpression(): string
     {
         $statusList = "'" . implode("','", self::SUCCESSFUL_PAYMENT_STATUSES) . "'";
+        $unions = [];
+
+        if ($this->hasTableColumns('donations', ['user_id', 'campaign_id', 'donation_type', 'status'])) {
+            $unions[] = "
+                SELECT donations.user_id
+                FROM donations
+                WHERE donations.campaign_id = campaigns.id
+                  AND donations.donation_type = 'money'
+                  AND LOWER(donations.status) IN ({$statusList})
+            ";
+        }
+
+        if ($this->hasTableColumns('transactions', ['user_id', 'campaign_id', 'donation_id', 'status'])) {
+            $unions[] = "
+                SELECT transactions.user_id
+                FROM transactions
+                WHERE transactions.campaign_id = campaigns.id
+                  AND transactions.donation_id IS NULL
+                  AND LOWER(transactions.status) IN ({$statusList})
+            ";
+        }
+
+        if ($this->hasTableColumns('payments', ['status', 'bill_number'])) {
+            $unions[] = "
+                SELECT payments.id as user_id
+                FROM payments
+                WHERE payments.status = 'SUCCESS'
+                  AND payments.bill_number LIKE CONCAT('DON-', campaigns.id, '-%')
+            ";
+        }
+
+        if (count($unions) === 0) {
+            return '0';
+        }
 
         return "
             (
                 SELECT COUNT(DISTINCT supporter_rows.user_id)
                 FROM (
-                    SELECT donations.user_id
-                    FROM donations
-                    WHERE donations.campaign_id = campaigns.id
-                      AND donations.donation_type = 'money'
-                      AND LOWER(donations.status) IN ({$statusList})
-
-                    UNION
-
-                    SELECT transactions.user_id
-                    FROM transactions
-                    WHERE transactions.campaign_id = campaigns.id
-                      AND transactions.donation_id IS NULL
-                      AND LOWER(transactions.status) IN ({$statusList})
-
-                    UNION
-
-                    SELECT payments.id as user_id
-                    FROM payments
-                    WHERE payments.status = 'SUCCESS'
-                      AND payments.bill_number LIKE CONCAT('DON-', campaigns.id, '-%')
+                    " . implode("\nUNION\n", $unions) . "
                 ) AS supporter_rows
             )
         ";
