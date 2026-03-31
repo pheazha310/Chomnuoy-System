@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\AuditLogController;
-use App\Http\Controllers\Api\AbaPayWayController;
 use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\AuthControllerRegister;
 use App\Http\Controllers\Api\CampaignController;
@@ -34,6 +33,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
+Route::get('/auth/providers/status', [SocialAuthController::class, 'providersStatus']);
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
 Route::get('/health', function (): JsonResponse {
@@ -92,3 +92,5 @@ Route::post('/payment/status', [PaymentController::class, 'getPaymentStatus']);
 Route::post('/payment/verify', [PaymentController::class, 'verifyQR']);
 Route::post('/payment/decode', [PaymentController::class, 'decodeQR']);
 Route::post('/payment/deep-link', [PaymentController::class, 'generateDeepLink']);
+Route::post('/bakong/transactions', [PaymentController::class, 'createBakongTransaction']);
+Route::post('/verify-qr', [PaymentController::class, 'verifyBakongTransaction']);

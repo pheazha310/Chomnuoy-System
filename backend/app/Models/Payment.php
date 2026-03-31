@@ -12,6 +12,10 @@ class Payment extends Model
 
     protected $fillable = [
         'user_id',
+        'donation_id',
+        'payment_method_id',
+        'transaction_reference',
+        'payment_status',
         'md5',
         'qr_code',
         'amount',
@@ -55,17 +59,29 @@ class Payment extends Model
 
     public function markAsSuccess(?array $bakongResponse = null, ?string $transactionId = null): void
     {
-        $this->update([
+        $payload = [
             'status' => 'SUCCESS',
             'paid_at' => now(),
             'bakong_response' => $bakongResponse,
             'transaction_id' => $transactionId,
-        ]);
+        ];
+
+        if (array_key_exists('payment_status', $this->getAttributes())) {
+            $payload['payment_status'] = 'success';
+        }
+
+        $this->update($payload);
     }
 
     public function markAsExpired(): void
     {
-        $this->update(['status' => 'EXPIRED']);
+        $payload = ['status' => 'EXPIRED'];
+
+        if (array_key_exists('payment_status', $this->getAttributes())) {
+            $payload['payment_status'] = 'expired';
+        }
+
+        $this->update($payload);
     }
 
     public function incrementCheckAttempts(): void

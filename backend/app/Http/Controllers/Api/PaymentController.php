@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Donation;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Services\KHQRService;
@@ -11,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Notification;
 use App\Models\User;
 use App\Models\Role;
+use Illuminate\Support\Facades\Schema;
 
 class PaymentController extends Controller
 {
@@ -22,6 +25,67 @@ class PaymentController extends Controller
     public function __construct(KHQRService $khqrService)
     {
         $this->khqrService = $khqrService;
+    }
+
+    private function paymentsHaveUserIdColumn(): bool
+    {
+        return Schema::hasTable('payments') && Schema::hasColumn('payments', 'user_id');
+    }
+
+    private function paymentColumns(): array
+    {
+        static $columns = null;
+
+        if ($columns !== null) {
+            return $columns;
+        }
+
+        return $columns = Schema::hasTable('payments')
+            ? array_flip(Schema::getColumnListing('payments'))
+            : [];
+    }
+
+    private function buildCheckoutPayload(Payment $payment, string $paymentLabel = 'Bakong KHQR'): array
+    {
+        $deepLinkResponse = $this->khqrService->generateDeepLink($payment->qr_code);
+        $deepLink = $deepLinkResponse['deep_link']
+            ?? $deepLinkResponse['deep_links']['bakong']
+            ?? '';
+
+        return [
+            'mode' => 'qr',
+            'expires_at' => optional($payment->expires_at)->toISOString(),
+            'qr' => [
+                'image' => '',
+                'string' => $payment->qr_code,
+                'deeplink' => $deepLink,
+                'checkout_url' => '',
+                'amount' => (float) $payment->amount,
+                'currency' => $payment->currency,
+            ],
+            'meta' => [
+                'environment' => app()->environment('production') ? 'production' : 'sandbox',
+                'payment_option' => 'bakong_khqr',
+                'payment_label' => $paymentLabel,
+                'bill_number' => $payment->bill_number,
+            ],
+        ];
+    }
+
+    private function createPendingDonationIfNeeded(array $validated): ?Donation
+    {
+        if (empty($validated['user_id']) || empty($validated['organization_id'])) {
+            return null;
+        }
+
+        return Donation::create([
+            'user_id' => (int) $validated['user_id'],
+            'organization_id' => (int) $validated['organization_id'],
+            'campaign_id' => !empty($validated['campaign_id']) ? (int) $validated['campaign_id'] : null,
+            'amount' => $validated['amount'],
+            'donation_type' => 'money',
+            'status' => 'pending',
+        ]);
     }
 
     private function syncPaymentStatus(Payment $payment): Payment
@@ -150,8 +214,7 @@ class PaymentController extends Controller
             }
 
             // Save payment to database
-            $payment = Payment::create([
-                'user_id' => $validated['user_id'] ?? null,
+            $paymentPayload = [
                 'md5' => $result['data']['md5'],
                 'qr_code' => $result['data']['qr'],
                 'amount' => $validated['amount'],
@@ -161,8 +224,14 @@ class PaymentController extends Controller
                 'store_label' => $validated['store_label'] ?? null,
                 'terminal_label' => $validated['terminal_label'] ?? null,
                 'merchant_name' => config('services.bakong.merchant.name'),
+                'status' => 'PENDING',
                 'expires_at' => now()->addMinutes(self::PAYMENT_EXPIRY_MINUTES),
-            ]);
+            ];
+            if ($this->paymentsHaveUserIdColumn()) {
+                $paymentPayload['user_id'] = $validated['user_id'] ?? null;
+            }
+
+            $payment = Payment::create($paymentPayload);
 
             Log::info('Payment created', [
                 'payment_id' => $payment->id,
@@ -190,6 +259,142 @@ class PaymentController extends Controller
                 'message' => 'An error occurred: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function createBakongTransaction(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:' . self::MIN_USD_AMOUNT,
+            'currency' => 'nullable|in:USD,KHR',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'organization_id' => 'nullable|integer|exists:organizations,id',
+            'campaign_id' => 'nullable|integer|exists:campaigns,id',
+            'customer_name' => 'nullable|string|max:255',
+            'customer_email' => 'nullable|email|max:255',
+            'customer_phone' => 'nullable|string|max:50',
+            'message' => 'nullable|string|max:1000',
+        ]);
+
+        $qrRequest = [
+            'amount' => $validated['amount'],
+            'currency' => $validated['currency'] ?? 'USD',
+            'bill_number' => sprintf(
+                'DON-%s-%s',
+                $validated['campaign_id'] ?? ($validated['organization_id'] ?? 'ORG'),
+                round(microtime(true) * 1000)
+            ),
+            'mobile_number' => $validated['customer_phone'] ?? null,
+            'store_label' => 'Chomnuoy Donation',
+            'terminal_label' => 'Online Donation',
+            'type' => 'individual',
+        ];
+
+        if ($this->paymentsHaveUserIdColumn()) {
+            $qrRequest['user_id'] = $validated['user_id'] ?? null;
+        }
+
+        try {
+            $result = $this->khqrService->generateIndividualQR($qrRequest);
+
+            if (isset($result['error'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to start Bakong KHQR checkout.',
+                    'error' => $result['error'],
+                ], 500);
+            }
+
+            if (!isset($result['data'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid response from QR service',
+                ], 500);
+            }
+
+            $donation = $this->createPendingDonationIfNeeded($validated);
+            $paymentMethod = PaymentMethod::query()->firstOrCreate([
+                'method_name' => 'Bakong KHQR',
+            ]);
+            $paymentColumns = $this->paymentColumns();
+
+            $paymentPayload = [
+                'md5' => $result['data']['md5'],
+                'qr_code' => $result['data']['qr'],
+                'amount' => $qrRequest['amount'],
+                'currency' => $qrRequest['currency'],
+                'bill_number' => $qrRequest['bill_number'],
+                'mobile_number' => $qrRequest['mobile_number'],
+                'store_label' => $qrRequest['store_label'],
+                'terminal_label' => $qrRequest['terminal_label'],
+                'merchant_name' => config('services.bakong.merchant.name'),
+                'status' => 'PENDING',
+                'expires_at' => now()->addMinutes(self::PAYMENT_EXPIRY_MINUTES),
+            ];
+            if ($this->paymentsHaveUserIdColumn()) {
+                $paymentPayload['user_id'] = $validated['user_id'] ?? null;
+            }
+            if (isset($paymentColumns['donation_id'])) {
+                $paymentPayload['donation_id'] = $donation?->id;
+            }
+            if (isset($paymentColumns['payment_method_id'])) {
+                $paymentPayload['payment_method_id'] = $paymentMethod->id;
+            }
+            if (isset($paymentColumns['transaction_reference'])) {
+                $paymentPayload['transaction_reference'] = $qrRequest['bill_number'];
+            }
+            if (isset($paymentColumns['payment_status'])) {
+                $paymentPayload['payment_status'] = 'pending';
+            }
+
+            $payment = Payment::create($paymentPayload)->fresh();
+
+            return response()->json([
+                'success' => true,
+                'transaction' => [
+                    'tran_id' => $payment->id,
+                    'status' => strtolower((string) $payment->status),
+                    'md5' => $payment->md5,
+                ],
+                'donation' => $donation,
+                'checkout' => $this->buildCheckoutPayload($payment),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Exception in createBakongTransaction', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function verifyBakongTransaction(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'tranId' => 'required|integer|exists:payments,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $payment = Payment::findOrFail($validated['tranId']);
+        $payment = $this->syncPaymentStatus($payment);
+        $payment = $this->attachUserIfMissing($payment, $validated['user_id'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'transaction' => [
+                'tran_id' => $payment->id,
+                'status' => strtolower((string) $payment->status),
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'transaction_id' => $payment->transaction_id,
+                'md5' => $payment->md5,
+                'paid_at' => $payment->paid_at,
+                'expires_at' => $payment->expires_at,
+            ],
+        ]);
     }
 
     /**
@@ -325,6 +530,10 @@ class PaymentController extends Controller
 
     private function attachUserIfMissing(Payment $payment, ?int $userId = null): Payment
     {
+        if (!$this->paymentsHaveUserIdColumn()) {
+            return $payment;
+        }
+
         if (!$userId || $payment->user_id) {
             return $payment;
         }

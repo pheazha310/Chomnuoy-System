@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
@@ -14,6 +15,20 @@ use Laravel\Socialite\Facades\Socialite;
 class SocialAuthController extends Controller
 {
     protected array $providers = ['google', 'facebook'];
+
+    public function providersStatus(): JsonResponse
+    {
+        return response()->json([
+            'providers' => [
+                'google' => [
+                    'configured' => filled(config('services.google.client_id')),
+                ],
+                'facebook' => [
+                    'configured' => filled(config('services.facebook.client_id')),
+                ],
+            ],
+        ]);
+    }
 
     public function redirect(string $provider): RedirectResponse
     {

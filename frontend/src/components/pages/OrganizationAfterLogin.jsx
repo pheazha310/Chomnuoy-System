@@ -38,6 +38,17 @@ function getApiErrorMessage(error, fallbackMessage) {
     || fallbackMessage;
 }
 
+async function generateQrImageDataUrl(qrString) {
+  const normalized = String(qrString || '').trim();
+  if (!normalized) return '';
+
+  const QRCode = await import('qrcode');
+  return QRCode.toDataURL(normalized, {
+    margin: 1,
+    width: 320,
+  });
+}
+
 function formatCompactNumber(value) {
   const number = Number(value || 0);
   if (!Number.isFinite(number) || number <= 0) return '0';
@@ -645,8 +656,10 @@ function OrganizationAfterLogin() {
         createdAt: new Date().toISOString(),
       }));
 
+      const qrImage = qr?.image || await generateQrImageDataUrl(qr?.string || '');
+
       setDonationQrData({
-        image: qr?.image || '',
+        image: qrImage,
         qrString: qr?.string || '',
         deeplink: qr?.deeplink || '',
         checkoutUrl: qr?.checkout_url || '',

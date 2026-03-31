@@ -31,7 +31,6 @@ import {
 } from '../../services/campaign-service';
 import { getAuthToken, getSession } from '../../services/session-service';
 import '../css/Campaigns.css';
-import { generateAbaQr } from '../../services/user-service';
 
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
 const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v2';
@@ -219,6 +218,17 @@ function formatCountdown(seconds) {
   const minutes = Math.floor(safeSeconds / 60);
   const remainingSeconds = safeSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+async function generateQrImageDataUrl(qrString) {
+  const normalized = String(qrString || '').trim();
+  if (!normalized) return '';
+
+  const QRCode = await import('qrcode');
+  return QRCode.toDataURL(normalized, {
+    margin: 1,
+    width: 320,
+  });
 }
 
 function clearDonationCaches() {
@@ -1131,70 +1141,7 @@ function CampaignDetailPage({ campaignId }) {
     setShowCheckout(true);
     if (!isMaterialCampaign && selectedPaymentMethod === 'Bakong KHQR') {
       setAutoStartAbaQr(true);
-    }
-
-    // Generate ABA QR code
-    const payload = {
-      "amount": totalDonation,
-      "currency": selectedDonationCurrency,
-      "bill_number": `DON-${campaign.id}-${Date.now()}`,
-      "mobile_number": "",
-      "store_label": "Chomnuoy Donation",
-      "terminal_label": "Online Donation",
-      "type": "individual",
-      "campaign_id": campaign.id,
-      "user_id": session?.userId || null
-    };
-    try {
-      console.log('Generating QR with payload:', payload);
-      const generateQR = await generateAbaQr(payload);
-      console.log('QR response:', generateQR);
-      
-      if (generateQR.success && generateQR.qr_code) {
-        try {
-          // Import qrcode dynamically to avoid SSR issues
-          const QRCode = await import('qrcode');
-          console.log('QR Code library loaded');
-          
-          const qrImage = await QRCode.toDataURL(generateQR.qr_code);
-          console.log('QR Image generated:', qrImage.substring(0, 50) + '...');
-          
-          setAbaQrCheckout({
-            tranId: generateQR.payment_id?.toString() || '',
-            donationId: null,
-            image: qrImage,
-            paymentLabel: 'Bakong KHQR',
-            status: 'pending',
-            amount: payload.amount,
-            currency: selectedDonationCurrency,
-            expiresAt: generateQR.expires_at,
-            md5: generateQR.md5
-          });
-          console.log('abaQrCheckout set successfully');
-        } catch (qrError) {
-          console.error('Error generating QR image:', qrError);
-          // Fallback: set the QR data without image
-          setAbaQrCheckout({
-            tranId: generateQR.payment_id?.toString() || '',
-            donationId: null,
-            image: null,
-            paymentLabel: 'Bakong KHQR',
-            status: 'pending',
-            amount: payload.amount,
-            currency: selectedDonationCurrency,
-            expiresAt: generateQR.expires_at,
-            md5: generateQR.md5
-          });
-        }
-      } else {
-        console.error('Invalid QR response:', generateQR);
-        const errorMessage = generateQR?.message || 'Failed to generate QR code. Please try again.';
-        setDonationMessage(`QR Generation Error: ${errorMessage}`);
-      }
-    } catch (error) {
-      console.error('Failed to generate QR code:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Network error occurred. Please check your connection.';
-      setDonationMessage(`QR Generation Failed: ${errorMessage}`);
+      return;
     }
   }
 
@@ -1439,10 +1386,12 @@ function CampaignDetailPage({ campaignId }) {
           createdAt: new Date().toISOString(),
         }));
 
+        const qrImage = qrData?.image || await generateQrImageDataUrl(qrData?.string || '');
+
         setAbaQrCheckout({
           tranId: bakongTransaction?.transaction?.tran_id || '',
           donationId: bakongTransaction?.donation?.id || null,
-          image: qrData?.image || '',
+          image: qrImage,
           qrString: qrData?.string || '',
           deeplink: qrData?.deeplink || '',
           checkoutUrl: qrData?.checkout_url || '',
