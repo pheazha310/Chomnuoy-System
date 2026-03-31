@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Download, Pencil, Plus } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
+import { normalizeCampaign } from "@/services/campaign-service.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
 import OrganizationIdentityPill from "./OrganizationIdentityPill.jsx";
 import "./organization.css";
@@ -20,6 +21,15 @@ const getDaysRemaining = (endDate) => {
   const diffMs = end.getTime() - Date.now();
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 };
+
+const formatMoney = (value) => (
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0))
+);
 
 export default function OrganizationCampaignDetailPage() {
   const navigate = useNavigate();
@@ -126,8 +136,9 @@ export default function OrganizationCampaignDetailPage() {
   }, [id, velocityDays]);
 
   const stats = useMemo(() => {
-    const raised = Number(campaign?.current_amount || 0);
-    const goal = Number(campaign?.goal_amount || 0);
+    const normalizedCampaign = normalizeCampaign(campaign);
+    const raised = Number(normalizedCampaign?.raisedAmount || 0);
+    const goal = Number(normalizedCampaign?.goalAmount || 0);
     const progress = goal ? Math.round((raised / goal) * 100) : 0;
     const daysRemaining = getDaysRemaining(campaign?.end_date);
     const donors = donations.length > 0 ? donations.length : Math.max(0, Math.floor(raised / 50));
@@ -284,7 +295,7 @@ export default function OrganizationCampaignDetailPage() {
           <div className="org-cpd-stats">
             <article className="org-cpd-stat">
               <p>Total Raised</p>
-              <h3>${stats.raised.toLocaleString()}</h3>
+              <h3>{formatMoney(stats.raised)}</h3>
               <span>+12% from last week</span>
             </article>
             <article className="org-cpd-stat">
@@ -293,7 +304,7 @@ export default function OrganizationCampaignDetailPage() {
               <div className="org-cpd-progress">
                 <span style={{ width: `${stats.progress}%` }} />
               </div>
-              <span>Goal: ${stats.goal.toLocaleString()}</span>
+              <span>Goal: {formatMoney(stats.goal)}</span>
             </article>
             <article className="org-cpd-stat">
               <p>Total Donors</p>
@@ -343,7 +354,7 @@ export default function OrganizationCampaignDetailPage() {
                 {editMode ? (
                   <input type="number" value={editForm.goal_amount} onChange={handleEditChange("goal_amount")} />
                 ) : (
-                  <span>${Number(campaign?.goal_amount || 0).toLocaleString()}</span>
+                  <span>{formatMoney(campaign?.goal_amount)}</span>
                 )}
               </label>
               <label>
@@ -439,7 +450,7 @@ export default function OrganizationCampaignDetailPage() {
                   <div className="org-cpd-row" key={donation.id}>
                     <span>{donation.donor_name}</span>
                     <span>{formatDate(donation.created_at)}</span>
-                    <span>${Number(donation.amount || 0).toLocaleString()}</span>
+                    <span>{formatMoney(donation.amount)}</span>
                     <span className={String(donation.status).toLowerCase() === "completed" ? "chip success" : "chip pending"}>
                       {donation.status}
                     </span>

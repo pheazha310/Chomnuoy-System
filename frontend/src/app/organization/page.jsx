@@ -2,6 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
 import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
+import { normalizeCampaign } from '@/services/campaign-service.js';
+
+function formatMoney(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
 
 function getOrganizationSession() {
   try {
@@ -332,7 +342,10 @@ export default function OrganizationDashboardPage() {
   }, [organizationId]);
 
   const summaryCards = useMemo(() => {
-    const totalRaised = campaigns.reduce((sum, item) => sum + Number(item.current_amount || 0), 0);
+    const totalRaised = campaigns.reduce((sum, item) => {
+      const normalizedCampaign = normalizeCampaign(item);
+      return sum + Number(normalizedCampaign?.raisedAmount || 0);
+    }, 0);
     const activeCount = campaigns.filter((item) => String(item.status || '').toLowerCase() === 'active').length;
     const materialDonationIds = new Set(
       donations.filter((item) => item.donation_type === 'material').map((item) => item.id),
@@ -352,7 +365,7 @@ export default function OrganizationDashboardPage() {
     return [
       {
         title: 'Total Funds Raised',
-        value: `$${totalRaised.toLocaleString()}`,
+        value: formatMoney(totalRaised),
         change: '+12.5%',
         icon: 'TF',
       },
@@ -386,13 +399,14 @@ export default function OrganizationDashboardPage() {
       const haystack = `${item.title || ''} ${item.status || ''} ${item.end_date || ''}`.toLowerCase();
       return haystack.includes(query);
     }).slice(0, 2).map((item) => {
-      const goal = Number(item.goal_amount || 0);
-      const raised = Number(item.current_amount || 0);
+      const normalizedCampaign = normalizeCampaign(item);
+      const goal = Number(normalizedCampaign?.goalAmount || 0);
+      const raised = Number(normalizedCampaign?.raisedAmount || 0);
       const percent = goal ? Math.round((raised / goal) * 100) : 0;
       return {
         name: item.title || 'Untitled Campaign',
-        raised: `$${raised.toLocaleString()} raised`,
-        goal: `Goal: $${goal.toLocaleString()}`,
+        raised: `${formatMoney(raised)} raised`,
+        goal: `Goal: ${formatMoney(goal)}`,
         percent,
         time: item.end_date ? `${Math.max(0, Math.ceil((new Date(item.end_date) - Date.now()) / (1000 * 60 * 60 * 24)))} Days Left` : 'Ongoing',
       };
@@ -415,7 +429,7 @@ export default function OrganizationDashboardPage() {
       const quantity = Math.max(1, Number(materialItem?.quantity || row.amount || 1));
       const amountText = row.donation_type === 'material'
         ? `${quantity}x ${materialItem?.item_name || 'Items'}`
-        : `$${Number(row.amount || 0).toLocaleString()}`;
+        : formatMoney(row.amount);
       const statusText = row.donation_type === 'material' && pickup?.status
         ? String(pickup.status)
         : String(row.status || 'Pending');

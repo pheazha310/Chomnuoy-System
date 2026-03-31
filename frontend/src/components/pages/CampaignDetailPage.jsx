@@ -879,6 +879,20 @@ function CampaignDetailPage({ campaignId }) {
   }, [abaQrCheckout?.expiresAt, abaQrCheckout?.status]);
 
   useEffect(() => {
+    if (!showCheckout || abaQrCheckout?.status !== 'expired') {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowCheckout(false);
+      setAbaQrCheckout(null);
+      setDonationSubmitting(false);
+    }, 1200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [showCheckout, abaQrCheckout?.status]);
+
+  useEffect(() => {
     if (!abaQrCheckout?.tranId || ['completed', 'success', 'failed', 'expired'].includes(abaQrCheckout?.status)) {
       return undefined;
     }

@@ -11,6 +11,15 @@ const fallbackCampaignImage =
     '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#DBEAFE"/><stop offset="100%" stop-color="#FEF3C7"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="50%" y="50%" font-size="36" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign Image</text></svg>'
   );
 
+function formatMoney(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
+
 export default function CampaignCard({
   id,
   title,
@@ -38,14 +47,14 @@ export default function CampaignCard({
   const campaignTypeLabel = isMaterialCampaign ? 'Material Drive' : 'Monetary Campaign';
   const primaryMetricLabel = isMaterialCampaign ? 'Pledged' : 'Raised';
   const secondaryMetricLabel = isMaterialCampaign ? 'Needed' : 'Goal';
-  const primaryMetricValue = isMaterialCampaign ? pledgedItems.toLocaleString() : `$${raised.toLocaleString()}`;
-  const secondaryMetricValue = isMaterialCampaign ? requestedItems.toLocaleString() : `$${goal.toLocaleString()}`;
+  const primaryMetricValue = isMaterialCampaign ? pledgedItems.toLocaleString() : formatMoney(raised);
+  const secondaryMetricValue = isMaterialCampaign ? requestedItems.toLocaleString() : formatMoney(goal);
   const progressLabel = isMaterialCampaign ? `${Math.round(progress)}% pledged` : `${Math.round(progress)}% funded`;
   const footerHeadline = isMaterialCampaign ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items left` : timeLeft;
   const footerEyebrow = isMaterialCampaign ? 'Items Remaining' : 'Campaign Closes';
   const remainingValue = isMaterialCampaign
     ? `${Math.max(0, requestedItems - pledgedItems).toLocaleString()} items remaining`
-    : `$${Math.max(0, goal - raised).toLocaleString()} remaining`;
+    : `${formatMoney(Math.max(0, goal - raised))} remaining`;
   const campaignPath = `/campaigns/${id || title.toLowerCase().replace(/\s+/g, '-')}`;
   const campaignState = {
     from: '/campaigns/donor',
@@ -161,9 +170,9 @@ export default function CampaignCard({
               </div>
             </div>
 
-            <div className="mt-2.5 flex items-center justify-between text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#8a9ab0]">
-              <span>{progressLabel}</span>
-              <span>{campaignTypeLabel}</span>
+            <div className="mt-2.5 flex items-center justify-between text-[0.62rem] font-bold uppercase tracking-[0.14em]">
+              <span className="text-[#1f6fe6]">{progressLabel}</span>
+              <span className="text-[#8a9ab0]">{campaignTypeLabel}</span>
             </div>
 
             <div
