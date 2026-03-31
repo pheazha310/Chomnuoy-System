@@ -880,8 +880,11 @@ export default function MyDonation() {
             </div>
           ) : null}
           {!loading && !error
-            ? visibleDonations.map((item) => (
-                <article key={`${item.recipient}-${item.amount}`} className="my-donation-row">
+            ? visibleDonations.map((item, index) => (
+                <article
+                  key={item.id ? `donation-${item.id}` : `${item.recipient}-${item.amount}-${item.dateValue}-${index}`}
+                  className="my-donation-row"
+                >
                   <div>
                     <p className="my-donation-label">DATE</p>
                     <p className="my-donation-date">{item.date}</p>

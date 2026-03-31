@@ -1839,6 +1839,38 @@ body {
   gap: 12px;
 }
 
+.donation-currency-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.donation-currency-grid button {
+  border: 1px solid #d4deeb;
+  border-radius: 12px;
+  min-height: 52px;
+  background: #ffffff;
+  color: #12385f;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.donation-currency-grid button:hover,
+.donation-currency-grid button:focus-visible {
+  border-color: #b9cce2;
+  background: #f7faff;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.donation-currency-grid button.is-active {
+  border-color: #1f7de2;
+  background: #f0f6ff;
+  box-shadow: inset 0 0 0 1px #1f7de2;
+}
+
 .donation-payment-grid button {
   border: 1px solid #d4deeb;
   border-radius: 12px;
@@ -2196,6 +2228,11 @@ body {
   .donation-payment-grid button {
     min-height: 74px;
     font-size: 0.92rem;
+    border-radius: 10px;
+  }
+
+  .donation-currency-grid button {
+    min-height: 46px;
     border-radius: 10px;
   }
 

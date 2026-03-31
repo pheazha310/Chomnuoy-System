@@ -8,14 +8,20 @@ import {
 } from '@/services/campaign-service.js';
 import { getSession } from '@/services/session-service.js';
 
-const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign_v2';
 
 function formatCurrency(amount) {
+  const numericAmount = Number(amount || 0);
+  const minimumFractionDigits = !Number.isInteger(numericAmount) || (numericAmount > 0 && numericAmount < 1)
+    ? 2
+    : 0;
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits,
+    maximumFractionDigits: minimumFractionDigits,
+  }).format(numericAmount);
 }
 
 const sidebarCategories = ['All Campaigns', 'Education', 'Healthcare', 'Disaster Relief', 'Environment'];
@@ -40,6 +46,11 @@ function normalizeDonationType(value) {
   const key = String(value || '').trim().toLowerCase();
   if (key === 'material' || key === 'materials') return 'material';
   return 'money';
+}
+
+function isSuccessfulDonationStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ['completed', 'success', 'confirmed', 'paid'].includes(key);
 }
 
 function getContributionPercent(value, goal) {
@@ -117,18 +128,19 @@ function CampaignsPage() {
             currentUserMoney: 0,
             currentUserMaterial: 0,
           };
+          const isSuccessful = isSuccessfulDonationStatus(item.status);
           const amount = Math.max(0, Number(item.amount || 0));
           const donationType = normalizeDonationType(item.donation_type);
-          if (donationType === 'material') {
+          if (donationType === 'material' && isSuccessful) {
             current.material += amount;
-          } else {
+          } else if (donationType === 'money' && isSuccessful) {
             current.money += amount;
           }
           const donorUserId = Number(item.user_id || 0);
-          if (donorUserId) {
+          if (donorUserId && isSuccessful) {
             current.supporters.add(donorUserId);
           }
-          if (currentUserId && donorUserId === currentUserId) {
+          if (currentUserId && donorUserId === currentUserId && isSuccessful) {
             if (donationType === 'material') {
               current.currentUserMaterial += amount;
             } else {
@@ -161,7 +173,7 @@ function CampaignsPage() {
             isVerified: isVerifiedOrganizationStatus(organization?.verified_status || organization?.status),
             raisedAmount: liveRaisedAmount,
             raised: liveRaisedAmount,
-            supporterCount: donationTotals?.supporters?.size || 0,
+            supporterCount: donationTotals?.supporters?.size ?? Number(item.supporterCount || 0),
             currentUserContribution,
             currentUserContributionPercent: getContributionPercent(currentUserContribution, campaignGoal),
           };

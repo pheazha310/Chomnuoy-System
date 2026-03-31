@@ -7,7 +7,7 @@ import { loginUser, loginWithGoogleCredential } from "../services/user-service";
 import React, { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
-import { GoogleLogin } from "@react-oauth/google";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 function GoogleIcon(props) {
   return (
@@ -275,7 +275,7 @@ export default function LoginPage({ onToggleMode, onLoginSuccess }) {
                   </p>
                 </div>
                 <div className="shrink-0">
-                  <GoogleLogin
+                  <GoogleSignInButton
                     onSuccess={handleGoogleCredential}
                     onError={() => setError("Google login could not be started. Please try again.")}
                     theme="outline"

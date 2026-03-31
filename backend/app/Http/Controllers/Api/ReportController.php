@@ -28,7 +28,7 @@ class ReportController extends Controller
             $donationQuery = DB::table('donations')
                 ->whereBetween('created_at', [$start, $end]);
 
-            if (!$includePending) {
+            if (! $includePending) {
                 $donationQuery->whereNotIn('status', ['pending']);
             }
 
@@ -54,7 +54,7 @@ class ReportController extends Controller
             $previousDonationQuery = DB::table('donations')
                 ->whereBetween('created_at', [$previousStart, $previousEnd]);
 
-            if (!$includePending) {
+            if (! $includePending) {
                 $previousDonationQuery->whereNotIn('status', ['pending']);
             }
 
@@ -182,12 +182,8 @@ class ReportController extends Controller
         return response()->json(null, 204);
     }
 
-    private function buildSeries(
-        int $days,
-        Carbon $start,
-        Carbon $end,
-        bool $includePending
-    ): array {
+    private function buildSeries(int $days, Carbon $start, Carbon $end, bool $includePending): array
+    {
         $labels = [];
         $donors = [];
         $organizations = [];
@@ -195,7 +191,6 @@ class ReportController extends Controller
 
         if ($days === 30) {
             $cursor = $start->copy()->startOfMonth();
-            $seriesStart = $cursor->copy();
             $seriesEnd = $end->copy()->endOfMonth();
             while ($cursor->lte($seriesEnd)) {
                 $monthStart = $cursor->copy()->startOfMonth();
@@ -228,7 +223,7 @@ class ReportController extends Controller
     private function countDonationsBetween(Carbon $start, Carbon $end, bool $includePending): int
     {
         $query = DB::table('donations')->whereBetween('created_at', [$start, $end]);
-        if (!$includePending) {
+        if (! $includePending) {
             $query->whereNotIn('status', ['pending']);
         }
 
@@ -250,7 +245,7 @@ class ReportController extends Controller
 
     private function calculateAveragePickupHours(): float
     {
-        if (!Schema::hasColumn('material_pickups', 'schedule_date') || !Schema::hasColumn('donations', 'created_at')) {
+        if (! Schema::hasColumn('material_pickups', 'schedule_date') || ! Schema::hasColumn('donations', 'created_at')) {
             return 0.0;
         }
 
@@ -268,7 +263,7 @@ class ReportController extends Controller
         $count = 0;
 
         foreach ($rows as $row) {
-            if (!$row->created_at || !$row->schedule_date) {
+            if (! $row->created_at || ! $row->schedule_date) {
                 continue;
             }
 
@@ -289,7 +284,7 @@ class ReportController extends Controller
 
     private function buildTopCampaigns()
     {
-        if (!Schema::hasTable('campaigns')) {
+        if (! Schema::hasTable('campaigns')) {
             return collect();
         }
 
@@ -362,7 +357,7 @@ class ReportController extends Controller
 
     private function buildCategoryBreakdown()
     {
-        if (!Schema::hasTable('organizations') || !Schema::hasTable('categories') || !Schema::hasColumn('organizations', 'category_id')) {
+        if (! Schema::hasTable('organizations') || ! Schema::hasTable('categories') || ! Schema::hasColumn('organizations', 'category_id')) {
             return collect();
         }
 

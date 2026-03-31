@@ -1,5 +1,6 @@
 // Import apiClient (Axios instance with baseURL and config)
 import apiClient from './api-client';
+import { getSession } from './session-service';
 
 function normalizeResourceId(value) {
     if (value === null || value === undefined || value === '') {
@@ -134,12 +135,26 @@ export async function getUserById(userId) {
 }
 
 export async function getMyUserProfile() {
-    const response = await apiClient.get('/profile/me');
-    return response.data;
+    const session = getSession();
+    const normalizedId = normalizeResourceId(session?.userId);
+    if (!normalizedId) {
+        throw new Error('Missing session user id.');
+    }
+
+    const response = await apiClient.get(`/users/${normalizedId}`);
+    return {
+        profile: response.data,
+    };
 }
 
 export async function updateMyUserProfile(formData) {
-    const response = await apiClient.post('/profile/me?_method=PUT', formData, {
+    const session = getSession();
+    const normalizedId = normalizeResourceId(session?.userId);
+    if (!normalizedId) {
+        throw new Error('Missing session user id.');
+    }
+
+    const response = await apiClient.post(`/users/${normalizedId}?_method=PUT`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
@@ -157,6 +172,40 @@ export async function createBakongTransaction(payload) {
 }
 
 export async function verifyBakongTransaction(tranId) {
-    const response = await apiClient.post(`/bakong/transactions/${encodeURIComponent(tranId)}/verify`);
+    const response = await apiClient.post(`/verify-qr`, {
+        "tranId": tranId
+    });
     return response.data;
+}
+
+export async function checkPayment(payload) {
+    const response = await apiClient.post(`/payment/check`, payload);
+    return response.data;
+}
+
+export async function getPaymentStatus(payload) {
+    const response = await apiClient.post(`/payment/status`, payload);
+    return response.data;
+}
+
+export async function verifyQR(payload) {
+    const response = await apiClient.post(`/payment/verify`, payload);
+    return response.data;
+}
+
+export async function decodeQR(payload) {
+    const response = await apiClient.post(`/payment/decode`, payload);
+    return response.data;
+}
+
+export async function generateDeepLink(payload) {
+    const response = await apiClient.post(`/payment/deep-link`, payload);
+    return response.data;
+}
+
+export async function generateAbaQr(payload) {
+  const response = await apiClient.post(`/payment/generate`, payload, {
+    timeout: 30000,
+  });
+  return response.data;
 }

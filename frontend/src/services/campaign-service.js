@@ -1,6 +1,6 @@
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000/api';
 
-export const CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v1';
+export const CAMPAIGNS_CACHE_KEY = 'donor_campaigns_cache_v2';
 export const CAMPAIGN_FALLBACK_IMAGE =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(
@@ -119,7 +119,11 @@ export function normalizeCampaign(item) {
   const goalAmount = Math.max(0, Number(item.goal_amount ?? item.goalAmount ?? item.goal ?? 0));
   const raisedAmount = Math.max(
     0,
-    Number(item.current_amount ?? item.raisedAmount ?? item.raised_amount ?? item.raised ?? 0)
+    Number(item.live_current_amount ?? item.current_amount ?? item.raisedAmount ?? item.raised_amount ?? item.raised ?? 0)
+  );
+  const supporterCount = Math.max(
+    0,
+    Number(item.live_supporter_count ?? item.supporter_count ?? item.supporterCount ?? 0)
   );
   const category = item.category || item.normalizedCategory || 'General';
   const normalizedCategory = normalizeCampaignCategory(category);
@@ -167,6 +171,7 @@ export function normalizeCampaign(item) {
     raisedAmount,
     goal: goalAmount,
     raised: raisedAmount,
+    supporterCount,
     image:
       getCampaignStorageFileUrl(item.image_path) ||
       item.image_url ||
