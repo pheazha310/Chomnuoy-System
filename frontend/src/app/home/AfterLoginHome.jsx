@@ -1,74 +1,25 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   FileText,
-  Building2,
-  Truck,
   Award,
   Star,
   Smile,
   Leaf
 } from 'lucide-react';
 import './afterLoginHome.css';
+import { fetchCampaigns } from '@/services/campaign-service.js';
+import { getSession } from '@/services/session-service.js';
 
 const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
 const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-
-const placeholderImage =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#fef3c7"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" font-size="28" font-family="Source Sans 3, Noto Sans Khmer, sans-serif" text-anchor="middle" fill="#334155">Campaign</text></svg>'
-  );
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 
 function getLoggedInUserName() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    if (!raw) return 'Donor';
-
-    const session = JSON.parse(raw);
-    const name = typeof session?.name === 'string' ? session.name.trim() : '';
-    return name || 'Donor';
-  } catch {
-    return 'Donor';
-  }
-}
-
-function getSession() {
-  try {
-    const raw = window.localStorage.getItem('chomnuoy_session');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function getStorageFileUrl(path) {
-  if (!path) return '';
-  const rawPath = String(path).trim();
-  if (
-    rawPath.startsWith('http://') ||
-    rawPath.startsWith('https://') ||
-    rawPath.startsWith('blob:') ||
-    rawPath.startsWith('data:')
-  ) {
-    return rawPath;
-  }
-  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
-  const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
-  const appBase = apiBase.replace(/\/api\/?$/, '');
-  if (normalizedPath.startsWith('storage/')) {
-    return `${appBase}/${normalizedPath}`;
-  }
-  return `${appBase}/storage/${normalizedPath}`;
-}
-
-function getDaysLeft(endDate) {
-  if (!endDate) return null;
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return null;
-  const diffMs = end.getTime() - Date.now();
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const session = getSession();
+  const name = typeof session?.name === 'string' ? session.name.trim() : '';
+  return name || 'Donor';
 }
 
 function formatMoney(value) {
@@ -116,10 +67,6 @@ function writeDashboardCache(data) {
 
 function getActivityIcon(iconType) {
   switch (String(iconType || '').toLowerCase()) {
-    case 'campaign':
-      return Building2;
-    case 'pickup':
-      return Truck;
     case 'badge':
       return Star;
     default:
@@ -146,27 +93,30 @@ function normalizeCachedActivity(activityData) {
 
 function mapUrgentCampaigns(campaignsData) {
   const campaignItems = Array.isArray(campaignsData) ? campaignsData : [];
-  const activeCampaigns = campaignItems.filter(
-    (item) => String(item.status || '').toLowerCase() === 'active'
-  );
 
-  return activeCampaigns
+  return campaignItems
+    .slice()
+    .sort((a, b) => {
+      const progressA = a.goalAmount ? a.raisedAmount / a.goalAmount : 0;
+      const progressB = b.goalAmount ? b.raisedAmount / b.goalAmount : 0;
+      const urgencyA = a.isUrgent ? -1 : 0;
+      const urgencyB = b.isUrgent ? -1 : 0;
+      return urgencyA - urgencyB || progressA - progressB;
+    })
     .map((item) => {
-      const goal = Number(item.goal_amount || 0);
-      const raised = Number(item.current_amount || 0);
-      const progress = goal ? Math.min(100, Math.round((raised / goal) * 100)) : 0;
-      const daysLeft = getDaysLeft(item.end_date);
-      const isEndingSoon = typeof daysLeft === 'number' ? daysLeft > 0 && daysLeft <= 5 : false;
+      const progress = item.goalAmount ? Math.min(100, Math.round((item.raisedAmount / item.goalAmount) * 100)) : 0;
+      const isEndingSoon = typeof item.daysLeft === 'number' ? item.daysLeft > 0 && item.daysLeft <= 5 : false;
       return {
         id: item.id,
-        image: getStorageFileUrl(item.image_path) || placeholderImage,
+        image: item.image,
         badge: isEndingSoon ? 'ENDING SOON' : 'URGENT',
         badgeTone: isEndingSoon ? 'ending' : 'urgent',
         title: item.title || 'Untitled Campaign',
-        description: item.description || 'No description provided.',
-        raised: formatMoney(raised) + ' raised',
+        description: item.summary || 'No description provided.',
+        raised: formatMoney(item.raisedAmount) + ' raised',
         progressLabel: `${progress}%`,
         progress,
+        rawCampaign: item,
       };
     })
     .slice(0, 2);
@@ -221,6 +171,7 @@ function mapActivity(notificationsData, userId) {
 }
 
 function AfterLoginHome() {
+  const navigate = useNavigate();
   const donorName = useMemo(() => getLoggedInUserName(), []);
   const cachedDashboard = useMemo(() => readDashboardCache(), []);
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedDashboard?.campaigns) ? cachedDashboard.campaigns : []);
@@ -255,8 +206,7 @@ function AfterLoginHome() {
       }
     };
 
-    fetch(`${apiBase}/campaigns`)
-      .then((r) => (r.ok ? r.json() : []))
+    fetchCampaigns()
       .then((campaignsData) => {
         if (!active) return;
         const urgent = mapUrgentCampaigns(campaignsData);
@@ -310,6 +260,18 @@ function AfterLoginHome() {
   const monthlyGoal = 250;
   const monthlyPercent = monthlyGoal ? Math.min(100, Math.round((monthlyTotal / monthlyGoal) * 100)) : 0;
   const impactLevel = getImpactLevel(totalDonated);
+
+  const openCampaignDetail = (campaign) => {
+    const persistedCampaign = campaign.rawCampaign || null;
+    if (!persistedCampaign) return;
+    window.localStorage.setItem(LAST_OPENED_CAMPAIGN_KEY, JSON.stringify(persistedCampaign));
+    navigate(`/campaigns/${campaign.id}`, {
+      state: {
+        from: '/AfterLoginHome',
+        campaign: persistedCampaign,
+      },
+    });
+  };
 
   return (
     <div className="dashboard-home">
@@ -402,9 +364,7 @@ function AfterLoginHome() {
                       <span>{item.progressLabel}</span>
                     </div>
 
-                    <Link to="/donations" className="campaign-donate-link">
-                      Donate Now
-                    </Link>
+                    <button type="button" onClick={() => openCampaignDetail(item)}>Donate Now</button>
                   </div>
                 </article>
               ))}

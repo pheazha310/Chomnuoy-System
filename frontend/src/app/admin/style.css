@@ -185,6 +185,7 @@
   place-items: center;
   flex-shrink: 0;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .admin-avatar img {
@@ -241,6 +242,51 @@
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.admin-settings-page {
+  display: grid;
+  gap: 24px;
+}
+
+.admin-settings-card {
+  max-width: 860px;
+}
+
+.admin-settings-form {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-settings-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-settings-form label span {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-settings-form input,
+.admin-settings-form select {
+  width: 100%;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--admin-text);
+  background: #fff;
+}
+
+.admin-settings-form input:focus,
+.admin-settings-form select:focus {
+  outline: none;
+  border-color: rgba(46, 92, 255, 0.5);
+  box-shadow: 0 0 0 4px rgba(46, 92, 255, 0.1);
 }
 
 .admin-icon-btn {
@@ -387,45 +433,92 @@
 .admin-range-menu {
   position: absolute;
   right: 0;
-  top: calc(100% + 8px);
+  top: calc(100% + 12px);
   background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
-  border-radius: 12px;
-  box-shadow: var(--admin-shadow);
-  padding: 6px;
+  border: 1px solid rgba(215, 225, 241, 0.95);
+  border-radius: 18px;
+  box-shadow: 0 24px 54px rgba(15, 23, 42, 0.16);
+  padding: 8px;
   display: grid;
-  gap: 4px;
-  min-width: 140px;
-  z-index: 2;
+  gap: 6px;
+  min-width: 220px;
+  z-index: 12;
+  backdrop-filter: blur(12px);
 }
 
 .admin-range-menu button {
-  border: none;
-  background: transparent;
+  border: 1px solid transparent;
+  background: #fff;
   text-align: left;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 11px 12px;
+  border-radius: 14px;
   cursor: pointer;
   font-weight: 600;
   color: var(--admin-text);
-  font-size: 12px;
+  font-size: 13px;
+  display: grid;
+  gap: 3px;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-range-menu button span {
+  font-weight: 700;
+  color: #14213d;
+}
+
+.admin-range-menu button small {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a8699;
 }
 
 .admin-range-menu button:hover,
 .admin-range-menu button.is-active {
-  background: rgba(46, 92, 255, 0.1);
+  background: linear-gradient(180deg, #eff4ff, #f7faff);
+  border-color: rgba(46, 92, 255, 0.18);
+  color: var(--admin-primary);
+  box-shadow: 0 10px 24px rgba(46, 92, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-range-menu button.is-active span,
+.admin-range-menu button:hover span {
   color: var(--admin-primary);
 }
 
+.admin-range-menu button.is-active small,
+.admin-range-menu button:hover small {
+  color: #5373c9;
+}
+
 .admin-ghost-btn {
-  border: 1px dashed var(--admin-border);
-  background: transparent;
-  color: var(--admin-muted);
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 12px;
+  border: 1px solid rgba(214, 224, 240, 0.95);
+  background: linear-gradient(180deg, #ffffff, #f7faff);
+  color: #334155;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 13px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.admin-ghost-btn:hover {
+  border-color: rgba(46, 92, 255, 0.22);
+  box-shadow: 0 12px 28px rgba(46, 92, 255, 0.10);
+  transform: translateY(-1px);
+}
+
+.admin-ghost-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
 }
 
 .admin-chart {
@@ -1157,7 +1250,6 @@
     font-size: 24px;
   }
 }
-
 .admin-profile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1451,4 +1543,3 @@
     font-size: 24px;
   }
 }
-

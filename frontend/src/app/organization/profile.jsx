@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './organization.css';
 import OrganizationSidebar from './OrganizationSidebar.jsx';
+import OrganizationIdentityPill from './OrganizationIdentityPill.jsx';
+import { useGlobalTheme } from '@/hooks/useOrganizationSettings';
 
 function getOrganizationSession() {
   try {
@@ -40,42 +42,125 @@ function formatMoney(value) {
   return `$${number.toLocaleString('en-US')}`;
 }
 
+function normalizeTextList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function sanitizeWebsite(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+function sanitizeSocialLink(label, value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  if (/^https?:\/\//i.test(raw)) {
+    return { label, value: raw.replace(/^https?:\/\//i, ''), href: raw };
+  }
+
+  if (label === 'Instagram') {
+    const handle = raw.startsWith('@') ? raw : `@${raw.replace(/^@/, '')}`;
+    return {
+      label,
+      value: handle,
+      href: `https://instagram.com/${handle.replace(/^@/, '')}`,
+    };
+  }
+
+  if (label === 'Telegram') {
+    const normalized = raw.replace(/^@/, '').replace(/^t\.me\//i, '');
+    return {
+      label,
+      value: raw.startsWith('http') ? raw : `t.me/${normalized}`,
+      href: raw.startsWith('http') ? raw : `https://t.me/${normalized}`,
+    };
+  }
+
+  return {
+    label,
+    value: raw,
+    href: /^https?:\/\//i.test(raw) ? raw : `https://${raw}`,
+  };
+}
+
 export default function OrganizationProfilePage() {
+  const { displayPrefs } = useGlobalTheme();
   const session = useMemo(() => getOrganizationSession(), []);
   const storedProfile = useMemo(() => getStoredProfile(), []);
   const [orgData, setOrgData] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
   const [stats, setStats] = useState({ totalCampaigns: 0, totalDonations: 0, totalDonors: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [shareMessage, setShareMessage] = useState('');
 
   const organizationName = storedProfile?.name || orgData?.name || session?.name || 'Organization';
-  const initials = organizationName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'OR';
-  const logoUrl = storedProfile?.logo || orgData?.logo || orgData?.logo_url || '';
-
-  const fallbackSocials = [
-    { label: 'Facebook', value: 'facebook.com/chomnuoy' },
-    { label: 'Instagram', value: '@chomnuoy' },
-    { label: 'Telegram', value: 't.me/chomnuoy' },
-  ];
   const storedSocials = storedProfile?.socials;
-  const normalizedSocials = Array.isArray(storedSocials)
+  const normalizedSocials = (Array.isArray(storedSocials)
     ? storedSocials
     : storedSocials
       ? [
-          { label: 'Facebook', value: storedSocials.facebook || 'facebook.com/chomnuoy' },
-          { label: 'Instagram', value: storedSocials.instagram || '@chomnuoy' },
-          { label: 'Telegram', value: storedSocials.telegram || 't.me/chomnuoy' },
+          sanitizeSocialLink('Facebook', storedSocials.facebook),
+          sanitizeSocialLink('Instagram', storedSocials.instagram),
+          sanitizeSocialLink('Telegram', storedSocials.telegram),
         ]
-      : fallbackSocials;
+      : []
+  ).filter(Boolean);
 
-  const mapQuery = encodeURIComponent(
-    storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
-  );
+  const [latitude, setLatitude] = useState(storedProfile?.latitude || '');
+  const [longitude, setLongitude] = useState(storedProfile?.longitude || '');
+  const hasCoordinates = Boolean(latitude && longitude);
+
+  const updateStoredProfile = (coords) => {
+    try {
+      const existing = getStoredProfile() || {};
+      const updated = { ...existing, ...coords };
+      window.localStorage.setItem('chomnuoy_org_profile', JSON.stringify(updated));
+    } catch {
+      // ignore localStorage errors
+    }
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        setLatitude(lat);
+        setLongitude(lng);
+        updateStoredProfile({ latitude: lat, longitude: lng });
+        setError('');
+      },
+      (err) => {
+        setError(err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  };
+  const mapValue = storedProfile?.mapQuery || storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia';
+  const mapQuery = encodeURIComponent(mapValue);
+  const websiteHref = sanitizeWebsite(storedProfile?.website || orgData?.website || '');
+  const themeClass = displayPrefs.highContrast
+    ? 'theme-contrast'
+    : displayPrefs.darkMode
+      ? 'theme-dark'
+      : '';
 
   useEffect(() => {
     const sessionData = getOrganizationSession();
@@ -99,12 +184,21 @@ export default function OrganizationProfilePage() {
       .then(([organization, campaignsData, donationsData]) => {
         if (!active) return;
         setOrgData(organization);
+        if (!storedProfile?.latitude && organization?.latitude) {
+          setLatitude(organization.latitude);
+          updateStoredProfile({ latitude: organization.latitude });
+        }
+        if (!storedProfile?.longitude && organization?.longitude) {
+          setLongitude(organization.longitude);
+          updateStoredProfile({ longitude: organization.longitude });
+        }
 
         const campaigns = Array.isArray(campaignsData) ? campaignsData : [];
         const donations = Array.isArray(donationsData) ? donationsData : [];
         const filteredCampaigns = campaigns.filter(
           (item) => Number(item.organization_id) === organizationId,
         );
+        setCampaigns(filteredCampaigns);
         const filteredDonations = donations.filter(
           (item) => Number(item.organization_id) === organizationId,
         );
@@ -136,6 +230,52 @@ export default function OrganizationProfilePage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!shareMessage) return undefined;
+    const timer = window.setTimeout(() => setShareMessage(''), 2500);
+    return () => window.clearTimeout(timer);
+  }, [shareMessage]);
+
+  const derivedImpactAreas = useMemo(() => {
+    const storedAreas = normalizeTextList(storedProfile?.impactAreas);
+    if (storedAreas.length > 0) return storedAreas;
+
+    const campaignAreas = campaigns
+      .map((item) => item.category || item.campaign_type || item.location)
+      .map((item) => String(item || '').trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(campaignAreas)).slice(0, 4);
+  }, [campaigns, storedProfile?.impactAreas]);
+
+  const handleShareProfile = async () => {
+    const shareUrl = window.location.href;
+    const shareText = `${organizationName} on Chomnuoy`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${organizationName} Profile`,
+          text: shareText,
+          url: shareUrl,
+        });
+        setShareMessage('Profile shared.');
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareMessage('Profile link copied.');
+        return;
+      }
+    } catch {
+      setShareMessage('Unable to share profile.');
+      return;
+    }
+
+    setShareMessage('Sharing is not available on this device.');
+  };
+
   const profile = {
     name: organizationName,
     joined: storedProfile?.joined || formatJoined(orgData?.created_at),
@@ -144,37 +284,25 @@ export default function OrganizationProfilePage() {
       email: storedProfile?.email || orgData?.email || session?.email || 'contact@chomnuoy.org',
       phone: storedProfile?.phone || orgData?.phone || 'N/A',
       location: storedProfile?.location || orgData?.location || 'Phnom Penh, Cambodia',
-      website: storedProfile?.website || orgData?.website || 'chomnuoy.org',
+      coordinates: hasCoordinates ? `${latitude}, ${longitude}` : 'Not set yet',
+      website: storedProfile?.website || orgData?.website || 'N/A',
     },
     stats: [
-      { label: 'Total Campaigns', value: storedProfile?.totalCampaigns || formatCompactNumber(stats.totalCampaigns) },
-      { label: 'Total Donations', value: storedProfile?.totalDonations || formatMoney(stats.totalDonations) },
-      { label: 'Number of Donors', value: storedProfile?.totalDonors || formatCompactNumber(stats.totalDonors) },
+      { label: 'Total Campaigns', value: formatCompactNumber(stats.totalCampaigns) },
+      { label: 'Total Donations', value: formatMoney(stats.totalDonations) },
+      { label: 'Number of Donors', value: formatCompactNumber(stats.totalDonors) },
     ],
-    impactAreas: storedProfile?.impactAreas || ['Amazon Basin', 'Southeast Asian Rainforests', 'Arctic Circle'],
+    impactAreas: derivedImpactAreas,
     socials: normalizedSocials,
   };
 
   return (
-    <div className="org-page">
+    <div className={`org-page org-profile-page ${themeClass}`}>
       <OrganizationSidebar />
       <main className="org-main">
         <section className="org-profile-header">
           <div className="org-profile-header-left">
-            <div className="org-profile-pill" aria-label="Organization profile">
-              <span className="org-profile-pill-avatar" aria-hidden="true">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" className="org-profile-pill-logo" />
-                ) : (
-                  initials
-                )}
-                <span className="org-profile-pill-status" />
-              </span>
-              <div className="org-profile-pill-meta">
-                <p className="org-profile-pill-name">{profile.name}</p>
-                <p className="org-profile-pill-role">Organization</p>
-              </div>
-            </div>
+            <OrganizationIdentityPill />
           </div>
           <div className="org-profile-header-actions">
             <Link to="/organization/profile/edit" className="org-profile-edit-btn">
@@ -184,7 +312,7 @@ export default function OrganizationProfilePage() {
         </section>
 
         {error ? (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="org-profile-error">
             {error}
           </div>
         ) : null}
@@ -211,7 +339,28 @@ export default function OrganizationProfilePage() {
             <article className="org-profile-card org-profile-map">
               <div className="org-profile-card-head">
                 <h2>Headquarters</h2>
-                <span className="org-profile-meta">{profile.contact.location}</span>
+                <span className="org-profile-meta">{hasCoordinates ? `${latitude}, ${longitude}` : profile.contact.location}</span>
+              </div>
+              <p className="org-profile-location-caption">
+                {hasCoordinates ? `Saved coordinates: ${latitude} | ${longitude}` : 'No location set yet. Click below to detect current coordinates.'}
+              </p>
+              <button
+                type="button"
+                className="org-profile-btn"
+                onClick={detectLocation}
+                style={{ marginBottom: '0.6rem' }}
+              >
+                Detect My Location (Lat/Lng)
+              </button>
+              <div className="org-profile-map-actions">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="org-profile-map-link"
+                >
+                  Open in Maps
+                </a>
               </div>
               <iframe
                 title="Organization Map"
@@ -220,11 +369,13 @@ export default function OrganizationProfilePage() {
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-              <div className="org-profile-tags">
-                {profile.impactAreas.map((area) => (
-                  <span key={area} className="org-profile-tag">{area}</span>
-                ))}
-              </div>
+              {profile.impactAreas.length > 0 ? (
+                <div className="org-profile-tags">
+                  {profile.impactAreas.map((area) => (
+                    <span key={area} className="org-profile-tag">{area}</span>
+                  ))}
+                </div>
+              ) : null}
             </article>
           </div>
 
@@ -241,30 +392,49 @@ export default function OrganizationProfilePage() {
                   <p>{profile.contact.phone}</p>
                 </div>
                 <div>
-                  <small>Location</small>
-                  <p>{profile.contact.location}</p>
+                  <small>Coordinates</small>
+                  <p>{profile.contact.coordinates}</p>
                 </div>
                 <div>
                   <small>Website</small>
-                  <p>{profile.contact.website}</p>
+                  <p>
+                    {websiteHref ? (
+                      <a href={websiteHref} target="_blank" rel="noreferrer" className="org-profile-inline-link">
+                        {profile.contact.website}
+                      </a>
+                    ) : (
+                      profile.contact.website
+                    )}
+                  </p>
                 </div>
               </div>
             </article>
 
             <article className="org-profile-card">
               <h2>Connect With Us</h2>
-              <div className="org-profile-socials">
-                {profile.socials.map((social) => (
-                  <span key={social.label} className="org-profile-social">
-                    {social.label}: {social.value}
-                  </span>
-                ))}
-              </div>
+              {profile.socials.length > 0 ? (
+                <div className="org-profile-socials">
+                  {profile.socials.map((social) => (
+                    <a
+                      key={social.label}
+                      href={social.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="org-profile-social"
+                    >
+                      {social.label}: {social.value}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="org-profile-body">No public social links added yet.</p>
+              )}
             </article>
 
-            <button type="button" className="org-profile-share">
+            <button type="button" className="org-profile-share" onClick={handleShareProfile}>
               Share Profile
             </button>
+            {shareMessage ? <p className="org-profile-share-feedback">{shareMessage}</p> : null}
           </aside>
         </section>
       </main>

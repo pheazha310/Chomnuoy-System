@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import ROUTES from "@/constants/routes.js";
 import OrganizationSidebar from "./OrganizationSidebar.jsx";
+import OrganizationIdentityPill from "./OrganizationIdentityPill.jsx";
+import { useGlobalTheme } from "@/hooks/useOrganizationSettings";
 import "./organization.css";
 
 const tabs = ["All Campaigns", "Active", "Past", "Drafts"];
@@ -14,6 +16,10 @@ const placeholderImage =
 
 function formatMoney(value) {
   return `$${value.toLocaleString("en-US")}`;
+}
+
+function escapeCsvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 function resolveCampaignImage(item) {
@@ -51,6 +57,7 @@ function getInitials(name) {
 
 export default function OrganizationCampaignsPage() {
   const navigate = useNavigate();
+  const { displayPrefs } = useGlobalTheme();
   const [activeTab, setActiveTab] = useState("All Campaigns");
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -79,6 +86,16 @@ export default function OrganizationCampaignsPage() {
 
     const normalizedPath = rawPath.replace(/\\/g, "/").replace(/^\/+/, "");
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+    const appBase = apiBase.replace(/\/api\/?$/, "");
+    if (normalizedPath.startsWith("uploads/")) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith("storage/")) {
+      return `${appBase}/${normalizedPath}`;
+    }
+    if (normalizedPath.startsWith("files/")) {
+      return `${apiBase}/${normalizedPath}`;
+    }
     const relativePath = normalizedPath.startsWith("storage/")
       ? normalizedPath.replace(/^storage\//, "")
       : normalizedPath;
@@ -97,16 +114,6 @@ export default function OrganizationCampaignsPage() {
     for (const candidate of candidates) {
       const rawValue = String(candidate || "").trim();
       if (!rawValue) continue;
-
-      if (
-        rawValue.startsWith("http://") ||
-        rawValue.startsWith("https://") ||
-        rawValue.startsWith("blob:") ||
-        rawValue.startsWith("data:")
-      ) {
-        return rawValue;
-      }
-
       return getStorageFileUrl(rawValue);
     }
 
@@ -144,6 +151,11 @@ export default function OrganizationCampaignsPage() {
   const organizationName = storedProfile?.name || session?.name || "Organization";
   const organizationLogo = storedProfile?.logo || "";
   const organizationInitials = getInitials(organizationName);
+  const themeClass = displayPrefs.highContrast
+    ? "theme-contrast"
+    : displayPrefs.darkMode
+      ? "theme-dark"
+      : "";
 
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
@@ -165,6 +177,17 @@ export default function OrganizationCampaignsPage() {
           : items;
         const mapped = filtered.map((item) => {
           const status = normalizeStatus(item.status);
+          const materialItem = (() => {
+            if (item.material_item && typeof item.material_item === "object") return item.material_item;
+            if (typeof item.material_item === "string") {
+              try {
+                return JSON.parse(item.material_item);
+              } catch {
+                return null;
+              }
+            }
+            return null;
+          })();
           return {
             id: item.id,
             status,
@@ -172,6 +195,8 @@ export default function OrganizationCampaignsPage() {
             category: item.category || "General",
             title: item.title || "Untitled Campaign",
             description: item.description || "No description provided.",
+            campaignType: item.campaign_type || (materialItem ? "material" : "monetary"),
+            materialItem,
             raised: Number(item.current_amount || 0),
             goal: Number(item.goal_amount || 0),
             createdAt: item.created_at ? new Date(item.created_at).getTime() : 0,
@@ -288,6 +313,52 @@ export default function OrganizationCampaignsPage() {
     return notifications;
   }, [activeNotificationTab, notifications]);
 
+  const handleExportReport = () => {
+    const summaryRows = [
+      ["Report", "Organization Campaign Report"],
+      ["Generated At", new Date().toLocaleString()],
+      ["Tab", activeTab],
+      ["Category Filter", selectedCategory],
+      ["Sort", selectedSort],
+      ["Search", `${globalSearch} ${searchTerm}`.trim() || "None"],
+      ["Total Campaigns", overview.total],
+      ["Active Campaigns", overview.Active],
+      ["Completed Campaigns", overview.Completed],
+      ["Draft Campaigns", overview.Draft],
+      ["Total Raised", overview.raised],
+      ["Total Goal", overview.goal],
+      ["Completion Rate", `${overview.completionRate}%`],
+      [],
+      ["ID", "Title", "Category", "Status", "Raised USD", "Goal USD", "Progress %"],
+      ...filteredCampaigns.map((item) => {
+        const progress = item.goal > 0 ? Math.min(100, Math.round((item.raised / item.goal) * 100)) : 0;
+        return [
+          item.id,
+          item.title,
+          item.category,
+          item.status,
+          item.raised,
+          item.goal,
+          progress,
+        ];
+      }),
+    ];
+
+    const csv = summaryRows
+      .map((row) => row.map(escapeCsvCell).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `organization-campaign-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const markAllNotificationsRead = () => {
     const apiBase = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
@@ -332,7 +403,7 @@ export default function OrganizationCampaignsPage() {
             : [];
           const mapped = filtered.map((item) => ({
             id: item.id,
-            title: item.type === "campaign" ? "Campaign Update" : "Notification",
+            title: item.type === "campaign" ? "Campaign Update" : item.type === "follow" ? "New Follower" : "Notification",
             detail: item.message || "New update available.",
             time: new Date(item.created_at || Date.now()).toLocaleString(),
             type: item.type || "info",
@@ -355,15 +426,15 @@ export default function OrganizationCampaignsPage() {
   }, []);
 
   return (
-    <div className="org-page">
+    <div className={`org-page ${themeClass}`}>
       <OrganizationSidebar />
       <main className="org-main org-cpg-main">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E8F0] bg-white/90 px-6 py-4 backdrop-blur">
-          <h2 className="text-lg font-semibold text-[#0F172A]">
+        <header className="org-cpg-toolbar flex flex-wrap items-center justify-between gap-4 border-b border-[#E2E8F0] bg-white/90 px-6 py-4 backdrop-blur">
+          <h2 className="org-cpg-toolbar-title text-lg font-semibold text-[#0F172A]">
             Campaign Management
           </h2>
           <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
-            <label className="relative flex w-full max-w-xs items-center">
+            <label className="org-cpg-toolbar-search relative flex w-full max-w-xs items-center">
               <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
               <input
                 type="search"
@@ -382,16 +453,7 @@ export default function OrganizationCampaignsPage() {
               <Bell className="mx-auto h-4 w-4" />
               {unreadCount > 0 ? <span className="org-notify-dot" /> : null}
             </button>
-            <div className="org-cpg-user-card" aria-label="Organization profile">
-              <span className="org-cpg-user-avatar" aria-hidden="true">
-                {organizationLogo ? <img src={organizationLogo} alt="" /> : organizationInitials}
-                <span className="org-cpg-user-status" />
-              </span>
-              <div className="org-cpg-user-meta">
-                <p className="org-cpg-user-name">{organizationName}</p>
-                <p className="org-cpg-user-role">Organization</p>
-              </div>
-            </div>
+            <OrganizationIdentityPill className="org-cpg-user-card" />
           </div>
         </header>
 
@@ -472,19 +534,19 @@ export default function OrganizationCampaignsPage() {
           </div>
         ) : null}
 
-        <section className=" w-full max-w-8xl px-3 pb-12 pt-8">
-          <div className="relative overflow-hidden rounded-[28px] border border-[#E2E8F0] bg-white/95 p-6 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
+        <section className="w-full max-w-8xl px-3 pb-12 pt-8">
+          <div className="org-cpg-hero relative overflow-hidden rounded-[28px] border border-[#E2E8F0] bg-white/95 p-6 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(31,111,230,0.12),_transparent_55%)]" />
             <div className="relative flex flex-col gap-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#94A3B8]">
+                  <p className="org-cpg-hero-kicker text-xs font-semibold uppercase tracking-[0.35em] text-[#94A3B8]">
                     Campaign Management
                   </p>
-                  <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#0F172A] md:text-4xl">
+                  <h1 className="org-cpg-hero-title mt-2 text-3xl font-semibold tracking-tight text-[#0F172A] md:text-4xl">
                     Campaigns
                   </h1>
-                  <p className="mt-2 max-w-xl text-sm font-medium text-[#64748B]">
+                  <p className="org-cpg-hero-copy mt-2 max-w-xl text-sm font-medium text-[#64748B]">
                     Monitor performance, keep teams aligned, and surface the
                     campaigns that need attention.
                   </p>
@@ -492,6 +554,7 @@ export default function OrganizationCampaignsPage() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
+                    onClick={handleExportReport}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-5 py-3 text-sm font-semibold text-[#475569] shadow-[0_10px_24px_rgba(15,23,42,0.08)] hover:bg-[#F8FAFC]"
                   >
                     Export Report
@@ -508,36 +571,36 @@ export default function OrganizationCampaignsPage() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                <div className="org-cpg-overview-card rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="org-cpg-overview-label text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
                     Total Campaigns
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                  <p className="org-cpg-overview-value mt-3 text-3xl font-semibold text-[#0F172A]">
                     {overview.total}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                  <p className="org-cpg-overview-meta mt-2 text-xs font-medium text-[#64748B]">
                     Active: {overview.Active} • Drafts: {overview.Draft}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                <div className="org-cpg-overview-card rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="org-cpg-overview-label text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
                     Total Raised
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                  <p className="org-cpg-overview-value mt-3 text-3xl font-semibold text-[#0F172A]">
                     {formatMoney(overview.raised)}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                  <p className="org-cpg-overview-meta mt-2 text-xs font-medium text-[#64748B]">
                     Goal: {formatMoney(overview.goal)}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
+                <div className="org-cpg-overview-card rounded-2xl border border-[#E2E8F0] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+                  <p className="org-cpg-overview-label text-xs font-semibold uppercase tracking-[0.2em] text-[#94A3B8]">
                     Completion Rate
                   </p>
-                  <p className="mt-3 text-3xl font-semibold text-[#0F172A]">
+                  <p className="org-cpg-overview-value mt-3 text-3xl font-semibold text-[#0F172A]">
                     {overview.completionRate}%
                   </p>
-                  <p className="mt-2 text-xs font-medium text-[#64748B]">
+                  <p className="org-cpg-overview-meta mt-2 text-xs font-medium text-[#64748B]">
                     Past campaigns: {overview.Completed}
                   </p>
                 </div>
@@ -545,7 +608,7 @@ export default function OrganizationCampaignsPage() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-[28px] border border-[#E2E8F0] bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <div className="org-cpg-filter-panel mt-6 rounded-[28px] border border-[#E2E8F0] bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
             <div className="flex flex-wrap items-center gap-2 border-b border-[#E2E8F0] pb-4">
               {tabs.map((tab) => (
                 <button
@@ -578,11 +641,11 @@ export default function OrganizationCampaignsPage() {
               <div className="relative flex min-w-[240px] flex-1 items-center">
                 <Search className="pointer-events-none absolute left-3 h-4 w-4 text-[#94A3B8]" />
                 <input
+                  className="org-cpg-search-input h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                   type="text"
                   placeholder="Search campaigns by title, owner, or ID..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="h-11 w-full rounded-full border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-4 text-sm text-[#0F172A] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] outline-none focus:border-[#1f6fe6]"
                 />
               </div>
               <div className="org-cpg-filter">
@@ -657,11 +720,25 @@ export default function OrganizationCampaignsPage() {
 
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {filteredCampaigns.map((item) => {
-              const progress =
-                item.goal > 0
+              const isMaterialCampaign = String(item.campaignType || "").toLowerCase().includes("material");
+              const pledgedItems = Math.max(0, Number(item.raised || 0));
+              const requestedItems = Math.max(1, Number(item.materialItem?.quantity || item.goal || 1));
+              const progress = isMaterialCampaign
+                ? Math.min(100, Math.round((pledgedItems / requestedItems) * 100))
+                : (item.goal > 0
                   ? Math.min(100, Math.round((item.raised / item.goal) * 100))
-                  : 0;
-              const remaining = Math.max(0, item.goal - item.raised);
+                  : 0);
+              const remaining = isMaterialCampaign
+                ? Math.max(0, requestedItems - pledgedItems)
+                : Math.max(0, item.goal - item.raised);
+              const metricLeftLabel = isMaterialCampaign ? "PLEDGED" : "RAISED";
+              const metricRightLabel = isMaterialCampaign ? "NEEDED" : "GOAL";
+              const metricLeftValue = isMaterialCampaign ? pledgedItems.toLocaleString() : formatMoney(item.raised);
+              const metricRightValue = isMaterialCampaign ? requestedItems.toLocaleString() : formatMoney(item.goal);
+              const progressLabel = isMaterialCampaign ? `${progress}% pledged` : `${progress}% funded`;
+              const remainingLabel = isMaterialCampaign
+                ? `${remaining.toLocaleString()} items remaining`
+                : `${formatMoney(remaining)} remaining`;
               return (
                 <article
                   key={item.id}
@@ -699,18 +776,18 @@ export default function OrganizationCampaignsPage() {
 
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center justify-between text-xs font-semibold text-[#64748B]">
-                        <span>RAISED</span>
-                        <span>GOAL</span>
+                        <span>{metricLeftLabel}</span>
+                        <span>{metricRightLabel}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm font-semibold text-[#0F172A]">
                         <span className="text-[#1f6fe6]">
-                          {formatMoney(item.raised)}
+                          {metricLeftValue}
                         </span>
-                        <span>{formatMoney(item.goal)}</span>
+                        <span>{metricRightValue}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs font-semibold text-[#94A3B8]">
-                        <span>{progress}% funded</span>
-                        <span>{formatMoney(remaining)} remaining</span>
+                        <span>{progressLabel}</span>
+                        <span>{remainingLabel}</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-[#E2E8F0]">
                         <div
@@ -733,7 +810,7 @@ export default function OrganizationCampaignsPage() {
             })}
           </div>
           {!loading && !error && filteredCampaigns.length === 0 ? (
-            <div className="mt-8 rounded-2xl border border-dashed border-[#CBD5F5] bg-white/90 px-6 py-8 text-center text-sm font-semibold text-[#64748B]">
+            <div className="org-cpg-empty-state mt-8 rounded-2xl border border-dashed border-[#CBD5F5] bg-white/90 px-6 py-8 text-center text-sm font-semibold text-[#64748B]">
               No campaigns match your current filters.
             </div>
           ) : null}

@@ -115,7 +115,7 @@ export default function UserDashboard() {
   const handleLogout = () => {
     window.localStorage.removeItem('chomnuoy_session');
     window.localStorage.removeItem('authToken');
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   const handleMenuToggle = (userId) => {
@@ -452,9 +452,9 @@ export default function UserDashboard() {
                       </span>
                     )}
                   </span>
-                  <div>
-                    <p>{user.name}</p>
-                    <span>{user.displayEmail}</span>
+                  <div className="admin-user-profile-copy">
+                    <p className="admin-user-profile-name">{user.name}</p>
+                    <span className="admin-user-profile-email">{user.displayEmail}</span>
                     {user.phone ? <small className="admin-user-phone">{user.phone}</small> : null}
                   </div>
                 </div>
@@ -507,7 +507,7 @@ export default function UserDashboard() {
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="admin-logout-title">Are you sure you want to logout?</h3>
-            <p>You will be returned to the login page.</p>
+            <p>You will be returned to the public home page.</p>
             <div className="admin-modal-actions">
               <button type="button" className="admin-modal-cancel" onClick={() => setIsLogoutOpen(false)}>
                 Cancel
