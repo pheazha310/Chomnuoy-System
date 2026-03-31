@@ -83,9 +83,9 @@
 .apsettings-card {
   background: var(--set-surface);
   border: 1px solid var(--set-border);
-  border-radius: 14px;
+  border-radius: 20px;
   padding: 18px;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
 }
 
 .apsettings-card-title {
@@ -147,7 +147,7 @@
 .apsettings-field select {
   height: 41px;
   border: 1px solid #cfdbed;
-  border-radius: 10px;
+  border-radius: 14px;
   background: var(--set-surface-2);
   padding: 0 12px;
   color: var(--set-text);
@@ -171,8 +171,8 @@
 .apsettings-security-banner {
   border: 1px solid #cfe0f7;
   background: linear-gradient(180deg, #f6faff 0%, #eff6ff 100%);
-  border-radius: 11px;
-  padding: 13px 14px;
+  border-radius: 18px;
+  padding: 16px 16px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -294,7 +294,7 @@
   border: 1px solid #bfdbfe;
   background: #eff6ff;
   color: #1d4ed8;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 8px 11px;
   font-size: 12px;
   font-weight: 700;
@@ -360,7 +360,7 @@
   justify-content: space-between;
   gap: 10px;
   border: 1px solid #dce7f4;
-  border-radius: 10px;
+  border-radius: 14px;
   background: #f8fbff;
   padding: 8px 10px;
 }

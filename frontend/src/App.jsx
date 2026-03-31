@@ -8,6 +8,7 @@ import AuthLayout from '@/auth/AuthLayout.jsx';
 import OAuthCallback from '@/auth/OAuthCallback.jsx';
 import { useAdminAutoTranslate } from '@/i18n/adminAutoTranslate.js';
 import { OrganizationSettingsProvider } from '@/contexts/OrganizationSettingsContext';
+import { findUserByEmail } from '@/services/user-service.js';
 import { getAuthToken, getSession, isDonorSession, setAuthToken, setSession } from '@/services/session-service.js';
 
 const Home = lazy(() => import('@/app/home/page.jsx'));
@@ -20,7 +21,6 @@ const OrganizationAfterLogin = lazy(() => import('@/components/pages/Organizatio
 const AboutPage = lazy(() => import('@/components/pages/AboutPage.jsx'));
 const ContactPage = lazy(() => import('@/components/pages/ContactPage.jsx'));
 const MyProfilePage = lazy(() => import('@/components/pages/MyProfilePage.jsx'));
-const ProfilePage = lazy(() => import('@/components/pages/ProfilePage.jsx'));
 const LoginPage = lazy(() => import('@/auth/LoginPage.jsx'));
 const RegisterPage = lazy(() => import('@/auth/RegisterPage.jsx'));
 const DonorCampaignsPage = lazy(() => import('@/app/compaigns/compaignDetailAter.jsx'));
@@ -55,6 +55,8 @@ const ReportsAdmin = lazy(() => import('@/components/pages/reports/ReportsAdmin.
 const DEFAULT_AVATAR_URL =
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80';
 const PROFILE_AVATAR_OVERRIDES_KEY = 'chomnuoy_profile_avatar_overrides';
+const LAST_SEEN_PING_MIN_INTERVAL_MS = 4 * 60 * 1000;
+const LAST_SEEN_CACHE_PREFIX = 'chomnuoy:last-seen';
 
 function PageLoader() {
   useEffect(() => {
@@ -155,6 +157,41 @@ function normalizeAccountId(value) {
   return parsed;
 }
 
+function getLastSeenKey(suffix) {
+  return `${LAST_SEEN_CACHE_PREFIX}:${suffix}`;
+}
+
+function shouldSkipLastSeenPing(userId) {
+  try {
+    const disabledUntil = Number(window.sessionStorage.getItem(getLastSeenKey(`disabled:${userId}`)) || 0);
+    if (disabledUntil > Date.now()) {
+      return true;
+    }
+
+    const lastPingAt = Number(window.sessionStorage.getItem(getLastSeenKey(`sent:${userId}`)) || 0);
+    return Date.now() - lastPingAt < LAST_SEEN_PING_MIN_INTERVAL_MS;
+  } catch {
+    return false;
+  }
+}
+
+function markLastSeenPingSent(userId) {
+  try {
+    window.sessionStorage.setItem(getLastSeenKey(`sent:${userId}`), String(Date.now()));
+    window.sessionStorage.removeItem(getLastSeenKey(`disabled:${userId}`));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function disableLastSeenPing(userId, ms = 30 * 60 * 1000) {
+  try {
+    window.sessionStorage.setItem(getLastSeenKey(`disabled:${userId}`), String(Date.now() + ms));
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
 function CampaignDetailRoute() {
   const { id, campaignSlug } = useParams();
   return <CampaignDetailPage campaignId={campaignSlug || id} />;
@@ -235,6 +272,7 @@ function LoginRoute() {
         impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
         avatar: resolvedAvatar,
         userId: normalizeAccountId(user.id),
+        organizationId: isOrganization ? normalizeAccountId(user.id) : null,
         accountType: normalizedAccountType,
         logoutRedirectTo: redirectTo,
         avatarOverrideKey: avatarOverrideKey || undefined,
@@ -276,6 +314,7 @@ function LoginRoute() {
       impactLevel: isOrganization ? 'Organization' : (isAdmin ? 'Admin' : 'Gold'),
       avatar: resolvedAvatar,
       userId: normalizeAccountId(profile?.id),
+      organizationId: isOrganization ? normalizeAccountId(profile?.id) : null,
       accountType: normalizedAccountType,
       logoutRedirectTo: redirectTo,
       avatarOverrideKey: avatarOverrideKey || undefined,
@@ -370,8 +409,37 @@ export default function App() {
     const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    const ping = () => {
-      fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers }).catch(() => {});
+    const ping = async () => {
+      if (shouldSkipLastSeenPing(session.userId)) return;
+
+      try {
+        const response = await fetch(`${apiBase}/users/${session.userId}/last-seen`, { method: 'POST', headers });
+        if (response.ok) {
+          markLastSeenPingSent(session.userId);
+          return;
+        }
+
+        if (response.status === 404) {
+          const matchedUser = session?.email ? await findUserByEmail(session.email).catch(() => null) : null;
+          if (matchedUser?.id && matchedUser.id !== session.userId) {
+            setSession({
+              ...session,
+              userId: normalizeAccountId(matchedUser.id),
+              name: matchedUser.name || session.name,
+              email: matchedUser.email || session.email,
+            });
+            return;
+          }
+          disableLastSeenPing(session.userId);
+          return;
+        }
+
+        if (response.status === 429) {
+          disableLastSeenPing(session.userId, 60 * 1000);
+        }
+      } catch {
+        // Ignore transient network failures.
+      }
     };
 
     ping();
@@ -615,7 +683,7 @@ export default function App() {
             path="/profile"
             element={(
               <RequireAuth>
-                <ProfilePage />
+                <MyProfilePage />
               </RequireAuth>
             )}
           />

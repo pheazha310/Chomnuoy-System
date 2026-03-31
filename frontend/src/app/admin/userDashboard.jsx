@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from './adminsidebar';
+import { getCachedJson } from '@/services/request-cache.js';
 import './user.css';
 
 const USERS_CACHE_KEY = 'admin_user_dashboard_users_cache';
@@ -77,6 +78,29 @@ const StatCard = ({ stat }) => (
     <span className="admin-user-stat-note">{stat.note}</span>
   </div>
 );
+
+const MENU_ICONS = {
+  profile: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  ),
+  edit: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m12.5 7.5 4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  deactivate: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="9.5" cy="7" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M17 8h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19.5 5.5v5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+};
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -206,13 +230,12 @@ export default function UserDashboard() {
       }
       setError('');
       try {
-        const usersResponse = await fetch(`${apiBase}/users`, { headers });
-
-        if (!usersResponse.ok) {
-          throw new Error(`Failed to load users (${usersResponse.status})`);
-        }
-
-        const usersData = await usersResponse.json();
+        const usersData = await getCachedJson(`${apiBase}/users`, {
+          cacheKey: 'admin:users',
+          ttlMs: silent ? 30 * 1000 : CACHE_MAX_AGE_MS,
+          headers,
+          fallbackMessage: 'Failed to load users',
+        });
 
         if (mounted) {
           const nextUsers = Array.isArray(usersData) ? usersData : [];
@@ -220,12 +243,13 @@ export default function UserDashboard() {
           writeCache(USERS_CACHE_KEY, nextUsers);
         }
 
-        fetch(`${apiBase}/roles`, { headers })
-          .then(async (rolesResponse) => {
-            if (!rolesResponse.ok) {
-              throw new Error(`Failed to load roles (${rolesResponse.status})`);
-            }
-            const rolesData = await rolesResponse.json();
+        getCachedJson(`${apiBase}/roles`, {
+          cacheKey: 'admin:roles',
+          ttlMs: CACHE_MAX_AGE_MS,
+          headers,
+          fallbackMessage: 'Failed to load roles',
+        })
+          .then((rolesData) => {
             if (!mounted) return;
             const nextRoles = Array.isArray(rolesData) ? rolesData : [];
             setRoles(nextRoles);
@@ -479,11 +503,16 @@ export default function UserDashboard() {
                   {openMenuId === user.id ? (
                     <div className="admin-user-menu" role="menu">
                       <button type="button" role="menuitem" onClick={() => navigate(`/admin/users/${user.id}`)}>
-                        View Profile
+                        <span className="admin-user-menu-icon">{MENU_ICONS.profile}</span>
+                        <span>View Profile</span>
                       </button>
-                      <button type="button" role="menuitem" onClick={() => openActionModal('edit', user)}>Edit User</button>
+                      <button type="button" role="menuitem" onClick={() => openActionModal('edit', user)}>
+                        <span className="admin-user-menu-icon">{MENU_ICONS.edit}</span>
+                        <span>Edit</span>
+                      </button>
                       <button type="button" role="menuitem" className="danger" onClick={() => openActionModal('deactivate', user)}>
-                        Deactivate
+                        <span className="admin-user-menu-icon">{MENU_ICONS.deactivate}</span>
+                        <span>Deactivate</span>
                       </button>
                     </div>
                   ) : null}

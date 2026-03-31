@@ -22,9 +22,11 @@ import {
   deactivateAccount,
   findOrganizationByEmail,
   findUserByEmail,
+  getMyUserProfile,
   getOrganizationById,
   getUserById,
   updateOrganizationProfile,
+  updateMyUserProfile,
   updateUserProfile,
 } from '@/services/user-service.js';
 import { getPrivacyPreferences, setPrivacyPreferences } from '@/utils/user-preferences';
@@ -98,6 +100,10 @@ function getInitials(name) {
   if (parts.length === 0) return 'DU';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
+}
+
+function isNotFoundError(error) {
+  return Number(error?.response?.status) === 404;
 }
 
 function readDonorProfilePreferences() {
@@ -189,6 +195,9 @@ export default function MyProfilePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const webcamVideoRef = useRef(null);
+  const webcamCanvasRef = useRef(null);
+  const loadedProfileKeyRef = useRef('');
   const session = useMemo(() => getSession(), []);
 
   const [saving, setSaving] = useState(false);
@@ -197,6 +206,8 @@ export default function MyProfilePage() {
   const [success, setSuccess] = useState('');
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [showIllustrations, setShowIllustrations] = useState(false);
+  const [isWebcamOpen, setIsWebcamOpen] = useState(false);
+  const [webcamError, setWebcamError] = useState('');
   const [avatarFile, setAvatarFile] = useState(null);
   const [resolvedAccountId, setResolvedAccountId] = useState(
     session?.userId ?? session?.accountId ?? session?.id ?? session?.user_id ?? null,
@@ -227,9 +238,8 @@ export default function MyProfilePage() {
         return;
       }
 
-      let effectiveAccountId = resolvedAccountId;
-
-      if (!effectiveAccountId && session?.email) {
+      const resolveAccountByEmail = async () => {
+        if (!session?.email) return null;
         try {
           let matched = isOrganization
             ? await findOrganizationByEmail(session.email)
@@ -241,15 +251,27 @@ export default function MyProfilePage() {
               : await findOrganizationByEmail(session.email);
           }
 
-          if (matched?.id) {
-            effectiveAccountId = matched.id;
-            setResolvedAccountId(matched.id);
-            const nextSession = { ...(getSession() || {}), userId: matched.id };
-            window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
-            window.dispatchEvent(new Event('chomnuoy-session-updated'));
-          }
+          return matched?.id || null;
         } catch {
-          // Fall back to current session values.
+          return null;
+        }
+      };
+
+      const persistResolvedAccountId = (accountId) => {
+        if (!accountId) return;
+        setResolvedAccountId(accountId);
+        const nextSession = { ...(getSession() || {}), userId: accountId };
+        window.localStorage.setItem('chomnuoy_session', JSON.stringify(nextSession));
+        window.dispatchEvent(new Event('chomnuoy-session-updated'));
+      };
+
+      let effectiveAccountId = resolvedAccountId;
+
+      if (!effectiveAccountId) {
+        const matchedId = await resolveAccountByEmail();
+        if (matchedId) {
+          effectiveAccountId = matchedId;
+          persistResolvedAccountId(matchedId);
         }
       }
 
@@ -259,9 +281,55 @@ export default function MyProfilePage() {
       }
 
       try {
-        const data = isOrganization
-          ? await getOrganizationById(effectiveAccountId)
-          : await getUserById(effectiveAccountId);
+        let data;
+
+        if (!isOrganization) {
+          try {
+            const profileResponse = await getMyUserProfile();
+            const profile = profileResponse?.profile || {};
+            const resolvedId = Number(profile?.id || 0);
+
+            if (resolvedId > 0 && resolvedId !== effectiveAccountId) {
+              effectiveAccountId = resolvedId;
+              persistResolvedAccountId(resolvedId);
+            }
+
+            data = {
+              id: profile?.id,
+              name: profile?.name,
+              email: profile?.email,
+              phone: profile?.phone,
+              avatar_path: profile?.avatar_path || profile?.avatar_url,
+            };
+          } catch (err) {
+            if (!isNotFoundError(err)) {
+              throw err;
+            }
+          }
+        }
+
+        if (!data) {
+          try {
+            data = isOrganization
+              ? await getOrganizationById(effectiveAccountId)
+              : await getUserById(effectiveAccountId);
+          } catch (err) {
+            if (!isNotFoundError(err)) {
+              throw err;
+            }
+
+            const matchedId = await resolveAccountByEmail();
+            if (!matchedId || matchedId === effectiveAccountId) {
+              throw err;
+            }
+
+            effectiveAccountId = matchedId;
+            persistResolvedAccountId(matchedId);
+            data = isOrganization
+              ? await getOrganizationById(matchedId)
+              : await getUserById(matchedId);
+          }
+        }
 
         setFormData({
           name: data?.name || session?.name || '',
@@ -280,12 +348,70 @@ export default function MyProfilePage() {
       }
     };
 
+    const loadKey = `${isOrganization ? 'organization' : 'user'}:${resolvedAccountId || 'missing'}:${session?.email || ''}`;
+    if (loadedProfileKeyRef.current === loadKey) {
+      return undefined;
+    }
+
+    loadedProfileKeyRef.current = loadKey;
     loadProfile();
+    return undefined;
   }, [isOrganization, navigate, resolvedAccountId, session]);
 
   useEffect(() => {
     setPreferences(readDonorProfilePreferences());
   }, []);
+
+  useEffect(() => () => {
+    if (formData.avatar?.startsWith?.('blob:')) {
+      URL.revokeObjectURL(formData.avatar);
+    }
+  }, [formData.avatar]);
+
+  useEffect(() => {
+    if (!isWebcamOpen) return undefined;
+
+    let active = true;
+    let nextStream = null;
+
+    const startWebcam = async () => {
+      try {
+        setWebcamError('');
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error('Camera access is not supported in this browser.');
+        }
+
+        nextStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false,
+        });
+
+        if (!active) {
+          nextStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        if (webcamVideoRef.current) {
+          webcamVideoRef.current.srcObject = nextStream;
+          await webcamVideoRef.current.play().catch(() => {});
+        }
+      } catch (err) {
+        setWebcamError(err instanceof Error ? err.message : 'Unable to access your camera.');
+      }
+    };
+
+    startWebcam();
+
+    return () => {
+      active = false;
+      if (nextStream) {
+        nextStream.getTracks().forEach((track) => track.stop());
+      }
+      if (webcamVideoRef.current) {
+        webcamVideoRef.current.srcObject = null;
+      }
+    };
+  }, [isWebcamOpen]);
 
   const handleAvatarChange = (event) => {
     const file = event.target.files?.[0];
@@ -299,6 +425,7 @@ export default function MyProfilePage() {
     }));
     setIsCameraModalOpen(false);
     setShowIllustrations(false);
+    setIsWebcamOpen(false);
   };
 
   const handleSelectIllustration = (url) => {
@@ -309,6 +436,55 @@ export default function MyProfilePage() {
     }));
     setIsCameraModalOpen(false);
     setShowIllustrations(false);
+    setIsWebcamOpen(false);
+  };
+
+  const handleOpenCamera = async () => {
+    setShowIllustrations(false);
+
+    const isMobileLike = /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent || '');
+    if (isMobileLike) {
+      cameraInputRef.current?.click();
+      return;
+    }
+
+    setIsWebcamOpen(true);
+  };
+
+  const handleCaptureFromWebcam = () => {
+    const video = webcamVideoRef.current;
+    const canvas = webcamCanvasRef.current;
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
+      setWebcamError('Camera is not ready yet. Please try again.');
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setWebcamError('Unable to capture photo.');
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setWebcamError('Unable to capture photo.');
+        return;
+      }
+
+      const file = new File([blob], `avatar-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarFile(file);
+      setFormData((previous) => ({
+        ...previous,
+        avatar: previewUrl,
+      }));
+      setIsWebcamOpen(false);
+      setIsCameraModalOpen(false);
+      setWebcamError('');
+    }, 'image/jpeg', 0.92);
   };
 
   const handleFieldChange = (field) => (event) => {
@@ -369,9 +545,21 @@ export default function MyProfilePage() {
         payload.append('avatar', avatarFile);
       }
 
-      const updated = isOrganization
+      const updatedResponse = isOrganization
         ? await updateOrganizationProfile(effectiveAccountId, payload)
-        : await updateUserProfile(effectiveAccountId, payload);
+        : await updateMyUserProfile(payload).catch(async (error) => {
+            if (isNotFoundError(error)) {
+              return updateUserProfile(effectiveAccountId, payload);
+            }
+            throw error;
+          });
+      const updated = updatedResponse?.profile || updatedResponse;
+      const updatedId = Number(updated?.id || effectiveAccountId || 0);
+
+      if (updatedId > 0 && updatedId !== resolvedAccountId) {
+        setResolvedAccountId(updatedId);
+        effectiveAccountId = updatedId;
+      }
 
       const savedAvatarUrl = withCacheBust(getStorageFileUrl(updated?.avatar_path));
       const finalAvatar = savedAvatarUrl || formData.avatar || session?.avatar || '';
@@ -558,13 +746,77 @@ export default function MyProfilePage() {
 
                   <button
                     type="button"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={handleOpenCamera}
                     className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-3 text-left transition hover:bg-[#F8FAFC]"
                   >
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#2563EB]">
                       <Camera className="h-5 w-5" />
                     </span>
                     <span className="text-sm font-semibold text-[#0F172A]">Camera</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {isWebcamOpen ? (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 px-4">
+            <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-[#D7DCE5] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.35)]">
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#94A3B8]">Camera</p>
+                  <h2 className="mt-1 text-xl font-semibold text-[#0F172A]">Take a profile photo</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWebcamOpen(false);
+                    setWebcamError('');
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0F172A] transition hover:bg-[#F8FAFC]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-6">
+                <div className="overflow-hidden rounded-[24px] bg-[#0F172A]">
+                  <video
+                    ref={webcamVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="aspect-[4/3] w-full object-cover"
+                  />
+                </div>
+                <canvas ref={webcamCanvasRef} className="hidden" />
+                {webcamError ? (
+                  <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {webcamError}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm text-[#64748B]">Position yourself in frame, then capture the photo.</p>
+                )}
+
+                <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWebcamOpen(false);
+                      setWebcamError('');
+                    }}
+                    className="rounded-xl border border-[#D7DCE5] bg-white px-4 py-2.5 text-sm font-semibold text-[#475569] transition hover:bg-[#F8FAFC]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCaptureFromWebcam}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(37,99,235,0.22)] transition hover:bg-[#1D4ED8]"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Capture Photo
                   </button>
                 </div>
               </div>

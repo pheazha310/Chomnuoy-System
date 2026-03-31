@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AdminSidebar from './adminsidebar';
+import { getCachedBundle, getCachedJson } from '@/services/request-cache.js';
 import './transactionAdmin.css';
 
 const PAGE_SIZE = 8;
@@ -185,23 +186,26 @@ export default function TransactionAdminPage() {
       setError('');
 
       try {
-        const [paymentsRes, paymentMethodsRes, donationsRes, usersRes, campaignsRes, organizationsRes] = await Promise.allSettled([
-          fetch(`${apiBase}/payments`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/payment_methods`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/donations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/users`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/campaigns`, { headers }).then((res) => (res.ok ? res.json() : [])),
-          fetch(`${apiBase}/organizations`, { headers }).then((res) => (res.ok ? res.json() : [])),
-        ]);
+        const bundle = await getCachedBundle(
+          'admin:transactions-dashboard',
+          [
+            () => getCachedJson(`${apiBase}/payments`, { cacheKey: 'admin:payments', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load payments' }).then((payments) => ({ payments: Array.isArray(payments) ? payments : [] })),
+            () => getCachedJson(`${apiBase}/payment_methods`, { cacheKey: 'admin:payment-methods', ttlMs: 5 * 60 * 1000, headers, fallbackMessage: 'Failed to load payment methods' }).then((paymentMethods) => ({ paymentMethods: Array.isArray(paymentMethods) ? paymentMethods : [] })),
+            () => getCachedJson(`${apiBase}/donations`, { cacheKey: 'admin:donations', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load donations' }).then((donations) => ({ donations: Array.isArray(donations) ? donations : [] })),
+            () => getCachedJson(`${apiBase}/users`, { cacheKey: 'admin:users', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load users' }).then((users) => ({ users: Array.isArray(users) ? users : [] })),
+            () => getCachedJson(`${apiBase}/campaigns`, { cacheKey: 'admin:campaigns', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load campaigns' }).then((campaigns) => ({ campaigns: Array.isArray(campaigns) ? campaigns : [] })),
+            () => getCachedJson(`${apiBase}/organizations`, { cacheKey: 'admin:organizations', ttlMs: 60 * 1000, headers, fallbackMessage: 'Failed to load organizations' }).then((organizations) => ({ organizations: Array.isArray(organizations) ? organizations : [] })),
+          ],
+          { ttlMs: 60 * 1000 },
+        );
 
         if (!active) return;
-
-        const payments = paymentsRes.status === 'fulfilled' && Array.isArray(paymentsRes.value) ? paymentsRes.value : [];
-        const paymentMethods = paymentMethodsRes.status === 'fulfilled' && Array.isArray(paymentMethodsRes.value) ? paymentMethodsRes.value : [];
-        const donations = donationsRes.status === 'fulfilled' && Array.isArray(donationsRes.value) ? donationsRes.value : [];
-        const users = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) ? usersRes.value : [];
-        const campaigns = campaignsRes.status === 'fulfilled' && Array.isArray(campaignsRes.value) ? campaignsRes.value : [];
-        const organizations = organizationsRes.status === 'fulfilled' && Array.isArray(organizationsRes.value) ? organizationsRes.value : [];
+        const payments = bundle.payments || [];
+        const paymentMethods = bundle.paymentMethods || [];
+        const donations = bundle.donations || [];
+        const users = bundle.users || [];
+        const campaigns = bundle.campaigns || [];
+        const organizations = bundle.organizations || [];
 
         const methodMap = new Map(paymentMethods.map((item) => [Number(item.id), item]));
         const donationMap = new Map(donations.map((item) => [Number(item.id), item]));
@@ -254,13 +258,6 @@ export default function TransactionAdminPage() {
 
         setRows(nextRows);
 
-        if (
-          paymentsRes.status === 'rejected'
-          && donationsRes.status === 'rejected'
-          && usersRes.status === 'rejected'
-        ) {
-          throw new Error('Failed to load transaction records.');
-        }
       } catch (err) {
         if (!active) return;
         setRows([]);

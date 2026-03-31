@@ -16,6 +16,10 @@ import {
   Download,
   Circle,
   Clock3,
+  CalendarDays,
+  Package,
+  Truck,
+  MessageCircle,
 } from 'lucide-react';
 import { createBakongTransaction, getPaymentStatus } from '../../services/user-service';
 import { getCampaignById } from '../../data/campaigns';
@@ -252,6 +256,106 @@ function getFetchHeaders() {
       };
 }
 
+function normalizeMaterialOptions(materialItem, fallbackCategory) {
+  const items = Array.isArray(materialItem)
+    ? materialItem
+    : materialItem && typeof materialItem === 'object'
+      ? [materialItem]
+      : [];
+
+  const normalizedItems = items
+    .map((item, index) => {
+      const quantity = Math.max(1, Number(item?.quantity || 1));
+      const name = String(item?.name || item?.item_name || `Requested item ${index + 1}`).trim();
+      const description = String(
+        item?.description || 'Coordinate a pickup to deliver physical support directly to this campaign.'
+      ).trim();
+
+      return {
+        id: String(item?.id || item?.item_id || `${name}-${index + 1}`),
+        name,
+        description,
+        category: String(item?.category || fallbackCategory || 'Material').trim(),
+        quantity,
+        image: item?.image || item?.image_url || item?.photo || '',
+        priority: String(item?.priority || item?.material_priority || '').trim(),
+        unitLabel: String(item?.unit_label || item?.unitLabel || 'units').trim(),
+      };
+    })
+    .filter((item) => item.name);
+
+  if (normalizedItems.length > 0) {
+    return normalizedItems;
+  }
+
+  return [
+    {
+      id: 'material-default',
+      name: 'Requested items',
+      description: 'Coordinate a pickup to deliver physical support directly to this campaign.',
+      category: String(fallbackCategory || 'Material').trim(),
+      quantity: 1,
+      image: '',
+      priority: '',
+      unitLabel: 'units',
+    },
+  ];
+}
+
+function toLocalDateTimeValue(date) {
+  const value = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(value.getTime())) return '';
+
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  const hours = String(value.getHours()).padStart(2, '0');
+  const minutes = String(value.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function buildMaterialScheduleOptions(pickupDate) {
+  const baseDate = pickupDate ? new Date(pickupDate) : new Date();
+  const selectedDate = pickupDate ? new Date(pickupDate) : null;
+  const timeRanges = [
+    { id: '09:00-11:00', label: '09:00 AM - 11:00 AM', startHour: 9, startMinute: 0 },
+    { id: '11:00-13:00', label: '11:00 AM - 01:00 PM', startHour: 11, startMinute: 0 },
+    { id: '14:00-16:00', label: '02:00 PM - 04:00 PM', startHour: 14, startMinute: 0 },
+    { id: '16:00-18:00', label: '04:00 PM - 06:00 PM', startHour: 16, startMinute: 0 },
+  ];
+
+  const dateOptions = Array.from({ length: 4 }, (_, index) => {
+    const date = new Date(baseDate);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + index + 1);
+    return {
+      id: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+      date,
+      dayLabel: date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+      dateLabel: date.toLocaleDateString('en-US', { day: '2-digit' }),
+      monthLabel: date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+      isSelected: Boolean(
+        selectedDate &&
+        selectedDate.getFullYear() === date.getFullYear() &&
+        selectedDate.getMonth() === date.getMonth() &&
+        selectedDate.getDate() === date.getDate()
+      ),
+    };
+  });
+
+  const selectedTimeId = selectedDate
+    ? `${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}-${String(selectedDate.getHours() + 2).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}`
+    : '';
+
+  return {
+    dateOptions,
+    timeRanges: timeRanges.map((slot) => ({
+      ...slot,
+      isSelected: selectedTimeId === slot.id,
+    })),
+  };
+}
+
 function CampaignDetailPage({ campaignId }) {
   const params = useParams();
   const navigate = useNavigate();
@@ -265,10 +369,11 @@ function CampaignDetailPage({ campaignId }) {
   const [selectedDonationCurrency, setSelectedDonationCurrency] = useState('USD');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('Bakong KHQR');
   const [donationMessage, setDonationMessage] = useState('');
-  const [showCheckout, setShowCheckout] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(() => Boolean(location.state?.openCheckout));
   const [showDonationSuccess, setShowDonationSuccess] = useState(false);
   const [receiptDetails, setReceiptDetails] = useState(null);
   const [materialQuantity, setMaterialQuantity] = useState(1);
+  const [selectedMaterialOptionId, setSelectedMaterialOptionId] = useState('');
   const [materialDescription, setMaterialDescription] = useState('');
   const [materialDeliveryMode, setMaterialDeliveryMode] = useState('pickup');
   const [pickupAddress, setPickupAddress] = useState('');
@@ -304,6 +409,13 @@ function CampaignDetailPage({ campaignId }) {
     setDonorName(session?.name || 'John Doe');
     setDonorEmail(session?.email || 'john.doe@example.com');
   }, [session?.name, session?.email]);
+
+  useEffect(() => {
+    if (location.state?.openCheckout) {
+      setDonationMessage('');
+      setShowCheckout(true);
+    }
+  }, [location.state]);
 
 
   useEffect(() => {
@@ -565,17 +677,24 @@ function CampaignDetailPage({ campaignId }) {
     campaign?.campaignType || (campaign?.materialItem ? 'material' : 'monetary')
   ).toLowerCase();
   const isMaterialCampaign = campaignType.includes('material');
-  const materialItem = campaign?.materialItem && typeof campaign.materialItem === 'object'
-    ? campaign.materialItem
-    : null;
-  const requestedItemName = materialItem?.name || materialItem?.item_name || 'Requested items';
-  const requestedItemDescription = materialItem?.description || 'Coordinate a pickup to deliver physical support directly to this campaign.';
-  const requestedItemTarget = Math.max(1, Number(materialItem?.quantity || 1));
+  const materialOptions = normalizeMaterialOptions(campaign?.materialItem, safeCategory);
+  const activeMaterialOption = materialOptions.find((item) => item.id === selectedMaterialOptionId) || materialOptions[0];
+  const requestedItemName = activeMaterialOption?.name || 'Requested items';
+  const requestedItemDescription = activeMaterialOption?.description || 'Coordinate a pickup to deliver physical support directly to this campaign.';
+  const requestedItemTarget = Math.max(1, Number(activeMaterialOption?.quantity || 1));
+  const requestedItemCategory = activeMaterialOption?.category || safeCategory;
   const materialDeliveryLabel = materialDeliveryMode === 'dropoff' ? 'Self Drop-off' : 'Schedule Pickup';
   const materialAddressLabel = materialDeliveryMode === 'dropoff' ? 'Drop-off details' : 'Pickup address';
+  const materialModeDescription = materialDeliveryMode === 'dropoff'
+    ? 'Deliver the items yourself to the organization location below.'
+    : 'Our logistics team will collect the donation from your address.';
   const materialAddressPlaceholder = materialDeliveryMode === 'dropoff'
-    ? 'Add the note or place where you will drop off the items.'
+    ? 'Add your arrival note, landmark, or contact detail for the handoff.'
     : 'Enter your street name, building, apartment, or meeting point.';
+  const materialAddressNote = materialDeliveryMode === 'dropoff'
+    ? 'Share a clear note so the organizer knows how and when to expect your drop-off.'
+    : 'Add a precise landmark or gate number so pickup is easier to coordinate.';
+  const materialDestinationLabel = materialDeliveryMode === 'dropoff' ? 'Drop-off hub' : 'Destination';
   const presetAmounts = Array.isArray(campaign?.donationTiers) && campaign.donationTiers.length > 0
     ? campaign.donationTiers
         .map((item) => Number(item?.amount ?? item))
@@ -599,6 +718,8 @@ function CampaignDetailPage({ campaignId }) {
     (sum, item) => sum + Math.max(1, Number(item?.quantity || item?.amount || 1)),
     0,
   );
+  const requestedItemImage = activeMaterialOption?.image || safeImage;
+  const remainingItemNeed = Math.max(requestedItemTarget - pledgedItems, 0);
   const materialProgressPercent = Math.min(100, Math.round((pledgedItems / requestedItemTarget) * 100));
   const progressPercent = isMaterialCampaign ? materialProgressPercent : progressWidth;
   const daysToGo = typeof campaign?.daysLeft === 'number' ? Math.max(0, campaign.daysLeft) : null;
@@ -612,6 +733,18 @@ function CampaignDetailPage({ campaignId }) {
   const progressSecondaryValue = isMaterialCampaign ? requestedItemTarget.toLocaleString() : formatCurrency(goalAmount);
   const showUrgentBadge = Boolean(campaign?.isUrgent) || String(campaign?.status || '').toLowerCase().includes('urgent');
   const organizationName = String(campaign?.organization || 'Organization');
+  const materialDestinationTitle = materialDeliveryMode === 'dropoff'
+    ? `${organizationName} Drop-off Point`
+    : `${organizationName} Receiving Location`;
+  const materialDestinationNote = materialDeliveryMode === 'dropoff'
+    ? 'You will bring the donated items directly to this verified organization address.'
+    : 'Your selected pickup address will be routed here after organizer confirmation.';
+  const materialLocationActionLabel = materialDeliveryMode === 'dropoff'
+    ? 'Use My Location for Route'
+    : 'Use Current Location';
+  const materialMapsActionLabel = materialDeliveryMode === 'dropoff'
+    ? 'Open Drop-off Hub in Maps'
+    : 'Open Destination in Maps';
   const creatorName =
     organizationName.replace(/\b(Org|Solutions|Collective|Tech)\b/g, '').trim() || organizationName;
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -715,6 +848,21 @@ function CampaignDetailPage({ campaignId }) {
   const selectedAmountLabel = formatDonationAmount(selectedAmount, selectedDonationCurrency);
   const totalDonationLabel = formatDonationAmount(totalDonation, selectedDonationCurrency);
   const [qrCountdownSeconds, setQrCountdownSeconds] = useState(0);
+  const materialSchedule = buildMaterialScheduleOptions(pickupDate);
+  const selectedPickupWindowLabel = materialSchedule.timeRanges.find((slot) => slot.isSelected)?.label
+    || (pickupDate
+      ? new Date(pickupDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      : 'Choose a time window');
+
+  useEffect(() => {
+    if (!isMaterialCampaign) return;
+
+    if (!selectedMaterialOptionId || !materialOptions.some((item) => item.id === selectedMaterialOptionId)) {
+      setSelectedMaterialOptionId(materialOptions[0]?.id || '');
+      setMaterialQuantity(1);
+      setMaterialDescription('');
+    }
+  }, [isMaterialCampaign, materialOptions, selectedMaterialOptionId]);
 
   useEffect(() => {
     if (!abaQrCheckout?.expiresAt || ['completed', 'success', 'failed', 'expired'].includes(abaQrCheckout?.status)) {
@@ -1199,6 +1347,19 @@ function CampaignDetailPage({ campaignId }) {
     );
   }
 
+  function handleMaterialDateSelection(date) {
+    const nextDate = pickupDate ? new Date(pickupDate) : new Date(date);
+    nextDate.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+    if (Number.isNaN(nextDate.getTime())) return;
+    setPickupDate(toLocalDateTimeValue(nextDate));
+  }
+
+  function handleMaterialTimeSelection(slot) {
+    const nextDate = pickupDate ? new Date(pickupDate) : new Date();
+    nextDate.setHours(slot.startHour, slot.startMinute, 0, 0);
+    setPickupDate(toLocalDateTimeValue(nextDate));
+  }
+
   async function handleCompleteDonation() {
     const userId = Number(session?.userId ?? 0);
     if (!userId) {
@@ -1531,132 +1692,170 @@ function CampaignDetailPage({ campaignId }) {
           <p className="donation-success-kicker">
             {receiptDetails?.isMaterial ? 'Material Donation Confirmed' : 'Donation Complete'}
           </p>
-          <h1>{receiptDetails?.isMaterial ? 'Material Donation Scheduled!' : 'Thank You for Your Donation!'}</h1>
+          <h1>{receiptDetails?.isMaterial ? 'Your kindness is on its way!' : 'Thank You for Your Donation!'}</h1>
           <p className="donation-success-campaign">
-            Campaign: <span>{successCampaignTitle}</span>
+            {receiptDetails?.isMaterial
+              ? 'Thank you for contributing to the community. Your donation will be collected as scheduled and delivered to those in need.'
+              : `Campaign: `}
+            {!receiptDetails?.isMaterial ? <span>{successCampaignTitle}</span> : null}
           </p>
 
-          <div className="donation-success-hero">
-            <img src={successCampaignImage} alt={successCampaignTitle} referrerPolicy="no-referrer" />
-            <div>
-              <strong>{successCampaignTitle}</strong>
-              <p>{successOrganizationName}</p>
-              <span><MapPin size={14} /> {successCampaignLocation}</span>
-            </div>
-          </div>
+          {receiptDetails?.isMaterial ? (
+            <div className="donation-success-material-grid">
+              <article className="donation-success-schedule-card">
+                <div className="donation-success-card-head">
+                  <strong>Scheduled {receiptDetails?.paymentMethod === 'Material drop-off' ? 'Drop-off' : 'Pickup'}</strong>
+                  <span>{receiptDetails?.transactionId ?? ''}</span>
+                </div>
+                <div className="donation-success-schedule-meta">
+                  <div>
+                    <span>DATE & TIME</span>
+                    <strong>{receiptDetails?.date ?? ''}</strong>
+                    <p>{pickupDate ? new Date(pickupDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : selectedPickupWindowLabel}</p>
+                  </div>
+                  <div>
+                    <span>ADDRESS</span>
+                    <strong>{receiptDetails?.pickupAddress || 'Pending donor location'}</strong>
+                    <p>{successCampaignLocation}</p>
+                  </div>
+                </div>
+                <div className="donation-success-mini-grid">
+                  <article>
+                    <Package size={16} />
+                    <strong>{receiptDetails?.itemName || 'Material donation'}</strong>
+                    <p>{receiptDetails?.amount}</p>
+                  </article>
+                  <article>
+                    <MessageCircle size={16} />
+                    <strong>Impact Report</strong>
+                    <p>Organizer updates will appear in your donations page.</p>
+                  </article>
+                </div>
+              </article>
 
-          <div className="donation-success-receipt">
-            <div>
-              <span>{receiptDetails?.isMaterial ? 'Items' : 'Amount'}</span>
-              <strong>
-                {receiptDetails?.isMaterial
-                  ? receiptDetails?.amount
-                  : formatDonationAmount(receiptDetails?.amount ?? totalDonation, receiptDetails?.currency || selectedDonationCurrency)}
-              </strong>
+              <div className="donation-success-receipt">
+                <div>
+                  <span>Items</span>
+                  <strong>{receiptDetails?.amount}</strong>
+                </div>
+              </div>
+
+              <article className="donation-success-share-card">
+                <img src={successCampaignImage} alt={successCampaignTitle} referrerPolicy="no-referrer" />
+                <div className="donation-success-share-copy">
+                  <strong>Inspire others with your kindness.</strong>
+                  <p>Sharing your donation journey encourages friends and family to join the movement.</p>
+                </div>
+                <button type="button" className="donation-success-secondary" onClick={handleShare}>
+                  <Share2 size={15} /> Share Impact
+                </button>
+              </article>
             </div>
-            <div>
-              <span>{receiptDetails?.isMaterial ? 'Reference' : 'Transaction ID'}</span>
-              <strong>{receiptDetails?.transactionId ?? ''}</strong>
-            </div>
-            <div>
-              <span>Date</span>
-              <strong className="is-highlighted">{receiptDetails?.date ?? ''}</strong>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="donation-success-hero">
+                <img src={successCampaignImage} alt={successCampaignTitle} referrerPolicy="no-referrer" />
+                <div>
+                  <strong>{successCampaignTitle}</strong>
+                  <p>{successOrganizationName}</p>
+                  <span><MapPin size={14} /> {successCampaignLocation}</span>
+                </div>
+              </div>
+
+              <div className="donation-success-receipt">
+                <div>
+                  <span>Amount</span>
+                  <strong>{`$${receiptDetails?.amount ?? totalDonation.toFixed(2)}`}</strong>
+                </div>
+                <div>
+                  <span>Transaction ID</span>
+                  <strong>{receiptDetails?.transactionId ?? ''}</strong>
+                </div>
+                <div>
+                  <span>Date</span>
+                  <strong className="is-highlighted">{receiptDetails?.date ?? ''}</strong>
+                </div>
+              </div>
+            </>
+          )}
 
           {receiptDetails?.isMaterial ? (
-            <div className="donation-success-highlight">
-              <strong>{receiptDetails?.itemName || 'Material donation'} recorded successfully</strong>
-              <p>
-                {receiptDetails?.quantity
-                  ? `${receiptDetails.quantity} ${receiptDetails.quantity > 1 ? 'items are' : 'item is'} now waiting for organizer review and delivery coordination.`
-                  : 'The organizer will review your pledged items and confirm the pickup or drop-off details soon.'}
-              </p>
+            <div className="donation-success-actions">
+              <button
+                type="button"
+                className="donation-success-primary"
+                onClick={() => navigate('/donations')}
+              >
+                View My Donations
+              </button>
+              <button type="button" className="donation-success-secondary" onClick={() => navigate('/AfterLoginHome')}>
+                Back to Home
+              </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="donation-success-actions">
+              <button
+                type="button"
+                className="donation-success-primary"
+                onClick={() => navigate('/donations/view-detail', { state: { donation: receiptDetails } })}
+              >
+                <Download size={15} /> Download Receipt
+              </button>
+              <button type="button" className="donation-success-secondary" onClick={handleShare}>
+                <Share2 size={15} /> Share to Social Media
+              </button>
+            </div>
+          )}
 
           {receiptDetails?.isMaterial ? (
-            <div className="donation-success-location-grid">
-              <article className="donation-success-location-card">
-                <p className="donation-success-location-label">Organization Location</p>
-                <strong>{receiptDetails?.campaignLocation || safeLocation}</strong>
-                <div className="donation-success-location-map">
-                  <iframe
-                    title="Organization location"
-                    src={`https://maps.google.com/maps?q=${receiptOrganizationMapQuery}&z=13&output=embed`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
+            <div className="donation-success-next donation-success-next-material">
+              <article className="donation-success-logistics-card">
+                <div>
+                  <span>Logistics Center</span>
+                  <strong>{successOrganizationName}</strong>
+                  <p>Your items will be sorted at our logistics center before being distributed to local communities.</p>
                 </div>
                 <a className="donation-success-location-link" href={organizationMapUrl} target="_blank" rel="noreferrer">
-                  Open organization map
+                  Open Maps
                 </a>
               </article>
-
-              <article className="donation-success-location-card">
-                <p className="donation-success-location-label">
-                  {receiptDetails?.paymentMethod === 'Material drop-off' ? 'Donor Drop-off Location' : 'Donor Pickup Location'}
-                </p>
-                <strong>{receiptDetails?.pickupAddress || 'No donor location was provided.'}</strong>
-                <div className="donation-success-location-map">
-                  <iframe
-                    title="Donor location"
-                    src={`https://maps.google.com/maps?q=${receiptDonorMapQuery}&z=13&output=embed`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                </div>
-                <div className="donation-success-location-actions">
-                  <a className="donation-success-location-link" href={donorMapUrl} target="_blank" rel="noreferrer">
-                    Open donor map
-                  </a>
-                  <a className="donation-success-location-link is-secondary" href={donorDirectionsUrl} target="_blank" rel="noreferrer">
-                    Track route
-                  </a>
-                </div>
+              <article className="donation-success-logistics-map">
+                <iframe
+                  title="Logistics map"
+                  src={`https://maps.google.com/maps?q=${receiptOrganizationMapQuery}&z=12&output=embed`}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </article>
             </div>
-          ) : null}
-
-          <div className="donation-success-actions">
-            <button
-              type="button"
-              className="donation-success-primary"
-              onClick={() => navigate('/donations/view-detail', { state: { donation: receiptDetails } })}
-            >
-              <Download size={15} /> {receiptDetails?.isMaterial ? 'View Donation Details' : 'Download Receipt'}
-            </button>
-            <button type="button" className="donation-success-secondary" onClick={handleShare}>
-              <Share2 size={15} /> Share to Social Media
-            </button>
-          </div>
-
-          <div className="donation-success-next">
-            <h2>What Happens Next?</h2>
-            <div className="donation-success-steps">
-              <div className="donation-success-step is-complete">
-                <span className="step-icon"><CircleCheckBig size={14} /></span>
-                <div>
-                  <strong>{receiptDetails?.isMaterial ? 'Donation Recorded' : 'Donation Received'}</strong>
-                  <p>{receiptDetails?.isMaterial ? 'Your pledged items have been recorded for organizer review.' : 'Your contribution has been successfully processed.'}</p>
+          ) : (
+            <div className="donation-success-next">
+              <h2>What Happens Next?</h2>
+              <div className="donation-success-steps">
+                <div className="donation-success-step is-complete">
+                  <span className="step-icon"><CircleCheckBig size={14} /></span>
+                  <div>
+                    <strong>Donation Received</strong>
+                    <p>Your contribution has been successfully processed.</p>
+                  </div>
                 </div>
-              </div>
-              <div className="donation-success-step is-active">
-                <span className="step-icon"><Clock3 size={14} /></span>
-                <div>
-                  <strong>{receiptDetails?.isMaterial ? 'Pickup Scheduled' : 'Funds Transferred'}</strong>
-                  <p>{receiptDetails?.isMaterial ? 'The organization will confirm the pickup window and delivery details.' : 'Allocating funds to the village construction teams.'}</p>
+                <div className="donation-success-step is-active">
+                  <span className="step-icon"><Clock3 size={14} /></span>
+                  <div>
+                    <strong>Funds Transferred</strong>
+                    <p>Allocating funds to the village construction teams.</p>
+                  </div>
                 </div>
-              </div>
-              <div className="donation-success-step">
-                <span className="step-icon"><Circle size={14} /></span>
-                <div>
-                  <strong>{receiptDetails?.isMaterial ? 'Impact Reported' : 'Impact Reported'}</strong>
-                  <p>{receiptDetails?.isMaterial ? 'You will receive updates once your items are collected and distributed.' : 'You will receive a detailed impact report in 3 months.'}</p>
+                <div className="donation-success-step">
+                  <span className="step-icon"><Circle size={14} /></span>
+                  <div>
+                    <strong>Impact Reported</strong>
+                    <p>You will receive a detailed impact report in 3 months.</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           <p className="donation-success-support">
             Have questions about your donation? <button type="button" onClick={() => setShowDonationSuccess(false)}>Contact Support</button>
@@ -1680,7 +1879,7 @@ function CampaignDetailPage({ campaignId }) {
         <section className="donation-checkout-header material-checkout-header">
           <div>
             <h1>Material Donation</h1>
-            <p>Review the item request, choose the logistics method, and schedule your support separately from money donations.</p>
+            <p>Select the requested materials, review logistics, and confirm the handover details for this campaign.</p>
           </div>
           <div className="donation-checkout-secure material-checkout-secure">
             <ShieldCheck size={16} />
@@ -1688,35 +1887,112 @@ function CampaignDetailPage({ campaignId }) {
           </div>
         </section>
 
+        <section className="material-stepper" aria-label="Material donation steps">
+          {[
+            { id: 'items', label: 'Items', done: true },
+            { id: 'schedule', label: 'Schedule', done: Boolean(pickupAddress.trim() || pickupDate) },
+            { id: 'confirm', label: 'Confirm', done: false },
+          ].map((step, index) => (
+            <div key={step.id} className={`material-step ${step.done ? 'is-complete' : ''}`}>
+              <div className="material-step-badge">{step.done ? <CircleCheckBig size={16} /> : <Circle size={16} />}</div>
+              <div>
+                <strong>{index + 1}</strong>
+                <span>{step.label}</span>
+              </div>
+            </div>
+          ))}
+        </section>
+
         <section className="material-donation-layout" aria-label="Material donation scheduling">
           <div className="material-donation-main">
             <article className="donation-checkout-card material-form-section">
-              <h2><Building2 size={18} /> Item Details</h2>
-              <div className="material-top-grid">
-                <label className="material-field">
-                  <span>Category</span>
-                  <div className="material-readonly-field">{safeCategory}</div>
-                </label>
-                <label className="material-field">
-                  <span>Quantity</span>
-                  <div className="material-quantity-picker material-quantity-picker-wide">
-                    <button type="button" onClick={() => setMaterialQuantity((current) => Math.max(1, current - 1))}>-</button>
-                    <input
-                      id="material-quantity-input"
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={materialQuantity}
-                      onChange={(event) => setMaterialQuantity(Math.max(1, Number(event.target.value) || 1))}
-                    />
-                    <button type="button" onClick={() => setMaterialQuantity((current) => current + 1)}>+</button>
-                  </div>
-                </label>
+              <div className="material-section-heading">
+                <div>
+                  <h2><Building2 size={18} /> Select Items to Donate</h2>
+                  <p>Every item you commit helps this campaign move closer to delivery.</p>
+                </div>
+                <span className="material-section-pill">{requestedItemCategory}</span>
               </div>
 
-              <div className="material-request-highlight">
-                <strong>{requestedItemName}</strong>
-                <p>{requestedItemDescription}</p>
+              <div className="material-item-grid">
+                {materialOptions.map((item) => {
+                  const isSelected = item.id === activeMaterialOption?.id;
+                  const itemImage = item.image || safeImage;
+                  const itemPriority = item.priority || campaign?.materialPriority || '';
+
+                  return (
+                    <article key={item.id} className={`material-select-card ${isSelected ? 'is-selected' : ''}`}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="material-select-card-button"
+                        onClick={() => {
+                          setSelectedMaterialOptionId(item.id);
+                          setMaterialQuantity(1);
+                          setMaterialDescription('');
+                          setDonationMessage('');
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return;
+                          event.preventDefault();
+                          setSelectedMaterialOptionId(item.id);
+                          setMaterialQuantity(1);
+                          setMaterialDescription('');
+                          setDonationMessage('');
+                        }}
+                      >
+                        <div className="material-select-card-media">
+                          <img src={itemImage} alt={item.name} referrerPolicy="no-referrer" />
+                          <div className="material-select-card-badges">
+                            <span>{item.category}</span>
+                            {itemPriority ? <span className="is-priority">{itemPriority}</span> : null}
+                          </div>
+                        </div>
+                        <div className="material-select-card-body">
+                          <div className="material-select-card-copy">
+                            <strong>{item.name}</strong>
+                            <p>{item.description}</p>
+                          </div>
+                          <div className="material-select-card-footer">
+                            <div className="material-select-card-meta">
+                              <span>Needed</span>
+                              <strong>{item.quantity.toLocaleString()} {item.unitLabel}</strong>
+                            </div>
+                            {isSelected ? (
+                              <div className="material-quantity-picker material-quantity-picker-inline">
+                                <button type="button" onClick={(event) => {
+                                  event.stopPropagation();
+                                  setMaterialQuantity((current) => Math.max(1, current - 1));
+                                }}
+                                >
+                                  -
+                                </button>
+                                <input
+                                  id="material-quantity-input"
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={materialQuantity}
+                                  onClick={(event) => event.stopPropagation()}
+                                  onChange={(event) => setMaterialQuantity(Math.max(1, Number(event.target.value) || 1))}
+                                />
+                                <button type="button" onClick={(event) => {
+                                  event.stopPropagation();
+                                  setMaterialQuantity((current) => current + 1);
+                                }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="material-select-card-action">Select item</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
 
               <label className="material-field" htmlFor="material-description-input">
@@ -1733,27 +2009,36 @@ function CampaignDetailPage({ campaignId }) {
             </article>
 
             <article className="donation-checkout-card material-form-section">
-              <h2><MapPin size={18} /> Logistics</h2>
+                <div className="material-section-heading">
+                  <div>
+                    <h2><Truck size={18} /> Schedule Your Contribution</h2>
+                    <p>{materialModeDescription}</p>
+                  </div>
+                </div>
               <div className="material-logistics-toggle">
                 <button
                   type="button"
                   className={materialDeliveryMode === 'pickup' ? 'is-selected' : ''}
                   onClick={() => setMaterialDeliveryMode('pickup')}
                 >
-                  Schedule Pickup
+                  <Truck size={18} />
+                  <strong>Home Pickup</strong>
+                  <span>Schedule a collection from your address</span>
                 </button>
                 <button
                   type="button"
                   className={materialDeliveryMode === 'dropoff' ? 'is-selected' : ''}
                   onClick={() => setMaterialDeliveryMode('dropoff')}
                 >
-                  Self Drop-off
+                  <Building2 size={18} />
+                  <strong>Self Drop-off</strong>
+                  <span>Visit one of our logistics hubs</span>
                 </button>
               </div>
 
-              <div className="material-address-block">
+              <div className="material-address-grid">
                 <label className="material-field" htmlFor="pickup-address-input">
-                  <span>{materialAddressLabel}</span>
+                  <span>{materialDeliveryMode === 'dropoff' ? 'Drop-off address' : 'Pickup address'}</span>
                   <input
                     id="pickup-address-input"
                     className="material-donation-input"
@@ -1763,31 +2048,89 @@ function CampaignDetailPage({ campaignId }) {
                     onChange={(event) => setPickupAddress(event.target.value)}
                   />
                 </label>
-                <div className="material-address-actions">
-                  <button
-                    type="button"
-                    className="material-location-button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={locationLoading}
-                  >
-                    <MapPin size={15} /> {locationLoading ? 'Getting current location...' : 'Use Current Location'}
-                  </button>
-                  <p className="material-address-hint">
-                    Add a precise landmark or gate number so pickup is easier to coordinate.
-                  </p>
+                <div className="material-readonly-stack">
+                  <span>{materialDestinationLabel}</span>
+                  <div className="material-readonly-field">
+                    <MapPin size={15} />
+                    <div className="material-readonly-copy">
+                      <strong>{materialDestinationTitle}</strong>
+                      <span>{safeLocation}</span>
+                    </div>
+                  </div>
+                  <small className="material-field-note">{materialDestinationNote}</small>
                 </div>
               </div>
 
-              <label className="material-field" htmlFor="pickup-date-input">
-                <span>Preferred Date and Time</span>
-                <input
-                  id="pickup-date-input"
-                  className="material-donation-input"
-                  type="datetime-local"
-                  value={pickupDate}
-                  onChange={(event) => setPickupDate(event.target.value)}
+              <div className="material-address-actions">
+                <button
+                  type="button"
+                  className="material-location-button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locationLoading}
+                >
+                  <MapPin size={15} /> {locationLoading ? 'Getting current location...' : materialLocationActionLabel}
+                </button>
+                <a
+                  className="material-inline-map-link"
+                  href={`https://www.google.com/maps?q=${postedMapsQuery}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {materialMapsActionLabel}
+                </a>
+              </div>
+
+              <div className="material-map-preview">
+                <iframe
+                  title="Material handoff route"
+                  src={`https://maps.google.com/maps?q=${receiptDonorMapQuery}&z=13&output=embed`}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
                 />
-              </label>
+              </div>
+
+              <div className="material-schedule-section">
+                <div className="material-schedule-heading">
+                  <h3><CalendarDays size={16} /> Select Date & Time Window</h3>
+                  <span>{selectedPickupWindowLabel}</span>
+                </div>
+                <div className="material-date-grid">
+                  {materialSchedule.dateOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`material-date-card ${option.isSelected ? 'is-selected' : ''}`}
+                      onClick={() => handleMaterialDateSelection(option.date)}
+                    >
+                      <span>{option.dayLabel}</span>
+                      <strong>{option.dateLabel}</strong>
+                      <small>{option.monthLabel}</small>
+                    </button>
+                  ))}
+                </div>
+                <div className="material-time-grid">
+                  {materialSchedule.timeRanges.map((slot) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      className={`material-time-chip ${slot.isSelected ? 'is-selected' : ''}`}
+                      onClick={() => handleMaterialTimeSelection(slot)}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+                <label className="material-field" htmlFor="pickup-date-input">
+                  <span>Custom Date and Time</span>
+                  <input
+                    id="pickup-date-input"
+                    className="material-donation-input"
+                    type="datetime-local"
+                    value={pickupDate}
+                    onChange={(event) => setPickupDate(event.target.value)}
+                  />
+                </label>
+              </div>
             </article>
 
             <article className="donation-checkout-card material-story-section">
@@ -1796,7 +2139,7 @@ function CampaignDetailPage({ campaignId }) {
               <div className="campaign-pillars campaign-pillars-v2">
                 <article>
                   <h3><Users size={16} /> {requestedItemTarget} Items Target</h3>
-                  <p>Requested directly by the organization for this campaign.</p>
+                  <p>{remainingItemNeed} item{remainingItemNeed === 1 ? '' : 's'} still needed for the selected material.</p>
                 </article>
                 <article>
                   <h3><MapPin size={16} /> {safeLocation}</h3>
@@ -1809,12 +2152,17 @@ function CampaignDetailPage({ campaignId }) {
           <aside className="donation-summary-card material-summary-card">
             <h2>Donation Summary</h2>
             <div className="donation-summary-campaign">
-              <img src={safeImage} alt={safeTitle} referrerPolicy="no-referrer" />
+              <img src={requestedItemImage} alt={requestedItemName} referrerPolicy="no-referrer" />
               <div>
-                <p>TYPE</p>
+                <p>SELECTED ITEM</p>
                 <strong>{requestedItemName}</strong>
                 <span><Clock3 size={13} /> Estimated organizer review within 48 hours</span>
               </div>
+            </div>
+
+            <div className="material-preview-stat">
+              <p>{materialQuantity}</p>
+              <span>item{materialQuantity === 1 ? '' : 's'} selected for this donation</span>
             </div>
 
             <div className="donation-summary-lines">
@@ -1823,22 +2171,34 @@ function CampaignDetailPage({ campaignId }) {
                 <strong>{requestedItemName} ({materialQuantity})</strong>
               </div>
               <div>
-                <span>Logistics</span>
+                <span>Delivery Method</span>
                 <strong>{materialDeliveryLabel}</strong>
               </div>
               <div>
-                <span>Organization</span>
-                <strong>{organizationName}</strong>
+                <span>Preferred Window</span>
+                <strong>{selectedPickupWindowLabel}</strong>
               </div>
               <div>
                 <span>Location</span>
                 <strong>{safeLocation}</strong>
               </div>
+              <div>
+                <span>Remaining Need</span>
+                <strong>{remainingItemNeed.toLocaleString()} items</strong>
+              </div>
             </div>
 
             <div className="material-impact-box">
-              <strong>Impact Message</strong>
-              <p>Your items will be reviewed by the organization and matched to the campaign needs before delivery is confirmed.</p>
+              <strong>Commitment note</strong>
+              <p>Your donor address will be visible to the logistics team only. We will confirm the exact route and pickup status after organizer review.</p>
+            </div>
+
+            <div className="material-summary-chat">
+              <div className="material-summary-chat-avatar" aria-hidden="true">{organizationName.slice(0, 1)}</div>
+              <div>
+                <strong>Need help scheduling?</strong>
+                <p>Chat with logistics</p>
+              </div>
             </div>
 
             <button
@@ -1847,7 +2207,7 @@ function CampaignDetailPage({ campaignId }) {
               onClick={handleMaterialDonation}
               disabled={donationSubmitting}
             >
-              <HandHeart size={16} /> {donationSubmitting ? 'Scheduling...' : 'Schedule Donation'}
+              <HandHeart size={16} /> {donationSubmitting ? 'Scheduling...' : 'Review & Confirm'}
             </button>
 
             <p className="donation-summary-terms">

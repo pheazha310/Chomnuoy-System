@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPrivacyPreferences } from '@/utils/user-preferences';
+import { getCachedJson } from '@/services/request-cache.js';
 import {
   clearAuthState,
   getAuthToken,
@@ -168,8 +169,15 @@ function Navbar() {
     const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const token = getAuthToken();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch(`${apiBase}/notifications`, { headers })
-      .then((response) => (response.ok ? response.json() : []))
+    getCachedJson(`${apiBase}/notifications`, {
+      cacheKey: `donor:notifications:${userId || 'guest'}`,
+      ttlMs: 15 * 1000,
+      cooldownMs: 45 * 1000,
+      headers,
+      defaultValue: [],
+      allowStatuses: [404],
+      fallbackMessage: 'Failed to load notifications',
+    })
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         const filtered = userId

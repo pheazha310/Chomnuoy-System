@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { getSession } from '@/services/session-service';
 import { getDonationHistoryResources } from '@/services/donation-service';
+import { buildMaterialWorkflowRows } from '@/services/material-workflow-service.js';
 import './myDonation.css';
 
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
@@ -140,6 +141,8 @@ export default function MyDonation() {
   const [campaigns, setCampaigns] = useState(Array.isArray(cachedData?.campaigns) ? cachedData.campaigns : []);
   const [organizations, setOrganizations] = useState(Array.isArray(cachedData?.organizations) ? cachedData.organizations : []);
   const [payments, setPayments] = useState(Array.isArray(cachedData?.payments) ? cachedData.payments : []);
+  const [pickups, setPickups] = useState(Array.isArray(cachedData?.pickups) ? cachedData.pickups : []);
+  const [users, setUsers] = useState(Array.isArray(cachedData?.users) ? cachedData.users : []);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!cachedData);
   const [error, setError] = useState('');
@@ -169,6 +172,8 @@ export default function MyDonation() {
       setCampaigns([]);
       setOrganizations([]);
       setPayments([]);
+      setPickups([]);
+      setUsers([]);
       setLoading(false);
       setError('Please log in to view your donation history.');
       return () => {
@@ -182,6 +187,8 @@ export default function MyDonation() {
       campaigns: Array.isArray(cachedData?.campaigns) ? cachedData.campaigns : [],
       organizations: Array.isArray(cachedData?.organizations) ? cachedData.organizations : [],
       payments: Array.isArray(cachedData?.payments) ? cachedData.payments : [],
+      pickups: Array.isArray(cachedData?.pickups) ? cachedData.pickups : [],
+      users: Array.isArray(cachedData?.users) ? cachedData.users : [],
     };
 
     getDonationHistoryResources()
@@ -198,12 +205,16 @@ export default function MyDonation() {
         setCampaigns(data.campaigns);
         setOrganizations(data.organizations);
         setPayments(paymentList);
+        setPickups(data.pickups);
+        setUsers(data.users);
 
         nextCache.donations = donationList;
         nextCache.materialItems = materialList;
         nextCache.campaigns = data.campaigns;
         nextCache.organizations = data.organizations;
         nextCache.payments = paymentList;
+        nextCache.pickups = data.pickups;
+        nextCache.users = data.users;
         writeDonationCache(nextCache);
       })
       .catch((err) => {
@@ -212,14 +223,26 @@ export default function MyDonation() {
       })
       .finally(() => {
         if (alive) {
-          setLoading(false);
-        }
-      });
+        setLoading(false);
+      }
+    });
 
     return () => {
       alive = false;
     };
   }, [cachedData, userId]);
+
+  const materialWorkflowMap = useMemo(() => {
+    const rows = buildMaterialWorkflowRows({
+      donations,
+      materialItems,
+      pickups,
+      campaigns,
+      organizations,
+      users,
+    });
+    return new Map(rows.map((row) => [Number(row.donationId), row]));
+  }, [campaigns, donations, materialItems, organizations, pickups, users]);
 
   const donationItems = useMemo(() => {
     const campaignMap = new Map(campaigns.map((item) => [Number(item.id), item]));
@@ -232,6 +255,7 @@ export default function MyDonation() {
       const organization = organizationMap.get(Number(item.organization_id));
       const materialItem = materialMap.get(Number(item.id));
       const payment = paymentMap.get(Number(item.id));
+      const workflow = materialWorkflowMap.get(Number(item.id));
       const status = normalizeStatus(item.status);
       const category = campaign?.category || item.category || campaign?.type || 'General';
       const iconMeta = getIconByCategory(category);
@@ -240,6 +264,10 @@ export default function MyDonation() {
           ? `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`
           : `$${Number(item.amount || 0).toLocaleString()}`;
       const dateValue = toDate(item.created_at);
+
+      const effectiveStatus = item.donation_type === 'material' && workflow
+        ? { label: workflow.organizationStatusLabel.toUpperCase(), className: workflow.statusKey === 'completed' ? 'my-donation-status-completed' : 'my-donation-status-pending' }
+        : status;
 
       return {
         id: item.id,
@@ -257,13 +285,15 @@ export default function MyDonation() {
           campaign?.category ||
           item.notes ||
           'General Support',
-        status: status.label,
-        statusClass: status.className,
+        status: effectiveStatus.label,
+        statusClass: effectiveStatus.className,
         icon: iconMeta.icon,
         iconBg: iconMeta.bg,
         detailState: {
           donationId: item.id,
-          amount: Number(item.amount || 0).toFixed(2),
+          amount: item.donation_type === 'material'
+            ? (workflow?.quantityLabel || `${materialItem?.quantity || 1}x ${materialItem?.item_name || 'Items'}`)
+            : Number(item.amount || 0).toFixed(2),
           date: dateValue
             ? dateValue.toLocaleDateString('en-US', {
                 month: 'long',
@@ -272,7 +302,9 @@ export default function MyDonation() {
               })
             : '-',
           transactionId: payment?.transaction_reference ? `#${payment.transaction_reference}` : `#DON-${item.id}`,
-          paymentMethod: payment?.payment_method || payment?.payment_status || item.payment_method || 'Bakong KHQR',
+          paymentMethod: item.donation_type === 'material'
+            ? (workflow?.pickup?.status || 'pending')
+            : (payment?.payment_method || payment?.payment_status || item.payment_method || 'Bakong KHQR'),
           campaignTitle: campaign?.title || organization?.name || item.recipient || 'Campaign',
           campaignImage:
             getStorageFileUrl(campaign?.image_path) ||
@@ -282,11 +314,15 @@ export default function MyDonation() {
           campaignLocation: campaign?.location || organization?.location || 'Cambodia',
           organizationName: organization?.name || campaign?.organization_name || 'Organization',
           receiptMessage: campaign?.receipt_message || '',
-          status: item.status || 'completed',
+          status: workflow?.statusKey || item.status || 'completed',
+          isMaterial: item.donation_type === 'material',
+          quantity: workflow?.quantity || materialItem?.quantity || 1,
+          itemName: workflow?.itemName || materialItem?.item_name || 'Items',
+          pickupAddress: workflow?.pickupAddress || '',
         },
       };
     });
-  }, [campaigns, donations, materialItems, organizations, payments]);
+  }, [campaigns, donations, materialItems, materialWorkflowMap, organizations, payments]);
 
   const latestDonationTime = donationItems.reduce((latest, item) => {
     return item.dateValue > latest ? item.dateValue : latest;

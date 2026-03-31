@@ -66,6 +66,9 @@ const CAMBODIA_PROVINCE_COORDINATES = {
 const CAMBODIA_PROVINCE_NAMES = [...new Set(
   Object.keys(CAMBODIA_PROVINCE_COORDINATES).map((name) => name.replace(/\s+/g, ' ').trim())
 )];
+const OPTIONAL_REPORT_ENDPOINT_FLAG_PREFIX = 'organization_reports_optional_endpoint';
+const OPTIONAL_REPORT_ENDPOINTS_ENABLED =
+  String(import.meta.env.VITE_ENABLE_OPTIONAL_ORG_REPORTS || '').toLowerCase() === 'true';
 
 function getOrganizationSession() {
   try {
@@ -73,6 +76,51 @@ function getOrganizationSession() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function getOptionalEndpointFlag(endpointKey) {
+  return `${OPTIONAL_REPORT_ENDPOINT_FLAG_PREFIX}:${endpointKey}`;
+}
+
+function isOptionalEndpointUnavailable(endpointKey) {
+  try {
+    return window.sessionStorage.getItem(getOptionalEndpointFlag(endpointKey)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markOptionalEndpointUnavailable(endpointKey) {
+  try {
+    window.sessionStorage.setItem(getOptionalEndpointFlag(endpointKey), '1');
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function isNotFoundError(error) {
+  return Number(error?.response?.status) === 404;
+}
+
+async function getOptionalReportData(endpointKey, config) {
+  if (!OPTIONAL_REPORT_ENDPOINTS_ENABLED) {
+    return null;
+  }
+
+  if (isOptionalEndpointUnavailable(endpointKey)) {
+    return null;
+  }
+
+  try {
+    const response = await apiClient.request(config);
+    return response?.data ?? null;
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      markOptionalEndpointUnavailable(endpointKey);
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -1264,12 +1312,15 @@ export default function OrganizationReports() {
 
     const loadTrends = async () => {
       try {
-        const response = await apiClient.get('/donation_trends');
-        if (!Array.isArray(response.data)) {
+        const data = await getOptionalReportData('donation_trends', {
+          url: '/donation_trends',
+          method: 'get',
+        });
+        if (!Array.isArray(data)) {
           return;
         }
 
-        const sorted = [...response.data]
+        const sorted = [...data]
           .sort((a, b) => (a?.month_index ?? 0) - (b?.month_index ?? 0))
           .map((item) => ({
             month: item.month,
@@ -1316,10 +1367,12 @@ export default function OrganizationReports() {
     const loadFinancialTransactions = async () => {
       try {
         const fetchRows = async (params) => {
-          const response = await apiClient.get('/organization_reports/financial_transactions', {
+          const data = await getOptionalReportData('organization_reports_financial_transactions', {
+            url: '/organization_reports/financial_transactions',
+            method: 'get',
             params,
           });
-          return Array.isArray(response.data) ? response.data : [];
+          return Array.isArray(data) ? data : [];
         };
 
         let rows = await fetchRows(orgId ? { organization_id: orgId, limit: 5 } : { limit: 5 });
@@ -1363,23 +1416,27 @@ export default function OrganizationReports() {
       }));
 
       try {
-        const scopedResponse = await apiClient.get('/regional_metrics', {
+        const scopedData = await getOptionalReportData('regional_metrics', {
+          url: '/regional_metrics',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+        if (Array.isArray(scopedData) && scopedData.length) {
           if (isMounted) {
-            setRegionalMetricsData(mapRows(scopedResponse.data));
+            setRegionalMetricsData(mapRows(scopedData));
           }
           return;
         }
 
         if (orgId) {
-          const fallbackResponse = await apiClient.get('/regional_metrics', {
+          const fallbackData = await getOptionalReportData('regional_metrics', {
+            url: '/regional_metrics',
+            method: 'get',
             params: { limit: 10 },
           });
-          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+          if (Array.isArray(fallbackData) && fallbackData.length) {
             if (isMounted) {
-              setRegionalMetricsData(mapRows(fallbackResponse.data));
+              setRegionalMetricsData(mapRows(fallbackData));
             }
           }
         }
@@ -1410,23 +1467,27 @@ export default function OrganizationReports() {
 
     const loadTopProvinces = async () => {
       try {
-        const scopedResponse = await apiClient.get('/regional_top_provinces', {
+        const scopedData = await getOptionalReportData('regional_top_provinces', {
+          url: '/regional_top_provinces',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+        if (Array.isArray(scopedData) && scopedData.length) {
           if (isMounted) {
-            setTopImpactProvincesData(mapRows(scopedResponse.data));
+            setTopImpactProvincesData(mapRows(scopedData));
           }
           return;
         }
 
         if (orgId) {
-          const fallbackResponse = await apiClient.get('/regional_top_provinces', {
+          const fallbackData = await getOptionalReportData('regional_top_provinces', {
+            url: '/regional_top_provinces',
+            method: 'get',
             params: { limit: 10 },
           });
-          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+          if (Array.isArray(fallbackData) && fallbackData.length) {
             if (isMounted) {
-              setTopImpactProvincesData(mapRows(fallbackResponse.data));
+              setTopImpactProvincesData(mapRows(fallbackData));
             }
           }
         }
@@ -1458,23 +1519,27 @@ export default function OrganizationReports() {
 
     const loadRegionalProjects = async () => {
       try {
-        const scopedResponse = await apiClient.get('/regional_project_statuses', {
+        const scopedData = await getOptionalReportData('regional_project_statuses', {
+          url: '/regional_project_statuses',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+        if (Array.isArray(scopedData) && scopedData.length) {
           if (isMounted) {
-            setRegionalProjectRowsData(mapRows(scopedResponse.data));
+            setRegionalProjectRowsData(mapRows(scopedData));
           }
           return;
         }
 
         if (orgId) {
-          const fallbackResponse = await apiClient.get('/regional_project_statuses', {
+          const fallbackData = await getOptionalReportData('regional_project_statuses', {
+            url: '/regional_project_statuses',
+            method: 'get',
             params: { limit: 10 },
           });
-          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+          if (Array.isArray(fallbackData) && fallbackData.length) {
             if (isMounted) {
-              setRegionalProjectRowsData(mapRows(fallbackResponse.data));
+              setRegionalProjectRowsData(mapRows(fallbackData));
             }
           }
         }
@@ -1503,23 +1568,27 @@ export default function OrganizationReports() {
 
     const loadMapMarkers = async () => {
       try {
-        const scopedResponse = await apiClient.get('/regional_map_markers', {
+        const scopedData = await getOptionalReportData('regional_map_markers', {
+          url: '/regional_map_markers',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 200 } : { limit: 200 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+        if (Array.isArray(scopedData) && scopedData.length) {
           if (isMounted) {
-            setRegionalMapMarkers(mapRows(scopedResponse.data));
+            setRegionalMapMarkers(mapRows(scopedData));
           }
           return;
         }
 
         if (orgId) {
-          const fallbackResponse = await apiClient.get('/regional_map_markers', {
+          const fallbackData = await getOptionalReportData('regional_map_markers', {
+            url: '/regional_map_markers',
+            method: 'get',
             params: { limit: 200 },
           });
-          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+          if (Array.isArray(fallbackData) && fallbackData.length) {
             if (isMounted) {
-              setRegionalMapMarkers(mapRows(fallbackResponse.data));
+              setRegionalMapMarkers(mapRows(fallbackData));
             }
           }
         }
@@ -1550,23 +1619,27 @@ export default function OrganizationReports() {
 
     const loadMaterialProvinceRows = async () => {
       try {
-        const scopedResponse = await apiClient.get('/material_province_distributions', {
+        const scopedData = await getOptionalReportData('material_province_distributions', {
+          url: '/material_province_distributions',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+        if (Array.isArray(scopedData) && scopedData.length) {
           if (isMounted) {
-            setMaterialProvinceRows(mapRows(scopedResponse.data));
+            setMaterialProvinceRows(mapRows(scopedData));
           }
           return;
         }
 
         if (orgId) {
-          const fallbackResponse = await apiClient.get('/material_province_distributions', {
+          const fallbackData = await getOptionalReportData('material_province_distributions', {
+            url: '/material_province_distributions',
+            method: 'get',
             params: { limit: 10 },
           });
-          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+          if (Array.isArray(fallbackData) && fallbackData.length) {
             if (isMounted) {
-              setMaterialProvinceRows(mapRows(fallbackResponse.data));
+              setMaterialProvinceRows(mapRows(fallbackData));
             }
             return;
           }
@@ -1599,23 +1672,27 @@ export default function OrganizationReports() {
 
     const loadMaterialBreakdown = async () => {
       try {
-        const scopedResponse = await apiClient.get('/material_breakdowns', {
+        const scopedData = await getOptionalReportData('material_breakdowns', {
+          url: '/material_breakdowns',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
+        if (Array.isArray(scopedData) && scopedData.length) {
           if (isMounted) {
-            setMaterialBreakdownItems(mapBreakdown(scopedResponse.data));
+            setMaterialBreakdownItems(mapBreakdown(scopedData));
           }
           return;
         }
 
         if (orgId) {
-          const fallbackResponse = await apiClient.get('/material_breakdowns', {
+          const fallbackData = await getOptionalReportData('material_breakdowns', {
+            url: '/material_breakdowns',
+            method: 'get',
             params: { limit: 10 },
           });
-          if (Array.isArray(fallbackResponse.data) && fallbackResponse.data.length) {
+          if (Array.isArray(fallbackData) && fallbackData.length) {
             if (isMounted) {
-              setMaterialBreakdownItems(mapBreakdown(fallbackResponse.data));
+              setMaterialBreakdownItems(mapBreakdown(fallbackData));
             }
             return;
           }
@@ -1639,11 +1716,13 @@ export default function OrganizationReports() {
 
     const loadMaterialSummary = async () => {
       try {
-        const response = await apiClient.get('/organization_reports/material_summary', {
+        const data = await getOptionalReportData('organization_reports_material_summary', {
+          url: '/organization_reports/material_summary',
+          method: 'get',
           params: orgId ? { organization_id: orgId } : undefined,
         });
-        if (isMounted && response?.data) {
-          setMaterialSummaryMetrics(response.data);
+        if (isMounted && data) {
+          setMaterialSummaryMetrics(data);
           return;
         }
       } catch (error) {
@@ -1651,9 +1730,12 @@ export default function OrganizationReports() {
       }
 
       try {
-        const response = await apiClient.get('/organization_reports/material_summary');
-        if (isMounted && response?.data) {
-          setMaterialSummaryMetrics(response.data);
+        const data = await getOptionalReportData('organization_reports_material_summary', {
+          url: '/organization_reports/material_summary',
+          method: 'get',
+        });
+        if (isMounted && data) {
+          setMaterialSummaryMetrics(data);
         }
       } catch (error) {
         // Keep fallback cards if API is unavailable.
@@ -1681,11 +1763,13 @@ export default function OrganizationReports() {
 
     const loadSourceBreakdown = async () => {
       try {
-        const scopedResponse = await apiClient.get('/source_breakdowns', {
+        const scopedData = await getOptionalReportData('source_breakdowns', {
+          url: '/source_breakdowns',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 10 } : { limit: 10 },
         });
-        if (Array.isArray(scopedResponse.data) && scopedResponse.data.length) {
-          const mapped = scopedResponse.data.map((item, index) => ({
+        if (Array.isArray(scopedData) && scopedData.length) {
+          const mapped = scopedData.map((item, index) => ({
             label: item.label,
             value: Number(item.value) || 0,
             ...palette[index % palette.length],
@@ -1697,11 +1781,13 @@ export default function OrganizationReports() {
         }
 
         if (orgId) {
-          const unscopedResponse = await apiClient.get('/source_breakdowns', {
+          const unscopedData = await getOptionalReportData('source_breakdowns', {
+            url: '/source_breakdowns',
+            method: 'get',
             params: { limit: 10 },
           });
-          if (Array.isArray(unscopedResponse.data) && unscopedResponse.data.length) {
-            const mapped = unscopedResponse.data.map((item, index) => ({
+          if (Array.isArray(unscopedData) && unscopedData.length) {
+            const mapped = unscopedData.map((item, index) => ({
               label: item.label,
               value: Number(item.value) || 0,
               ...palette[index % palette.length],
@@ -1717,10 +1803,12 @@ export default function OrganizationReports() {
       }
 
       try {
-        const response = await apiClient.get('/organization_reports/source_breakdown', {
+        const data = await getOptionalReportData('organization_reports_source_breakdown', {
+          url: '/organization_reports/source_breakdown',
+          method: 'get',
           params: orgId ? { organization_id: orgId } : undefined,
         });
-        const items = response?.data?.items;
+        const items = data?.items;
         if (isMounted && Array.isArray(items) && items.length) {
           const mapped = items.map((item, index) => ({
             label: item.label,
@@ -1748,10 +1836,12 @@ export default function OrganizationReports() {
 
     const loadSummary = async () => {
       try {
-        const cacheResponse = await apiClient.get('/organization_metrics/cache', {
+        const cacheData = await getOptionalReportData('organization_metrics_cache', {
+          url: '/organization_metrics/cache',
+          method: 'get',
           params: orgId ? { organization_id: orgId } : undefined,
         });
-        const cacheSummary = buildSummaryFromCache(cacheResponse?.data);
+        const cacheSummary = buildSummaryFromCache(cacheData);
         if (isMounted && cacheSummary) {
           setSummaryMetrics(cacheSummary);
           return;
@@ -1761,12 +1851,14 @@ export default function OrganizationReports() {
       }
 
       try {
-        const response = await apiClient.get('/organization_metrics/summary', {
+        const data = await getOptionalReportData('organization_metrics_summary', {
+          url: '/organization_metrics/summary',
+          method: 'get',
           params: orgId ? { organization_id: orgId } : undefined,
         });
 
-        if (isMounted && response?.data) {
-          setSummaryMetrics(response.data);
+        if (isMounted && data) {
+          setSummaryMetrics(data);
         }
       } catch (error) {
         // Keep fallback cards if API is unavailable.
@@ -1802,21 +1894,25 @@ export default function OrganizationReports() {
     };
 
     const fetchTransactions = async (params) => {
-      const response = await apiClient.get('/organization_reports/transactions', { params });
-      if (Array.isArray(response.data)) {
+      const data = await getOptionalReportData('organization_reports_transactions', {
+        url: '/organization_reports/transactions',
+        method: 'get',
+        params,
+      });
+      if (Array.isArray(data)) {
         return {
-          data: response.data,
+          data,
           meta: {
-            total: response.data.length,
+            total: data.length,
             per_page: params?.per_page ?? 10,
             current_page: params?.page ?? 1,
             last_page: 1,
-            from: response.data.length ? 1 : 0,
-            to: response.data.length,
+            from: data.length ? 1 : 0,
+            to: data.length,
           },
         };
       }
-      return response.data || { data: [], meta: null };
+      return data || { data: [], meta: null };
     };
 
     const mapTransactions = (rows) => rows.map((row) => {
@@ -1896,11 +1992,13 @@ export default function OrganizationReports() {
 
     const loadFinancialSummary = async () => {
       try {
-        const response = await apiClient.get('/organization_reports/financial_summary', {
+        const data = await getOptionalReportData('organization_reports_financial_summary', {
+          url: '/organization_reports/financial_summary',
+          method: 'get',
           params: orgId ? { organization_id: orgId } : undefined,
         });
-        if (isMounted && response?.data) {
-          setFinancialSummaryMetrics(response.data);
+        if (isMounted && data) {
+          setFinancialSummaryMetrics(data);
           return;
         }
       } catch (error) {
@@ -1908,9 +2006,12 @@ export default function OrganizationReports() {
       }
 
       try {
-        const response = await apiClient.get('/organization_reports/financial_summary');
-        if (isMounted && response?.data) {
-          setFinancialSummaryMetrics(response.data);
+        const data = await getOptionalReportData('organization_reports_financial_summary', {
+          url: '/organization_reports/financial_summary',
+          method: 'get',
+        });
+        if (isMounted && data) {
+          setFinancialSummaryMetrics(data);
         }
       } catch (error) {
         // Keep fallback cards if API is unavailable.
@@ -1931,15 +2032,17 @@ export default function OrganizationReports() {
 
     const loadProvinces = async () => {
       try {
-        const response = await apiClient.get('/province_contributions', {
+        const data = await getOptionalReportData('province_contributions', {
+          url: '/province_contributions',
+          method: 'get',
           params: orgId ? { organization_id: orgId, limit: 5 } : { limit: 5 },
         });
-        if (!Array.isArray(response.data) || response.data.length === 0) {
+        if (!Array.isArray(data) || data.length === 0) {
           return;
         }
-        const totals = response.data.map((item) => Number(item.total_amount) || 0);
+        const totals = data.map((item) => Number(item.total_amount) || 0);
         const maxTotal = Math.max(1, ...totals);
-        const mapped = response.data.map((item) => {
+        const mapped = data.map((item) => {
           const total = Number(item.total_amount) || 0;
           return {
             name: item.province_name || 'Unknown',
