@@ -45,17 +45,26 @@ function getStorageFileUrl(path, apiBase) {
   if (!path) return '';
 
   const rawPath = String(path).trim();
-  if (
-    rawPath.startsWith('http://') ||
-    rawPath.startsWith('https://') ||
-    rawPath.startsWith('blob:') ||
-    rawPath.startsWith('data:')
-  ) {
+  if (rawPath.startsWith('blob:') || rawPath.startsWith('data:')) {
     return rawPath;
   }
 
-  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   const appBase = apiBase.replace(/\/api\/?$/, '');
+
+  if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+    try {
+      const url = new URL(rawPath);
+      const appBaseUrl = new URL(appBase);
+      if (url.pathname.startsWith('/storage/')) {
+        return `${appBaseUrl.origin}${url.pathname}`;
+      }
+      return rawPath;
+    } catch {
+      return rawPath;
+    }
+  }
+
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
   if (normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
@@ -110,7 +119,7 @@ function mapOrganizations(items, apiBase, campaigns = []) {
       reviews,
       image:
         getStorageFileUrl(
-          item.avatar_url || item.avatar_path || item.logo || item.logo_path || item.image_path || item.cover_image,
+          item.avatar_path || item.avatar_url || item.logo || item.logo_path || item.image_path || item.cover_image,
           apiBase,
         ) ||
         (matchesStoredProfile ? storedProfileLogo : '') ||
