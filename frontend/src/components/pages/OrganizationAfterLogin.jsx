@@ -130,6 +130,15 @@ function readDonorOrganizationsCache() {
   }
 }
 
+function getStoredOrganizationProfile() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_org_profile');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function writeDonorOrganizationsCache(data) {
   try {
     window.sessionStorage.setItem(
@@ -144,6 +153,45 @@ function writeDonorOrganizationsCache(data) {
   }
 }
 
+function getOrganizationSession() {
+  try {
+    const raw = window.localStorage.getItem('chomnuoy_session');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStorageFileUrl(path, apiBase) {
+  if (!path) return '';
+
+  const rawPath = String(path).trim();
+  if (rawPath.startsWith('blob:') || rawPath.startsWith('data:')) {
+    return rawPath;
+  }
+
+  const appBase = apiBase.replace(/\/api\/?$/, '');
+
+  if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+    try {
+      const url = new URL(rawPath);
+      const appBaseUrl = new URL(appBase);
+      if (url.pathname.startsWith('/storage/')) {
+        return `${appBaseUrl.origin}${url.pathname}`;
+      }
+      return rawPath;
+    } catch {
+      return rawPath;
+    }
+  }
+
+  const normalizedPath = rawPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
+    return `${appBase}/${normalizedPath}`;
+  }
+
+  return `${appBase}/storage/${normalizedPath}`;
+}
 function OrganizationAfterLogin() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -411,6 +459,12 @@ function OrganizationAfterLogin() {
 
   useEffect(() => {
     const userId = Number(donorSession?.userId ?? 0);
+    const storedProfile = getStoredOrganizationProfile();
+    const organizationSession = getOrganizationSession();
+    const sessionOrganizationId = Number(organizationSession?.organizationId ?? organizationSession?.userId ?? 0);
+    const storedProfileName = String(storedProfile?.name || organizationSession?.name || '').trim().toLowerCase();
+    const storedProfileEmail = String(storedProfile?.email || organizationSession?.email || '').trim().toLowerCase();
+    const storedProfileLogo = String(storedProfile?.logo || storedProfile?.logoUrl || '').trim();
     let active = true;
     if (!cachedDashboard) {
       setLoadingOrganizations(true);
@@ -444,6 +498,21 @@ function OrganizationAfterLogin() {
           const campaigns = campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : [];
           const donations = donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : [];
           const categoryMap = new Map(categories.map((item) => [Number(item.id), item.category_name]));
+          const campaignImageMap = new Map();
+
+          campaigns.forEach((campaign) => {
+            const organizationId = Number(campaign?.organization_id || campaign?.organizationId || 0);
+            if (!organizationId || campaignImageMap.has(organizationId)) return;
+
+            const image = getStorageFileUrl(
+              campaign?.image_path || campaign?.image || campaign?.image_url,
+              apiBase,
+            );
+
+            if (image) {
+              campaignImageMap.set(organizationId, image);
+            }
+          });
 
           const mapped = organizations.map((org, index) => {
             const orgCampaigns = campaigns.filter((item) => Number(item.organization_id) === Number(org.id));
@@ -482,6 +551,22 @@ function OrganizationAfterLogin() {
             const statusLabel = isVerified
               ? 'Verified'
               : (statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Pending');
+            const orgId = Number(org.id || 0);
+            const orgName = String(org.name || '').trim().toLowerCase();
+            const orgEmail = String(org.email || '').trim().toLowerCase();
+            const matchesStoredProfile =
+              Boolean(storedProfileLogo) &&
+              ((sessionOrganizationId > 0 && orgId === sessionOrganizationId) ||
+                (storedProfileEmail && orgEmail && storedProfileEmail === orgEmail) ||
+                (storedProfileName && orgName && storedProfileName === orgName));
+            const organizationProfileImage =
+              getStorageFileUrl(
+                org.banner_path || org.photo || org.image_url || org.avatar_path || org.avatar_url || org.logo || org.logo_path || org.image_path || org.cover_image,
+                apiBase,
+              ) ||
+              (matchesStoredProfile ? storedProfileLogo : '') ||
+              campaignImageMap.get(orgId) ||
+              ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length];
 
             return {
               id: org.id,
@@ -492,7 +577,7 @@ function OrganizationAfterLogin() {
               verified: isVerified,
               statusLabel,
               taxEligible: false,
-              image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
+              image: organizationProfileImage,
               metricLeftLabel: 'Impact Score',
               metricLeftValue: `${impactScore}/100`,
               metricRightLabel: 'Live Projects',

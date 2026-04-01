@@ -37,6 +37,7 @@ import { generateAbaQr } from '../../services/user-service';
 const SAVED_CAMPAIGNS_STORAGE_KEY = 'chomnuoy_saved_campaigns';
 const DONOR_HOME_CACHE_KEY = 'donor_home_dashboard_v2';
 const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign_v2';
+const LEGACY_LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
 const DONATION_CACHE_KEY = 'donor_my_donations_v1';
 const LAST_DONATION_DETAIL_KEY = 'chomnuoy_last_donation_detail';
 const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
@@ -70,10 +71,14 @@ function readSessionCache(key) {
 
 function getCachedCampaignById(id) {
   try {
-    const rawLastOpened = window.localStorage.getItem(LAST_OPENED_CAMPAIGN_KEY);
-    const lastOpened = rawLastOpened ? JSON.parse(rawLastOpened) : null;
-    if (lastOpened && String(lastOpened.id) === String(id)) {
-      return normalizeCampaign(lastOpened);
+    const cachedKeys = [LAST_OPENED_CAMPAIGN_KEY, LEGACY_LAST_OPENED_CAMPAIGN_KEY];
+
+    for (const storageKey of cachedKeys) {
+      const rawLastOpened = window.localStorage.getItem(storageKey);
+      const lastOpened = rawLastOpened ? JSON.parse(rawLastOpened) : null;
+      if (lastOpened && String(lastOpened.id) === String(id)) {
+        return normalizeCampaign(lastOpened);
+      }
     }
   } catch {
     // Ignore malformed local cache.
@@ -205,6 +210,16 @@ function formatProgressLabel(progress, suffix) {
 function isSuccessfulPaymentStatus(value) {
   const status = String(value || '').trim().toLowerCase();
   return ['success', 'completed', 'paid', 'confirmed'].includes(status);
+}
+
+function isSuccessfulDonationStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  return ['success', 'completed', 'paid', 'confirmed', 'recurring'].includes(status);
+}
+
+function normalizeDonationType(value) {
+  const type = String(value || '').trim().toLowerCase();
+  return type === 'material' || type === 'materials' ? 'material' : 'money';
 }
 
 function isQrExpired(expiresAt) {
@@ -524,18 +539,23 @@ function CampaignDetailPage({ campaignId }) {
       fetch(`${apiBase}/campaigns/${resolvedCampaignId}/donations`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/payments`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/donations`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/material_items`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
       fetch(`${apiBase}/users`, fetchOptions).then((response) => (response.ok ? response.json() : [])),
     ])
-      .then(([campaignDonationData, paymentData, donationData, userData]) => {
+      .then(([campaignDonationData, paymentData, donationData, materialItemsData, userData]) => {
         if (!alive) return;
 
         const campaignDonations = Array.isArray(campaignDonationData) ? campaignDonationData : [];
         const payments = Array.isArray(paymentData) ? paymentData : [];
         const donations = Array.isArray(donationData) ? donationData : [];
+        const materialItems = Array.isArray(materialItemsData) ? materialItemsData : [];
         const users = Array.isArray(userData) ? userData : [];
 
         const donationMap = new Map(donations.map((item) => [Number(item.id), item]));
         const campaignDonationMap = new Map(campaignDonations.map((item) => [Number(item.id), item]));
+        const materialQuantityByDonationId = new Map(
+          materialItems.map((item) => [Number(item.donation_id), Math.max(1, Number(item.quantity || 1))]),
+        );
         const userMap = new Map(users.map((item) => [Number(item.id), item]));
 
         const paidPaymentsForCampaign = payments
@@ -571,6 +591,30 @@ function CampaignDetailPage({ campaignId }) {
           currency: payment?.currency || 'USD',
         }));
 
+        const materialDonorRows = donations
+          .filter((donation) => Number(donation?.campaign_id) === Number(resolvedCampaignId))
+          .filter((donation) => normalizeDonationType(donation?.donation_type) === 'material')
+          .filter((donation) => isSuccessfulDonationStatus(donation?.status))
+          .sort((left, right) => new Date(right?.created_at || 0).getTime() - new Date(left?.created_at || 0).getTime())
+          .map((donation, index) => {
+            const user = userMap.get(Number(donation?.user_id));
+            const fallbackCampaignDonation = campaignDonationMap.get(Number(donation?.id));
+            const quantity = materialQuantityByDonationId.get(Number(donation?.id)) || Math.max(1, Number(donation?.amount || 1));
+
+            return {
+              id: donation?.id || `material-${index}`,
+              donor_name:
+                user?.name ||
+                fallbackCampaignDonation?.donor_name ||
+                donation?.donor_name ||
+                'Anonymous Donor',
+              amount: quantity,
+              quantity,
+              created_at: donation?.created_at || new Date().toISOString(),
+              currency: 'ITEM',
+            };
+          });
+
         const totalPaidAmount = paidDonorRows.reduce(
           (sum, item) => sum + normalizePaymentAmountToUsd(item.amount, item.currency),
           0,
@@ -583,10 +627,12 @@ function CampaignDetailPage({ campaignId }) {
 
         setCampaignPaymentSummary({
           raisedAmount: paidDonorRows.length > 0 ? totalPaidAmount : null,
-          supporterCount: paidDonorRows.length > 0 ? uniquePaidDonors : null,
-          donors: paidDonorRows,
+          supporterCount: materialDonorRows.length > 0
+            ? new Set(materialDonorRows.map((item) => String(item.donor_name || item.id))).size
+            : (paidDonorRows.length > 0 ? uniquePaidDonors : null),
+          donors: materialDonorRows.length > 0 ? materialDonorRows : paidDonorRows,
         });
-        setRecentDonors(paidDonorRows.length > 0 ? paidDonorRows : campaignDonations);
+        setRecentDonors(materialDonorRows.length > 0 ? materialDonorRows : (paidDonorRows.length > 0 ? paidDonorRows : campaignDonations));
       })
       .catch(() => {
         if (!alive) return;

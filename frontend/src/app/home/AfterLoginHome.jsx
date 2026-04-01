@@ -14,7 +14,7 @@ import { getSession } from '@/services/session-service.js';
 
 const DASHBOARD_CACHE_KEY = 'donor_home_dashboard_v1';
 const DASHBOARD_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign_v2';
 const USD_TO_KHR_RATE = 4100;
 
 function getLoggedInUserName() {

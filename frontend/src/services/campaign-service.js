@@ -59,6 +59,12 @@ export function getCampaignStorageFileUrl(path) {
     return `${appBase}/${normalizedPath}`;
   }
 
+  // Files stored on Laravel's public disk are commonly returned as relative
+  // paths like "campaigns/uuid.jpg" and should be served from /storage/.
+  if (normalizedPath.startsWith('campaigns/') || normalizedPath.startsWith('avatars/')) {
+    return `${appBase}/storage/${normalizedPath}`;
+  }
+
   if (normalizedPath.startsWith('files/')) {
     return `${apiBase}/${normalizedPath}`;
   }
@@ -257,38 +263,62 @@ export function mapCampaigns(items, options = {}) {
 
 export async function fetchCampaigns(options = {}) {
   const apiBase = getApiBase();
-  const [campaignResponse, donationResponse, materialItemsResponse] = await Promise.all([
+  const [campaignResult, donationResult, materialItemsResult] = await Promise.allSettled([
     fetch(`${apiBase}/campaigns`, options),
     fetch(`${apiBase}/donations`, options),
     fetch(`${apiBase}/material_items`, options),
   ]);
+
+  if (campaignResult.status !== 'fulfilled') {
+    throw new Error('Failed to load campaigns.');
+  }
+
+  const campaignResponse = campaignResult.value;
 
   if (!campaignResponse.ok) {
     throw new Error(`Failed to load campaigns (${campaignResponse.status})`);
   }
 
   const campaignsData = await campaignResponse.json();
-  const donationsData = donationResponse.ok ? await donationResponse.json() : [];
-  const materialItemsData = materialItemsResponse.ok ? await materialItemsResponse.json() : [];
+  const donationsData =
+    donationResult.status === 'fulfilled' && donationResult.value.ok
+      ? await donationResult.value.json()
+      : [];
+  const materialItemsData =
+    materialItemsResult.status === 'fulfilled' && materialItemsResult.value.ok
+      ? await materialItemsResult.value.json()
+      : [];
 
   return applyCampaignTotals(mapCampaigns(campaignsData), donationsData, materialItemsData);
 }
 
 export async function fetchCampaignById(id, options = {}) {
   const apiBase = getApiBase();
-  const [campaignResponse, donationResponse, materialItemsResponse] = await Promise.all([
+  const [campaignResult, donationResult, materialItemsResult] = await Promise.allSettled([
     fetch(`${apiBase}/campaigns/${id}`, options),
     fetch(`${apiBase}/donations`, options),
     fetch(`${apiBase}/material_items`, options),
   ]);
+
+  if (campaignResult.status !== 'fulfilled') {
+    throw new Error('Failed to load campaign.');
+  }
+
+  const campaignResponse = campaignResult.value;
 
   if (!campaignResponse.ok) {
     throw new Error(`Failed to load campaign (${campaignResponse.status})`);
   }
 
   const campaignData = await campaignResponse.json();
-  const donationsData = donationResponse.ok ? await donationResponse.json() : [];
-  const materialItemsData = materialItemsResponse.ok ? await materialItemsResponse.json() : [];
+  const donationsData =
+    donationResult.status === 'fulfilled' && donationResult.value.ok
+      ? await donationResult.value.json()
+      : [];
+  const materialItemsData =
+    materialItemsResult.status === 'fulfilled' && materialItemsResult.value.ok
+      ? await materialItemsResult.value.json()
+      : [];
 
   return applyCampaignTotals([normalizeCampaign(campaignData)], donationsData, materialItemsData)[0] ?? null;
 }

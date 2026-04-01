@@ -201,7 +201,20 @@ export default function MyDonation() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(!cachedData);
   const [error, setError] = useState('');
-  const formatAmount = (amount) => amount;
+  const formatAmount = (amount, options = {}) => {
+    const rawValue = String(amount ?? '').trim();
+    const isMaterial = options?.isMaterial || rawValue.toLowerCase().includes('item');
+
+    if (isMaterial) {
+      const numericAmount = Number(String(amount ?? '').replace(/[^\d.]/g, ''));
+      if (Number.isFinite(numericAmount) && numericAmount > 0) {
+        return `${numericAmount.toLocaleString('en-US')} item${numericAmount === 1 ? '' : 's'}`;
+      }
+      return rawValue.replace(/^\$/, '');
+    }
+
+    return rawValue || formatMoney(amount);
+  };
   const [isTimePopupOpen, setIsTimePopupOpen] = useState(false);
   const [isFilterPopupOpen, setIsFilterPopupOpen] = useState(false);
   const [timeFilterLabel, setTimeFilterLabel] = useState('All Time');
@@ -645,7 +658,7 @@ export default function MyDonation() {
     <div class="line"><span>Issued On</span><strong>${issuedOn}</strong></div>
     <div class="sep"></div>
     <div class="line"><span>Date</span><strong>${escapeHtml(donation.date)}</strong></div>
-    <div class="line"><span>Amount</span><strong>${escapeHtml(formatAmount(donation.amount))}</strong></div>
+    <div class="line"><span>Amount</span><strong>${escapeHtml(formatAmount(donation.amount, { isMaterial: donation.isMaterial || donation.detailState?.isMaterial }))}</strong></div>
     <div class="line"><span>Recipient</span><strong>${escapeHtml(donation.recipient)}</strong></div>
     <div class="line"><span>Sub-cause</span><strong>${escapeHtml(donation.subCause)}</strong></div>
     <div class="sep"></div>
@@ -665,7 +678,7 @@ export default function MyDonation() {
       <tr>
         <td>${index + 1}</td>
         <td>${escapeHtml(item.date)}</td>
-        <td>${escapeHtml(formatAmount(item.amount))}</td>
+        <td>${escapeHtml(formatAmount(item.amount, { isMaterial: item.isMaterial || item.detailState?.isMaterial }))}</td>
         <td>${escapeHtml(item.recipient)}</td>
         <td>${escapeHtml(item.subCause)}</td>
         <td>${escapeHtml(item.status)}</td>
@@ -807,7 +820,7 @@ export default function MyDonation() {
   };
 
   const getShareText = (donation) =>
-    `I donated ${formatAmount(donation.amount)} to ${donation.recipient} (${donation.subCause}).`;
+    `I donated ${formatAmount(donation.amount, { isMaterial: donation.isMaterial || donation.detailState?.isMaterial })} to ${donation.recipient} (${donation.subCause}).`;
 
   const getShareUrl = () => {
     const baseUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '');
@@ -982,7 +995,7 @@ export default function MyDonation() {
                   </div>
                   <div>
                     <p className="my-donation-label">AMOUNT</p>
-                    <p className="my-donation-amount">{formatAmount(item.amount)}</p>
+                    <p className="my-donation-amount">{formatAmount(item.amount, { isMaterial: item.isMaterial || item.detailState?.isMaterial })}</p>
                   </div>
                   <div>
                     <p className="my-donation-label">CAUSE & RECIPIENT</p>
@@ -1059,7 +1072,7 @@ export default function MyDonation() {
               </div>
               <div>
                 <span>Amount</span>
-                <strong>{formatAmount(selectedDonation.amount)}</strong>
+                <strong>{formatAmount(selectedDonation.amount, { isMaterial: selectedDonation.isMaterial || selectedDonation.detailState?.isMaterial })}</strong>
               </div>
               <div>
                 <span>Recipient</span>
@@ -1099,7 +1112,7 @@ export default function MyDonation() {
             <div className="my-donation-modal-details my-donation-share-details">
               <div>
                 <span>Amount</span>
-                <strong>{formatAmount(shareDonation.amount)}</strong>
+                <strong>{formatAmount(shareDonation.amount, { isMaterial: shareDonation.isMaterial || shareDonation.detailState?.isMaterial })}</strong>
               </div>
               <div>
                 <span>Recipient</span>

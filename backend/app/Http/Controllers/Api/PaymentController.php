@@ -154,13 +154,9 @@ class PaymentController extends Controller
                 'method_name' => 'Bakong KHQR',
             ]);
 
-            // Save payment to database
+            // Save only the fields that actually exist on the payments table.
             $payment = Payment::create([
                 'user_id' => $validated['user_id'] ?? null,
-                'donation_id' => null,
-                'payment_method_id' => $paymentMethod->id,
-                'transaction_reference' => $validated['bill_number'] ?? null,
-                'payment_status' => 'pending',
                 'md5' => $result['data']['md5'],
                 'qr_code' => $result['data']['qr'],
                 'amount' => $validated['amount'],
@@ -170,6 +166,7 @@ class PaymentController extends Controller
                 'store_label' => $validated['store_label'] ?? null,
                 'terminal_label' => $validated['terminal_label'] ?? null,
                 'merchant_name' => config('services.bakong.merchant.name'),
+                'status' => 'PENDING',
                 'expires_at' => now()->addMinutes(self::PAYMENT_EXPIRY_MINUTES),
             ]);
 

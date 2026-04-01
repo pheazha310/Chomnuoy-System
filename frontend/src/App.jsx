@@ -111,6 +111,9 @@ function getStorageFileUrl(path) {
   if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('storage/')) {
     return `${appBase}/${normalizedPath}`;
   }
+  if (normalizedPath.startsWith('campaigns/') || normalizedPath.startsWith('avatars/')) {
+    return `${appBase}/storage/${normalizedPath}`;
+  }
   if (normalizedPath.startsWith('files/')) {
     return `${apiBase}/${normalizedPath}`;
   }

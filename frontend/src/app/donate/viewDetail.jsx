@@ -78,6 +78,25 @@ function extractCampaignIdFromBillNumber(billNumber) {
   return match ? Number(match[1]) : 0;
 }
 
+function formatDetailAmount(detail) {
+  const rawValue = String(detail?.amount ?? '').trim();
+  const isMaterial = Boolean(detail?.isMaterial) || rawValue.toLowerCase().includes('item');
+
+  if (isMaterial) {
+    const numericAmount = Number(rawValue.replace(/[^\d.]/g, ''));
+    if (Number.isFinite(numericAmount) && numericAmount > 0) {
+      return `${numericAmount.toLocaleString('en-US')} item${numericAmount === 1 ? '' : 's'}`;
+    }
+    return rawValue.replace(/^\$/, '');
+  }
+
+  if (rawValue.startsWith('$')) {
+    return rawValue;
+  }
+
+  return `$${rawValue}`;
+}
+
 export default function ViewDetail() {
   const location = useLocation();
   const [detail, setDetail] = useState(() => {
@@ -222,6 +241,7 @@ export default function ViewDetail() {
 
   const paymentMeta = useMemo(() => getPaymentMeta(detail?.paymentMethod), [detail?.paymentMethod]);
   const PaymentIcon = paymentMeta.icon;
+  const amountLabel = formatDetailAmount(detail);
   const shareMessage = detail
     ? `I just supported ${detail.campaignTitle} through Chomnuoy.`
     : 'I just supported a campaign through Chomnuoy.';
@@ -308,7 +328,7 @@ export default function ViewDetail() {
                 </div>
                 <div>
                   <p className="donation-detail-key">Amount</p>
-                  <p className="donation-detail-amount">${detail.amount}</p>
+                  <p className="donation-detail-amount">{amountLabel}</p>
                 </div>
                 <div>
                   <p className="donation-detail-key">Payment Method</p>
@@ -329,7 +349,7 @@ export default function ViewDetail() {
                 <div>
                   <h3 className="donation-detail-impact-title">Contribution Recorded</h3>
                   <p className="donation-detail-impact-text">
-                    Your donation of <strong>${detail.amount}</strong> was recorded for <strong>{detail.campaignTitle}</strong>.
+                    Your donation of <strong>{amountLabel}</strong> was recorded for <strong>{detail.campaignTitle}</strong>.
                     {detail.receiptMessage ? ` ${detail.receiptMessage}` : ' You can track the campaign progress from your donor dashboard.'}
                   </p>
                 </div>

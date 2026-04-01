@@ -3,7 +3,7 @@ import { ArrowRight, Clock, Sparkles, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
-const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign';
+const LAST_OPENED_CAMPAIGN_KEY = 'chomnuoy_last_opened_campaign_v2';
 
 const fallbackCampaignImage =
   'data:image/svg+xml;utf8,' +

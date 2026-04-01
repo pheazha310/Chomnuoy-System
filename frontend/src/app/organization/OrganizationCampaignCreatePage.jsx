@@ -232,6 +232,9 @@ export default function OrganizationCampaignCreatePage() {
     if (normalizedPath.startsWith('storage/')) {
       return `${appBase}/${normalizedPath}`;
     }
+    if (normalizedPath.startsWith('campaigns/') || normalizedPath.startsWith('avatars/')) {
+      return `${appBase}/storage/${normalizedPath}`;
+    }
     return `${appBase}/storage/${normalizedPath}`;
   };
 
@@ -864,10 +867,14 @@ export default function OrganizationCampaignCreatePage() {
 
       const savedCampaign = await response.json();
       const savedCampaignId = Number(savedCampaign?.id ?? editId);
+      let imageUploadFailures = [];
       let imageUploadWarning = '';
       if (savedCampaignId) {
         try {
-          await uploadCampaignImages(savedCampaignId);
+          imageUploadFailures = await uploadCampaignImages(savedCampaignId);
+          if (imageUploadFailures.length > 0) {
+            imageUploadWarning = imageUploadFailures.join(' ');
+          }
         } catch (uploadError) {
           imageUploadWarning =
             uploadError instanceof Error

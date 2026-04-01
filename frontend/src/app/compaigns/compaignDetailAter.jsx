@@ -72,12 +72,26 @@ export default function App() {
   const [donorName, setDonorName] = useState('Donor');
   const [donorAvatar, setDonorAvatar] = useState('');
   const [totalDonated, setTotalDonated] = useState(Number(cachedMetrics?.totalDonated || 0));
+  const [materialDonated, setMaterialDonated] = useState(Number(cachedMetrics?.materialDonated || 0));
   const [impactScore, setImpactScore] = useState(Number(cachedMetrics?.impactScore || 0));
 
   const formatMoney = (value) => {
     const number = Number(value || 0);
     if (!Number.isFinite(number)) return '$0.00';
     return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatDonationSummary = (moneyValue, materialValue) => {
+    const moneyTotal = Number(moneyValue || 0);
+    const materialTotal = Number(materialValue || 0);
+
+    if (moneyTotal > 0 && materialTotal > 0) {
+      return `${formatMoney(moneyTotal)} + ${materialTotal.toLocaleString('en-US')} item${materialTotal === 1 ? '' : 's'}`;
+    }
+    if (materialTotal > 0) {
+      return `${materialTotal.toLocaleString('en-US')} item${materialTotal === 1 ? '' : 's'}`;
+    }
+    return formatMoney(moneyTotal);
   };
 
   useEffect(() => {
@@ -156,28 +170,47 @@ export default function App() {
         setIsRefreshing(false);
       });
 
-    fetch(`${apiBase}/donations`)
-      .then((response) => (response.ok ? response.json() : []))
-      .then((data) => {
-        const items = Array.isArray(data) ? data : [];
+    Promise.all([
+      fetch(`${apiBase}/donations`).then((response) => (response.ok ? response.json() : [])),
+      fetch(`${apiBase}/material_items`).then((response) => (response.ok ? response.json() : [])),
+    ])
+      .then(([donationData, materialItemsData]) => {
+        const items = Array.isArray(donationData) ? donationData : [];
+        const materialItems = Array.isArray(materialItemsData) ? materialItemsData : [];
+        const materialQuantityByDonationId = new Map(
+          materialItems.map((item) => [Number(item.donation_id), Math.max(1, Number(item.quantity || 1))]),
+        );
         const myDonations = userId
           ? items.filter((item) => Number(item.user_id) === userId)
           : [];
-        const total = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        setTotalDonated(total);
+        const moneyTotal = myDonations.reduce((sum, item) => {
+          if (!isSuccessfulDonationStatus(item.status)) return sum;
+          return normalizeDonationType(item.donation_type) === 'material'
+            ? sum
+            : sum + Number(item.amount || 0);
+        }, 0);
+        const materialTotal = myDonations.reduce((sum, item) => {
+          if (!isSuccessfulDonationStatus(item.status)) return sum;
+          if (normalizeDonationType(item.donation_type) !== 'material') return sum;
+          return sum + (materialQuantityByDonationId.get(Number(item.id)) || Math.max(1, Number(item.amount || 1)));
+        }, 0);
+        setTotalDonated(moneyTotal);
+        setMaterialDonated(materialTotal);
         const uniqueOrgs = new Set(
           myDonations.map((item) => Number(item.organization_id)).filter(Boolean),
         );
-        const score = Math.min(1000, 200 + uniqueOrgs.size * 30 + Math.floor(total / 25));
+        const score = Math.min(1000, 200 + uniqueOrgs.size * 30 + Math.floor(moneyTotal / 25) + materialTotal * 5);
         setImpactScore(score);
         writeCache(DONOR_METRICS_CACHE_KEY, {
-          totalDonated: total,
+          totalDonated: moneyTotal,
+          materialDonated: materialTotal,
           impactScore: score,
         });
       })
       .catch(() => {
         if (!cachedMetrics) {
           setTotalDonated(0);
+          setMaterialDonated(0);
           setImpactScore(0);
         }
       });
@@ -300,7 +333,7 @@ export default function App() {
           <div className="flex flex-wrap gap-4">
             <StatsCard 
               label="Total Donated" 
-              value={formatMoney(totalDonated)} 
+              value={formatDonationSummary(totalDonated, materialDonated)} 
               icon={<CircleDollarSign className="w-6 h-6" />}
               iconBg="bg-primary/10"
               iconColor="text-primary"
