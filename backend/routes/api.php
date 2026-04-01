@@ -58,7 +58,7 @@ Route::apiResource('organization_document', OrganizationDocumentController::clas
 Route::apiResource('categories', CategoryController::class);
 Route::apiResource('donations', DonationController::class);
 Route::apiResource('donation_status_history', DonationStatusHistoryController::class);
-Route::apiResource('material_items', MaterialItemController::class);
+Route::apiResource('material_items', MaterialItemController::class); // 
 Route::apiResource('material_pickups', MaterialPickupController::class);
 Route::apiResource('payment_methods', PaymentMethodController::class);
 Route::apiResource('payments', PaymentController::class);

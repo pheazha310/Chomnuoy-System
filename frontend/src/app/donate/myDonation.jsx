@@ -39,12 +39,6 @@ const SUMMARY_META = [
     iconBox: 'my-donation-summary-icon-green',
     subtitleColor: 'my-donation-summary-subtitle-muted',
   },
-  {
-    title: 'IMPACT (LIVES TOUCHED)',
-    icon: <HandHeart className="my-donation-icon-svg" />,
-    iconBox: 'my-donation-summary-icon-amber',
-    subtitleColor: 'my-donation-summary-subtitle-muted',
-  },
 ];
 
 const toDate = (value) => {
@@ -378,11 +372,6 @@ export default function MyDonation() {
         ...SUMMARY_META[1],
         value: uniqueOrganizations.toLocaleString(),
         subtitle: 'Direct support to local & global entities',
-      },
-      {
-        ...SUMMARY_META[2],
-        value: impactCount.toLocaleString(),
-        subtitle: 'Across environmental & social sectors',
       },
     ];
   }, [donations, materialItems]);
