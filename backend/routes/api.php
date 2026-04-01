@@ -35,6 +35,7 @@ Route::post('/auth/register', [AuthControllerRegister::class, 'register']);
 Route::post('/auth/login', [AuthControllerRegister::class, 'login']);
 Route::post('/auth/change-password', [AuthControllerRegister::class, 'changePassword']);
 Route::get('/auth/providers/status', [SocialAuthController::class, 'status']);
+Route::post('/auth/{provider}/token', [SocialAuthController::class, 'token']);
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect']);
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback']);
 Route::get('/health', function (): JsonResponse {

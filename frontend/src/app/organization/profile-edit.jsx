@@ -106,17 +106,6 @@ export default function OrganizationProfileEditPage() {
           persistResolvedOrganization(resolvedOrganization);
           return resolvedOrganization;
         }
-
-        window.localStorage.setItem(
-          'chomnuoy_session',
-          JSON.stringify({
-            ...(getOrganizationSession() || {}),
-            organizationId: null,
-          })
-        );
-        window.dispatchEvent(new Event('chomnuoy-session-updated'));
-        setResolvedOrganizationId(0);
-        return null;
       }
 
       if (resolvedOrganizationId > 0) {
@@ -129,6 +118,18 @@ export default function OrganizationProfileEditPage() {
             throw error;
           }
         }
+      }
+
+      if (normalizedEmail) {
+        window.localStorage.setItem(
+          'chomnuoy_session',
+          JSON.stringify({
+            ...(getOrganizationSession() || {}),
+            organizationId: null,
+          })
+        );
+        window.dispatchEvent(new Event('chomnuoy-session-updated'));
+        setResolvedOrganizationId(0);
       }
 
       return null;
@@ -225,13 +226,11 @@ export default function OrganizationProfileEditPage() {
     try {
       let effectiveOrganizationId = resolvedOrganizationId;
 
-      if (formData.email) {
+      if (!effectiveOrganizationId && formData.email) {
         const matchedOrganization = await findOrganizationByEmail(formData.email).catch(() => null);
         if (matchedOrganization?.id) {
           effectiveOrganizationId = Number(matchedOrganization.id);
           setResolvedOrganizationId(effectiveOrganizationId);
-        } else {
-          effectiveOrganizationId = 0;
         }
       }
 
@@ -248,7 +247,20 @@ export default function OrganizationProfileEditPage() {
           payload.append('avatar', selectedLogoFile);
         }
 
-        await updateOrganizationProfile(effectiveOrganizationId, payload);
+        const updatedOrganization = await updateOrganizationProfile(effectiveOrganizationId, payload);
+
+        window.localStorage.setItem(
+          'chomnuoy_session',
+          JSON.stringify({
+            ...(getOrganizationSession() || {}),
+            userId: effectiveOrganizationId,
+            organizationId: effectiveOrganizationId,
+            name: updatedOrganization?.name || formData.name,
+            email: updatedOrganization?.email || formData.email,
+            avatar: updatedOrganization?.avatar_url || formData.logo || '',
+          })
+        );
+        window.dispatchEvent(new Event('chomnuoy-session-updated'));
       } else {
         setError('No organization record was found for this email on the backend.');
         return;

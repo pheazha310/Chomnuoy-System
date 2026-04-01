@@ -22,6 +22,8 @@ const MIN_USD_DONATION = 0.001;
 const PENDING_BAKONG_TRANSACTION_KEY = 'chomnuoy_pending_bakong_transaction';
 const FOLLOWED_ORGANIZATIONS_KEY = 'chomnuoy_followed_organizations_v1';
 const ORGANIZATION_FOLLOW_COUNTS_KEY = 'chomnuoy_organization_follow_counts_v1';
+const DONOR_ORGANIZATIONS_CACHE_KEY = 'chomnuoy_donor_organizations_dashboard_v1';
+const DONOR_ORGANIZATIONS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 const USD_TO_KHR_RATE = 4100;
 const DONATION_CURRENCIES = ['USD', 'KHR'];
 
@@ -101,10 +103,52 @@ function isSuccessfulPaymentStatus(value) {
   return ['success', 'completed', 'paid', 'confirmed'].includes(status);
 }
 
+function buildCandidateApiBases() {
+  const configuredApiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  const runtimeApiBase = `${window.location.protocol}//${window.location.hostname}:8000/api`;
+
+  return [
+    configuredApiBase,
+    runtimeApiBase,
+    'http://127.0.0.1:8000/api',
+    'http://localhost:8000/api',
+  ].filter((value, index, array) => value && array.indexOf(value) === index);
+}
+
+function readDonorOrganizationsCache() {
+  try {
+    const raw = window.sessionStorage.getItem(DONOR_ORGANIZATIONS_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed?.timestamp || !parsed?.data) return null;
+    if (Date.now() - parsed.timestamp > DONOR_ORGANIZATIONS_CACHE_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(DONOR_ORGANIZATIONS_CACHE_KEY);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeDonorOrganizationsCache(data) {
+  try {
+    window.sessionStorage.setItem(
+      DONOR_ORGANIZATIONS_CACHE_KEY,
+      JSON.stringify({
+        timestamp: Date.now(),
+        data,
+      }),
+    );
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
 function OrganizationAfterLogin() {
   const navigate = useNavigate();
   const location = useLocation();
   const { organizationId } = useParams();
+  const cachedDashboard = useMemo(() => readDonorOrganizationsCache(), []);
 
   const donorSession = getDonorSession();
   const isDonorLoggedIn = donorSession?.isLoggedIn && donorSession?.role === 'Donor';
@@ -154,11 +198,11 @@ function OrganizationAfterLogin() {
   });
   const [selectedFollowOrganizationId, setSelectedFollowOrganizationId] = useState(null);
   const [followProfileTab, setFollowProfileTab] = useState('feed');
-  const [organizationItems, setOrganizationItems] = useState([]);
-  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
+  const [organizationItems, setOrganizationItems] = useState(Array.isArray(cachedDashboard?.organizationItems) ? cachedDashboard.organizationItems : []);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(!Array.isArray(cachedDashboard?.organizationItems) || cachedDashboard.organizationItems.length === 0);
   const [organizationError, setOrganizationError] = useState('');
-  const [donorImpactTotal, setDonorImpactTotal] = useState(0);
-  const [donorCausesSupported, setDonorCausesSupported] = useState(0);
+  const [donorImpactTotal, setDonorImpactTotal] = useState(Number(cachedDashboard?.donorImpactTotal || 0));
+  const [donorCausesSupported, setDonorCausesSupported] = useState(Number(cachedDashboard?.donorCausesSupported || 0));
   const [selectedDonationAmount, setSelectedDonationAmount] = useState(10);
   const [customDonationAmount, setCustomDonationAmount] = useState('');
   const [selectedDonationCurrency, setSelectedDonationCurrency] = useState('USD');
@@ -366,133 +410,154 @@ function OrganizationAfterLogin() {
   }, [donorTotalPages]);
 
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
     const userId = Number(donorSession?.userId ?? 0);
     let active = true;
-    setLoadingOrganizations(true);
+    if (!cachedDashboard) {
+      setLoadingOrganizations(true);
+    }
     setOrganizationError('');
+    const candidateApiBases = buildCandidateApiBases();
 
-    Promise.allSettled([
-      fetch(`${apiBase}/organizations`).then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load organizations (${response.status})`);
-        }
-        return response.json();
-      }),
-      fetch(`${apiBase}/categories`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
-      fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
-    ])
-      .then(([orgResult, categoryResult, campaignResult, donationResult]) => {
-        if (!active) return;
-        if (orgResult.status !== 'fulfilled') {
-          throw new Error('Failed to load organizations.');
-        }
+    const loadOrganizations = async () => {
+      let lastError = 'Failed to load organizations.';
 
-        const organizations = Array.isArray(orgResult.value) ? orgResult.value : [];
-        const categories = categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value) ? categoryResult.value : [];
-        const campaigns = campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : [];
-        const donations = donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : [];
-        const categoryMap = new Map(categories.map((item) => [Number(item.id), item.category_name]));
+      for (const apiBase of candidateApiBases) {
+        try {
+          const [orgResult, categoryResult, campaignResult, donationResult] = await Promise.allSettled([
+            fetch(`${apiBase}/organizations`).then(async (response) => {
+              if (!response.ok) {
+                throw new Error(`Failed to load organizations (${response.status})`);
+              }
+              return response.json();
+            }),
+            fetch(`${apiBase}/categories`).then((r) => (r.ok ? r.json() : [])),
+            fetch(`${apiBase}/campaigns`).then((r) => (r.ok ? r.json() : [])),
+            fetch(`${apiBase}/donations`).then((r) => (r.ok ? r.json() : [])),
+          ]);
 
-        const mapped = organizations.map((org, index) => {
-          const orgCampaigns = campaigns.filter((item) => Number(item.organization_id) === Number(org.id));
-          const orgDonations = donations.filter((item) => Number(item.organization_id) === Number(org.id));
-          const raised = orgDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-          const campaignCount = orgCampaigns.length;
-          const impactScore = Math.min(100, 60 + campaignCount * 2 + Math.floor(raised / 1000));
-          const location = String(org.location || '').trim();
-          const region = location.split(',').shift()?.trim() || 'Everywhere';
-          const baseFollowers = Math.max(12, campaignCount * 28 + orgDonations.length * 3 + Math.round(raised / 250));
-          const savedFollowerBoost = Number(organizationFollowCounts[String(org.id)] || 0);
-          const projectRegions = new Set(
-            orgCampaigns
-              .map((item) => String(item.location || '').split(',').pop()?.trim())
-              .filter(Boolean),
-          );
-          const recentActivity = orgCampaigns
-            .slice()
-            .sort((left, right) => new Date(right.created_at || right.start_date || 0) - new Date(left.created_at || left.start_date || 0))
-            .slice(0, 4)
-            .map((campaign, activityIndex) => ({
-              id: `campaign-${campaign.id || activityIndex}`,
-              title: campaign.title || `Project update ${activityIndex + 1}`,
-              body: campaign.description || `${org.name || 'This organization'} posted a new update for supporters.`,
-              metric: campaign.goal_amount
-                ? `Goal ${formatMoney(campaign.goal_amount)}`
-                : `${campaign.status || 'Active'} campaign`,
-              image: campaign.image_path || ORG_IMAGE_POOL[(index + activityIndex) % ORG_IMAGE_POOL.length],
-              dateLabel: formatRelativeLabel(campaign.created_at || campaign.start_date || campaign.updated_at),
-            }));
+          if (orgResult.status !== 'fulfilled') {
+            throw orgResult.reason instanceof Error ? orgResult.reason : new Error('Failed to load organizations.');
+          }
 
-          const statusValue = String(org.verified_status || '').toLowerCase();
-          const isVerified = statusValue
-            ? ['verified', 'approved', 'active'].includes(statusValue)
-            : true;
-          const statusLabel = isVerified
-            ? 'Verified'
-            : (statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Pending');
+          const organizations = Array.isArray(orgResult.value) ? orgResult.value : [];
+          const categories = categoryResult.status === 'fulfilled' && Array.isArray(categoryResult.value) ? categoryResult.value : [];
+          const campaigns = campaignResult.status === 'fulfilled' && Array.isArray(campaignResult.value) ? campaignResult.value : [];
+          const donations = donationResult.status === 'fulfilled' && Array.isArray(donationResult.value) ? donationResult.value : [];
+          const categoryMap = new Map(categories.map((item) => [Number(item.id), item.category_name]));
 
-          return {
-            id: org.id,
-            name: org.name || 'Organization',
-            summary: org.description || 'Organization description is being updated.',
-            category: categoryMap.get(Number(org.category_id)) || 'General',
-            region: region || 'Everywhere',
-            verified: isVerified,
-            statusLabel,
-            taxEligible: false,
-            image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
-            metricLeftLabel: 'Impact Score',
-            metricLeftValue: `${impactScore}/100`,
-            metricRightLabel: 'Live Projects',
-            metricRightValue: `${campaignCount} Active`,
-            projectsCount: campaignCount,
-            countriesCount: Math.max(1, projectRegions.size || (region && region !== 'Everywhere' ? 1 : 0)),
-            raisedTotal: raised,
-            followersCount: baseFollowers + savedFollowerBoost,
-            about: org.description || `${org.name || 'This organization'} is building measurable community impact across ${region || 'Cambodia'}.`,
-            recentActivity: recentActivity.length > 0 ? recentActivity : [
-              {
-                id: `fallback-${org.id}`,
-                title: org.name || 'Organization update',
-                body: org.description || 'This organization will publish updates for donors and followers soon.',
-                metric: campaignCount > 0 ? `${campaignCount} live projects` : 'Profile recently created',
-                image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
-                dateLabel: 'Recently',
-              },
-            ],
-          };
-        });
+          const mapped = organizations.map((org, index) => {
+            const orgCampaigns = campaigns.filter((item) => Number(item.organization_id) === Number(org.id));
+            const orgDonations = donations.filter((item) => Number(item.organization_id) === Number(org.id));
+            const raised = orgDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            const campaignCount = orgCampaigns.length;
+            const impactScore = Math.min(100, 60 + campaignCount * 2 + Math.floor(raised / 1000));
+            const location = String(org.location || '').trim();
+            const region = location.split(',').shift()?.trim() || 'Everywhere';
+            const baseFollowers = Math.max(12, campaignCount * 28 + orgDonations.length * 3 + Math.round(raised / 250));
+            const savedFollowerBoost = Number(organizationFollowCounts[String(org.id)] || 0);
+            const projectRegions = new Set(
+              orgCampaigns
+                .map((item) => String(item.location || '').split(',').pop()?.trim())
+                .filter(Boolean),
+            );
+            const recentActivity = orgCampaigns
+              .slice()
+              .sort((left, right) => new Date(right.created_at || right.start_date || 0) - new Date(left.created_at || left.start_date || 0))
+              .slice(0, 4)
+              .map((campaign, activityIndex) => ({
+                id: `campaign-${campaign.id || activityIndex}`,
+                title: campaign.title || `Project update ${activityIndex + 1}`,
+                body: campaign.description || `${org.name || 'This organization'} posted a new update for supporters.`,
+                metric: campaign.goal_amount
+                  ? `Goal ${formatMoney(campaign.goal_amount)}`
+                  : `${campaign.status || 'Active'} campaign`,
+                image: campaign.image_path || ORG_IMAGE_POOL[(index + activityIndex) % ORG_IMAGE_POOL.length],
+                dateLabel: formatRelativeLabel(campaign.created_at || campaign.start_date || campaign.updated_at),
+              }));
 
-        setOrganizationItems(mapped);
+            const statusValue = String(org.verified_status || '').toLowerCase();
+            const isVerified = statusValue
+              ? ['verified', 'approved', 'active'].includes(statusValue)
+              : true;
+            const statusLabel = isVerified
+              ? 'Verified'
+              : (statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : 'Pending');
 
-        if (userId) {
-          const myDonations = donations.filter((item) => Number(item.user_id) === userId);
+            return {
+              id: org.id,
+              name: org.name || 'Organization',
+              summary: org.description || 'Organization description is being updated.',
+              category: categoryMap.get(Number(org.category_id)) || 'General',
+              region: region || 'Everywhere',
+              verified: isVerified,
+              statusLabel,
+              taxEligible: false,
+              image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
+              metricLeftLabel: 'Impact Score',
+              metricLeftValue: `${impactScore}/100`,
+              metricRightLabel: 'Live Projects',
+              metricRightValue: `${campaignCount} Active`,
+              projectsCount: campaignCount,
+              countriesCount: Math.max(1, projectRegions.size || (region && region !== 'Everywhere' ? 1 : 0)),
+              raisedTotal: raised,
+              followersCount: baseFollowers + savedFollowerBoost,
+              about: org.description || `${org.name || 'This organization'} is building measurable community impact across ${region || 'Cambodia'}.`,
+              recentActivity: recentActivity.length > 0 ? recentActivity : [
+                {
+                  id: `fallback-${org.id}`,
+                  title: org.name || 'Organization update',
+                  body: org.description || 'This organization will publish updates for donors and followers soon.',
+                  metric: campaignCount > 0 ? `${campaignCount} live projects` : 'Profile recently created',
+                  image: ORG_IMAGE_POOL[index % ORG_IMAGE_POOL.length],
+                  dateLabel: 'Recently',
+                },
+              ],
+            };
+          });
+
+          const myDonations = userId
+            ? donations.filter((item) => Number(item.user_id) === userId)
+            : [];
           const totalImpact = myDonations.reduce((sum, item) => sum + Number(item.amount || 0), 0);
           const uniqueCauses = new Set(
             myDonations.map((item) => Number(item.organization_id)).filter(Boolean),
           );
+
+          if (!active) return;
+
+          setOrganizationItems(mapped);
           setDonorImpactTotal(totalImpact);
           setDonorCausesSupported(uniqueCauses.size);
+          setOrganizationError('');
+          writeDonorOrganizationsCache({
+            organizationItems: mapped,
+            donorImpactTotal: totalImpact,
+            donorCausesSupported: uniqueCauses.size,
+          });
+          return;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'Failed to load organizations.';
         }
-      })
-      .catch(() => {
-        if (!active) return;
-        setOrganizationError('Failed to load organizations.');
+      }
+
+      if (!active) return;
+      setOrganizationError(lastError);
+      if (!cachedDashboard) {
         setOrganizationItems([]);
         setDonorImpactTotal(0);
         setDonorCausesSupported(0);
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoadingOrganizations(false);
-      });
+      }
+    };
+
+    loadOrganizations().finally(() => {
+      if (!active) return;
+      setLoadingOrganizations(false);
+    });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [cachedDashboard, donorSession?.userId, organizationFollowCounts]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
